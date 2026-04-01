@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import '../models/cryption_config.dart';
 import 'crypto_service.dart';
@@ -163,15 +164,20 @@ class FileService {
   }
   
   /// Decrypts a file to a temporary location
-  Future<String> decryptFile(FileSystemNode file, String keyBase64) async {
+  Future<String> decryptFile(FileSystemNode file, String tempKeyID) async {
     if (file.isDirectory) {
       throw Exception('Cannot decrypt a directory');
     }
     
+    // Extract directory path from file path
+    final dirPath = file.path.substring(0, file.path.lastIndexOf('/'));
+    
     final inputFile = File(file.path);
     final encryptedData = await inputFile.readAsBytes();
     
-    final decryptedData = await _cryptoService.decrypt(encryptedData, keyBase64);
+    // Decrypt using session key
+    final encryptedDataBase64 = base64Encode(encryptedData);
+    final decryptedData = _cryptoService.decryptDataBytes(encryptedDataBase64, tempKeyID);
     
     // Create temp file
     final tempDir = await Directory.systemTemp.createTemp('safedisk_');
@@ -182,11 +188,13 @@ class FileService {
   }
   
   /// Encrypts a file and saves to encrypted directory
-  Future<void> encryptFile(String inputPath, String outputDir, String keyBase64) async {
+  Future<void> encryptFile(String inputPath, String outputDir, String tempKeyID) async {
     final inputFile = File(inputPath);
     final plaintext = await inputFile.readAsBytes();
     
-    final encrypted = await _cryptoService.encrypt(plaintext, keyBase64);
+    // Encrypt using session key
+    final ciphertextBase64 = _cryptoService.encryptDataBytes(plaintext, tempKeyID);
+    final encrypted = base64Decode(ciphertextBase64);
     
     final name = inputPath.split('/').last;
     final outputFile = File('$outputDir/$name');
@@ -194,15 +202,20 @@ class FileService {
   }
   
   /// Exports decrypted file to a user-selected location
-  Future<void> exportFile(FileSystemNode file, String outputPath, String keyBase64) async {
+  Future<void> exportFile(FileSystemNode file, String outputPath, String tempKeyID) async {
     if (file.isDirectory) {
       throw Exception('Cannot export a directory');
     }
     
+    // Extract directory path from file path
+    final dirPath = file.path.substring(0, file.path.lastIndexOf('/'));
+    
     final inputFile = File(file.path);
     final encryptedData = await inputFile.readAsBytes();
     
-    final decryptedData = await _cryptoService.decrypt(encryptedData, keyBase64);
+    // Decrypt using session key
+    final encryptedDataBase64 = base64Encode(encryptedData);
+    final decryptedData = _cryptoService.decryptDataBytes(encryptedDataBase64, tempKeyID);
     
     final outputFile = File(outputPath);
     await outputFile.writeAsBytes(decryptedData);

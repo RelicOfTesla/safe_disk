@@ -1,48 +1,26 @@
+/// CryptionConfig - JSON container for encryption configuration
+/// 
+/// This class does NOT parse specific fields. It stores the raw JSON
+/// and passes it directly to FFI. This avoids compatibility issues
+/// when the config format changes.
 class CryptionConfig {
-  final String check;
-  final int iterN;
-  final String version;
-  final String algorithm;
-  final DateTime created;
-  final bool mutable;           // 是否支持修改密码
-  final String? encryptedKey;   // 加密的随机密钥（mutable=true时）
+  // Directly store raw JSON, do not parse specific fields
+  final Map<String, dynamic> _json;
   
-  CryptionConfig({
-    required this.check,
-    required this.iterN,
-    required this.version,
-    required this.algorithm,
-    required this.created,
-    this.mutable = false,
-    this.encryptedKey,
-  });
+  CryptionConfig(this._json);
   
   factory CryptionConfig.fromJson(Map<String, dynamic> json) {
-    return CryptionConfig(
-      check: json['check'] as String,
-      iterN: json['iterN'] as int,
-      version: json['version'] as String? ?? '1.0',
-      algorithm: json['algorithm'] as String? ?? 'AES-256-GCM',
-      created: DateTime.parse(json['created'] as String),
-      mutable: json['mutable'] as bool? ?? false,
-      encryptedKey: json['key'] as String?,
-    );
+    return CryptionConfig(json);
   }
   
-  Map<String, dynamic> toJson() {
-    final json = <String, dynamic>{
-      'check': check,
-      'iterN': iterN,
-      'version': version,
-      'algorithm': algorithm,
-      'created': created.toIso8601String(),
-      'mutable': mutable,
-    };
-    if (encryptedKey != null) {
-      json['key'] = encryptedKey;
-    }
-    return json;
-  }
+  Map<String, dynamic> toJson() => _json;
+  
+  // Optional: provide common field getters for display purposes
+  // These are safe to access and won't break if fields are missing
+  
+  String get version => _json['version'] as String? ?? '1.0';
+  String get algorithm => _json['algorithm'] as String? ?? 'AES-256-GCM';
+  bool get mutable => _json['mutable'] as bool? ?? false;
 }
 
 class QuickListEntry {
@@ -65,12 +43,29 @@ class EncryptedDirectory {
   final String path;
   final CryptionConfig config;
   final bool isVerified;
+  final String? tempKeyID; // Temporary key ID for session (managed externally)
   
   EncryptedDirectory({
     required this.path,
     required this.config,
     this.isVerified = false,
+    this.tempKeyID,
   });
+  
+  /// Creates a copy with updated fields
+  EncryptedDirectory copyWith({
+    String? path,
+    CryptionConfig? config,
+    bool? isVerified,
+    String? tempKeyID,
+  }) {
+    return EncryptedDirectory(
+      path: path ?? this.path,
+      config: config ?? this.config,
+      isVerified: isVerified ?? this.isVerified,
+      tempKeyID: tempKeyID ?? this.tempKeyID,
+    );
+  }
 }
 
 class EncryptedFile {

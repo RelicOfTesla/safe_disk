@@ -8,11 +8,11 @@
 
 ```bash
 # 编译
-go build -o safe-disk ./cmd/cli
+go build -o safedisk-cli ./cmd/cli
 
 # 或使用预编译版本
-# Windows: safe-disk.exe
-# Linux: safe-disk
+# Windows: safedisk-cli.exe
+# Linux: safedisk-cli
 ```
 
 ## 命令
@@ -21,10 +21,10 @@ go build -o safe-disk ./cmd/cli
 
 ```bash
 # 可变密码模式（默认，支持修改密码）
-safe-disk create /path/to/dir
+safedisk-cli create /path/to/dir
 
 # 不可变密码模式（需显式指定，更安全但不支持修改密码）
-safe-disk create /path/to/dir --immutable-password
+safedisk-cli create /path/to/dir --immutable-password
 ```
 
 交互式输入：
@@ -36,26 +36,26 @@ safe-disk create /path/to/dir --immutable-password
 
 ```bash
 # 加密整个目录
-safe-disk encrypt /path/to/plain/dir --output /path/to/encrypted/dir
+safedisk-cli encrypt /path/to/plain/dir --output /path/to/encrypted/dir
 
 # 加密单个文件
-safe-disk encrypt /path/to/file.txt --output /path/to/encrypted/file.enc
+safedisk-cli encrypt /path/to/file.txt --output /path/to/encrypted/file.enc
 ```
 
 ### 解密目录
 
 ```bash
 # 解密整个目录
-safe-disk decrypt /path/to/encrypted/dir --output /path/to/decrypted/dir
+safedisk-cli decrypt /path/to/encrypted/dir --output /path/to/decrypted/dir
 
 # 解密单个文件
-safe-disk decrypt /path/to/file.enc --output /path/to/file.txt
+safedisk-cli decrypt /path/to/file.enc --output /path/to/file.txt
 ```
 
 ### 查看信息
 
 ```bash
-safe-disk info /path/to/encrypted/dir
+safedisk-cli info /path/to/encrypted/dir
 
 # 输出
 Directory: /path/to/encrypted/dir
@@ -69,7 +69,7 @@ Size: 1.2 MB
 
 ```bash
 # 仅可变密码模式支持
-safe-disk passwd /path/to/encrypted/dir
+safedisk-cli passwd /path/to/encrypted/dir
 
 # 不可变密码模式会提示错误：
 # Error: Password modification not supported in immutable mode
@@ -95,8 +95,8 @@ safe-disk passwd /path/to/encrypted/dir
 ```
 
 **默认行为**：
-- `safe-disk create /dir` → 可变密码模式（支持修改密码）
-- `safe-disk create /dir --immutable-password` → 不可变密码模式
+- `safedisk-cli create /dir` → 可变密码模式（支持修改密码）
+- `safedisk-cli create /dir --immutable-password` → 不可变密码模式
 
 ## 使用示例
 
@@ -104,10 +104,10 @@ safe-disk passwd /path/to/encrypted/dir
 
 ```bash
 # 加密所有 PDF 文件
-find . -name "*.pdf" -exec safe-disk encrypt {} --output {}.enc \;
+find . -name "*.pdf" -exec safedisk-cli encrypt {} --output {}.enc \;
 
 # 解密所有 .enc 文件
-find . -name "*.enc" -exec safe-disk decrypt {} \;
+find . -name "*.enc" -exec safedisk-cli decrypt {} \;
 ```
 
 ### 脚本集成
@@ -120,8 +120,8 @@ BACKUP_DIR="/backup/$(date +%Y%m%d)"
 PASSWORD="your-password-here"  # 从环境变量读取更安全
 
 # 创建加密备份
-safe-disk create "$BACKUP_DIR" --password "$PASSWORD"
-safe-disk encrypt /data --output "$BACKUP_DIR/data" --password "$PASSWORD"
+safedisk-cli create "$BACKUP_DIR" --password "$PASSWORD"
+safedisk-cli encrypt /data --output "$BACKUP_DIR/data" --password "$PASSWORD"
 
 echo "Backup created: $BACKUP_DIR"
 ```
@@ -130,7 +130,7 @@ echo "Backup created: $BACKUP_DIR"
 
 ```bash
 # 定时加密备份（cron）
-0 2 * * * /usr/local/bin/safe-disk encrypt /data --output /backup/daily
+0 2 * * * /usr/local/bin/safedisk-cli encrypt /data --output /backup/daily
 ```
 
 ## 安全建议
@@ -138,16 +138,16 @@ echo "Backup created: $BACKUP_DIR"
 1. **不要在命令行直接输入密码**
    ```bash
    # 不安全（密码会被历史记录）
-   safe-disk encrypt /dir --password "secret"
+   safedisk-cli encrypt /dir --password "secret"
    
    # 安全（交互式输入）
-   safe-disk encrypt /dir
+   safedisk-cli encrypt /dir
    ```
 
 2. **使用环境变量**
    ```bash
    export SAFE_DISK_PASSWORD="your-password"
-   safe-disk encrypt /dir
+   safedisk-cli encrypt /dir
    ```
 
 3. **检查文件权限**

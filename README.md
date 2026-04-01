@@ -2,6 +2,15 @@
 
 跨平台加密目录管理工具，支持 Windows、Linux 和 macOS。
 
+## 文档
+
+- [技术架构](docs/ARCHITECTURE.md)
+- [加密方案](docs/ENCRYPTION.md)
+- [功能规划](docs/FEATURES.md)
+- [开发路线](docs/ROADMAP.md)
+- [需求文档](docs/REQUIREMENTS.md)
+- [开发进度/TODO](docs/TODO.md)
+
 ## 🎯 项目状态
 
 **当前阶段：P0 项目初始化完成**
@@ -66,15 +75,3 @@ flutter build linux
 - **算法**: AES-256-GCM
 - **密钥派生**: HMAC-SHA256 + IterN 迭代
 - **配置文件**: `_cryption.json` (包含校验值、迭代次数等)
-
-## 文档
-
-- [技术架构](docs/ARCHITECTURE.md)
-- [加密方案](docs/ENCRYPTION.md)
-- [功能规划](docs/FEATURES.md)
-- [开发路线](docs/ROADMAP.md)
-- [需求文档](docs/REQUIREMENTS.md)
-
-## 开发进度
-
-详见 [TODO.md](TODO.md)

@@ -38,6 +38,10 @@ dependencies:
   # FFI for native library binding
   ffi: ^2.1.0
   path_provider: ^2.1.2
+  shared_preferences: ^2.2.3
+  
+  # File selector for export/import
+  file_selector: ^1.0.3
 
 dev_dependencies:
   flutter_test:

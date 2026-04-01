@@ -6,14 +6,20 @@
 - [x] 扫描指定路径下的 `_cryption.json`
 - [x] 向上遍历父目录查找加密根目录（类似 .git 逻辑）
 - [x] 支持嵌套加密目录（独立密钥）
-- [ ] 显示目录元数据（创建时间、大小、文件数）
+- [ ] 加密目录内文件快搜/快捷跳转功能
 
 ### 1.2 密码管理
 - [x] 打开加密目录时弹出密码输入框
 - [x] 密码验证
-- [x] 密钥缓存
-- [ ] 密钥缓存 1 小时自动清除
+- [x] 密钥缓存（使用 tempKeyID 机制）✅ 2026-04-03
+- [ ] 密钥缓存 N(默认1) 小时自动清除
 - [ ] 手动清除缓存
+
+**架构优化（2026-04-03）**：
+- CryptoService 完全无状态化
+- 使用 tempKeyID 机制管理密钥
+- EncryptedDirectory 添加 tempKeyID 字段
+- 所有加密/解密操作显式传入 tempKeyID
 
 ### 1.3 快捷清单
 - [ ] 侧边栏显示常用加密目录
@@ -45,11 +51,17 @@
 ## 3. 加密目录操作
 
 ### 3.1 创建加密目录
-- [ ] 右键菜单 → 新建加密目录
+- [ ] 新建加密目录
 - [ ] 设置密码
 - [ ] 设置迭代次数
 - [ ] **选择密码模式**：默认可变密码（支持修改），可选不可变密码（更安全）
-- [ ] 生成 `_cryption.json`
+- [ ] 生成 `_cryption.json`（包含 `encryptedChallengeId` 和 `challengeId` 字段）
+- [ ] 右键菜单 → 新建加密目录
+
+**配置文件字段说明**：
+- `encryptedChallengeId`：加密后的挑战值（用于验证密码）
+- `challengeId`：明文挑战值（可选，默认为 "safe_disk"）
+- 验证逻辑：`decrypt(encryptedChallengeId, password) === challengeId` → 密码正确
 
 ### 3.2 新建文件
 - [ ] 右键 → 新建文本文档
@@ -72,14 +84,10 @@
 
 ## 4. 剪贴板支持
 
-### 4.1 复制文件
-- [ ] 加密目录内 → 复制到系统剪贴板
-- [ ] 自动解密到临时目录
-- [ ] 支持多个文件
 
 ### 4.2 粘贴文件
 - [ ] 从系统剪贴板粘贴到加密目录
-- [ ] 自动加密
+- [ ] 异步自动加密进度(原子安全化，断电安全)。
 - [ ] 支持文件和目录
 
 ### 4.3 跨平台
@@ -90,15 +98,14 @@
 
 ### 5.1 核心要求
 - [ ] **必须使用 Flutter 渲染文本**，防止木马探测
-- [ ] 不使用系统文本框组件
-- [ ] 自定义文本渲染引擎
+- [ ] 自定义文本渲染引擎(可选)
 
 ### 5.2 编辑功能
 - [ ] 基础文本编辑
 - [ ] 撤销/重做
 - [ ] 查找/替换
-- [ ] 行号显示
-- [ ] 语法高亮（可选）
+- [ ] 行号显示/跳转
+- [ ] 快捷键
 
 ### 5.3 安全特性
 - [ ] 自动加密保存
@@ -114,34 +121,41 @@
 ### 6.2 功能
 - [ ] 内存中解密显示
 - [ ] 缩放
-- [ ] 旋转
 - [ ] 翻页（目录内图片）
+- [ ] 快捷键
 
 ### 6.3 安全
 - [ ] 不写临时文件
 - [ ] 关闭后清零内存
+- [ ] 加解密过程中原子安全化，断电安全; 原文（默认)清零覆盖选择
+- [ ] 部分数据损坏不影响全部内容的设计
 
 ## 7. 系统集成
 
 ### 7.1 Windows
 - [ ] 右键菜单集成
 - [ ] 文件拖放支持
-- [ ] 开机启动（可选）
 
 ### 7.2 Linux
 - [ ] Desktop 文件
 - [ ] 文件管理器扩展（Nautilus/Dolphin）
-- [ ] 系统托盘
 
 ## 8. Go CLI 工具 ⚠️ 新增
 
 ### 8.1 核心功能
-- [ ] 创建加密目录（支持两种密码模式）
-- [ ] 加密目录（已有目录加密）
+- [x] 创建加密目录（支持两种密码模式）✅ 2026-04-02
+- [ ] 加密目录（已有目录加密）(原子安全化，断电安全)
 - [ ] 解密目录（导出解密）
-- [ ] 查看加密目录信息（包含密码模式）
-- [ ] 修改密码（仅可变密码模式）
+- [x] 查看加密目录信息（包含密码模式）✅ 2026-04-02
+- [x] 修改密码（仅可变密码模式）✅ 2026-04-02
 - [ ] 检查密码模式兼容性
+
+**配置文件字段**（2026-04-02 更新）：
+- `encryptedChallengeId`：加密后的挑战值（用于密码验证）
+- `challengeId`：明文挑战值（可选，默认 "safe_disk"）
+- `salt`：盐值（PBKDF2）
+- `iterN`：迭代次数
+- `mutable`：密码模式（true=可变密码，false=不可变密码）
 
 ### 8.2 使用场景
 - 批量操作（脚本集成）
@@ -152,27 +166,28 @@
 ### 8.3 命令设计
 ```bash
 # 创建加密目录
-safe-disk create /path/to/dir --password
+safedisk-cli create /path/to/dir --password
 
 # 加密已有目录
-safe-disk encrypt /path/to/dir --output /encrypted/dir
+safedisk-cli encrypt /path/to/dir --output /encrypted/dir
 
 # 解密目录
-safe-disk decrypt /path/to/encrypted/dir --output /decrypted/dir
+safedisk-cli decrypt /path/to/encrypted/dir --output /decrypted/dir
 
 # 查看信息
-safe-disk info /path/to/encrypted/dir
+safedisk-cli info /path/to/encrypted/dir
 
 # 修改密码
-safe-disk passwd /path/to/encrypted/dir
+safedisk-cli passwd /path/to/encrypted/dir
 ```
 
 ## 9. 其他功能
 
 ### 9.1 设置
-- [ ] 默认迭代次数
+- [ ] 默认密码迭代强度
 - [ ] 密钥缓存时间
 - [ ] 界面主题
+- [ ] 其他
 
 ### 9.2 安全
 - [ ] 自动锁定（空闲 N 分钟）

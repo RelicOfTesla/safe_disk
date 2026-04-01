@@ -1,11 +1,11 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'bindings.dart';
 
+/// Native library wrapper for Safe Disk encryption operations
 class NativeLib {
-  final NativeBindings _bindings;
-  
-  NativeLib._() : _bindings = NativeBindings.instance;
+  final NativeBindings _bindings = NativeBindings.instance;
   
   static NativeLib? _instance;
   
@@ -14,115 +14,188 @@ class NativeLib {
     return _instance!;
   }
   
-  /// Derives a 32-byte AES-256 key from password
-  /// Returns base64-encoded key
-  String deriveKey(String inputPass, int iterN) {
-    final inputPassPtr = inputPass.toNativeUtf8();
-    try {
-      final resultPtr = _bindings.deriveKey(inputPassPtr, iterN);
-      return resultPtr.toDartString();
-    } finally {
-      calloc.free(inputPassPtr);
-    }
-  }
+  NativeLib._();
+  
+  // ==================== NEW FFI INTERFACE ====================
   
   /// Verifies if the password is correct
-  /// checkBase64: base64-encoded check value from _cryption.json
-  /// Returns true if password is correct
-  bool verifyPassword(String checkBase64, String inputPass, int iterN) {
-    final checkPtr = checkBase64.toNativeUtf8();
+  /// inputPass: user input password
+  /// configJSON: config JSON string (from _cryption.json)
+  /// Returns: true if correct, false if incorrect
+  bool verifyPassword(String inputPass, String configJSON) {
     final inputPassPtr = inputPass.toNativeUtf8();
+    final configJSONPtr = configJSON.toNativeUtf8();
+    
     try {
-      final result = _bindings.verifyPassword(checkPtr, inputPassPtr, iterN);
+      final result = _bindings.verifyPassword(inputPassPtr, configJSONPtr);
       return result == 1;
     } finally {
-      calloc.free(checkPtr);
       calloc.free(inputPassPtr);
+      calloc.free(configJSONPtr);
     }
   }
   
-  /// Encrypts data using AES-256-GCM
-  /// plaintext: raw data (will be base64-encoded internally)
-  /// keyBase64: base64-encoded 32-byte key
-  /// Returns base64-encoded ciphertext: [IV(12)] + [Ciphertext] + [Tag(16)]
-  String encryptData(List<int> plaintext, String keyBase64) {
-    final plaintextBase64 = base64Encode(plaintext);
-    final plaintextPtr = plaintextBase64.toNativeUtf8();
-    final keyPtr = keyBase64.toNativeUtf8();
+  /// Generates a temporary key ID for session use
+  /// inputPass: user input password
+  /// configJSON: config JSON string (from _cryption.json)
+  /// ttlSeconds: time-to-live in seconds (0 = default 3600s)
+  /// Returns: temporary key ID (hex string) or empty string on error
+  String makeTemporaryKeyID(String inputPass, String configJSON, {int ttlSeconds = 0}) {
+    final inputPassPtr = inputPass.toNativeUtf8();
+    final configJSONPtr = configJSON.toNativeUtf8();
+    
     try {
-      final resultPtr = _bindings.encryptData(plaintextPtr, keyPtr);
-      return resultPtr.toDartString();
+      final resultPtr = _bindings.makeTemporaryKeyID(inputPassPtr, configJSONPtr, ttlSeconds);
+      final result = resultPtr.toDartString();
+      return result;
     } finally {
-      calloc.free(plaintextPtr);
-      calloc.free(keyPtr);
+      calloc.free(inputPassPtr);
+      calloc.free(configJSONPtr);
     }
   }
   
-  /// Decrypts data using AES-256-GCM
-  /// ciphertextBase64: base64-encoded ciphertext: [IV(12)] + [Ciphertext] + [Tag(16)]
-  /// keyBase64: base64-encoded 32-byte key
-  /// Returns raw decrypted data
-  List<int> decryptData(String ciphertextBase64, String keyBase64) {
-    final ciphertextPtr = ciphertextBase64.toNativeUtf8();
-    final keyPtr = keyBase64.toNativeUtf8();
+  /// Encrypts data with temporary key ID
+  /// dataBase64: base64-encoded data to encrypt
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: base64-encoded encrypted data or empty string on error
+  String encryptData(String dataBase64, String tempKeyID) {
+    final dataPtr = dataBase64.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+    
     try {
-      final resultPtr = _bindings.decryptData(ciphertextPtr, keyPtr);
-      final resultBase64 = resultPtr.toDartString();
-      return base64Decode(resultBase64);
+      final resultPtr = _bindings.encryptData(dataPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
     } finally {
-      calloc.free(ciphertextPtr);
-      calloc.free(keyPtr);
+      calloc.free(dataPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+  
+  /// Decrypts data with temporary key ID
+  /// dataBase64: base64-encoded encrypted data
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: base64-encoded decrypted data or empty string on error
+  String decryptData(String dataBase64, String tempKeyID) {
+    final dataPtr = dataBase64.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+    
+    try {
+      final resultPtr = _bindings.decryptData(dataPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(dataPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+  
+  /// Encrypts a file with temporary key ID
+  /// srcPath: source file path
+  /// toPath: destination file path
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: JSON result {"success": true} or {"success": false, "error": "..."}
+  String encryptFile(String srcPath, String toPath, String tempKeyID) {
+    final srcPtr = srcPath.toNativeUtf8();
+    final toPtr = toPath.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+    
+    try {
+      final resultPtr = _bindings.encryptFile(srcPtr, toPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(toPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+  
+  /// Decrypts a file with temporary key ID and returns the data
+  /// path: encrypted file path
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: base64-encoded decrypted data or empty string on error
+  String decryptFileToData(String path, String tempKeyID) {
+    final pathPtr = path.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+    
+    try {
+      final resultPtr = _bindings.decryptFileToData(pathPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(pathPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+  
+  // ==================== PRESERVED FUNCTIONS ====================
+  
+  /// Generates complete encryption configuration
+  /// password: user password
+  /// keyStrengthMs: target key derivation time in milliseconds (e.g., 1000 for 1 second)
+  /// mutable: whether to use mutable mode (unique file key)
+  /// challengeId: optional challenge ID (use empty string for default "safe_disk")
+  /// Returns: JSON string with config (salt, encryptedChallengeId, iterN, key, etc.)
+  String generateEncryptionConfig(String password, int keyStrengthMs, bool mutable, String challengeId) {
+    final passwordPtr = password.toNativeUtf8();
+    final challengeIdPtr = challengeId.toNativeUtf8();
+    
+    try {
+      final resultPtr = _bindings.generateEncryptionConfig(passwordPtr, keyStrengthMs, mutable ? 1 : 0, challengeIdPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(passwordPtr);
+      calloc.free(challengeIdPtr);
     }
   }
   
   /// Loads _cryption.json from a directory
-  /// Returns parsed JSON as Map, or null if not found
-  Map<String, dynamic>? loadCryptionConfig(String dirPath) {
+  /// dirPath: directory path
+  /// Returns: JSON string of config, or empty string if not found
+  String loadCryptionConfig(String dirPath) {
     final dirPathPtr = dirPath.toNativeUtf8();
+    
     try {
       final resultPtr = _bindings.loadCryptionConfig(dirPathPtr);
       final result = resultPtr.toDartString();
-      if (result.isEmpty) return null;
-      return jsonDecode(result) as Map<String, dynamic>;
+      return result;
     } finally {
       calloc.free(dirPathPtr);
     }
   }
   
-  /// Generates a random 32-byte key
-  /// Returns base64-encoded key
-  String generateRandomKey() {
-    final resultPtr = _bindings.generateRandomKey();
-    return resultPtr.toDartString();
-  }
-  
-  /// Encrypts a file key with password (for mutable=true mode)
-  /// fileKeyBase64: base64-encoded 32-byte file key
-  /// Returns base64-encoded encrypted file key
-  String encryptFileKey(String fileKeyBase64, String inputPass, int iterN) {
-    final fileKeyPtr = fileKeyBase64.toNativeUtf8();
-    final inputPassPtr = inputPass.toNativeUtf8();
+  /// Finds the encrypted root directory (search upward like .git)
+  /// path: starting path
+  /// Returns: root directory path or empty string if not found
+  String findCryptionRoot(String path) {
+    final pathPtr = path.toNativeUtf8();
+    
     try {
-      final resultPtr = _bindings.encryptFileKey(fileKeyPtr, inputPassPtr, iterN);
-      return resultPtr.toDartString();
+      final resultPtr = _bindings.findCryptionRoot(pathPtr);
+      final result = resultPtr.toDartString();
+      return result;
     } finally {
-      calloc.free(fileKeyPtr);
-      calloc.free(inputPassPtr);
+      calloc.free(pathPtr);
     }
   }
   
-  /// Decrypts a file key with password (for mutable=true mode)
-  /// encryptedKeyBase64: base64-encoded encrypted file key
-  /// Returns base64-encoded 32-byte file key
-  String decryptFileKey(String encryptedKeyBase64, String inputPass, int iterN) {
-    final encryptedKeyPtr = encryptedKeyBase64.toNativeUtf8();
-    final inputPassPtr = inputPass.toNativeUtf8();
+  /// Creates an encrypted directory with config file
+  /// dirPath: directory path
+  /// configJSON: config JSON string
+  /// Returns: JSON result {"success": true} or {"success": false, "error": "..."}
+  String createEncryptedDirectory(String dirPath, String configJSON) {
+    final dirPathPtr = dirPath.toNativeUtf8();
+    final configJSONPtr = configJSON.toNativeUtf8();
+    
     try {
-      final resultPtr = _bindings.decryptFileKey(encryptedKeyPtr, inputPassPtr, iterN);
-      return resultPtr.toDartString();
+      final resultPtr = _bindings.createEncryptedDirectory(dirPathPtr, configJSONPtr);
+      final result = resultPtr.toDartString();
+      return result;
     } finally {
-      calloc.free(encryptedKeyPtr);
-      calloc.free(inputPassPtr);
+      calloc.free(dirPathPtr);
+      calloc.free(configJSONPtr);
     }
   }
 }

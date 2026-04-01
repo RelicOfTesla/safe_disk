@@ -1,119 +1,199 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import '../native/native_lib.dart';
 import '../models/cryption_config.dart';
+import '../models/ffi_results.dart';
 
+/// Crypto service for Safe Disk encryption operations
+/// 
+/// This service provides stateless encryption operations using the native library.
+/// All key derivation and management is handled by the backend (Go FFI).
+/// 
+/// **Architecture Design**:
+/// - **Stateless**: No internal state management
+/// - **Explicit key ID**: All operations require explicit tempKeyID parameter
+/// - **External management**: Caller is responsible for managing tempKeyID
+/// - **Flexible**: Supports any key management strategy (single directory, multi-directory, subdirectories, etc.)
+/// 
+/// **Usage**:
+/// ```dart
+/// // Step 1: Verify password
+/// final result = cryptoService.verifyPassword(password, configJSON);
+/// if (!result.success) {
+///   print('Password incorrect: ${result.error}');
+///   return;
+/// }
+/// 
+/// // Step 2: Create session and get tempKeyID
+/// final tempKeyID = cryptoService.createSession(password, configJSON);
+/// // NOTE: Caller should store tempKeyID (e.g., in a Map, State, or Provider)
+/// 
+/// // Step 3: Use tempKeyID for encryption/decryption
+/// final encrypted = cryptoService.encryptData(data, tempKeyID);
+/// final decrypted = cryptoService.decryptData(encrypted, tempKeyID);
+/// ```
 class CryptoService {
   final NativeLib _native = NativeLib.instance;
   
-  final Map<String, String> _keyCache = {}; // path -> keyBase64
+  // ==================== SESSION MANAGEMENT ====================
   
-  /// Derives a key from password (for mutable=false mode)
-  String deriveKey(String password, int iterN) {
-    return _native.deriveKey(password, iterN);
+  /// Creates a session and returns the temporary key ID
+  /// The caller is responsible for storing and managing the key ID
+  /// password: user password
+  /// configJSON: config JSON string (from _cryption.json)
+  /// Returns: temporary key ID (caller should store it)
+  String createSession(String password, String configJSON) {
+    final resultStr = _native.makeTemporaryKeyID(password, configJSON, ttlSeconds: 3600); // 1 hour TTL
+    final result = SessionResult.fromJson(resultStr);
+    return result.tempKeyIDOrThrow;
   }
   
-  /// Gets the file encryption key
-  /// For mutable=false: derives from password
-  /// For mutable=true: decrypts from encrypted key
-  Future<String> getFileKey(EncryptedDirectory dir, String password) async {
-    if (!dir.config.mutable) {
-      // Immutable mode: derive from password
-      return deriveKey(password, dir.config.iterN);
+  // ==================== PASSWORD VERIFICATION ====================
+  
+  /// Verifies if the password is correct
+  /// inputPass: user input password
+  /// configJSON: config JSON string (from _cryption.json)
+  /// Returns: VerifyResult with success status and error message
+  VerifyResult verifyPassword(String inputPass, String configJSON) {
+    final success = _native.verifyPassword(inputPass, configJSON);
+    if (success) {
+      return VerifyResult(success: true);
+    } else {
+      return VerifyResult(success: false, error: 'Password verification failed');
     }
-    
-    // Mutable mode: decrypt file key
-    if (dir.config.encryptedKey == null) {
-      throw Exception('Mutable mode but no encrypted key found');
-    }
-    
-    // Decrypt the file key using password
-    return _native.decryptFileKey(
-      dir.config.encryptedKey!,
-      password,
-      dir.config.iterN,
-    );
   }
   
-  /// Verifies password for an encrypted directory
-  Future<bool> verifyPassword(EncryptedDirectory dir, String password) async {
-    final isValid = _native.verifyPassword(dir.config.check, password, dir.config.iterN);
-    
-    if (isValid) {
-      // Get the actual file encryption key
-      final fileKey = await getFileKey(dir, password);
-      _keyCache[dir.path] = fileKey;
-    }
-    
-    return isValid;
+  // ==================== DATA ENCRYPTION/DECRYPTION ====================
+  
+  /// Encrypts data with a temporary key ID
+  /// data: plaintext data
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: encrypted data (base64)
+  String encryptData(String data, String tempKeyID) {
+    final dataBase64 = base64Encode(utf8.encode(data));
+    final resultStr = _native.encryptData(dataBase64, tempKeyID);
+    final result = DataResult.fromJson(resultStr);
+    return base64Encode(result.dataOrThrow);
   }
   
-  /// Gets cached key for a directory (returns null if not verified yet)
-  String? getCachedKey(String dirPath) => _keyCache[dirPath];
-  
-  /// Encrypts data
-  Future<List<int>> encrypt(List<int> plaintext, String keyBase64) async {
-    final ciphertextBase64 = _native.encryptData(plaintext, keyBase64);
-    return _native.decryptData(ciphertextBase64, keyBase64); // Decode base64
+  /// Encrypts binary data with a temporary key ID
+  /// data: binary data
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: encrypted data (base64)
+  String encryptDataBytes(Uint8List data, String tempKeyID) {
+    final dataBase64 = base64Encode(data);
+    final resultStr = _native.encryptData(dataBase64, tempKeyID);
+    final result = DataResult.fromJson(resultStr);
+    return base64Encode(result.dataOrThrow);
   }
   
-  /// Decrypts data
-  Future<List<int>> decrypt(List<int> ciphertext, String keyBase64) async {
-    return _native.decryptData(
-      _native.encryptData(ciphertext, keyBase64), // Encode base64
-      keyBase64,
-    );
+  /// Decrypts data with a specific temp key ID (for async operations)
+  /// encryptedDataBase64: encrypted data (base64)
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: decrypted data (string)
+  String decryptData(String encryptedDataBase64, String tempKeyID) {
+    final resultStr = _native.decryptData(encryptedDataBase64, tempKeyID);
+    final result = DataResult.fromJson(resultStr);
+    return utf8.decode(result.dataOrThrow);
   }
   
-  /// Loads _cryption.json from a directory
-  Future<CryptionConfig?> loadConfig(String dirPath) async {
-    final json = _native.loadCryptionConfig(dirPath);
-    if (json == null) return null;
-    return CryptionConfig.fromJson(json);
+  /// Decrypts binary data with a temporary key ID (for async operations)
+  /// encryptedDataBase64: encrypted data (base64)
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: decrypted data (bytes)
+  Uint8List decryptDataBytes(String encryptedDataBase64, String tempKeyID) {
+    final resultStr = _native.decryptData(encryptedDataBase64, tempKeyID);
+    final result = DataResult.fromJson(resultStr);
+    return result.dataOrThrow;
   }
   
-  /// Checks if a directory is an encrypted directory (has _cryption.json)
-  /// Returns true if _cryption.json exists in this directory or any parent
-  Future<bool> isEncryptedDirectory(String dirPath) async {
-    final root = await findEncryptedRoot(dirPath);
-    return root != null;
+  // ==================== FILE ENCRYPTION/DECRYPTION ====================
+  
+  /// Encrypts a file with a specific temp key ID (for async operations)
+  /// srcPath: source file path
+  /// toPath: destination file path
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: JSON result {"success": true} or throws exception
+  Map<String, dynamic> encryptFile(String srcPath, String toPath, String tempKeyID) {
+    final resultStr = _native.encryptFile(srcPath, toPath, tempKeyID);
+    final result = FileResult.fromJson(resultStr);
+    result.throwOnError();
+    return {'success': true};
   }
   
-  /// Finds the root of an encrypted directory
-  /// Searches upward from dirPath until _cryption.json is found or reaching filesystem root
-  /// Returns the path of the encrypted root, or null if not found
-  Future<String?> findEncryptedRoot(String dirPath) async {
-    var path = dirPath;
-    
-    while (path.isNotEmpty && path != '/' && path != '.' && path != '..') {
-      final file = File('$path/_cryption.json');
-      if (await file.exists()) {
-        return path;
-      }
-      
-      // Move to parent directory
-      final parent = File(path).parent.path;
-      if (parent == path) break; // Reached root
-      path = parent;
-    }
-    
-    return null;
+  /// Decrypts a file with a specific temp key ID (for async operations)
+  /// path: encrypted file path
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: decrypted data (bytes)
+  Uint8List decryptFileToData(String path, String tempKeyID) {
+    final resultStr = _native.decryptFileToData(path, tempKeyID);
+    final result = DataResult.fromJson(resultStr);
+    return result.dataOrThrow;
+  }
+  
+  // ==================== CONFIG MANAGEMENT ====================
+  
+  /// Generates complete encryption configuration
+  /// password: user password
+  /// keyStrengthMs: target key derivation time in milliseconds (e.g., 1000 for 1 second)
+  /// mutable: whether to use mutable mode (unique file key)
+  /// challengeId: optional challenge ID (use empty string for default "safe_disk")
+  /// Returns: JSON config string
+  String generateEncryptionConfig(String password, int keyStrengthMs, bool mutable, String challengeId) {
+    return _native.generateEncryptionConfig(password, keyStrengthMs, mutable, challengeId);
   }
   
   /// Loads config from an encrypted directory
-  /// Automatically finds the encrypted root if dirPath is a subdirectory
-  Future<CryptionConfig?> loadConfigFromPath(String dirPath) async {
-    final root = await findEncryptedRoot(dirPath);
-    if (root == null) return null;
-    return await loadConfig(root);
+  /// dirPath: directory path
+  /// Returns: JSON config string
+  String loadCryptionConfig(String dirPath) {
+    return _native.loadCryptionConfig(dirPath);
   }
   
-  /// Clears key cache
-  void clearCache() {
-    _keyCache.clear();
+  /// Finds the encrypted root directory (searches upward like .git)
+  /// startPath: starting path
+  /// Returns: root directory path or empty string if not found
+  String findCryptionRoot(String startPath) {
+    return _native.findCryptionRoot(startPath);
   }
   
-  /// Clears key for a specific directory
-  void clearKeyFor(String dirPath) {
-    _keyCache.remove(dirPath);
+  /// Creates an encrypted directory
+  /// dirPath: directory path
+  /// configJSON: config JSON string
+  /// Returns: JSON result {"success": true} or {"success": false, "error": "..."}
+  Map<String, dynamic> createEncryptedDirectory(String dirPath, Map<String, dynamic> config) {
+    final configJSON = jsonEncode(config);
+    final resultStr = _native.createEncryptedDirectory(dirPath, configJSON);
+    final result = FFIResult.fromJson(resultStr);
+    if (!result.success) {
+      throw Exception(result.error ?? 'Failed to create encrypted directory');
+    }
+    return {'success': true};
+  }
+  
+  // ==================== LEGACY COMPATIBILITY ====================
+  
+  /// Loads config from an encrypted directory and returns CryptionConfig object
+  /// This method is provided for backward compatibility
+  CryptionConfig loadConfig(String dirPath) {
+    final configJSON = loadCryptionConfig(dirPath);
+    final configMap = jsonDecode(configJSON) as Map<String, dynamic>;
+    return CryptionConfig.fromJson(configMap);
+  }
+}
+
+/// Result of password verification
+class VerifyResult {
+  final bool success;
+  final String? error;
+  
+  VerifyResult({required this.success, this.error});
+  
+  /// Throws an exception if verification failed
+  void throwOnError() {
+    if (!success) {
+      throw Exception(error ?? 'Password verification failed');
+    }
   }
 }

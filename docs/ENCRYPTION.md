@@ -7,10 +7,16 @@
 **模式 1：不可变密码模式**（默认推荐）
 - 密钥由用户密码派生，不存储在本地
 - 安全性最高，无法修改密码
+- ✅ **数据恢复能力强**：即使丢失 `_cryption.json`，只要记得密码就能解密文件
 
 **模式 2：可变密码模式**
 - 存储被用户密码保护的文件密钥
 - 支持修改密码，无需重新加密文件
+- ⚠️ **数据恢复风险**：丢失 `_cryption.json` 将导致文件**无法解密**（即使记得密码）
+
+**✅ 状态**: 两种密码模式均已实现
+
+---
 
 ## 加密目录结构
 
@@ -58,6 +64,8 @@
 - `check`: 密码校验值（两种模式都有）
 - `encryptedKey`: 被用户密码保护的文件密钥（仅 mutable 模式）
 - `iterN`: 密钥派生迭代次数
+
+---
 
 ## 密钥派生流程
 
@@ -112,24 +120,11 @@
 - ✅ 支持修改密码
 - ✅ 修改密码时不需要重新加密文件
 - ⚠️ 本地存储加密后的 fileKey（有一定风险）
+- ⚠️ 丢失_cryption.json即无法解密文件（有一定风险）
 
-### 实际实现（Go 代码）
+**实现细节**: 参见 `_archived/detail.md` 中的 Go 代码实现
 
-```go
-// native/crypto/key_derive.go
-func DeriveKey(inputPass string, iterN int) []byte {
-    // Step 1: Hash password with SHA-256
-    h := sha256.Sum256([]byte(inputPass))
-    
-    // Step 2: HMAC-based key derivation
-    mac := hmac.New(sha256.New, h[:])
-    for i := 0; i < iterN; i++ {
-        binary.Write(mac, binary.BigEndian, uint32(i))
-    }
-    
-    return mac.Sum(nil)[:32] // AES-256 key = 32 bytes
-}
-```
+---
 
 ## 密码校验
 
@@ -145,28 +140,9 @@ func DeriveKey(inputPass string, iterN int) []byte {
 5. 相等则密码正确
 ```
 
-### 实际实现（Go 代码）
+**实现细节**: 参见 `_archived/detail.md` 中的 Go 代码实现
 
-```go
-// native/crypto/key_derive.go
-func VerifyPassword(checkBase64, inputPass string, iterN int) bool {
-    // Derive key
-    cryptKey := DeriveKey(inputPass, iterN)
-    
-    // Decode check value
-    check, _ := base64.StdEncoding.DecodeString(checkBase64)
-    
-    // Decrypt check value
-    decrypted, err := DecryptAESGCM(check, cryptKey)
-    if err != nil {
-        return false
-    }
-    
-    // Compare with expected value
-    expected := sha256.Sum256([]byte("safe_disk"))
-    return hmac.Equal(decrypted, expected[:])
-}
-```
+---
 
 ## 文件加密
 
@@ -181,61 +157,9 @@ func VerifyPassword(checkBase64, inputPass string, iterN int) bool {
 [IV(12 bytes)] + [Ciphertext(N bytes)] + [Tag(16 bytes)]
 ```
 
-### 实际实现（Go 代码）
+**实现细节**: 参见 `_archived/detail.md` 中的 Go 代码实现
 
-```go
-// native/crypto/aes_gcm.go
-func EncryptAESGCM(plaintext, key []byte) ([]byte, error) {
-    block, err := aes.NewCipher(key)
-    if err != nil {
-        return nil, err
-    }
-    
-    gcm, err := cipher.NewGCM(block)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Generate random IV
-    iv := make([]byte, gcm.NonceSize())
-    if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-        return nil, err
-    }
-    
-    // Encrypt: IV + ciphertext + tag
-    ciphertext := gcm.Seal(iv, iv, plaintext, nil)
-    return ciphertext, nil
-}
-
-func DecryptAESGCM(ciphertext, key []byte) ([]byte, error) {
-    block, err := aes.NewCipher(key)
-    if err != nil {
-        return nil, err
-    }
-    
-    gcm, err := cipher.NewGCM(block)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Extract IV
-    ivSize := gcm.NonceSize()
-    if len(ciphertext) < ivSize {
-        return nil, errors.New("ciphertext too short")
-    }
-    
-    iv := ciphertext[:ivSize]
-    ciphertext = ciphertext[ivSize:]
-    
-    // Decrypt
-    plaintext, err := gcm.Open(nil, iv, ciphertext, nil)
-    if err != nil {
-        return nil, err
-    }
-    
-    return plaintext, nil
-}
-```
+---
 
 ## 加密目录检测
 
@@ -260,60 +184,22 @@ func DecryptAESGCM(ciphertext, key []byte) ([]byte, error) {
 │           └── _cryption.json
 ```
 
+---
+
 ## FFI 接口
 
 ### Go 导出的 C 函数
 
-```go
-// native/main.go
-package main
+主要函数：
+- `DeriveKey` - 密钥派生
+- `VerifyPassword` - 密码验证
+- `EncryptData` - 数据加密
+- `DecryptData` - 数据解密
+- `LoadCryptionConfig` - 加载配置
 
-import "C"
+**实现细节**: 参见 `_archived/detail.md` 中的 Go 和 Dart FFI 绑定代码
 
-//export DeriveKey
-func DeriveKey(inputPass *C.char, iterN C.int) *C.char {
-    // 返回 base64 编码的 32 字节密钥
-}
-
-//export VerifyPassword
-func VerifyPassword(checkBase64, inputPass *C.char, iterN C.int) C.int {
-    // 返回 1 表示密码正确，0 表示错误
-}
-
-//export EncryptData
-func EncryptData(plaintextBase64, keyBase64 *C.char) *C.char {
-    // 返回 base64 编码的密文
-}
-
-//export DecryptData
-func DecryptData(ciphertextBase64, keyBase64 *C.char) *C.char {
-    // 返回 base64 编码的明文
-}
-
-//export LoadCryptionConfig
-func LoadCryptionConfig(dirPath *C.char) *C.char {
-    // 返回 JSON 字符串或空字符串
-}
-
-func main() {}
-```
-
-### Dart FFI 绑定
-
-```dart
-// lib/native/bindings.dart
-typedef DeriveKeyC = Pointer<Utf8> Function(Pointer<Utf8> inputPass, Int32 iterN);
-typedef DeriveKeyDart = Pointer<Utf8> Function(Pointer<Utf8> inputPass, int iterN);
-
-class NativeBindings {
-  final DynamicLibrary _lib;
-  late final DeriveKeyDart deriveKey;
-  
-  NativeBindings._(this._lib) {
-    deriveKey = _lib.lookupFunction<DeriveKeyC, DeriveKeyDart>('DeriveKey');
-  }
-}
-```
+---
 
 ## 密钥缓存策略
 
@@ -329,31 +215,9 @@ class NativeBindings {
 └─────────────────────────────────┘
 ```
 
-### 实际实现（Dart 代码）
+**实现细节**: 参见 `_archived/detail.md` 中的 Dart 代码实现
 
-```dart
-// lib/services/crypto_service.dart
-class CryptoService {
-  final Map<String, String> _keyCache = {}; // path -> keyBase64
-  
-  String? getCachedKey(String dirPath) => _keyCache[dirPath];
-  
-  Future<bool> verifyPassword(EncryptedDirectory dir, String password) async {
-    final key = deriveKey(password, dir.config.iterN);
-    final isValid = _native.verifyPassword(dir.config.check, password, dir.config.iterN);
-    
-    if (isValid) {
-      _keyCache[dir.path] = key; // 缓存密钥
-    }
-    
-    return isValid;
-  }
-  
-  void clearCache() {
-    _keyCache.clear();
-  }
-}
-```
+---
 
 ## 两种模式对比
 
@@ -364,6 +228,8 @@ class CryptoService {
 | 修改密码 | 需重新加密所有文件 | 只改密钥密文 |
 | 适用场景 | 极度安全需求 | 需要定期修改密码 |
 | 创建时选择 | 默认推荐 | 可选 |
+
+---
 
 ## 推荐使用场景
 
@@ -378,6 +244,8 @@ class CryptoService {
 - 安全性优先，需显式启用
 
 **默认行为**：创建加密目录时，默认为**可变密码模式**，只有在显式指定参数时才使用不可变密码模式。
+
+---
 
 ## 安全考虑
 
@@ -405,6 +273,8 @@ class CryptoService {
   > "导出解密文件将在硬盘上存储明文，确认继续？"
 - **文件名显示**: 在 Safe Disk 中显示原始文件名（解密后的文件名），而不是加密后的文件名
 
+---
+
 ## 已实现功能
 
 - ✅ 密钥派生（HMAC-SHA256）
@@ -414,3 +284,5 @@ class CryptoService {
 - ✅ 嵌套加密目录支持（独立密钥）
 - ✅ FFI 接口
 - ✅ Dart 绑定
+
+**最后更新**: 2026-04-02
