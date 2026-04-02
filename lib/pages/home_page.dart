@@ -12,6 +12,9 @@ import '../widgets/secure_image_viewer.dart';
 import '../widgets/sidebar.dart';
 import 'dialogs.dart';
 
+// View mode enum for file browsing
+enum ViewMode { list, grid }
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   
@@ -39,6 +42,9 @@ class _HomePageState extends State<HomePage> {
   // File selection for batch operations
   bool _isSelectMode = false; // Whether in select mode
   Set<FileSystemNode> _selectedFiles = {}; // Selected files for batch operations
+  
+  // View mode for file browsing (list or grid)
+  ViewMode _viewMode = ViewMode.list; // Current view mode
   
   @override
   void initState() {
@@ -455,6 +461,22 @@ class _HomePageState extends State<HomePage> {
                 onPressed: _openDirectory,
                 tooltip: 'Open Directory',
               ),
+              // Import file button
+              IconButton(
+                icon: const Icon(Icons.upload_file),
+                onPressed: _importFile,
+                tooltip: 'Import File',
+              ),
+              // View mode toggle button
+              IconButton(
+                icon: Icon(_viewMode == ViewMode.list ? Icons.grid_view : Icons.view_list),
+                onPressed: () {
+                  setState(() {
+                    _viewMode = _viewMode == ViewMode.list ? ViewMode.grid : ViewMode.list;
+                  });
+                },
+                tooltip: _viewMode == ViewMode.list ? 'Switch to Grid View' : 'Switch to List View',
+              ),
             ],
       ),
       drawer: _drawerPinned ? null : _buildDrawer(),
@@ -869,7 +891,82 @@ class _HomePageState extends State<HomePage> {
       );
     }
     
-    // Default list view
+    // Default list view or grid view based on _viewMode
+    if (_viewMode == ViewMode.grid) {
+      // Grid view
+      return GridView.builder(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 150,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 1.0,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final isSelected = _selectedFiles.contains(item);
+          
+          return InkWell(
+            onTap: () {
+              if (_isSelectMode && !item.isDirectory) {
+                // Toggle selection in select mode
+                setState(() {
+                  if (isSelected) {
+                    _selectedFiles.remove(item);
+                  } else {
+                    _selectedFiles.add(item);
+                  }
+                });
+              } else {
+                if (_isSearching) {
+                  // Close search when opening item
+                  setState(() {
+                    _isSearching = false;
+                    _searchController.clear();
+                    _searchResults = [];
+                  });
+                }
+                _openItem(item);
+              }
+            },
+            onLongPress: () {
+              if (!item.isDirectory) {
+                // Enter select mode on long press
+                if (!_isSelectMode) {
+                  setState(() {
+                    _isSelectMode = true;
+                    _selectedFiles.add(item);
+                  });
+                }
+              }
+            },
+            child: Card(
+              color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    item.isDirectory ? Icons.folder : _getFileIcon(item.extension),
+                    size: 48,
+                    color: item.isDirectory ? Colors.orange : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    item.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+    
+    // List view (default)
     return ListView.builder(
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -1029,6 +1126,83 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+  
+  /// Import a file from external location, encrypt it, and save to current directory
+  Future<void> _importFile() async {
+    if (!mounted) return;
+    
+    // Check if directory is opened and verified
+    if (_currentDir == null || !_currentDir!.isVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please verify the directory first')),
+      );
+      return;
+    }
+    
+    // Check if session is active
+    if (_currentDir!.tempKeyID == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Session expired. Please re-verify the directory')),
+      );
+      return;
+    }
+    
+    // Check if current path is set
+    if (_currentPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No directory selected')),
+      );
+      return;
+    }
+    
+    // Use file selector to choose file to import
+    const XTypeGroup typeGroup = XTypeGroup(
+      label: 'All Files',
+    );
+    final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
+    
+    if (file == null) return; // User cancelled
+    
+    try {
+      // Show loading indicator
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // Read file content
+      final inputFile = File(file.path);
+      final plaintext = await inputFile.readAsBytes();
+      
+      // Encrypt and save to current directory
+      final encryptedData = _cryptoService.encryptDataBytes(plaintext, _currentDir!.tempKeyID!);
+      
+      // Save encrypted file to current directory
+      final fileName = file.name;
+      final outputFile = File('$_currentPath/$fileName');
+      await outputFile.writeAsBytes(encryptedData);
+      
+      // Refresh file list
+      await _loadCurrentPath();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('File imported: $fileName')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to import file: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
   
   Future<void> _exportFile(FileSystemNode item) async {

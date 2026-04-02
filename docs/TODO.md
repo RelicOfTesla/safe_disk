@@ -58,7 +58,7 @@
 ### 🔴 紧急问题（P0）
 - [x] **打开加密目录应当使用目录选择器** ✅ 2026-04-02（使用 `getDirectoryPath()` 替代文本输入）
 - [x] **[BUG] 目录导出菜单缺失** ✅ 2026-04-02（添加了目录导出功能，支持递归导出）
-- [ ] **创建加密目录功能缺失**（已添加按钮，需要添加 FFI 绑定）
+- [x] **创建加密目录功能缺失** ✅ 2026-04-03（已添加按钮，需要添加 FFI 绑定）
 - [x] **多级目录导航不支持快捷跳转到2级3级等子级目录** ✅ 2026-04-02（添加了路径导航栏 breadcrumb）
 - [x] **[BUG] 有两个search按钮** ✅ 2026-04-02（删除了重复的搜索按钮）
 - [x] **[BUG] 树形UI界面缺少显示文件** ✅ 2026-04-02（修改了树形UI，现在可以显示文件和目录）
@@ -80,7 +80,7 @@
   - **字段重命名**：`check` → `encryptedChallengeId`, `checkIdentifier` → `challengeId`（commit: ca3eb8e）
 
 ### 🔴 严重安全问题（P0）
-- [ ] **🚨 高危泄密风险：严禁在内部解密时保存临时文件到硬盘**
+- [x] **🚨 高危泄密风险：严禁在内部解密时保存临时文件到硬盘** ✅ 2026-04-03
   - **规定**：除了用户主动点击"导出解密"功能外，其他所有内部操作严禁将临时解密文件保存到本地硬盘
   - **范围**：文件预览、图片查看、记事本编辑、文件内容读取等所有功能
   - **检查点**：查找所有 `createTemp`、`createTempFile`、`createTempDir` 相关代码
@@ -137,6 +137,8 @@
 - [x] **🔴 高优先级：VerifyPassword 不应硬编码检查值** ✅ 2026-04-02（每个加密目录现在有独立的随机挑战值标识符 `challengeId`）
 - [ ] **🟡 中优先级：补充密钥派生相关函数的测试覆盖**（已添加 PBKDF2 测试）
 - [ ] /safe_disk/native/main.go 统一 jsonSuccessResponse/jsonErrorResponse
+- [ ] /safe_disk/native/main.go GenerateEncryptionConfig 应当提取到service给cli复用
+- [ ] ffi 增加目录异步加解密功能。encryptDir/decryptDir(dir, tempKeyID, callback), 注意复用，cli也要调用
 
 ### Dart/Flutter 代码质量 Review 🔴 NEW
 - [ ] **代码规范检查**

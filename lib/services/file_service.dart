@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import '../models/cryption_config.dart';
 import 'crypto_service.dart';
 
@@ -163,14 +164,13 @@ class FileService {
     return parts.join('/');
   }
   
-  /// Decrypts a file to a temporary location
-  Future<String> decryptFile(FileSystemNode file, String tempKeyID) async {
+  /// Decrypts a file to memory (NOT to disk for security)
+  /// Returns decrypted data as Uint8List
+  /// SECURITY: Never save decrypted data to temporary files!
+  Future<Uint8List> decryptFileToBytes(FileSystemNode file, String tempKeyID) async {
     if (file.isDirectory) {
       throw Exception('Cannot decrypt a directory');
     }
-    
-    // Extract directory path from file path
-    final dirPath = file.path.substring(0, file.path.lastIndexOf('/'));
     
     final inputFile = File(file.path);
     final encryptedData = await inputFile.readAsBytes();
@@ -179,12 +179,7 @@ class FileService {
     final encryptedDataBase64 = base64Encode(encryptedData);
     final decryptedData = _cryptoService.decryptDataBytes(encryptedDataBase64, tempKeyID);
     
-    // Create temp file
-    final tempDir = await Directory.systemTemp.createTemp('safedisk_');
-    final tempFile = File('${tempDir.path}/${file.name}');
-    await tempFile.writeAsBytes(decryptedData);
-    
-    return tempFile.path;
+    return decryptedData;
   }
   
   /// Encrypts a file and saves to encrypted directory
