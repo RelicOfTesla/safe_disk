@@ -51,12 +51,28 @@ native/*.test
 native/*.out
 native/*.h
 
+# Coverage files
+**/coverage*.out
+*.cover
+*.coverprofile
+
 # Build directory
 /build/
 /native/bin
 
+# Native library build artifacts
+native/linux/
+native/windows/
+native/darwin/
+
 /native/safedisk-cli
 /native/safedisk-cli-test
+
+# Backup directories
+native/_backup*
+
+# Compiled native library
+native/native
 
 /memory
 

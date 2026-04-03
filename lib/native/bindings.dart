@@ -90,6 +90,116 @@ typedef CreateEncryptedDirectoryDart = Pointer<Utf8> Function(
 typedef FreeCStringC = Void Function(Pointer<Utf8> s);
 typedef FreeCStringDart = void Function(Pointer<Utf8> s);
 
+// EncryptDirectoryAsync: (srcDir, dstDir, tempKeyID) -> string
+typedef EncryptDirectoryAsyncC = Pointer<Utf8> Function(
+    Pointer<Utf8> srcDir, Pointer<Utf8> dstDir, Pointer<Utf8> tempKeyID);
+typedef EncryptDirectoryAsyncDart = Pointer<Utf8> Function(
+    Pointer<Utf8> srcDir, Pointer<Utf8> dstDir, Pointer<Utf8> tempKeyID);
+
+// DecryptDirectoryAsync: (srcDir, dstDir, tempKeyID) -> string
+typedef DecryptDirectoryAsyncC = Pointer<Utf8> Function(
+    Pointer<Utf8> srcDir, Pointer<Utf8> dstDir, Pointer<Utf8> tempKeyID);
+typedef DecryptDirectoryAsyncDart = Pointer<Utf8> Function(
+    Pointer<Utf8> srcDir, Pointer<Utf8> dstDir, Pointer<Utf8> tempKeyID);
+
+// GetJobProgress: (jobID) -> string
+typedef GetJobProgressC = Pointer<Utf8> Function(Pointer<Utf8> jobID);
+typedef GetJobProgressDart = Pointer<Utf8> Function(Pointer<Utf8> jobID);
+
+// GetJobStatus: (jobID) -> string
+typedef GetJobStatusC = Pointer<Utf8> Function(Pointer<Utf8> jobID);
+typedef GetJobStatusDart = Pointer<Utf8> Function(Pointer<Utf8> jobID);
+
+// CancelJob: (jobID) -> string
+typedef CancelJobC = Pointer<Utf8> Function(Pointer<Utf8> jobID);
+typedef CancelJobDart = Pointer<Utf8> Function(Pointer<Utf8> jobID);
+
+// DeleteJob: (jobID) -> string
+typedef DeleteJobC = Pointer<Utf8> Function(Pointer<Utf8> jobID);
+typedef DeleteJobDart = Pointer<Utf8> Function(Pointer<Utf8> jobID);
+
+// ==================== INCREMENTAL ENCRYPTION OPERATIONS ====================
+
+// IncrementalEncryptorCreate: (dstPath, keyBase64, chunkSizeKB) -> string
+typedef IncrementalEncryptorCreateC = Pointer<Utf8> Function(
+    Pointer<Utf8> dstPath, Pointer<Utf8> keyBase64, Int32 chunkSizeKB);
+typedef IncrementalEncryptorCreateDart = Pointer<Utf8> Function(
+    Pointer<Utf8> dstPath, Pointer<Utf8> keyBase64, int chunkSizeKB);
+
+// IncrementalEncryptorAddBlock: (handleID, dataBase64) -> string
+typedef IncrementalEncryptorAddBlockC = Pointer<Utf8> Function(
+    Int64 handleID, Pointer<Utf8> dataBase64);
+typedef IncrementalEncryptorAddBlockDart = Pointer<Utf8> Function(
+    int handleID, Pointer<Utf8> dataBase64);
+
+// IncrementalEncryptorFinalize: (handleID) -> string
+typedef IncrementalEncryptorFinalizeC = Pointer<Utf8> Function(Int64 handleID);
+typedef IncrementalEncryptorFinalizeDart = Pointer<Utf8> Function(int handleID);
+
+// IncrementalEncryptorClose: (handleID) -> string
+typedef IncrementalEncryptorCloseC = Pointer<Utf8> Function(Int64 handleID);
+typedef IncrementalEncryptorCloseDart = Pointer<Utf8> Function(int handleID);
+
+// IncrementalDecryptorOpen: (srcPath, keyBase64) -> string
+typedef IncrementalDecryptorOpenC = Pointer<Utf8> Function(
+    Pointer<Utf8> srcPath, Pointer<Utf8> keyBase64);
+typedef IncrementalDecryptorOpenDart = Pointer<Utf8> Function(
+    Pointer<Utf8> srcPath, Pointer<Utf8> keyBase64);
+
+// IncrementalDecryptorDecryptBlock: (handleID, blockIndex) -> string
+typedef IncrementalDecryptorDecryptBlockC = Pointer<Utf8> Function(
+    Int64 handleID, Int32 blockIndex);
+typedef IncrementalDecryptorDecryptBlockDart = Pointer<Utf8> Function(
+    int handleID, int blockIndex);
+
+// IncrementalDecryptorDecryptRange: (handleID, offset, length) -> string
+typedef IncrementalDecryptorDecryptRangeC = Pointer<Utf8> Function(
+    Int64 handleID, Int64 offset, Int32 length);
+typedef IncrementalDecryptorDecryptRangeDart = Pointer<Utf8> Function(
+    int handleID, int offset, int length);
+
+// IncrementalDecryptorDecryptAll: (handleID) -> string
+typedef IncrementalDecryptorDecryptAllC = Pointer<Utf8> Function(Int64 handleID);
+typedef IncrementalDecryptorDecryptAllDart = Pointer<Utf8> Function(
+    int handleID);
+
+// IncrementalDecryptorVerifyBlockIntegrity: (handleID, blockIndex) -> string
+typedef IncrementalDecryptorVerifyBlockIntegrityC = Pointer<Utf8> Function(
+    Int64 handleID, Int32 blockIndex);
+typedef IncrementalDecryptorVerifyBlockIntegrityDart = Pointer<Utf8> Function(
+    int handleID, int blockIndex);
+
+// IncrementalDecryptorVerifyIntegrity: (handleID) -> string
+typedef IncrementalDecryptorVerifyIntegrityC = Pointer<Utf8> Function(
+    Int64 handleID);
+typedef IncrementalDecryptorVerifyIntegrityDart = Pointer<Utf8> Function(
+    int handleID);
+
+// IncrementalDecryptorGetBlockInfo: (handleID, blockIndex) -> string
+typedef IncrementalDecryptorGetBlockInfoC = Pointer<Utf8> Function(
+    Int64 handleID, Int32 blockIndex);
+typedef IncrementalDecryptorGetBlockInfoDart = Pointer<Utf8> Function(
+    int handleID, int blockIndex);
+
+// IncrementalDecryptorGetAllBlockInfo: (handleID) -> string
+typedef IncrementalDecryptorGetAllBlockInfoC = Pointer<Utf8> Function(
+    Int64 handleID);
+typedef IncrementalDecryptorGetAllBlockInfoDart = Pointer<Utf8> Function(
+    int handleID);
+
+// IncrementalDecryptorClose: (handleID) -> string
+typedef IncrementalDecryptorCloseC = Pointer<Utf8> Function(Int64 handleID);
+typedef IncrementalDecryptorCloseDart = Pointer<Utf8> Function(int handleID);
+
+// IsIncrementalFile: (path) -> string
+typedef IsIncrementalFileC = Pointer<Utf8> Function(Pointer<Utf8> path);
+typedef IsIncrementalFileDart = Pointer<Utf8> Function(Pointer<Utf8> path);
+
+// GetIncrementalFileInfo: (path) -> string
+typedef GetIncrementalFileInfoC = Pointer<Utf8> Function(Pointer<Utf8> path);
+typedef GetIncrementalFileInfoDart = Pointer<Utf8> Function(Pointer<Utf8> path);
+
+
 // ==================== NATIVE BINDINGS ====================
 
 class NativeBindings {
@@ -133,6 +243,73 @@ class NativeBindings {
         CreateEncryptedDirectoryDart>('CreateEncryptedDirectory');
     freeCString =
         _lib.lookupFunction<FreeCStringC, FreeCStringDart>('FreeCString');
+    encryptDirectoryAsync =
+        _lib.lookupFunction<EncryptDirectoryAsyncC, EncryptDirectoryAsyncDart>(
+            'EncryptDirectoryAsync');
+    decryptDirectoryAsync =
+        _lib.lookupFunction<DecryptDirectoryAsyncC, DecryptDirectoryAsyncDart>(
+            'DecryptDirectoryAsync');
+    getJobProgress =
+        _lib.lookupFunction<GetJobProgressC, GetJobProgressDart>(
+            'GetJobProgress');
+    getJobStatus =
+        _lib.lookupFunction<GetJobStatusC, GetJobStatusDart>('GetJobStatus');
+    cancelJob =
+        _lib.lookupFunction<CancelJobC, CancelJobDart>('CancelJob');
+    deleteJob =
+        _lib.lookupFunction<DeleteJobC, DeleteJobDart>('DeleteJob');
+
+    // Incremental encryption operations
+    incrementalEncryptorCreate = _lib.lookupFunction<
+        IncrementalEncryptorCreateC,
+        IncrementalEncryptorCreateDart>('IncrementalEncryptorCreate');
+    incrementalEncryptorAddBlock = _lib.lookupFunction<
+        IncrementalEncryptorAddBlockC,
+        IncrementalEncryptorAddBlockDart>('IncrementalEncryptorAddBlock');
+    incrementalEncryptorFinalize = _lib.lookupFunction<
+        IncrementalEncryptorFinalizeC,
+        IncrementalEncryptorFinalizeDart>('IncrementalEncryptorFinalize');
+    incrementalEncryptorClose = _lib.lookupFunction<
+        IncrementalEncryptorCloseC,
+        IncrementalEncryptorCloseDart>('IncrementalEncryptorClose');
+    incrementalDecryptorOpen = _lib.lookupFunction<
+        IncrementalDecryptorOpenC,
+        IncrementalDecryptorOpenDart>('IncrementalDecryptorOpen');
+    incrementalDecryptorDecryptBlock = _lib.lookupFunction<
+        IncrementalDecryptorDecryptBlockC,
+        IncrementalDecryptorDecryptBlockDart>(
+        'IncrementalDecryptorDecryptBlock');
+    incrementalDecryptorDecryptRange = _lib.lookupFunction<
+        IncrementalDecryptorDecryptRangeC,
+        IncrementalDecryptorDecryptRangeDart>(
+        'IncrementalDecryptorDecryptRange');
+    incrementalDecryptorDecryptAll = _lib.lookupFunction<
+        IncrementalDecryptorDecryptAllC,
+        IncrementalDecryptorDecryptAllDart>('IncrementalDecryptorDecryptAll');
+    incrementalDecryptorVerifyBlockIntegrity = _lib.lookupFunction<
+        IncrementalDecryptorVerifyBlockIntegrityC,
+        IncrementalDecryptorVerifyBlockIntegrityDart>(
+        'IncrementalDecryptorVerifyBlockIntegrity');
+    incrementalDecryptorVerifyIntegrity = _lib.lookupFunction<
+        IncrementalDecryptorVerifyIntegrityC,
+        IncrementalDecryptorVerifyIntegrityDart>(
+        'IncrementalDecryptorVerifyIntegrity');
+    incrementalDecryptorGetBlockInfo = _lib.lookupFunction<
+        IncrementalDecryptorGetBlockInfoC,
+        IncrementalDecryptorGetBlockInfoDart>(
+        'IncrementalDecryptorGetBlockInfo');
+    incrementalDecryptorGetAllBlockInfo = _lib.lookupFunction<
+        IncrementalDecryptorGetAllBlockInfoC,
+        IncrementalDecryptorGetAllBlockInfoDart>(
+        'IncrementalDecryptorGetAllBlockInfo');
+    incrementalDecryptorClose = _lib.lookupFunction<
+        IncrementalDecryptorCloseC,
+        IncrementalDecryptorCloseDart>('IncrementalDecryptorClose');
+    isIncrementalFile =
+        _lib.lookupFunction<IsIncrementalFileC, IsIncrementalFileDart>(
+            'IsIncrementalFile');
+    getIncrementalFileInfo = _lib.lookupFunction<GetIncrementalFileInfoC,
+        GetIncrementalFileInfoDart>('GetIncrementalFileInfo');
   }
 
   static NativeBindings? _instance;
@@ -181,4 +358,27 @@ class NativeBindings {
   late final FindCryptionRootDart findCryptionRoot;
   late final CreateEncryptedDirectoryDart createEncryptedDirectory;
   late final FreeCStringDart freeCString;
+  late final EncryptDirectoryAsyncDart encryptDirectoryAsync;
+  late final DecryptDirectoryAsyncDart decryptDirectoryAsync;
+  late final GetJobProgressDart getJobProgress;
+  late final GetJobStatusDart getJobStatus;
+  late final CancelJobDart cancelJob;
+  late final DeleteJobDart deleteJob;
+
+  // Incremental encryption operations
+  late final IncrementalEncryptorCreateDart incrementalEncryptorCreate;
+  late final IncrementalEncryptorAddBlockDart incrementalEncryptorAddBlock;
+  late final IncrementalEncryptorFinalizeDart incrementalEncryptorFinalize;
+  late final IncrementalEncryptorCloseDart incrementalEncryptorClose;
+  late final IncrementalDecryptorOpenDart incrementalDecryptorOpen;
+  late final IncrementalDecryptorDecryptBlockDart incrementalDecryptorDecryptBlock;
+  late final IncrementalDecryptorDecryptRangeDart incrementalDecryptorDecryptRange;
+  late final IncrementalDecryptorDecryptAllDart incrementalDecryptorDecryptAll;
+  late final IncrementalDecryptorVerifyBlockIntegrityDart incrementalDecryptorVerifyBlockIntegrity;
+  late final IncrementalDecryptorVerifyIntegrityDart incrementalDecryptorVerifyIntegrity;
+  late final IncrementalDecryptorGetBlockInfoDart incrementalDecryptorGetBlockInfo;
+  late final IncrementalDecryptorGetAllBlockInfoDart incrementalDecryptorGetAllBlockInfo;
+  late final IncrementalDecryptorCloseDart incrementalDecryptorClose;
+  late final IsIncrementalFileDart isIncrementalFile;
+  late final GetIncrementalFileInfoDart getIncrementalFileInfo;
 }

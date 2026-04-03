@@ -280,4 +280,282 @@ class NativeLib {
       calloc.free(configJSONPtr);
     }
   }
+
+  // ==================== ASYNC DIRECTORY OPERATIONS ====================
+
+  /// Starts an async directory encryption job.
+  /// srcDir: source directory path (plaintext files)
+  /// dstDir: destination directory path (encrypted files)
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: JSON result {"success": true, "jobID": "..."} or error
+  String encryptDirectoryAsync(String srcDir, String dstDir, String tempKeyID) {
+    final srcPtr = srcDir.toNativeUtf8();
+    final dstPtr = dstDir.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+
+    try {
+      final resultPtr =
+          _bindings.encryptDirectoryAsync(srcPtr, dstPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(dstPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+
+  /// Starts an async directory decryption job.
+  /// srcDir: source directory path (encrypted files)
+  /// dstDir: destination directory path (decrypted files)
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: JSON result {"success": true, "jobID": "..."} or error
+  String decryptDirectoryAsync(String srcDir, String dstDir, String tempKeyID) {
+    final srcPtr = srcDir.toNativeUtf8();
+    final dstPtr = dstDir.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+
+    try {
+      final resultPtr =
+          _bindings.decryptDirectoryAsync(srcPtr, dstPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(dstPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+
+  /// Gets the progress of an async job.
+  /// jobID: job ID (from encryptDirectoryAsync or decryptDirectoryAsync)
+  /// Returns: JSON result {"success": true, "progress": {...}} or error
+  String getJobProgress(String jobID) {
+    final jobIDPtr = jobID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.getJobProgress(jobIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(jobIDPtr);
+    }
+  }
+
+  /// Gets the status of an async job.
+  /// jobID: job ID
+  /// Returns: JSON result {"success": true, "status": "pending|running|completed|cancelled|failed"} or error
+  String getJobStatus(String jobID) {
+    final jobIDPtr = jobID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.getJobStatus(jobIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(jobIDPtr);
+    }
+  }
+
+  /// Cancels an async job.
+  /// jobID: job ID
+  /// Returns: JSON result {"success": true} or error
+  String cancelJob(String jobID) {
+    final jobIDPtr = jobID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.cancelJob(jobIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(jobIDPtr);
+    }
+  }
+
+  /// Deletes an async job.
+  /// jobID: job ID
+  /// Returns: JSON result {"success": true}
+  String deleteJob(String jobID) {
+    final jobIDPtr = jobID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.deleteJob(jobIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(jobIDPtr);
+    }
+  }
+
+  // ==================== INCREMENTAL ENCRYPTION OPERATIONS ====================
+
+  /// Creates a new incremental encryptor.
+  /// dstPath: destination file path for the encrypted file
+  /// keyBase64: base64-encoded 32-byte key (AES-256)
+  /// chunkSizeKB: chunk size in KB (0 = default 64 KB)
+  /// Returns: JSON result {"success": true, "handleID": ...} or error
+  String incrementalEncryptorCreate(
+      String dstPath, String keyBase64, int chunkSizeKB) {
+    final dstPathPtr = dstPath.toNativeUtf8();
+    final keyBase64Ptr = keyBase64.toNativeUtf8();
+
+    try {
+      final resultPtr =
+          _bindings.incrementalEncryptorCreate(dstPathPtr, keyBase64Ptr, chunkSizeKB);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(dstPathPtr);
+      calloc.free(keyBase64Ptr);
+    }
+  }
+
+  /// Adds a block to the incremental encryptor.
+  /// handleID: encryptor handle ID (from incrementalEncryptorCreate)
+  /// dataBase64: base64-encoded block data
+  /// Returns: JSON result {"success": true} or error
+  String incrementalEncryptorAddBlock(int handleID, String dataBase64) {
+    final dataBase64Ptr = dataBase64.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.incrementalEncryptorAddBlock(handleID, dataBase64Ptr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(dataBase64Ptr);
+    }
+  }
+
+  /// Finalizes the incremental encryptor and writes the file.
+  /// handleID: encryptor handle ID (from incrementalEncryptorCreate)
+  /// Returns: JSON result {"success": true} or error
+  String incrementalEncryptorFinalize(int handleID) {
+    final resultPtr = _bindings.incrementalEncryptorFinalize(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Closes the incremental encryptor without finalizing.
+  /// handleID: encryptor handle ID (from incrementalEncryptorCreate)
+  /// Returns: JSON result {"success": true} or error
+  String incrementalEncryptorClose(int handleID) {
+    final resultPtr = _bindings.incrementalEncryptorClose(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Opens an incremental encrypted file for reading.
+  /// srcPath: source encrypted file path
+  /// keyBase64: base64-encoded 32-byte key (AES-256)
+  /// Returns: JSON result {"success": true, "handleID": ..., "chunkCount": ..., "totalSize": ...} or error
+  String incrementalDecryptorOpen(String srcPath, String keyBase64) {
+    final srcPathPtr = srcPath.toNativeUtf8();
+    final keyBase64Ptr = keyBase64.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.incrementalDecryptorOpen(srcPathPtr, keyBase64Ptr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPathPtr);
+      calloc.free(keyBase64Ptr);
+    }
+  }
+
+  /// Decrypts a specific block by index.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// blockIndex: block index (0-based)
+  /// Returns: JSON result {"success": true, "data": "...base64..."} or error
+  String incrementalDecryptorDecryptBlock(int handleID, int blockIndex) {
+    final resultPtr = _bindings.incrementalDecryptorDecryptBlock(handleID, blockIndex);
+    return resultPtr.toDartString();
+  }
+
+  /// Decrypts a range of bytes from the file.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// offset: byte offset in the plaintext
+  /// length: number of bytes to decrypt
+  /// Returns: JSON result {"success": true, "data": "...base64..."} or error
+  String incrementalDecryptorDecryptRange(int handleID, int offset, int length) {
+    final resultPtr = _bindings.incrementalDecryptorDecryptRange(handleID, offset, length);
+    return resultPtr.toDartString();
+  }
+
+  /// Decrypts the entire file.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// Returns: JSON result {"success": true, "data": "...base64..."} or error
+  String incrementalDecryptorDecryptAll(int handleID) {
+    final resultPtr = _bindings.incrementalDecryptorDecryptAll(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Verifies the integrity of a specific block.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// blockIndex: block index (0-based)
+  /// Returns: JSON result {"success": true} or error
+  String incrementalDecryptorVerifyBlockIntegrity(int handleID, int blockIndex) {
+    final resultPtr = _bindings.incrementalDecryptorVerifyBlockIntegrity(handleID, blockIndex);
+    return resultPtr.toDartString();
+  }
+
+  /// Verifies the integrity of the entire file.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// Returns: JSON result {"success": true} or error
+  String incrementalDecryptorVerifyIntegrity(int handleID) {
+    final resultPtr = _bindings.incrementalDecryptorVerifyIntegrity(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Returns information about a specific block.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// blockIndex: block index (0-based)
+  /// Returns: JSON result {"success": true, "blockInfo": {...}} or error
+  String incrementalDecryptorGetBlockInfo(int handleID, int blockIndex) {
+    final resultPtr = _bindings.incrementalDecryptorGetBlockInfo(handleID, blockIndex);
+    return resultPtr.toDartString();
+  }
+
+  /// Returns information about all blocks.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// Returns: JSON result {"success": true, "blockInfos": [...]} or error
+  String incrementalDecryptorGetAllBlockInfo(int handleID) {
+    final resultPtr = _bindings.incrementalDecryptorGetAllBlockInfo(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Closes the incremental decryptor.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// Returns: JSON result {"success": true} or error
+  String incrementalDecryptorClose(int handleID) {
+    final resultPtr = _bindings.incrementalDecryptorClose(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Checks if a file is in incremental encrypted format.
+  /// path: file path to check
+  /// Returns: JSON result {"success": true, "isIncremental": true/false} or error
+  String isIncrementalFile(String path) {
+    final pathPtr = path.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.isIncrementalFile(pathPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Returns metadata about an incremental encrypted file.
+  /// path: file path
+  /// Returns: JSON result {"success": true, "header": {...}} or error
+  String getIncrementalFileInfo(String path) {
+    final pathPtr = path.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.getIncrementalFileInfo(pathPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
 }

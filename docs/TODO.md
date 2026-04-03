@@ -155,7 +155,7 @@
   - [x] 添加 secure_image_viewer.dart 测试（0% → 88.4%）
   - [ ] 未达成目标，需要继续添加测试
 
-- [ ] Go 核心库优化
+- [x] Go 核心库优化 ✅ 2026-04-03
   - [x] 更完善的错误处理 ✅ 2026-04-03
     - 新建 native/errors/errors.go 统一错误处理模块
     - 修改 native/crypto/、native/service/、native/config/ 包使用新错误类型
@@ -168,14 +168,30 @@
     - 修改 native/main.go 使用新响应格式
     - 修改 native/service/encryption_service.go 使用新响应格式
     - 所有测试通过，功能正常
-  - [ ] GenerateEncryptionConfig 提取到 service 供 CLI 复用
+  - [x] GenerateEncryptionConfig 提取到 service 供 CLI 复用 ✅ 2026-04-03
+    - Commit: da6f582d
+    - 提取 GenerateEncryptionConfig 到 service 层
+    - CLI 和 FFI 均可复用
 
-- [ ] FFI 增加目录异步加解密功能
-  - encryptDir/decryptDir(srcDir, targetDir, tempKeyID, callback)
-  - 注意复用，CLI 也要调用
-  - 注意srcDir==targetDir时,应当原子安全
+- [x] FFI 增加目录异步加解密功能 ✅ 2026-04-03
+  - Commit: fe2ba2c
+  - 实现 encryptDir/decryptDir(srcDir, targetDir, tempKeyID, callback)
+  - 支持复用，CLI 也可调用
+  - srcDir==targetDir 时原子安全
 
-- [ ] 补充密钥派生相关函数的测试覆盖
+- [x] 密钥派生测试覆盖率优化 ✅ 2026-04-03
+  - **目标**：提升 native/crypto 密钥派生相关函数测试覆盖率
+  - **结果**：覆盖率 79.9%，全部测试通过
+  - **新增测试文件**：`native/crypto/key_derive_test.go`（替代旧的 key_derivation_test.go）
+  - **测试覆盖**：
+    - DeriveKeyFromPasswordPBKDF2
+    - VerifyPasswordPBKDF2
+    - GenerateRandomSalt
+    - GenerateEncryptionConfig
+    - 等密钥派生核心函数
+  - **修改文件**：native/crypto/key_derive_test.go
+
+- [ ] Go 核心库优化
 
 ---
 
@@ -185,6 +201,42 @@
 
 
 #### 大文件增量加密优化
+- [x] **实现增量加密 FFI 接口** ✅ 2026-04-03
+  - 新增 FFI 函数：IncrementalEncryptorCreate/AddBlock/Finalize/Close
+  - 新增 FFI 函数：IncrementalDecryptorOpen/DecryptBlock/DecryptRange/DecryptAll/Close
+  - 新增 FFI 函数：IncrementalDecryptorVerifyBlockIntegrity/VerifyIntegrity/GetBlockInfo/GetAllBlockInfo
+  - 新增 FFI 函数：IsIncrementalFile/GetIncrementalFileInfo
+  - 新增 Flutter FFI 绑定：lib/native/bindings.dart (+150 行)
+  - 新增 Flutter 端 API：lib/native/native_lib.dart (+172 行)
+  - 新增 Go 层 FFI 实现：native/main.go (+471 行)
+  - 新增文档：docs/FFI_INCREMENTAL_ENCRYPTION.md
+  - 新增测试：test/incremental_encrypt_ffi_test.dart
+
+- [x] **实现 Flutter 端 UI 集成** ✅ 2026-04-03
+  - 新增结果类：lib/models/ffi_results.dart (+247 行)
+    - IncrementalEncryptorResult、IncrementalDecryptorResult
+    - IncrementalBlockResult、IncrementalBlockInfo
+    - IsIncrementalResult、IncrementalFileHeader 等
+  - 新增服务层：lib/services/incremental_encrypt_service.dart (+735 行)
+    - IncrementalEncryptor：流式加密器，支持分块加密
+    - IncrementalDecryptor：流式解密器，支持随机访问解密
+    - IncrementalEncryptService：高级服务接口
+  - 新增单元测试：test/services/incremental_encrypt_service_test.dart
+  - 支持进度回调和错误处理
+  - 支持大文件流式加密/解密，内存占用有界
+  - Commit: e75c6e9
+
+- [x] **性能测试和优化** ✅ 2026-04-03
+  - 新增性能测试：native/crypto/incremental_encrypt_bench_test.go
+  - 新增性能测试：test/performance/incremental_encrypt_perf_test.dart
+  - 新增性能报告：docs/performance_report.md
+  - 测试结果：
+    - 加密吞吐量：167 MB/s (100MB 文件)
+    - 解密吞吐量：659 MB/s (100MB 文件)
+    - 随机访问延迟：35-90 µs (P50-P95)
+    - 存储开销：0.16%
+  - 优化建议：调整默认块大小至 256KB-512KB
+
 - [ ] **增量加密**：100MB 已加密文件，随机在 5 个位置添加/编辑/删除 1-2000byte 数据，再保存时文件修改量低于 8MB
   - 测试要求：创建 100MB 测试文件，验证修改量
   - 目标：避免全文件重新加密
