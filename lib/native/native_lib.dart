@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'bindings.dart';
@@ -126,6 +125,83 @@ class NativeLib {
     } finally {
       calloc.free(pathPtr);
       calloc.free(keyIDPtr);
+    }
+  }
+  
+  // ==================== STREAMING FILE OPERATIONS ====================
+  
+  /// Decrypts an encrypted file directly to another file path.
+  /// This is memory-efficient for large files - uses streaming decryption for chunked files.
+  /// srcPath: source encrypted file path
+  /// toPath: destination decrypted file path
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: JSON result {"success": true} or {"success": false, "error": "..."}
+  String decryptFileToPath(String srcPath, String toPath, String tempKeyID) {
+    final srcPtr = srcPath.toNativeUtf8();
+    final toPtr = toPath.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+    
+    try {
+      final resultPtr = _bindings.decryptFileToPath(srcPtr, toPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(toPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+  
+  /// Encrypts a file using chunked format (memory-efficient for large files).
+  /// This format supports streaming decryption - only one chunk is loaded into memory at a time.
+  /// srcPath: source file path
+  /// toPath: destination encrypted file path
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// chunkSizeKB: chunk size in KB (0 = default 64 KB)
+  /// Returns: JSON result {"success": true} or {"success": false, "error": "..."}
+  String encryptFileChunked(String srcPath, String toPath, String tempKeyID, {int chunkSizeKB = 0}) {
+    final srcPtr = srcPath.toNativeUtf8();
+    final toPtr = toPath.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+    
+    try {
+      final resultPtr = _bindings.encryptFileChunked(srcPtr, toPtr, keyIDPtr, chunkSizeKB);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(toPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+  
+  /// Checks if a file is in chunked encrypted format.
+  /// path: file path to check
+  /// Returns: JSON result {"success": true, "isChunked": true/false}
+  String isChunkedFile(String path) {
+    final pathPtr = path.toNativeUtf8();
+    
+    try {
+      final resultPtr = _bindings.isChunkedFile(pathPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+  
+  /// Gets information about an encrypted file.
+  /// path: file path
+  /// Returns: JSON result with file info (size, isChunked, recommendedMethod)
+  String getEncryptedFileInfo(String path) {
+    final pathPtr = path.toNativeUtf8();
+    
+    try {
+      final resultPtr = _bindings.getEncryptedFileInfo(pathPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(pathPtr);
     }
   }
   

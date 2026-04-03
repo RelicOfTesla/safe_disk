@@ -148,3 +148,63 @@ class FindRootResult extends FFIResult {
     );
   }
 }
+
+/// Result for checking if a file is chunked
+class IsChunkedResult extends FFIResult {
+  final bool? isChunked;
+  
+  IsChunkedResult({required bool success, String? error, this.isChunked})
+      : super(success: success, error: error);
+  
+  factory IsChunkedResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    return IsChunkedResult(
+      success: json['success'] as bool? ?? false,
+      error: json['error'] as String?,
+      isChunked: json['isChunked'] as bool?,
+    );
+  }
+  
+  /// Returns isChunked or throws an exception if failed
+  bool get isChunkedOrThrow {
+    if (!success) {
+      throw Exception(error ?? 'Failed to check file format');
+    }
+    return isChunked ?? false;
+  }
+}
+
+/// File information result
+/// Contains size, isChunked, and recommendedMethod
+/// This class is returned by getEncryptedFileInfo
+/// Fields:
+/// - success: whether the operation was successful
+/// - size: file size in bytes
+/// - isChunked: whether the file is in chunked format
+/// - recommendedMethod: recommended decryption method
+/// Note: size and isChunked may be null on error
+/// Note: recommendedMethod may be null on error
+class FileInfo extends FFIResult {
+  final int? size;
+  final bool? isChunked;
+  final String? recommendedMethod;
+  
+  FileInfo({
+    required bool success,
+    String? error,
+    this.size,
+    this.isChunked,
+    this.recommendedMethod,
+  }) : super(success: success, error: error);
+  
+  factory FileInfo.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    return FileInfo(
+      success: json['success'] as bool? ?? false,
+      error: json['error'] as String?,
+      size: json['size'] as int?,
+      isChunked: json['isChunked'] as bool?,
+      recommendedMethod: json['recommendedMethod'] as String?,
+    );
+  }
+}

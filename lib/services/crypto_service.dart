@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 import '../native/native_lib.dart';
 import '../models/cryption_config.dart';
@@ -130,6 +129,55 @@ class CryptoService {
     final resultStr = _native.decryptFileToData(path, tempKeyID);
     final result = DataResult.fromJson(resultStr);
     return result.dataOrThrow;
+  }
+  
+  // ==================== STREAMING FILE OPERATIONS ====================
+  
+  /// Large file threshold (100 MB)
+  static const int largeFileThreshold = 100 * 1024 * 1024;
+  
+  /// Decrypts an encrypted file directly to another file path.
+  /// This is memory-efficient for large files - uses streaming decryption for chunked files.
+  /// srcPath: source encrypted file path
+  /// toPath: destination decrypted file path
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: {"success": true} or throws exception
+  Map<String, dynamic> decryptFileToPath(String srcPath, String toPath, String tempKeyID) {
+    final resultStr = _native.decryptFileToPath(srcPath, toPath, tempKeyID);
+    final result = FileResult.fromJson(resultStr);
+    result.throwOnError();
+    return {'success': true};
+  }
+  
+  /// Encrypts a file using chunked format (memory-efficient for large files).
+  /// This format supports streaming decryption - only one chunk is loaded into memory at a time.
+  /// srcPath: source file path
+  /// toPath: destination encrypted file path
+  /// tempKeyID: temporary key ID (from createSession)
+  /// chunkSizeKB: chunk size in KB (0 = default 64 KB)
+  /// Returns: {"success": true} or throws exception
+  Map<String, dynamic> encryptFileChunked(String srcPath, String toPath, String tempKeyID, {int chunkSizeKB = 0}) {
+    final resultStr = _native.encryptFileChunked(srcPath, toPath, tempKeyID, chunkSizeKB: chunkSizeKB);
+    final result = FileResult.fromJson(resultStr);
+    result.throwOnError();
+    return {'success': true};
+  }
+  
+  /// Checks if a file is in chunked encrypted format.
+  /// path: file path to check
+  /// Returns: true if chunked, false otherwise
+  bool isChunkedFile(String path) {
+    final resultStr = _native.isChunkedFile(path);
+    final result = IsChunkedResult.fromJson(resultStr);
+    return result.isChunkedOrThrow;
+  }
+  
+  /// Gets information about an encrypted file.
+  /// path: file path
+  /// Returns: FileInfo with size, isChunked, recommendedMethod
+  FileInfo getEncryptedFileInfo(String path) {
+    final resultStr = _native.getEncryptedFileInfo(path);
+    return FileInfo.fromJson(resultStr);
   }
   
   // ==================== CONFIG MANAGEMENT ====================

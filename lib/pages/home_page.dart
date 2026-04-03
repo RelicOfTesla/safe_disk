@@ -10,6 +10,7 @@ import '../widgets/directory_tree.dart';
 import '../widgets/secure_notepad.dart';
 import '../widgets/secure_image_viewer.dart';
 import '../widgets/sidebar.dart';
+import '../widgets/copyable_snackbar.dart';
 import 'dialogs.dart';
 
 // View mode enum for file browsing
@@ -210,7 +211,7 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create encrypted directory: $e')),
+          CopyableSnackBar(message: 'Failed to create encrypted directory: $e', isError: true),
         );
       }
     } finally {
@@ -227,7 +228,7 @@ class _HomePageState extends State<HomePage> {
       if (root == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Not an encrypted directory (no _cryption.json found in this or parent directories)')),
+            CopyableSnackBar(message: 'Not an encrypted directory (no _cryption.json found in this or parent directories)'),
           );
         }
         return;
@@ -238,7 +239,7 @@ class _HomePageState extends State<HomePage> {
       if (config == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to load encryption config')),
+            CopyableSnackBar(message: 'Failed to load encryption config', isError: true),
           );
         }
         return;
@@ -286,7 +287,7 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading directory: $e')),
+          CopyableSnackBar(message: 'Error loading directory: $e', isError: true),
         );
       }
     } finally {
@@ -329,7 +330,7 @@ class _HomePageState extends State<HomePage> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid password')),
+          CopyableSnackBar(message: 'Invalid password', isError: true),
         );
       }
     }
@@ -1135,7 +1136,7 @@ class _HomePageState extends State<HomePage> {
     // Check if directory is opened and verified
     if (_currentDir == null || !_currentDir!.isVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please verify the directory first')),
+        CopyableSnackBar(message: 'Please verify the directory first', isError: true),
       );
       return;
     }
@@ -1143,7 +1144,7 @@ class _HomePageState extends State<HomePage> {
     // Check if session is active
     if (_currentDir!.tempKeyID == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Session expired. Please re-verify the directory')),
+        CopyableSnackBar(message: 'Session expired. Please re-verify the directory', isError: true),
       );
       return;
     }
@@ -1175,7 +1176,8 @@ class _HomePageState extends State<HomePage> {
       final plaintext = await inputFile.readAsBytes();
       
       // Encrypt and save to current directory
-      final encryptedData = _cryptoService.encryptDataBytes(plaintext, _currentDir!.tempKeyID!);
+      final encryptedDataBase64 = _cryptoService.encryptDataBytes(plaintext, _currentDir!.tempKeyID!);
+      final encryptedData = base64Decode(encryptedDataBase64);
       
       // Save encrypted file to current directory
       final fileName = file.name;
@@ -1211,7 +1213,7 @@ class _HomePageState extends State<HomePage> {
     // Check if directory is opened and verified
     if (_currentDir == null || !_currentDir!.isVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please verify the directory first')),
+        CopyableSnackBar(message: 'Please verify the directory first', isError: true),
       );
       return;
     }
@@ -1219,7 +1221,7 @@ class _HomePageState extends State<HomePage> {
     // Check if session is active
     if (_currentDir!.tempKeyID == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Session expired. Please re-verify the directory')),
+        CopyableSnackBar(message: 'Session expired. Please re-verify the directory', isError: true),
       );
       return;
     }
@@ -1255,7 +1257,7 @@ class _HomePageState extends State<HomePage> {
     // Check if directory is opened and verified
     if (_currentDir == null || !_currentDir!.isVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please verify the directory first')),
+        CopyableSnackBar(message: 'Please verify the directory first', isError: true),
       );
       return;
     }
@@ -1263,7 +1265,7 @@ class _HomePageState extends State<HomePage> {
     // Check if session is active
     if (_currentDir!.tempKeyID == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Session expired. Please re-verify the directory')),
+        CopyableSnackBar(message: 'Session expired. Please re-verify the directory', isError: true),
       );
       return;
     }
@@ -1355,7 +1357,7 @@ class _HomePageState extends State<HomePage> {
     // Check if directory is opened and verified
     if (_currentDir == null || !_currentDir!.isVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please verify the directory first')),
+        CopyableSnackBar(message: 'Please verify the directory first', isError: true),
       );
       return;
     }
@@ -1363,7 +1365,7 @@ class _HomePageState extends State<HomePage> {
     // Check if session is active
     if (_currentDir!.tempKeyID == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Session expired. Please re-verify the directory')),
+        CopyableSnackBar(message: 'Session expired. Please re-verify the directory', isError: true),
       );
       return;
     }

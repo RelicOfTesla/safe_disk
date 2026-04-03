@@ -53,3 +53,4 @@ native/*.h
 
 # Build directory
 build/
+native/bin

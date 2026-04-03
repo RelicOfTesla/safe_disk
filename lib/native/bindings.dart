@@ -28,6 +28,22 @@ typedef EncryptFileDart = Pointer<Utf8> Function(Pointer<Utf8> srcPath, Pointer<
 typedef DecryptFileToDataC = Pointer<Utf8> Function(Pointer<Utf8> path, Pointer<Utf8> tempKeyID);
 typedef DecryptFileToDataDart = Pointer<Utf8> Function(Pointer<Utf8> path, Pointer<Utf8> tempKeyID);
 
+// DecryptFileToPath: (srcPath, toPath, tempKeyID) -> string
+typedef DecryptFileToPathC = Pointer<Utf8> Function(Pointer<Utf8> srcPath, Pointer<Utf8> toPath, Pointer<Utf8> tempKeyID);
+typedef DecryptFileToPathDart = Pointer<Utf8> Function(Pointer<Utf8> srcPath, Pointer<Utf8> toPath, Pointer<Utf8> tempKeyID);
+
+// EncryptFileChunked: (srcPath, toPath, tempKeyID, chunkSizeKB) -> string
+typedef EncryptFileChunkedC = Pointer<Utf8> Function(Pointer<Utf8> srcPath, Pointer<Utf8> toPath, Pointer<Utf8> tempKeyID, Int32 chunkSizeKB);
+typedef EncryptFileChunkedDart = Pointer<Utf8> Function(Pointer<Utf8> srcPath, Pointer<Utf8> toPath, Pointer<Utf8> tempKeyID, int chunkSizeKB);
+
+// IsChunkedFile: (path) -> string
+typedef IsChunkedFileC = Pointer<Utf8> Function(Pointer<Utf8> path);
+typedef IsChunkedFileDart = Pointer<Utf8> Function(Pointer<Utf8> path);
+
+// GetEncryptedFileInfo: (path) -> string
+typedef GetEncryptedFileInfoC = Pointer<Utf8> Function(Pointer<Utf8> path);
+typedef GetEncryptedFileInfoDart = Pointer<Utf8> Function(Pointer<Utf8> path);
+
 // GenerateEncryptionConfig: (password, keyStrengthMs, mutable, challengeId) -> string
 typedef GenerateEncryptionConfigC = Pointer<Utf8> Function(Pointer<Utf8> password, Int32 keyStrengthMs, Int32 mutable, Pointer<Utf8> challengeId);
 typedef GenerateEncryptionConfigDart = Pointer<Utf8> Function(Pointer<Utf8> password, int keyStrengthMs, int mutable, Pointer<Utf8> challengeId);
@@ -60,6 +76,10 @@ class NativeBindings {
     decryptData = _lib.lookupFunction<DecryptDataC, DecryptDataDart>('DecryptData');
     encryptFile = _lib.lookupFunction<EncryptFileC, EncryptFileDart>('EncryptFile');
     decryptFileToData = _lib.lookupFunction<DecryptFileToDataC, DecryptFileToDataDart>('DecryptFileToData');
+    decryptFileToPath = _lib.lookupFunction<DecryptFileToPathC, DecryptFileToPathDart>('DecryptFileToPath');
+    encryptFileChunked = _lib.lookupFunction<EncryptFileChunkedC, EncryptFileChunkedDart>('EncryptFileChunked');
+    isChunkedFile = _lib.lookupFunction<IsChunkedFileC, IsChunkedFileDart>('IsChunkedFile');
+    getEncryptedFileInfo = _lib.lookupFunction<GetEncryptedFileInfoC, GetEncryptedFileInfoDart>('GetEncryptedFileInfo');
     generateEncryptionConfig = _lib.lookupFunction<GenerateEncryptionConfigC, GenerateEncryptionConfigDart>('GenerateEncryptionConfig');
     loadCryptionConfig = _lib.lookupFunction<LoadCryptionConfigC, LoadCryptionConfigDart>('LoadCryptionConfig');
     findCryptionRoot = _lib.lookupFunction<FindCryptionRootC, FindCryptionRootDart>('FindCryptionRoot');
@@ -104,6 +124,10 @@ class NativeBindings {
   late final DecryptDataDart decryptData;
   late final EncryptFileDart encryptFile;
   late final DecryptFileToDataDart decryptFileToData;
+  late final DecryptFileToPathDart decryptFileToPath;
+  late final EncryptFileChunkedDart encryptFileChunked;
+  late final IsChunkedFileDart isChunkedFile;
+  late final GetEncryptedFileInfoDart getEncryptedFileInfo;
   late final GenerateEncryptionConfigDart generateEncryptionConfig;
   late final LoadCryptionConfigDart loadCryptionConfig;
   late final FindCryptionRootDart findCryptionRoot;
