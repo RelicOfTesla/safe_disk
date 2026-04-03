@@ -43,13 +43,15 @@ class EncryptedDirectory {
   final String path;
   final CryptionConfig config;
   final bool isVerified;
-  final String? tempKeyID; // Temporary key ID for session (managed externally)
+  final int? sessionID; // Session ID from sec_root_open (managed externally)
+  final String? rootPath; // Root path for calculating relative paths
 
   EncryptedDirectory({
     required this.path,
     required this.config,
     this.isVerified = false,
-    this.tempKeyID,
+    this.sessionID,
+    this.rootPath,
   });
 
   /// Creates a copy with updated fields
@@ -57,13 +59,15 @@ class EncryptedDirectory {
     String? path,
     CryptionConfig? config,
     bool? isVerified,
-    String? tempKeyID,
+    int? sessionID,
+    String? rootPath,
   }) {
     return EncryptedDirectory(
       path: path ?? this.path,
       config: config ?? this.config,
       isVerified: isVerified ?? this.isVerified,
-      tempKeyID: tempKeyID ?? this.tempKeyID,
+      sessionID: sessionID ?? this.sessionID,
+      rootPath: rootPath ?? this.rootPath,
     );
   }
 }

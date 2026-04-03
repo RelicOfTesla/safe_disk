@@ -76,6 +76,6 @@ native/native
 
 /memory
 
-/docs/task-driver-report
+/docs/task-driver-*
 .backup_*
 /_bak_run.sh

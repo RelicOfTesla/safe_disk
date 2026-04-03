@@ -7,6 +7,7 @@ import '../services/file_service.dart';
 import '../services/directory_service.dart';
 import '../services/directory_persistence_service.dart';
 import '../models/cryption_config.dart';
+import '../models/ffi_results.dart';
 import '../widgets/directory_tree.dart';
 import '../widgets/secure_notepad.dart';
 import '../widgets/secure_image_viewer.dart';
@@ -57,7 +58,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _fileService = FileService(_cryptoService);
+    _fileService = FileService();
     _loadQuickList();
     _loadPersistedDirectories();
     _loadDrawerPinnedState();
@@ -220,13 +221,12 @@ class _HomePageState extends State<HomePage> {
         throw Exception(resultData['error'] ?? 'Failed to create config file');
       }
 
-      // Step 5: Encrypt all files
+      // Step 5: Open session for encryption
+      final session = _cryptoService.openSession(selectedPath, password);
+
+      // Step 6: Encrypt all files using new sec_* API
       final dir = Directory(selectedPath);
       final files = dir.listSync(recursive: true);
-
-      // Create session with password and config
-      final tempKeyID =
-          _cryptoService.createSession(password, jsonEncode(config));
 
       int fileCount = 0;
       for (final file in files) {
@@ -235,19 +235,20 @@ class _HomePageState extends State<HomePage> {
             // Read file
             final plaintext = await file.readAsBytes();
 
-            // Encrypt using session key
-            final ciphertextBase64 =
-                _cryptoService.encryptDataBytes(plaintext, tempKeyID);
-            final ciphertext = base64Decode(ciphertextBase64);
+            // Calculate relative path within the root directory
+            final relativePath = file.path.substring(selectedPath.length + 1);
 
-            // Write encrypted file
-            await file.writeAsBytes(ciphertext);
+            // Encrypt using secWriteFile
+            _fileService.secWriteFile(session.sessionID, relativePath, plaintext);
             fileCount++;
           } catch (e) {
             print('Failed to encrypt file ${file.path}: $e');
           }
         }
       }
+
+      // Close the session
+      _cryptoService.closeSession(session.sessionID);
 
       if (mounted) {
         ErrorHelper.showSuccess(context, '加密目录创建成功！已加密 $fileCount 个文件。');
@@ -348,21 +349,17 @@ class _HomePageState extends State<HomePage> {
   Future<void> _verifyPassword(String password) async {
     if (_currentDir == null) return;
 
-    // Convert config to JSON string
-    final configJSON = jsonEncode(_currentDir!.config.toJson());
-
-    final result = _cryptoService.verifyPassword(password, configJSON);
-
-    if (result.success) {
-      // Create session with password and config
-      final tempKeyID = _cryptoService.createSession(password, configJSON);
+    try {
+      // Use new sec_root_open API to verify password and create session
+      final session = _cryptoService.openSession(_currentDir!.path, password);
 
       setState(() {
         _currentDir = EncryptedDirectory(
           path: _currentDir!.path,
           config: _currentDir!.config,
           isVerified: true,
-          tempKeyID: tempKeyID,
+          sessionID: session.sessionID,
+          rootPath: session.rootPath,
         );
 
         // Update in opened directories list
@@ -376,11 +373,12 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         ErrorHelper.showSuccess(context, '密码验证成功');
       }
-    } else {
+    } catch (e) {
       if (mounted) {
         ErrorHelper.showError(
           context,
           errorType: ErrorType.invalidPassword,
+          originalError: e.toString(),
         );
       }
     }
@@ -1181,9 +1179,11 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(
         builder: (context) => SecureNotepad(
-          tempKeyID: _currentDir!.tempKeyID!,
+          sessionID: _currentDir!.sessionID!,
+          rootPath: _currentDir!.rootPath!,
           file: encryptedFile,
           cryptoService: _cryptoService,
+          fileService: _fileService,
           onSaved: () {
             _loadCurrentPath();
           },
@@ -1205,11 +1205,12 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(
         builder: (context) => SecureImageViewer(
-          tempKeyID: _currentDir!.tempKeyID!,
+          sessionID: _currentDir!.sessionID!,
+          rootPath: _currentDir!.rootPath!,
           file: encryptedFile,
           cryptoService: _cryptoService,
-          directoryPath: _currentPath,
           fileService: _fileService,
+          directoryPath: _currentPath,
         ),
       ),
     );
@@ -1229,7 +1230,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Check if session is active
-    if (_currentDir!.tempKeyID == null) {
+    if (_currentDir!.sessionID == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.sessionExpired,
@@ -1238,7 +1239,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Check if current path is set
-    if (_currentPath == null) {
+    if (_currentPath == null || _currentDir!.rootPath == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.noDirectorySelected,
@@ -1264,15 +1265,13 @@ class _HomePageState extends State<HomePage> {
       final inputFile = File(file.path);
       final plaintext = await inputFile.readAsBytes();
 
-      // Encrypt and save to current directory
-      final encryptedDataBase64 =
-          _cryptoService.encryptDataBytes(plaintext, _currentDir!.tempKeyID!);
-      final encryptedData = base64Decode(encryptedDataBase64);
-
-      // Save encrypted file to current directory
+      // Calculate relative path from root directory
       final fileName = file.name;
-      final outputFile = File('$_currentPath/$fileName');
-      await outputFile.writeAsBytes(encryptedData);
+      final relativePath = _currentPath!.substring(_currentDir!.rootPath!.length + 1);
+      final fullRelativePath = relativePath.isEmpty ? fileName : '$relativePath/$fileName';
+
+      // Encrypt and save using secWriteFile
+      _fileService.secWriteFile(_currentDir!.sessionID!, fullRelativePath, plaintext);
 
       // Refresh file list
       await _loadCurrentPath();
@@ -1310,7 +1309,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Check if session is active
-    if (_currentDir!.tempKeyID == null) {
+    if (_currentDir!.sessionID == null || _currentDir!.rootPath == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.sessionExpired,
@@ -1326,9 +1325,15 @@ class _HomePageState extends State<HomePage> {
     if (saveLocation == null) return; // User cancelled
 
     try {
-      // Export file
-      await _fileService.exportFile(
-          item, saveLocation.path, _currentDir!.tempKeyID!);
+      // Calculate relative path from root directory
+      final relativePath = item.path.substring(_currentDir!.rootPath!.length + 1);
+      
+      // Read decrypted data using secReadFile
+      final decryptedData = _fileService.secReadFile(_currentDir!.sessionID!, relativePath);
+      
+      // Write to output location
+      final outputFile = File(saveLocation.path);
+      await outputFile.writeAsBytes(decryptedData);
 
       if (mounted) {
         ErrorHelper.showSuccess(context, '文件导出成功：${saveLocation.path}');
@@ -1358,7 +1363,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Check if session is active
-    if (_currentDir!.tempKeyID == null) {
+    if (_currentDir!.sessionID == null || _currentDir!.rootPath == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.sessionExpired,
@@ -1383,22 +1388,62 @@ class _HomePageState extends State<HomePage> {
     );
 
     try {
-      // Use FFI service to decrypt directory
-      final progress = await _directoryService.decryptDirectory(
-        item.path,
-        dstDir,
-        _currentDir!.tempKeyID!,
-        onProgress: (jobProgress) {
-          // Update progress dialog
-          if (!progressController.isCancelled) {
-            progressController.update(
-              current: jobProgress.percent,
-              currentFileName: jobProgress.currentFile,
-              status: '正在导出...',
-            );
+      // Calculate relative path from root directory
+      final relativePath = item.path.substring(_currentDir!.rootPath!.length + 1);
+      
+      // Walk through directory using new sec_* API
+      final walker = _directoryService.secWalkDirectory(_currentDir!.sessionID!, relativePath);
+      final entries = <SecDirEntry>[];
+      
+      try {
+        while (true) {
+          final next = walker.next();
+          if (next.done) break;
+          if (next.entry != null) {
+            entries.add(next.entry!);
           }
-        },
-      );
+        }
+      } finally {
+        walker.close();
+      }
+
+      // Create destination directory
+      final dstDirectory = Directory(dstDir);
+      await dstDirectory.create(recursive: true);
+
+      int processedFiles = 0;
+      int totalFiles = entries.where((e) => !e.isDir).length;
+
+      // Process each entry
+      for (final entry in entries) {
+        if (progressController.isCancelled) break;
+
+        final entryRelativePath = relativePath.isEmpty 
+            ? entry.name 
+            : '$relativePath/${entry.name}';
+
+        if (entry.isDir) {
+          // Create directory
+          final newDir = Directory('$dstDir/${entry.name}');
+          await newDir.create(recursive: true);
+        } else {
+          // Decrypt and save file
+          progressController.update(
+            current: processedFiles + 1,
+            currentFileName: entry.name,
+            status: '正在导出...',
+          );
+
+          try {
+            final decryptedData = _fileService.secReadFile(_currentDir!.sessionID!, entryRelativePath);
+            final outputFile = File('$dstDir/${entry.name}');
+            await outputFile.writeAsBytes(decryptedData);
+            processedFiles++;
+          } catch (e) {
+            print('Failed to export ${entry.name}: $e');
+          }
+        }
+      }
 
       // Close progress dialog
       if (mounted) {
@@ -1407,16 +1452,7 @@ class _HomePageState extends State<HomePage> {
 
       // Show result
       if (mounted && !progressController.isCancelled) {
-        if (progress.isComplete && !progress.isFailed && !progress.isCancelled) {
-          ErrorHelper.showSuccess(
-              context, '导出完成：${progress.processedFiles} 个文件');
-        } else if (progress.isFailed) {
-          ErrorHelper.showError(
-            context,
-            errorType: ErrorType.exportDirectoryFailed,
-            originalError: progress.error ?? 'Unknown error',
-          );
-        }
+        ErrorHelper.showSuccess(context, '导出完成：$processedFiles 个文件');
       } else if (mounted && progressController.isCancelled) {
         ErrorHelper.showInfo(context, '导出已取消');
       }
@@ -1450,7 +1486,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Check if session is active
-    if (_currentDir!.tempKeyID == null) {
+    if (_currentDir!.sessionID == null || _currentDir!.rootPath == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.sessionExpired,
@@ -1494,9 +1530,17 @@ class _HomePageState extends State<HomePage> {
         );
 
         try {
+          // Calculate relative path from root directory
+          final relativePath = item.path.substring(_currentDir!.rootPath!.length + 1);
+          
+          // Read decrypted data using secReadFile
+          final decryptedData = _fileService.secReadFile(_currentDir!.sessionID!, relativePath);
+          
+          // Write to output location
           final outputPath = '$exportDir/${item.name}';
-          await _fileService.exportFile(
-              item, outputPath, _currentDir!.tempKeyID!);
+          final outputFile = File(outputPath);
+          await outputFile.writeAsBytes(decryptedData);
+          
           successCount++;
         } catch (e) {
           print('Failed to export ${item.name}: $e');

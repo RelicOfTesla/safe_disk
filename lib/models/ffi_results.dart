@@ -589,3 +589,340 @@ class IncrementalFileInfoResult extends FFIResult {
     );
   }
 }
+
+// ==================== SEC SERIES RESULTS (NEW) ====================
+
+/// Represents an open session from sec_root_open
+class SecSession {
+  final int sessionID;
+  final String rootPath;
+
+  SecSession({required this.sessionID, required this.rootPath});
+
+  factory SecSession.fromJson(Map<String, dynamic> json) {
+    return SecSession(
+      sessionID: json['sessionID'] as int? ?? 0,
+      rootPath: json['rootPath'] as String? ?? '',
+    );
+  }
+}
+
+/// Result for sec_root_open operation
+class SecRootOpenResult extends FFIResult {
+  final SecSession? session;
+
+  SecRootOpenResult({required super.success, super.error, this.session});
+
+  factory SecRootOpenResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    SecSession? session;
+    if (json['success'] == true) {
+      session = SecSession.fromJson(json);
+    }
+    return SecRootOpenResult(
+      success: json['success'] as bool? ?? false,
+      error: json['error'] as String?,
+      session: session,
+    );
+  }
+
+  /// Returns the session or throws an exception if failed
+  SecSession get sessionOrThrow {
+    if (!success) {
+      throw Exception(error ?? 'Failed to open session');
+    }
+    if (session == null) {
+      throw Exception('No session returned');
+    }
+    return session!;
+  }
+}
+
+/// Session information from sec_root_get_info
+class SecSessionInfo {
+  final String rootPath;
+  final Map<String, dynamic>? config;
+
+  SecSessionInfo({required this.rootPath, this.config});
+
+  factory SecSessionInfo.fromJson(Map<String, dynamic> json) {
+    return SecSessionInfo(
+      rootPath: json['rootPath'] as String? ?? '',
+      config: json['config'] as Map<String, dynamic>?,
+    );
+  }
+}
+
+/// Result for sec_root_get_info operation
+class SecRootInfoResult extends FFIResult {
+  final SecSessionInfo? info;
+
+  SecRootInfoResult({required super.success, super.error, this.info});
+
+  factory SecRootInfoResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    SecSessionInfo? info;
+    if (json['success'] == true) {
+      info = SecSessionInfo.fromJson(json);
+    }
+    return SecRootInfoResult(
+      success: json['success'] as bool? ?? false,
+      error: json['error'] as String?,
+      info: info,
+    );
+  }
+
+  /// Returns the session info or throws an exception if failed
+  SecSessionInfo get infoOrThrow {
+    if (!success) {
+      throw Exception(error ?? 'Failed to get session info');
+    }
+    if (info == null) {
+      throw Exception('No session info returned');
+    }
+    return info!;
+  }
+}
+
+/// Result for sec_fopen operation
+class SecFopenResult extends FFIResult {
+  final int? fileHandle;
+  final int? size;
+
+  SecFopenResult({required super.success, super.error, this.fileHandle, this.size});
+
+  factory SecFopenResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    return SecFopenResult(
+      success: json['success'] as bool? ?? false,
+      error: json['error'] as String?,
+      fileHandle: json['fileHandle'] as int?,
+      size: json['size'] as int?,
+    );
+  }
+
+  /// Returns the file handle or throws an exception if failed
+  int get fileHandleOrThrow {
+    if (!success) {
+      throw Exception(error ?? 'Failed to open file');
+    }
+    if (fileHandle == null) {
+      throw Exception('No file handle returned');
+    }
+    return fileHandle!;
+  }
+}
+
+/// Result for sec_fread operation
+class SecFreadResult extends FFIResult {
+  final Uint8List? data;
+  final int? bytesRead;
+
+  SecFreadResult({required super.success, super.error, this.data, this.bytesRead});
+
+  factory SecFreadResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    final success = json['success'] as bool? ?? false;
+
+    Uint8List? data;
+    if (success && json['data'] != null) {
+      data = base64Decode(json['data'] as String);
+    }
+
+    return SecFreadResult(
+      success: success,
+      error: json['error'] as String?,
+      data: data,
+      bytesRead: json['bytesRead'] as int?,
+    );
+  }
+
+  /// Returns the data or throws an exception if failed
+  Uint8List get dataOrThrow {
+    if (!success) {
+      throw Exception(error ?? 'Failed to read file');
+    }
+    if (data == null) {
+      throw Exception('No data returned');
+    }
+    return data!;
+  }
+}
+
+/// Result for sec_fwrite operation
+class SecFwriteResult extends FFIResult {
+  final int? bytesWritten;
+
+  SecFwriteResult({required super.success, super.error, this.bytesWritten});
+
+  factory SecFwriteResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    return SecFwriteResult(
+      success: json['success'] as bool? ?? false,
+      error: json['error'] as String?,
+      bytesWritten: json['bytesWritten'] as int?,
+    );
+  }
+}
+
+/// Result for sec_fstat operation
+class SecFstatResult extends FFIResult {
+  final int? size;
+
+  SecFstatResult({required super.success, super.error, this.size});
+
+  factory SecFstatResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    return SecFstatResult(
+      success: json['success'] as bool? ?? false,
+      error: json['error'] as String?,
+      size: json['size'] as int?,
+    );
+  }
+}
+
+/// Result for sec_fstat_info operation
+class SecFstatInfoResult extends FFIResult {
+  final bool? exists;
+  final int? size;
+  final bool? isChunked;
+  final int? modTime;
+
+  SecFstatInfoResult({
+    required super.success,
+    super.error,
+    this.exists,
+    this.size,
+    this.isChunked,
+    this.modTime,
+  });
+
+  factory SecFstatInfoResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    return SecFstatInfoResult(
+      success: json['success'] as bool? ?? false,
+      error: json['error'] as String?,
+      exists: json['exists'] as bool?,
+      size: json['size'] as int?,
+      isChunked: json['isChunked'] as bool?,
+      modTime: json['modTime'] as int?,
+    );
+  }
+}
+
+/// Result for sec_readfile operation
+class SecReadfileResult extends FFIResult {
+  final Uint8List? data;
+
+  SecReadfileResult({required super.success, super.error, this.data});
+
+  factory SecReadfileResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    final success = json['success'] as bool? ?? false;
+
+    Uint8List? data;
+    if (success && json['data'] != null) {
+      data = base64Decode(json['data'] as String);
+    }
+
+    return SecReadfileResult(
+      success: success,
+      error: json['error'] as String?,
+      data: data,
+    );
+  }
+
+  /// Returns the data or throws an exception if failed
+  Uint8List get dataOrThrow {
+    if (!success) {
+      throw Exception(error ?? 'Failed to read file');
+    }
+    if (data == null) {
+      throw Exception('No data returned');
+    }
+    return data!;
+  }
+}
+
+/// Result for sec_dir_walk operation
+class SecDirWalkResult extends FFIResult {
+  final int? walkerID;
+  final int? numFiles;
+
+  SecDirWalkResult({required super.success, super.error, this.walkerID, this.numFiles});
+
+  factory SecDirWalkResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    return SecDirWalkResult(
+      success: json['success'] as bool? ?? false,
+      error: json['error'] as String?,
+      walkerID: json['walkerID'] as int?,
+      numFiles: json['numFiles'] as int?,
+    );
+  }
+
+  /// Returns the walker ID or throws an exception if failed
+  int get walkerIDOrThrow {
+    if (!success) {
+      throw Exception(error ?? 'Failed to start directory walk');
+    }
+    if (walkerID == null) {
+      throw Exception('No walker ID returned');
+    }
+    return walkerID!;
+  }
+}
+
+/// Directory entry from sec_dir_walk_next
+class SecDirEntry {
+  final String name;
+  final bool isDir;
+  final int size;
+  final int modTime;
+
+  SecDirEntry({
+    required this.name,
+    required this.isDir,
+    required this.size,
+    required this.modTime,
+  });
+
+  factory SecDirEntry.fromJson(Map<String, dynamic> json) {
+    return SecDirEntry(
+      name: json['name'] as String? ?? '',
+      isDir: json['isDir'] as bool? ?? false,
+      size: json['size'] as int? ?? 0,
+      modTime: json['modTime'] as int? ?? 0,
+    );
+  }
+}
+
+/// Result for sec_dir_walk_next operation
+class SecDirWalkNextResult extends FFIResult {
+  final bool done;
+  final SecDirEntry? entry;
+
+  SecDirWalkNextResult({
+    required super.success,
+    super.error,
+    required this.done,
+    this.entry,
+  });
+
+  factory SecDirWalkNextResult.fromJson(String jsonStr) {
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    final done = json['done'] as bool? ?? false;
+
+    SecDirEntry? entry;
+    if (!done && json['name'] != null) {
+      entry = SecDirEntry.fromJson(json);
+    }
+
+    return SecDirWalkNextResult(
+      success: json['success'] as bool? ?? false,
+      error: json['error'] as String?,
+      done: done,
+      entry: entry,
+    );
+  }
+}
