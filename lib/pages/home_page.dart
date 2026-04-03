@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
-import 'dart:isolate';
 import 'package:file_selector/file_selector.dart';
 import '../services/crypto_service.dart';
 import '../services/file_service.dart';
+import '../services/directory_service.dart';
 import '../services/directory_persistence_service.dart';
 import '../models/cryption_config.dart';
 import '../widgets/directory_tree.dart';
@@ -29,6 +29,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final CryptoService _cryptoService = CryptoService();
+  final DirectoryService _directoryService = DirectoryService();
   late final FileService _fileService;
   final DirectoryPersistenceService _persistenceService =
       DirectoryPersistenceService();
@@ -199,28 +200,17 @@ class _HomePageState extends State<HomePage> {
       final configJson =
           _cryptoService.generateEncryptionConfig(password, 1000, mutable, '');
 
-      // Parse JSON config
-      final configMap = jsonDecode(configJson) as Map<String, dynamic>;
-
-      // Extract fields from config
-      final salt = configMap['salt'] as String;
-      final iterN = configMap['iterN'] as int;
-      final encryptedChallengeId = configMap['encryptedChallengeId'] as String;
-      final encryptedKey =
-          configMap['key'] as String?; // Only present in mutable mode
-
-      // Assemble config JSON with additional fields
-      final config = {
-        'version': '1.2',
-        'mode': mutable ? 'mutable' : 'immutable',
-        'check': encryptedChallengeId, // Use encryptedChallengeId as check
-        'salt': salt,
-        'iterN': iterN,
-        'algorithm': 'AES-256-GCM',
-        'kdf': 'pbkdf2',
-        'created': DateTime.now().toUtc().toIso8601String(),
-        if (encryptedKey != null) 'key': encryptedKey,
-      };
+      // Parse JSON response (SuccessWithData flattens all fields to top level)
+      final response = jsonDecode(configJson) as Map<String, dynamic>;
+      if (response['success'] != true) {
+        throw Exception(response['error'] ?? 'Failed to generate config');
+      }
+      
+      // Use config directly from response (remove 'success' and 'code' fields)
+      // This ensures consistency with Go's EncryptionConfigResult/CryptionJSON
+      final config = Map<String, dynamic>.from(response);
+      config.remove('success');
+      config.remove('code');
 
       // Step 4: Create config file via FFI
       final resultData =
@@ -1218,6 +1208,8 @@ class _HomePageState extends State<HomePage> {
           tempKeyID: _currentDir!.tempKeyID!,
           file: encryptedFile,
           cryptoService: _cryptoService,
+          directoryPath: _currentPath,
+          fileService: _fileService,
         ),
       ),
     );
@@ -1352,49 +1344,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Count total files in a directory (recursive, non-blocking)
-  /// Uses Isolate.run() to avoid UI jank for large directories
-  Future<int> _countFilesInDirectory(FileSystemNode node) async {
-    // If it's a file, return 1 directly
-    if (!node.isDirectory) {
-      return 1;
-    }
-
-    try {
-      // Run in background isolate with timeout
-      final count =
-          await Isolate.run(() => _countFilesInDirectorySync(node.path))
-              .timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          debugPrint('Warning: Count files timeout for ${node.path}');
-          return 0;
-        },
-      );
-      return count;
-    } catch (e) {
-      debugPrint('Error counting files in ${node.path}: $e');
-      return 0;
-    }
-  }
-
-  /// Synchronous file counting (runs in Isolate, safe to block)
-  static int _countFilesInDirectorySync(String path) {
-    try {
-      final dir = Directory(path);
-      if (!dir.existsSync()) return 0;
-
-      int count = 0;
-      // Use recursive listing to count all files
-      for (final entity in dir.listSync(recursive: true)) {
-        if (entity is File) count++;
-      }
-      return count;
-    } catch (e) {
-      // Return 0 on error to avoid crashing the isolate
-      return 0;
-    }
-  }
 
   Future<void> _exportDirectory(FileSystemNode item) async {
     if (!mounted) return;
@@ -1422,38 +1371,32 @@ class _HomePageState extends State<HomePage> {
 
     if (exportDir == null) return; // User cancelled
 
-    // Count total files first
-    final totalFiles = await _countFilesInDirectory(item);
-
-    if (totalFiles == 0) {
-      if (mounted) {
-        ErrorHelper.showInfo(context, '目录为空，无需导出');
-      }
-      return;
-    }
+    // Destination path
+    final dstDir = '$exportDir/${item.name}';
 
     // Show progress dialog
     final progressController = ProgressHelper.showProgressDialog(
       context,
       title: '导出目录',
-      total: totalFiles,
+      total: 100, // Use percentage
       status: '正在准备导出...',
     );
 
-    final startTime = DateTime.now();
-    int successCount = 0;
-    int failCount = 0;
-
     try {
-      // Recursively export directory
-      await _exportDirectoryRecursive(
-        item,
-        exportDir,
-        progressController,
-        startTime,
-        (success, fail) {
-          successCount += success;
-          failCount += fail;
+      // Use FFI service to decrypt directory
+      final progress = await _directoryService.decryptDirectory(
+        item.path,
+        dstDir,
+        _currentDir!.tempKeyID!,
+        onProgress: (jobProgress) {
+          // Update progress dialog
+          if (!progressController.isCancelled) {
+            progressController.update(
+              current: jobProgress.percent,
+              currentFileName: jobProgress.currentFile,
+              status: '正在导出...',
+            );
+          }
         },
       );
 
@@ -1464,13 +1407,18 @@ class _HomePageState extends State<HomePage> {
 
       // Show result
       if (mounted && !progressController.isCancelled) {
-        final message = failCount > 0
-            ? '导出完成：成功 $successCount 个，失败 $failCount 个'
-            : '导出完成：成功 $successCount 个文件';
-        ErrorHelper.showSuccess(context, message);
+        if (progress.isComplete && !progress.isFailed && !progress.isCancelled) {
+          ErrorHelper.showSuccess(
+              context, '导出完成：${progress.processedFiles} 个文件');
+        } else if (progress.isFailed) {
+          ErrorHelper.showError(
+            context,
+            errorType: ErrorType.exportDirectoryFailed,
+            originalError: progress.error ?? 'Unknown error',
+          );
+        }
       } else if (mounted && progressController.isCancelled) {
-        ErrorHelper.showInfo(
-            context, '导出已取消：成功 $successCount 个，失败 $failCount 个');
+        ErrorHelper.showInfo(context, '导出已取消');
       }
     } catch (e) {
       // Close progress dialog
@@ -1488,54 +1436,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _exportDirectoryRecursive(
-    FileSystemNode node,
-    String exportPath,
-    ProgressController progressController,
-    DateTime startTime,
-    void Function(int success, int fail) onProgress,
-  ) async {
-    // Check if cancelled
-    if (progressController.isCancelled) return;
-
-    if (node.isDirectory) {
-      // Create directory in export path
-      final newDirPath = '$exportPath/${node.name}';
-      await Directory(newDirPath).create(recursive: true);
-
-      // Load children
-      final children = await _fileService.listCurrentDirectory(node.path);
-
-      // Recursively export children
-      for (final child in children) {
-        if (progressController.isCancelled) return;
-        await _exportDirectoryRecursive(
-            child, newDirPath, progressController, startTime, onProgress);
-      }
-    } else {
-      // Update progress before exporting
-      progressController.update(
-        current: progressController.current + 1,
-        currentFileName: node.name,
-        status: '正在导出...',
-      );
-      progressController.estimateTimeRemaining(
-        startTime: startTime,
-        processedCount: progressController.current,
-      );
-
-      // Export file
-      try {
-        final outputPath = '$exportPath/${node.name}';
-        await _fileService.exportFile(
-            node, outputPath, _currentDir!.tempKeyID!);
-        onProgress(1, 0);
-      } catch (e) {
-        print('Failed to export ${node.name}: $e');
-        onProgress(0, 1);
-      }
-    }
-  }
 
   Future<void> _batchExport() async {
     if (!mounted) return;

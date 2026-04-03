@@ -19,6 +19,33 @@
 
 ## 🔴 P0 - 紧急任务
 
+### 新增问题（2026-04-03）
+
+- [ ] **[BUG] UI 新创建的加密目录，侧边栏与解密栏标题为一段 json 字符串**（优先级 1）
+  - 问题：创建加密目录后，侧边栏和解密栏显示的不是目录名，而是一段 JSON 字符串
+  - 影响：严重影响用户体验
+
+- [x] **[BUG] UI 新创建的加密目录，输入正确密码却提示密码错误**（优先级 2） ✅ 2026-04-03
+  - **问题**：刚创建的加密目录，输入正确的密码却提示密码错误
+  - **原因**：FFI 响应解析逻辑不正确，Flutter 层无法正确解析 Go 层返回的 JSON
+  - **修复**：修改 `lib/services/crypto_service.dart` 中的 FFI 响应解析逻辑
+  - **测试**：新增 `test/services/ffi_response_parsing_test.dart` 单元测试
+  - **Commit**: 793c8f8
+
+- [x] **新增系统自动化流程测试**（优先级 3） ✅ 2026-04-03
+  - 创建临时测试目录：`/home/john/Desktop/dev/safe_test/tmp_xxx`
+  - 新建 `/tmp_xxx/hello1.txt` 文件，内容为 hello
+  - UI 模拟调用创建加密目录
+  - UI 模拟打开解密目录
+  - UI 模拟安全记事本打开 hello1.txt，判断内容是否正确
+  - UI 模拟修改内容
+  - UI 模拟保存
+  - UI 再打开确认内容正确
+  - 使用 CLI export 指令解密该文件，判断内容是否正确
+  - 删除测试目录 tmp_xxx
+  - **新增文件**：test/system_test/system_flow_test.sh, system_flow_test.dart, ui_simulation_test.dart
+  - **Commit**: 1065cb0
+
 ### 安全问题
 
 - [x] **内存清零可能不彻底**（优先级 1，实施成本：中） ✅ 2026-04-03
@@ -63,6 +90,11 @@
 ## 🟡 P1 - 高优先级任务
 
 ### 用户体验改进
+
+- [ ] **安全记事本自动保存时间间隔可选**（优先级：中）
+  - 默认不保存
+  - 可选时间间隔：30秒、3分钟、10分钟、30分钟、2小时
+  - 添加设置选项框
 
 - [x] **统一加密目录入口**：侧边栏改成打开/创建按钮，去掉右上角和启动页的重复按钮 ✅ 2026-04-03
   - 侧边栏："打开加密目录" → "打开/创建加密目录"
@@ -325,6 +357,43 @@
 > 以下任务已完成，保留作为历史记录
 
 ### 2026-04-03
+
+- [x] **图片浏览器功能实现** ✅ 2026-04-03
+  - **核心特性**：
+    - ✅ 支持格式：JPG/JPEG/PNG/GIF/BMP/WebP
+    - ✅ 内存中解密显示（不写临时文件）
+    - ✅ 缩放（手势、按钮、快捷键）
+    - ✅ 翻页（导航按钮、手势、快捷键）
+    - ✅ 旋转功能
+    - ✅ 快捷键支持（← → 翻页，+ - 缩放，R 旋转，N 重置，ESC 关闭）
+    - ✅ 手势支持（双击重置，滑动翻页，捏合缩放）
+    - ✅ 安全内存清零（关闭时和切换图片时）
+  - **修改文件**：
+    - lib/widgets/secure_image_viewer.dart（完全重写，新增所有功能）
+    - lib/pages/home_page.dart（传递 directoryPath 和 fileService 参数）
+  - **新增文件**：
+    - docs/secure_image_viewer_report.md（实现报告）
+  - **测试**：Flutter 应用编译成功
+
+- [x] **安全记事本功能实现** ✅ 2026-04-03
+  - **核心特性**：
+    - ✅ Flutter 渲染文本（防木马探测）
+    - ✅ 基础文本编辑
+    - ✅ 撤销/重做（最多50步）
+    - ✅ 查找/替换
+    - ✅ 自动加密保存（30秒）
+    - ✅ 部分文本复制
+    - ✅ 内存中处理，不写临时文件
+    - ✅ 关闭后清零内存（通过 FFI 调用 Go MemZero）
+  - **修改文件**：
+    - native/main.go（添加 ClearSecureMemory FFI 函数）
+    - lib/native/bindings.dart（添加 clearSecureMemory 绑定）
+    - lib/native/native_lib.dart（添加 clearSecureMemory 调用接口）
+    - lib/widgets/secure_notepad.dart（实现完整的安全记事本功能）
+  - **新增文件**：
+    - test/secure_notepad_test.dart（单元测试）
+    - docs/secure_notepad_usage.md（使用文档）
+  - **未实现**：行号显示/跳转（可选功能）
 
 - [x] **底部弹出的错误提示，应当可以点击复制** ✅ 2026-04-03
 - [x] **Dart/Flutter 代码质量 Review - 安全性检查** ✅ 2026-04-03

@@ -558,4 +558,21 @@ class NativeLib {
       calloc.free(pathPtr);
     }
   }
+
+  // ==================== MEMORY MANAGEMENT ====================
+
+  /// Clears sensitive data from memory securely.
+  /// dataBase64: base64-encoded data to clear
+  /// Returns: JSON result {"success": true} or error
+  String clearSecureMemory(String dataBase64) {
+    final dataPtr = dataBase64.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.clearSecureMemory(dataPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(dataPtr);
+    }
+  }
 }

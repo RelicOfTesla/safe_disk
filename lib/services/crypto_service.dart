@@ -212,7 +212,9 @@ class CryptoService {
   /// startPath: starting path
   /// Returns: root directory path or empty string if not found
   String findCryptionRoot(String startPath) {
-    return _native.findCryptionRoot(startPath);
+    final resultStr = _native.findCryptionRoot(startPath);
+    final result = FindRootResult.fromJson(resultStr);
+    return result.rootPath ?? '';
   }
 
   /// Creates an encrypted directory
@@ -236,8 +238,17 @@ class CryptoService {
   /// This method is provided for backward compatibility
   CryptionConfig loadConfig(String dirPath) {
     final configJSON = loadCryptionConfig(dirPath);
-    final configMap = jsonDecode(configJSON) as Map<String, dynamic>;
-    return CryptionConfig.fromJson(configMap);
+    // Parse the FFI response to extract the actual config
+    final response = jsonDecode(configJSON) as Map<String, dynamic>;
+    
+    // Check if the response has the expected structure
+    if (response.containsKey('config')) {
+      // New format: {"success": true, "code": 0, "config": {...}}
+      return CryptionConfig.fromJson(response['config'] as Map<String, dynamic>);
+    } else {
+      // Fallback: assume the entire response is the config (for backward compatibility)
+      return CryptionConfig.fromJson(response);
+    }
   }
 }
 

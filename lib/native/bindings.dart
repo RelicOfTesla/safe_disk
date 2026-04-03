@@ -199,6 +199,10 @@ typedef IsIncrementalFileDart = Pointer<Utf8> Function(Pointer<Utf8> path);
 typedef GetIncrementalFileInfoC = Pointer<Utf8> Function(Pointer<Utf8> path);
 typedef GetIncrementalFileInfoDart = Pointer<Utf8> Function(Pointer<Utf8> path);
 
+// ClearSecureMemory: (dataBase64) -> string
+typedef ClearSecureMemoryC = Pointer<Utf8> Function(Pointer<Utf8> dataBase64);
+typedef ClearSecureMemoryDart = Pointer<Utf8> Function(Pointer<Utf8> dataBase64);
+
 
 // ==================== NATIVE BINDINGS ====================
 
@@ -310,6 +314,9 @@ class NativeBindings {
             'IsIncrementalFile');
     getIncrementalFileInfo = _lib.lookupFunction<GetIncrementalFileInfoC,
         GetIncrementalFileInfoDart>('GetIncrementalFileInfo');
+    clearSecureMemory =
+        _lib.lookupFunction<ClearSecureMemoryC, ClearSecureMemoryDart>(
+            'ClearSecureMemory');
   }
 
   static NativeBindings? _instance;
@@ -381,4 +388,5 @@ class NativeBindings {
   late final IncrementalDecryptorCloseDart incrementalDecryptorClose;
   late final IsIncrementalFileDart isIncrementalFile;
   late final GetIncrementalFileInfoDart getIncrementalFileInfo;
+  late final ClearSecureMemoryDart clearSecureMemory;
 }
