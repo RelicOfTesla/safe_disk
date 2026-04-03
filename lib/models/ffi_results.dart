@@ -5,9 +5,9 @@ import 'dart:typed_data';
 class FFIResult {
   final bool success;
   final String? error;
-  
+
   FFIResult({required this.success, this.error});
-  
+
   factory FFIResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
     return FFIResult(
@@ -20,26 +20,25 @@ class FFIResult {
 /// Result for data encryption/decryption operations
 class DataResult extends FFIResult {
   final Uint8List? data;
-  
-  DataResult({required bool success, String? error, this.data})
-      : super(success: success, error: error);
-  
+
+  DataResult({required super.success, super.error, this.data});
+
   factory DataResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
     final success = json['success'] as bool? ?? false;
-    
+
     Uint8List? data;
     if (success && json['data'] != null) {
       data = base64Decode(json['data'] as String);
     }
-    
+
     return DataResult(
       success: success,
       error: json['error'] as String?,
       data: data,
     );
   }
-  
+
   /// Returns the data or throws an exception if failed
   Uint8List get dataOrThrow {
     if (!success) {
@@ -55,10 +54,9 @@ class DataResult extends FFIResult {
 /// Result for file encryption operations
 class FileResult extends FFIResult {
   final String? path;
-  
-  FileResult({required bool success, String? error, this.path})
-      : super(success: success, error: error);
-  
+
+  FileResult({required super.success, super.error, this.path});
+
   factory FileResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
     return FileResult(
@@ -67,7 +65,7 @@ class FileResult extends FFIResult {
       path: json['path'] as String?,
     );
   }
-  
+
   /// Throws an exception if operation failed
   void throwOnError() {
     if (!success) {
@@ -79,10 +77,9 @@ class FileResult extends FFIResult {
 /// Result for session creation operations
 class SessionResult extends FFIResult {
   final String? tempKeyID;
-  
-  SessionResult({required bool success, String? error, this.tempKeyID})
-      : super(success: success, error: error);
-  
+
+  SessionResult({required super.success, super.error, this.tempKeyID});
+
   factory SessionResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
     return SessionResult(
@@ -91,7 +88,7 @@ class SessionResult extends FFIResult {
       tempKeyID: json['tempKeyID'] as String?,
     );
   }
-  
+
   /// Returns the temp key ID or throws an exception if failed
   String get tempKeyIDOrThrow {
     if (!success) {
@@ -107,10 +104,9 @@ class SessionResult extends FFIResult {
 /// Result for config loading operations
 class ConfigResult extends FFIResult {
   final Map<String, dynamic>? config;
-  
-  ConfigResult({required bool success, String? error, this.config})
-      : super(success: success, error: error);
-  
+
+  ConfigResult({required super.success, super.error, this.config});
+
   factory ConfigResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
     return ConfigResult(
@@ -119,7 +115,7 @@ class ConfigResult extends FFIResult {
       config: json['config'] as Map<String, dynamic>?,
     );
   }
-  
+
   /// Returns the config or throws an exception if failed
   Map<String, dynamic> get configOrThrow {
     if (!success) {
@@ -135,10 +131,9 @@ class ConfigResult extends FFIResult {
 /// Result for directory finding operations
 class FindRootResult extends FFIResult {
   final String? rootPath;
-  
-  FindRootResult({required bool success, String? error, this.rootPath})
-      : super(success: success, error: error);
-  
+
+  FindRootResult({required super.success, super.error, this.rootPath});
+
   factory FindRootResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
     return FindRootResult(
@@ -152,10 +147,9 @@ class FindRootResult extends FFIResult {
 /// Result for checking if a file is chunked
 class IsChunkedResult extends FFIResult {
   final bool? isChunked;
-  
-  IsChunkedResult({required bool success, String? error, this.isChunked})
-      : super(success: success, error: error);
-  
+
+  IsChunkedResult({required super.success, super.error, this.isChunked});
+
   factory IsChunkedResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
     return IsChunkedResult(
@@ -164,7 +158,7 @@ class IsChunkedResult extends FFIResult {
       isChunked: json['isChunked'] as bool?,
     );
   }
-  
+
   /// Returns isChunked or throws an exception if failed
   bool get isChunkedOrThrow {
     if (!success) {
@@ -188,15 +182,15 @@ class FileInfo extends FFIResult {
   final int? size;
   final bool? isChunked;
   final String? recommendedMethod;
-  
+
   FileInfo({
-    required bool success,
-    String? error,
+    required super.success,
+    super.error,
     this.size,
     this.isChunked,
     this.recommendedMethod,
-  }) : super(success: success, error: error);
-  
+  });
+
   factory FileInfo.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
     return FileInfo(

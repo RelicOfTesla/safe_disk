@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/crypto_service.dart';
 import '../models/cryption_config.dart';
+import '../utils/error_messages.dart';
+import '../widgets/copyable_snackbar.dart';
 
 /// Security-focused notepad for editing encrypted text files.
 /// Uses Flutter's TextField for better desktop support.
@@ -59,8 +61,6 @@ class _SecureNotepadState extends State<SecureNotepad> {
       });
 
       // Decrypt file content
-      // Extract directory path from file path
-      final dirPath = widget.file.encryptedPath.substring(0, widget.file.encryptedPath.lastIndexOf('/'));
       final contentBytes = widget.cryptoService.decryptFileToData(
         widget.file.encryptedPath,
         widget.tempKeyID,
@@ -93,7 +93,7 @@ class _SecureNotepadState extends State<SecureNotepad> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to load file: $e';
+        _errorMessage = '文件加载失败：$e';
       });
     }
   }
@@ -105,10 +105,9 @@ class _SecureNotepadState extends State<SecureNotepad> {
       setState(() => _isSaving = true);
 
       // Encrypt and save
-      // Extract directory path from file path
-      final dirPath = widget.file.encryptedPath.substring(0, widget.file.encryptedPath.lastIndexOf('/'));
       final contentBytes = utf8.encode(_controller.text);
-      final encryptedBase64 = widget.cryptoService.encryptDataBytes(contentBytes, widget.tempKeyID);
+      final encryptedBase64 =
+          widget.cryptoService.encryptDataBytes(contentBytes, widget.tempKeyID);
       final encryptedBytes = base64Decode(encryptedBase64);
       await File(widget.file.encryptedPath).writeAsBytes(encryptedBytes);
 
@@ -120,16 +119,16 @@ class _SecureNotepadState extends State<SecureNotepad> {
       widget.onSaved?.call();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File saved successfully')),
-        );
+        ErrorHelper.showSuccess(context, '文件保存成功');
       }
     } catch (e) {
       setState(() => _isSaving = false);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save file: $e')),
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.saveFileFailed,
+          originalError: e.toString(),
         );
       }
     }
@@ -178,7 +177,7 @@ class _SecureNotepadState extends State<SecureNotepad> {
       canPop: !_hasChanges,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        
+
         // If didn't pop, show dialog (it will handle navigation)
         await _onWillPop();
       },
@@ -240,7 +239,8 @@ class _SecureNotepadState extends State<SecureNotepad> {
                   if (_hasChanges)
                     const Icon(Icons.edit, size: 16, color: Colors.orange)
                   else
-                    const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                    const Icon(Icons.check_circle,
+                        size: 16, color: Colors.green),
                   const SizedBox(width: 8),
                   Text(
                     _hasChanges ? 'Unsaved changes' : 'Saved',
@@ -254,7 +254,7 @@ class _SecureNotepadState extends State<SecureNotepad> {
                 ],
               ),
             ),
-            
+
             // Editor
             Expanded(
               child: Padding(
@@ -276,13 +276,15 @@ class _SecureNotepadState extends State<SecureNotepad> {
                   onChanged: (text) {
                     // Ignore text changes during initialization
                     if (_isInitializing) {
-                      print('[DEBUG] onChanged called during initialization, ignoring');
+                      print(
+                          '[DEBUG] onChanged called during initialization, ignoring');
                       return;
                     }
 
                     // Check if text actually changed
                     if (text != _lastText) {
-                      print('[DEBUG] Text changed from ${_lastText.length} to ${text.length}');
+                      print(
+                          '[DEBUG] Text changed from ${_lastText.length} to ${text.length}');
                       _lastText = text;
                       if (!_hasChanges) {
                         setState(() => _hasChanges = true);

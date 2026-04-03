@@ -25,10 +25,10 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   Uint8List? _imageData;
   bool _isLoading = true;
   String? _errorMessage;
-  
+
   // Image viewing state
-  final TransformationController _transformController = TransformationController();
-  double _scale = 1.0;
+  final TransformationController _transformController =
+      TransformationController();
   double _rotation = 0.0;
 
   @override
@@ -79,7 +79,6 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
 
   void _resetView() {
     setState(() {
-      _scale = 1.0;
       _rotation = 0.0;
     });
     _transformController.value = Matrix4.identity();
@@ -156,7 +155,8 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                    const Icon(Icons.broken_image,
+                        size: 48, color: Colors.grey),
                     const SizedBox(height: 16),
                     const Text('Failed to display image'),
                     Text(

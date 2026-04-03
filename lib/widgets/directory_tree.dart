@@ -177,7 +177,8 @@ class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
   Widget build(BuildContext context) {
     final isSelected = widget.currentPath == widget.item.path;
     final isDirectory = widget.item.isDirectory;
-    final hasChildren = isDirectory && (_hasLoadedChildren ? _children.isNotEmpty : true);
+    final hasChildren =
+        isDirectory && (_hasLoadedChildren ? _children.isNotEmpty : true);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,9 +200,12 @@ class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
                       _isExpanded ? Icons.expand_more : Icons.chevron_right,
                       size: 18,
                     ),
-                    onPressed: _isLoading ? null : () => _loadChildren(loadMore: false),
+                    onPressed: _isLoading
+                        ? null
+                        : () => _loadChildren(loadMore: false),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    constraints:
+                        const BoxConstraints(minWidth: 24, minHeight: 24),
                   )
                 else
                   const SizedBox(width: 24),
@@ -219,7 +223,8 @@ class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
                   child: Text(
                     widget.item.name,
                     style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -236,13 +241,13 @@ class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
         ),
         if (_isExpanded && _children.isNotEmpty)
           ...(_children.map((child) => _DirectoryTreeItem(
-            item: child,
-            depth: widget.depth + 1,
-            currentPath: widget.currentPath,
-            fileService: widget.fileService,
-            onPathSelected: widget.onPathSelected,
-            pageSize: widget.pageSize,
-          ))),
+                item: child,
+                depth: widget.depth + 1,
+                currentPath: widget.currentPath,
+                fileService: widget.fileService,
+                onPathSelected: widget.onPathSelected,
+                pageSize: widget.pageSize,
+              ))),
         if (_isExpanded && _hasMore)
           _LoadMoreButton(
             depth: widget.depth + 1,

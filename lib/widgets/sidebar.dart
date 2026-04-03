@@ -41,7 +41,8 @@ class SidebarWidget extends StatelessWidget {
                   children: [
                     const Text(
                       'Safe Disk',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       '${openedDirs.length} directories',
@@ -64,8 +65,8 @@ class SidebarWidget extends StatelessWidget {
             ],
           ),
         ),
-        
-        // Open new directory button
+
+        // Open or create encrypted directory button
         Padding(
           padding: const EdgeInsets.all(8.0),
           child: ElevatedButton.icon(
@@ -75,16 +76,16 @@ class SidebarWidget extends StatelessWidget {
               }
               onOpenDirectory();
             },
-            icon: const Icon(Icons.add),
-            label: const Text('Open Directory'),
+            icon: const Icon(Icons.create_new_folder),
+            label: const Text('打开/创建加密目录'),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 40),
             ),
           ),
         ),
-        
+
         const Divider(),
-        
+
         // List of opened directories
         Expanded(
           child: openedDirs.isEmpty
@@ -92,7 +93,7 @@ class SidebarWidget extends StatelessWidget {
                   child: Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Text(
-                      'No directories opened\n\nClick "Open Directory" to start',
+                      'No directories opened\n\nClick "打开/创建加密目录" to start',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey),
                     ),
@@ -103,7 +104,7 @@ class SidebarWidget extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final dir = openedDirs[index];
                     final isSelected = currentDir?.path == dir.path;
-                    
+
                     return ListTile(
                       leading: Icon(
                         Icons.folder,

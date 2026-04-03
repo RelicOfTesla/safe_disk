@@ -52,5 +52,14 @@ native/*.out
 native/*.h
 
 # Build directory
-build/
-native/bin
+/build/
+/native/bin
+
+/native/safedisk-cli
+/native/safedisk-cli-test
+
+/memory
+
+/docs/task-driver-report
+.backup_*
+/_bak_run.sh

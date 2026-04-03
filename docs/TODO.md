@@ -46,46 +46,134 @@
   - 创建测试脚本：`scripts/test_large_directory.py`
   - Flutter 应用编译成功
   - 注意：列表/网格视图仍一次性加载所有文件，建议超大目录使用树形视图
-
+  
+- [x] **输入正确密码后无提醒（有日志）** ✅ 2026-04-03
+  - **问题**：输入正确密码后无提醒，但日志中有错误 `No temporary key ID returned`
+  - **原因**：Go 层 `MakeTemporaryKeyID` 返回的 JSON 格式不正确
+    - Go 层返回：`{"success":true,"data":{"tempKeyID":"xxx"}}`
+    - Flutter 期望：`{"success":true,"tempKeyID":"xxx"}`
+  - **修复**：修改 `native/main.go` 中的 `MakeTemporaryKeyID` 函数，返回扁平化的 JSON
+  - **测试**：
+    - 单元测试通过：验证 JSON 格式正确
+    - 测试 vault 创建成功：`/tmp/test_vault_fix`，密码：`test123`
+    - Flutter 应用编译成功，运行正常
+  - **修改文件**：`native/main.go`
 ---
 
 ## 🟡 P1 - 高优先级任务
 
 ### 用户体验改进
 
-- [ ] 首次使用缺少引导
-- [ ] 错误提示不够友好
-- [ ] 进度显示缺失
-- [ ] 创建新加密目录后，没有添加到侧边栏
-- [ ] 创建加密目录/导入加密目录可以合并成一个按钮
+- [x] **统一加密目录入口**：侧边栏改成打开/创建按钮，去掉右上角和启动页的重复按钮 ✅ 2026-04-03
+  - 侧边栏："打开加密目录" → "打开/创建加密目录"
+  - 去掉右上角的打开/创建加密目录按钮
+  - 去掉启动页中间的打开加密目录按钮
+  - 记得更新相关测试
+  - 修改文件：lib/widgets/sidebar.dart, lib/pages/home_page.dart, test/widgets/sidebar_test.dart
+  - 编译成功，测试通过，功能正常
+
+- [x] **首次使用缺少引导** ✅ 2026-04-03
+  - 已创建 `WelcomeGuideDialog` 欢迎引导对话框
+  - 引导内容包括：欢迎信息、加密目录介绍、核心功能、安全提示
+  - 已添加首次使用检测逻辑（检查是否已打开过加密目录）
+  - 已添加"跳过"和"不再显示"选项
+  - 修改文件：`lib/pages/dialogs.dart`, `lib/pages/home_page.dart`, `lib/services/directory_persistence_service.dart`
+  - Flutter 应用编译成功
+- [x] 错误提示不够友好 ✅ 2026-04-03
+  - 已创建错误提示常量文件：`lib/utils/error_messages.dart`
+    - 定义 ErrorType 枚举（20+ 种错误类型）
+    - 定义 ErrorMessage 类（标题、描述、建议操作、是否严重）
+    - 定义 ErrorMessages 工具类（获取错误提示、完整信息等）
+  - 已创建错误提示组件：`lib/widgets/error_dialog.dart`, `lib/widgets/enhanced_snackbar.dart`
+  - 已修改 `lib/widgets/copyable_snackbar.dart`，添加 ErrorSnackBar 和 ErrorHelper
+  - 已修改 `lib/pages/home_page.dart` 中的所有错误提示
+  - 已修改 `lib/pages/dialogs.dart` 中的所有错误提示
+  - 已修改 `lib/widgets/secure_notepad.dart` 中的所有错误提示
+  - 所有错误提示均包含：清晰的标题、详细的描述、建议操作
+  - Flutter 应用编译成功
+- [x] 进度显示缺失 ✅ 2026-04-03
+  - 已创建进度显示组件：`lib/widgets/progress_dialog.dart`
+    - ProgressInfo 类：包含当前进度、总数、文件名、状态、预计剩余时间
+    - ProgressDialog 组件：显示进度条、百分比、文件名、已处理数量、取消按钮
+    - ProgressController 控制器：用于更新进度、取消操作、预估剩余时间
+    - ProgressHelper 工具类：显示/隐藏进度对话框
+  - 已修改 `lib/pages/home_page.dart`：
+    - 新增 `_countFilesInDirectory()` 方法：计算目录中文件总数
+    - 修改 `_exportDirectory()` 方法：使用 ProgressDialog 显示导出进度
+    - 修改 `_exportDirectoryRecursive()` 方法：添加进度更新和取消检查
+    - 修改 `_batchExport()` 方法：使用 ProgressDialog 显示批量导出进度
+  - 功能特性：
+    - ✅ 进度条显示百分比
+    - ✅ 显示当前处理的文件名
+    - ✅ 显示已处理文件数/总文件数
+    - ✅ 预计剩余时间（可选）
+    - ✅ 用户可以取消操作
+    - ✅ 进度显示不阻塞 UI
+  - Flutter 应用编译成功
+- [x] 创建新加密目录后，没有添加到侧边栏 ✅ 2026-04-03
+  - 修改 `_createEncryptedDirectory()` 方法，成功后自动调用 `_loadDirectory(selectedPath)`
+  - 自动打开新创建的加密目录，从而自动添加到侧边栏
+  - 修改文件：`lib/pages/home_page.dart`
+  - Flutter 应用编译成功
+- [x] 创建加密目录/导入加密目录可以合并成一个按钮 ✅ 2026-04-03
   - 判断目录是否已存在 `_cryption.json`，自动选择创建或导入模式
-- [ ] 删除侧边栏加密目录时，应弹窗让用户选择是否删除磁盘目录
-- [ ] 顶部目录导航栏乱了
+  - 已实现 `_openOrCreateEncryptedDirectory()` 方法
+  - 已提取 `_createEncryptedDirectoryWithPath()` 方法，接受路径参数
+  - 编译成功，功能正常
+- [x] 删除侧边栏加密目录时，应弹窗让用户选择是否删除磁盘目录 ✅ 2026-04-03
+  - 已创建 DeleteDirectoryDialog 删除确认对话框
+  - 已修改 _closeDirectory 方法，添加删除确认逻辑
+  - 用户可以选择：仅从侧边栏移除、同时删除磁盘目录、取消
+  - 删除磁盘目录失败时会显示错误提示
+  - 修改文件：lib/pages/dialogs.dart, lib/pages/home_page.dart
+  - Flutter 应用编译成功
+- [x] 顶部目录导航栏乱了 ✅ 2026-04-03
+  - **问题**：`_buildBreadcrumb()` 方法被调用了两次，导致面包屑导航显示重复
+  - **原因**：在 `_buildBody()` 和 `_buildFileBrowser()` 中都调用了 `_buildBreadcrumb()`
+  - **修复**：从 `_buildFileBrowser()` 中移除重复的 `_buildBreadcrumb()` 调用
+  - **修改文件**：`lib/pages/home_page.dart`
+  - **编译结果**：Flutter 应用编译成功，无错误
 
 ### 代码质量
 
-- [ ] Dart/Flutter 代码质量 Review
-  - [ ] 修复所有 warning 和 info 级别的问题
-  - [ ] 配置 `analysis_options.yaml` 规则集
-  - [ ] 使用 `dart format` 统一代码格式
-  - [ ] 添加必要的注释和文档
-  - [ ] 检查 Widget 使用是否合理
-  - [ ] 检查性能问题（不必要的 rebuild）
-  - [ ] 使用 const constructor 优化
-  - [ ] 检查是否有敏感信息硬编码
+- [x] Dart/Flutter 代码质量 Review ✅ 2026-04-03（部分完成）
+  - [x] 修复所有 warning 和 info 级别的问题（9/9 warning，26/43 info）
+  - [x] 配置 `analysis_options.yaml` 规则集
+  - [x] 使用 `dart format` 统一代码格式
+  - [x] 添加必要的注释和文档
+  - [x] 检查 Widget 使用是否合理
+  - [x] 检查性能问题（不必要的 rebuild）
+  - [x] 使用 const constructor 优化
+  - [x] 检查是否有敏感信息硬编码
+  - [ ] 剩余 17 个 info 级别问题（主要是 avoid_print 和 use_build_context_synchronously）
 
-- [ ] 测试覆盖率达到 60%+
-  - [ ] 添加单元测试
-  - [ ] 添加 Widget 测试
+- [x] 测试覆盖率达到 60%+ ⚠️ 部分完成 2026-04-03
+  - **目标**：60%
+  - **实际**：37.4%（+6.9%）
+  - [x] 添加 mocktail 测试依赖
+  - [x] 添加 secure_notepad.dart 测试（0% → 62.7%）
+  - [x] 添加 secure_image_viewer.dart 测试（0% → 88.4%）
+  - [ ] 未达成目标，需要继续添加测试
 
 - [ ] Go 核心库优化
-  - [ ] 更完善的错误处理
-  - [ ] 统一 JSON 响应格式（jsonSuccessResponse/jsonErrorResponse）
+  - [x] 更完善的错误处理 ✅ 2026-04-03
+    - 新建 native/errors/errors.go 统一错误处理模块
+    - 修改 native/crypto/、native/service/、native/config/ 包使用新错误类型
+    - 修改 native/main.go 添加错误包装和上下文
+    - 新建 docs/error_handling.md 错误处理文档
+  - [x] 统一 JSON 响应格式（jsonSuccessResponse/jsonErrorResponse） ✅ 2026-04-03
+    - 新建 native/service/result.go 统一响应格式模块
+    - 定义 JSONResponse 统一响应结构
+    - 实现 jsonSuccess/jsonError/jsonSuccessWithData/jsonSuccessWithID 等辅助函数
+    - 修改 native/main.go 使用新响应格式
+    - 修改 native/service/encryption_service.go 使用新响应格式
+    - 所有测试通过，功能正常
   - [ ] GenerateEncryptionConfig 提取到 service 供 CLI 复用
 
 - [ ] FFI 增加目录异步加解密功能
-  - encryptDir/decryptDir(dir, tempKeyID, callback)
+  - encryptDir/decryptDir(srcDir, targetDir, tempKeyID, callback)
   - 注意复用，CLI 也要调用
+  - 注意srcDir==targetDir时,应当原子安全
 
 - [ ] 补充密钥派生相关函数的测试覆盖
 
@@ -95,13 +183,25 @@
 
 ### 性能优化
 
-- [ ] 图片缩略图预览
+
+#### 大文件增量加密优化
+- [ ] **增量加密**：100MB 已加密文件，随机在 5 个位置添加/编辑/删除 1-2000byte 数据，再保存时文件修改量低于 8MB
+  - 测试要求：创建 100MB 测试文件，验证修改量
+  - 目标：避免全文件重新加密
+- [ ] **随机定位快速解密**：支持任意位置定位的快速解密
+  - 测试要求：测试随机位置解密性能
+  - 目标：O(1) 或 O(log n) 定位复杂度
+
+- [ ] **重构 stream 设计**：允许重构掉原来 V2 的 stream 设计，允许不兼容
+  - 可以重新设计加密文件格式
+  - 优先满足增量加密和随机定位需求
+
 - [ ] 大文件流式解密（避免内存溢出）
+### UI性能优化
 - [ ] 文件列表虚拟滚动（处理超大目录）
-- [ ] 图片缩略图缓存
 - [ ] 内存占用优化
 - [ ] 启动速度优化
-- [ ] 加密解密并行处理
+- [ ] 批量加密解密任务后台安全处理
 
 ### 功能增强
 
@@ -125,6 +225,12 @@
   - 根据当前安全标准自动推荐最小迭代次数（如PBKDF2推荐100000+）
   - 根据硬件性能自动调整（测试加密时间，确保用户体验）
   - 提供安全等级选项（快速/标准/高安全）
+## 代码模块化
+- [ ] 拆解代码
+  
+## 其他文档
+-  [ ] FEATURES.md
+-  [ ] ROADMAP.md
 
 ---
 
@@ -155,6 +261,10 @@
 - [ ] 架构文档
 - [ ] 贡献指南
 - [ ] 开发者文档
+
+### 优化
+- [ ] 图片缩略图预览
+- [ ] 图片缩略图缓存
 
 ---
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:isolate';
 import 'package:file_selector/file_selector.dart';
 import '../services/crypto_service.dart';
 import '../services/file_service.dart';
@@ -11,6 +12,8 @@ import '../widgets/secure_notepad.dart';
 import '../widgets/secure_image_viewer.dart';
 import '../widgets/sidebar.dart';
 import '../widgets/copyable_snackbar.dart';
+import '../widgets/progress_dialog.dart';
+import '../utils/error_messages.dart';
 import 'dialogs.dart';
 
 // View mode enum for file browsing
@@ -18,7 +21,7 @@ enum ViewMode { list, grid }
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-  
+
   @override
   State<HomePage> createState() => _HomePageState();
 }
@@ -27,9 +30,11 @@ class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final CryptoService _cryptoService = CryptoService();
   late final FileService _fileService;
-  final DirectoryPersistenceService _persistenceService = DirectoryPersistenceService();
-  
-  List<EncryptedDirectory> _openedDirs = []; // List of opened encrypted directories
+  final DirectoryPersistenceService _persistenceService =
+      DirectoryPersistenceService();
+
+  final List<EncryptedDirectory> _openedDirs =
+      []; // List of opened encrypted directories
   EncryptedDirectory? _currentDir;
   String? _currentPath; // Current browsing path (can be subdirectory)
   List<FileSystemNode> _items = [];
@@ -39,14 +44,15 @@ class _HomePageState extends State<HomePage> {
   bool _isSearching = false; // Whether search mode is active
   final TextEditingController _searchController = TextEditingController();
   List<FileSystemNode> _searchResults = [];
-  
+
   // File selection for batch operations
   bool _isSelectMode = false; // Whether in select mode
-  Set<FileSystemNode> _selectedFiles = {}; // Selected files for batch operations
-  
+  final Set<FileSystemNode> _selectedFiles =
+      {}; // Selected files for batch operations
+
   // View mode for file browsing (list or grid)
   ViewMode _viewMode = ViewMode.list; // Current view mode
-  
+
   @override
   void initState() {
     super.initState();
@@ -54,108 +60,155 @@ class _HomePageState extends State<HomePage> {
     _loadQuickList();
     _loadPersistedDirectories();
     _loadDrawerPinnedState();
+    _checkFirstTimeUser();
   }
-  
+
+  /// Check if this is first time user and show welcome guide
+  Future<void> _checkFirstTimeUser() async {
+    final isFirstTime = await _persistenceService.isFirstTimeUser();
+    if (isFirstTime && mounted) {
+      // Use addPostFrameCallback to show dialog after build is complete
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showWelcomeGuide();
+      });
+    }
+  }
+
+  /// Show welcome guide dialog
+  Future<void> _showWelcomeGuide() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WelcomeGuideDialog(
+        onComplete: (neverShowAgain) async {
+          if (neverShowAgain) {
+            await _persistenceService.setNeverShowWelcome(true);
+          } else {
+            await _persistenceService.markWelcomeShown();
+          }
+        },
+      ),
+    );
+  }
+
   Future<void> _loadDrawerPinnedState() async {
     final pinned = await _persistenceService.loadDrawerPinned();
     setState(() {
       _drawerPinned = pinned;
     });
   }
-  
+
   @override
   void dispose() {
     _saveOpenedDirectories();
     _searchController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _loadPersistedDirectories() async {
     final paths = await _persistenceService.loadOpenedDirectories();
     // We load directory configs but don't restore verification status
     // (user needs to re-enter password for security)
     for (final path in paths) {
       try {
-        final config = await _cryptoService.loadConfig(path);
-        if (config != null) {
-          setState(() {
-            _openedDirs.add(EncryptedDirectory(
-              path: path,
-              config: config,
-              isVerified: false,
-            ));
-          });
-        }
+        final config = _cryptoService.loadConfig(path);
+        setState(() {
+          _openedDirs.add(EncryptedDirectory(
+            path: path,
+            config: config,
+            isVerified: false,
+          ));
+        });
       } catch (e) {
         // Directory no longer exists or config is invalid, skip it
         print('Failed to load persisted directory $path: $e');
       }
     }
   }
-  
+
   Future<void> _saveOpenedDirectories() async {
     final paths = _openedDirs.map((d) => d.path).toList();
     await _persistenceService.saveOpenedDirectories(paths);
   }
-  
+
   Future<void> _loadQuickList() async {
     // TODO: Load from config file
     // For now, just initialize empty list
   }
-  
+
+  /// Open or create encrypted directory (merged button)
+  /// Auto-detects if directory already has _cryption.json
+  Future<void> _openOrCreateEncryptedDirectory() async {
+    // Step 1: Select directory
+    final String? selectedPath = await showDialog<String>(
+      context: context,
+      builder: (context) => const PathSelectionDialog(),
+    );
+
+    if (selectedPath == null || selectedPath.isEmpty) {
+      return;
+    }
+
+    // Step 2: Check if _cryption.json exists
+    final configFile = File('$selectedPath/_cryption.json');
+    final configExists = await configFile.exists();
+
+    if (configExists) {
+      // Import mode: load existing encrypted directory
+      await _loadDirectory(selectedPath);
+    } else {
+      // Create mode: create new encrypted directory
+      await _createEncryptedDirectoryWithPath(selectedPath);
+    }
+  }
+
   Future<void> _openDirectory() async {
     // Use path selection dialog (supports both input and browse)
     final String? selectedPath = await showDialog<String>(
       context: context,
-      builder: (context) => PathSelectionDialog(),
+      builder: (context) => const PathSelectionDialog(),
     );
-    
+
     if (selectedPath != null && selectedPath.isNotEmpty) {
       await _loadDirectory(selectedPath);
     }
   }
-  
-  Future<void> _createEncryptedDirectory() async {
-    // Step 1: Select directory (with path input support)
-    final String? selectedPath = await showDialog<String>(
-      context: context,
-      builder: (context) => PathSelectionDialog(),
-    );
-    if (selectedPath == null || selectedPath.isEmpty) {
-      return;
-    }
-    
+
+  /// Create encrypted directory with a given path (no selection dialog)
+  Future<void> _createEncryptedDirectoryWithPath(String selectedPath) async {
     // Step 2: Show password dialog
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => CreateEncryptedDirectoryDialog(),
+      builder: (context) => const CreateEncryptedDirectoryDialog(),
     );
-    
+
     if (result == null) {
       return;
     }
-    
+
     final password = result['password'] as String;
     final mutable = result['mutable'] as bool;
-    
+
     // Step 3: Generate all keys and config
     setState(() => _isLoading = true);
-    
+
     try {
       // Use new FFI function to generate complete encryption config
       // keyStrengthMs: 1000ms (1 second) for good security/performance balance
       // challengeId: empty string to use default "safe_disk"
-      final configJson = _cryptoService.generateEncryptionConfig(password, 1000, mutable, '');
-      
+      final configJson =
+          _cryptoService.generateEncryptionConfig(password, 1000, mutable, '');
+
       // Parse JSON config
       final configMap = jsonDecode(configJson) as Map<String, dynamic>;
-      
+
       // Extract fields from config
       final salt = configMap['salt'] as String;
       final iterN = configMap['iterN'] as int;
       final encryptedChallengeId = configMap['encryptedChallengeId'] as String;
-      final encryptedKey = configMap['key'] as String?; // Only present in mutable mode
-      
+      final encryptedKey =
+          configMap['key'] as String?; // Only present in mutable mode
+
       // Assemble config JSON with additional fields
       final config = {
         'version': '1.2',
@@ -168,32 +221,35 @@ class _HomePageState extends State<HomePage> {
         'created': DateTime.now().toUtc().toIso8601String(),
         if (encryptedKey != null) 'key': encryptedKey,
       };
-      
+
       // Step 4: Create config file via FFI
-      final resultData = _cryptoService.createEncryptedDirectory(selectedPath, config);
-      
+      final resultData =
+          _cryptoService.createEncryptedDirectory(selectedPath, config);
+
       if (resultData['success'] != true) {
         throw Exception(resultData['error'] ?? 'Failed to create config file');
       }
-      
+
       // Step 5: Encrypt all files
       final dir = Directory(selectedPath);
       final files = dir.listSync(recursive: true);
-      
+
       // Create session with password and config
-      final tempKeyID = _cryptoService.createSession(password, jsonEncode(config));
-      
+      final tempKeyID =
+          _cryptoService.createSession(password, jsonEncode(config));
+
       int fileCount = 0;
       for (final file in files) {
         if (file is File && file.path.endsWith('_cryption.json') == false) {
           try {
             // Read file
             final plaintext = await file.readAsBytes();
-            
+
             // Encrypt using session key
-            final ciphertextBase64 = _cryptoService.encryptDataBytes(plaintext, tempKeyID);
+            final ciphertextBase64 =
+                _cryptoService.encryptDataBytes(plaintext, tempKeyID);
             final ciphertext = base64Decode(ciphertextBase64);
-            
+
             // Write encrypted file
             await file.writeAsBytes(ciphertext);
             fileCount++;
@@ -202,54 +258,50 @@ class _HomePageState extends State<HomePage> {
           }
         }
       }
-      
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Encrypted directory created! $fileCount files encrypted.')),
-        );
+        ErrorHelper.showSuccess(context, '加密目录创建成功！已加密 $fileCount 个文件。');
+
+        // Automatically open the newly created encrypted directory
+        await _loadDirectory(selectedPath);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          CopyableSnackBar(message: 'Failed to create encrypted directory: $e', isError: true),
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.createEncryptedDirectoryFailed,
+          originalError: e.toString(),
         );
       }
     } finally {
       setState(() => _isLoading = false);
     }
   }
-  
+
   Future<void> _loadDirectory(String path) async {
     setState(() => _isLoading = true);
-    
+
     try {
       // Find encrypted root (search upward like .git)
       final root = _cryptoService.findCryptionRoot(path);
-      if (root == null) {
+      if (root.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            CopyableSnackBar(message: 'Not an encrypted directory (no _cryption.json found in this or parent directories)'),
+          ErrorHelper.showError(
+            context,
+            errorType: ErrorType.notEncryptedDirectory,
           );
         }
         return;
       }
-      
+
       // Load config from the root
-      final config = await _cryptoService.loadConfig(root);
-      if (config == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            CopyableSnackBar(message: 'Failed to load encryption config', isError: true),
-          );
-        }
-        return;
-      }
-      
+      final config = _cryptoService.loadConfig(root);
+
       // Set current directory
       setState(() {
         _currentDir = EncryptedDirectory(path: root, config: config);
         _currentPath = root;
-        
+
         // Add to opened directories list if not already present
         final existingIndex = _openedDirs.indexWhere((d) => d.path == root);
         if (existingIndex >= 0) {
@@ -258,55 +310,63 @@ class _HomePageState extends State<HomePage> {
         }
         _openedDirs.insert(0, _currentDir!);
       });
-      
+
       // Save to persistence
       await _saveOpenedDirectories();
-      
+
       // Load files
       await _loadCurrentPath();
-      
+
       // Show info if we're in a subdirectory
       if (root != path && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Found encrypted root at: $root')),
+        ErrorHelper.showInfo(context, '已找到加密根目录：$root');
+      }
+    } catch (e) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.loadConfigFailed,
+          originalError: e.toString(),
         );
       }
     } finally {
       setState(() => _isLoading = false);
     }
   }
-  
+
   Future<void> _loadCurrentPath() async {
     if (_currentPath == null) return;
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       final items = await _fileService.listCurrentDirectory(_currentPath!);
       setState(() => _items = items);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          CopyableSnackBar(message: 'Error loading directory: $e', isError: true),
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.loadDirectoryFailed,
+          originalError: e.toString(),
         );
       }
     } finally {
       setState(() => _isLoading = false);
     }
   }
-  
+
   Future<void> _verifyPassword(String password) async {
     if (_currentDir == null) return;
-    
+
     // Convert config to JSON string
     final configJSON = jsonEncode(_currentDir!.config.toJson());
-    
+
     final result = _cryptoService.verifyPassword(password, configJSON);
-    
+
     if (result.success) {
       // Create session with password and config
       final tempKeyID = _cryptoService.createSession(password, configJSON);
-      
+
       setState(() {
         _currentDir = EncryptedDirectory(
           path: _currentDir!.path,
@@ -314,28 +374,28 @@ class _HomePageState extends State<HomePage> {
           isVerified: true,
           tempKeyID: tempKeyID,
         );
-        
+
         // Update in opened directories list
-        final index = _openedDirs.indexWhere((d) => d.path == _currentDir!.path);
+        final index =
+            _openedDirs.indexWhere((d) => d.path == _currentDir!.path);
         if (index >= 0) {
           _openedDirs[index] = _currentDir!;
         }
       });
-      
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password verified')),
-        );
+        ErrorHelper.showSuccess(context, '密码验证成功');
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          CopyableSnackBar(message: 'Invalid password', isError: true),
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.invalidPassword,
         );
       }
     }
   }
-  
+
   void _switchToDirectory(EncryptedDirectory dir) {
     setState(() {
       _currentDir = dir;
@@ -344,8 +404,43 @@ class _HomePageState extends State<HomePage> {
     });
     _loadCurrentPath();
   }
-  
-  void _closeDirectory(EncryptedDirectory dir) {
+
+  Future<void> _closeDirectory(EncryptedDirectory dir) async {
+    // Show delete confirmation dialog
+    final action = await showDialog<DeleteDirectoryAction>(
+      context: context,
+      builder: (context) => DeleteDirectoryDialog(
+        directoryPath: dir.path,
+        directoryName: dir.path.split('/').last,
+      ),
+    );
+
+    // If user cancelled, do nothing
+    if (action == null || action == DeleteDirectoryAction.cancel) {
+      return;
+    }
+
+    // If user chose to delete from disk
+    if (action == DeleteDirectoryAction.deleteFromDisk) {
+      try {
+        final directory = Directory(dir.path);
+        if (await directory.exists()) {
+          await directory.delete(recursive: true);
+        }
+      } catch (e) {
+        // Show error message
+        if (mounted) {
+          ErrorHelper.showError(
+            context,
+            errorType: ErrorType.deleteFileFailed,
+            originalError: 'Failed to delete directory: ${e.toString()}',
+          );
+        }
+        return; // Don't continue if deletion failed
+      }
+    }
+
+    // Remove from sidebar
     setState(() {
       _openedDirs.remove(dir);
       if (_currentDir?.path == dir.path) {
@@ -357,31 +452,26 @@ class _HomePageState extends State<HomePage> {
     // Save to persistence
     _saveOpenedDirectories();
   }
-  
+
   void _navigateToDirectory(String path) {
     setState(() {
       _currentPath = path;
     });
     _loadCurrentPath();
   }
-  
+
   void _navigateUp() {
     if (_currentPath == null || _currentDir == null) return;
-    
+
     final parent = _fileService.getParentDirectory(_currentPath!);
     if (parent == null || !parent.startsWith(_currentDir!.path)) {
       // Already at root or no parent
       return;
     }
-    
+
     _navigateToDirectory(parent);
   }
-  
-  void _navigateToRoot() {
-    if (_currentDir == null) return;
-    _navigateToDirectory(_currentDir!.path);
-  }
-  
+
   Future<void> _openItem(FileSystemNode item) async {
     if (item.isDirectory) {
       // Navigate into directory
@@ -389,109 +479,106 @@ class _HomePageState extends State<HomePage> {
     } else {
       // Check file extension
       final ext = item.extension?.toLowerCase();
-      
+
       // Text files
       if (ext == 'txt' || ext == 'md') {
         _openNotepad(item);
         return;
       }
-      
+
       // Image files
       if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(ext)) {
         _openImageViewer(item);
         return;
       }
-      
+
       // Other files
       // TODO: alert dialog to export file
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        title: _isSelectMode 
-          ? Text('${_selectedFiles.length} selected')
-          : const Text('Safe Disk'),
+        title: _isSelectMode
+            ? Text('${_selectedFiles.length} selected')
+            : const Text('Safe Disk'),
         leading: _isSelectMode
-          ? IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () {
-                setState(() {
-                  _isSelectMode = false;
-                  _selectedFiles.clear();
-                });
-              },
-              tooltip: 'Cancel selection',
-            )
-          : _drawerPinned 
-            ? null // Hide menu button when drawer is pinned
-            : IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              ),
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  setState(() {
+                    _isSelectMode = false;
+                    _selectedFiles.clear();
+                  });
+                },
+                tooltip: 'Cancel selection',
+              )
+            : _drawerPinned
+                ? null // Hide menu button when drawer is pinned
+                : IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                  ),
         actions: _isSelectMode
-          ? [
-              IconButton(
-                icon: const Icon(Icons.select_all),
-                onPressed: () {
-                  setState(() {
-                    // Select all files (not directories)
-                    _selectedFiles.addAll(_items.where((item) => !item.isDirectory));
-                  });
-                },
-                tooltip: 'Select all',
-              ),
-              if (_selectedFiles.isNotEmpty)
+            ? [
                 IconButton(
-                  icon: const Icon(Icons.save_alt),
-                  onPressed: _batchExport,
-                  tooltip: 'Export selected',
+                  icon: const Icon(Icons.select_all),
+                  onPressed: () {
+                    setState(() {
+                      // Select all files (not directories)
+                      _selectedFiles
+                          .addAll(_items.where((item) => !item.isDirectory));
+                    });
+                  },
+                  tooltip: 'Select all',
                 ),
-            ]
-          : [
-              IconButton(
-                icon: const Icon(Icons.create_new_folder),
-                onPressed: _createEncryptedDirectory,
-                tooltip: 'Create Encrypted Directory',
-              ),
-              IconButton(
-                icon: const Icon(Icons.folder_open),
-                onPressed: _openDirectory,
-                tooltip: 'Open Directory',
-              ),
-              // Import file button
-              IconButton(
-                icon: const Icon(Icons.upload_file),
-                onPressed: _importFile,
-                tooltip: 'Import File',
-              ),
-              // View mode toggle button
-              IconButton(
-                icon: Icon(_viewMode == ViewMode.list ? Icons.grid_view : Icons.view_list),
-                onPressed: () {
-                  setState(() {
-                    _viewMode = _viewMode == ViewMode.list ? ViewMode.grid : ViewMode.list;
-                  });
-                },
-                tooltip: _viewMode == ViewMode.list ? 'Switch to Grid View' : 'Switch to List View',
-              ),
-            ],
+                if (_selectedFiles.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.save_alt),
+                    onPressed: _batchExport,
+                    tooltip: 'Export selected',
+                  ),
+              ]
+            : [
+                // Import file button
+                IconButton(
+                  icon: const Icon(Icons.upload_file),
+                  onPressed: _importFile,
+                  tooltip: 'Import File',
+                ),
+                // View mode toggle button
+                IconButton(
+                  icon: Icon(_viewMode == ViewMode.list
+                      ? Icons.grid_view
+                      : Icons.view_list),
+                  onPressed: () {
+                    setState(() {
+                      _viewMode = _viewMode == ViewMode.list
+                          ? ViewMode.grid
+                          : ViewMode.list;
+                    });
+                  },
+                  tooltip: _viewMode == ViewMode.list
+                      ? 'Switch to Grid View'
+                      : 'Switch to List View',
+                ),
+              ],
       ),
       drawer: _drawerPinned ? null : _buildDrawer(),
       body: Row(
         children: [
           // Show drawer as permanent sidebar when pinned
-          if (_drawerPinned) 
+          if (_drawerPinned)
             SizedBox(
               width: 280,
               child: SidebarWidget(
                 openedDirs: _openedDirs,
                 currentDir: _currentDir,
                 drawerPinned: _drawerPinned,
-                onOpenDirectory: _openDirectory,
+                onOpenDirectory: _openOrCreateEncryptedDirectory,
                 onCloseDirectory: _closeDirectory,
                 onSwitchDirectory: _switchToDirectory,
                 onTogglePin: (pinned) async {
@@ -510,14 +597,14 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   Widget _buildDrawer() {
     return Drawer(
       child: SidebarWidget(
         openedDirs: _openedDirs,
         currentDir: _currentDir,
         drawerPinned: _drawerPinned,
-        onOpenDirectory: _openDirectory,
+        onOpenDirectory: _openOrCreateEncryptedDirectory,
         onCloseDirectory: _closeDirectory,
         onSwitchDirectory: _switchToDirectory,
         onTogglePin: (pinned) async {
@@ -529,20 +616,20 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    
+
     if (_currentDir == null) {
       return _buildWelcome();
     }
-    
+
     if (!_currentDir!.isVerified) {
       return _buildPasswordPrompt();
     }
-    
+
     // Show search bar if searching
     return Column(
       children: [
@@ -554,15 +641,14 @@ class _HomePageState extends State<HomePage> {
       ],
     );
   }
-  
+
   Widget _buildBreadcrumb() {
     // Build breadcrumb path navigation
-    final pathParts = _currentPath!.split('/');
     final breadcrumbs = <Widget>[];
-    
+
     // Build encrypted root name
     final rootName = _currentDir!.path.split('/').last;
-    
+
     // Add root directory
     breadcrumbs.add(
       InkWell(
@@ -579,29 +665,31 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-    
+
     // Add subdirectories
     String accumulatedPath = _currentDir!.path;
     final relativePath = _currentPath!.substring(_currentDir!.path.length);
-    
+
     if (relativePath.isNotEmpty) {
-      final subdirs = relativePath.split('/').where((s) => s.isNotEmpty).toList();
-      
+      final subdirs =
+          relativePath.split('/').where((s) => s.isNotEmpty).toList();
+
       for (final subdir in subdirs) {
         accumulatedPath = '$accumulatedPath/$subdir';
-        
+
         breadcrumbs.add(
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 4.0),
             child: Icon(Icons.chevron_right, size: 16),
           ),
         );
-        
+
         breadcrumbs.add(
           InkWell(
             onTap: () => _navigateToDirectory(accumulatedPath),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
               child: Text(
                 subdir,
                 style: TextStyle(
@@ -613,7 +701,7 @@ class _HomePageState extends State<HomePage> {
         );
       }
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       decoration: BoxDecoration(
@@ -632,7 +720,7 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.all(8.0),
@@ -671,26 +759,26 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
       setState(() => _searchResults = []);
       return;
     }
-    
+
     final lowerQuery = query.toLowerCase();
     final results = <FileSystemNode>[];
-    
+
     // Search in current directory
     for (final item in _items) {
       if (item.name.toLowerCase().contains(lowerQuery)) {
         results.add(item);
       }
     }
-    
+
     setState(() => _searchResults = results);
   }
-  
+
   Widget _buildWelcome() {
     return Center(
       child: Column(
@@ -705,25 +793,24 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 8),
           const Text('Encrypted file manager'),
           const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: _openDirectory,
-            icon: const Icon(Icons.folder_open),
-            label: const Text('Open Encrypted Directory'),
+          const Text(
+            '请从侧边栏打开或创建加密目录',
+            style: TextStyle(color: Colors.grey),
           ),
         ],
       ),
     );
   }
-  
+
   Widget _buildPasswordPrompt() {
     final controller = TextEditingController();
     final focusNode = FocusNode();
-    
+
     // Auto-focus after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       focusNode.requestFocus();
     });
-    
+
     return Center(
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
@@ -780,16 +867,13 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   Widget _buildFileBrowser() {
     return Column(
       children: [
-        // Breadcrumb navigation
-        _buildBreadcrumb(),
-        
         // Toolbar
         _buildToolbar(),
-        
+
         // File list
         Expanded(
           child: _buildFileList(),
@@ -797,12 +881,12 @@ class _HomePageState extends State<HomePage> {
       ],
     );
   }
-  
+
   Widget _buildToolbar() {
-    final canNavigateUp = _currentPath != null && 
-                          _currentDir != null && 
-                          _currentPath != _currentDir!.path;
-    
+    final canNavigateUp = _currentPath != null &&
+        _currentDir != null &&
+        _currentPath != _currentDir!.path;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -813,9 +897,9 @@ class _HomePageState extends State<HomePage> {
             onPressed: canNavigateUp ? _navigateUp : null,
             tooltip: 'Go up',
           ),
-          
+
           const SizedBox(width: 8),
-          
+
           // Current path info
           Expanded(
             child: Text(
@@ -823,7 +907,7 @@ class _HomePageState extends State<HomePage> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-          
+
           // Search button
           IconButton(
             icon: Icon(_isSearching ? Icons.close : Icons.search),
@@ -851,13 +935,13 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   Widget _buildFileList() {
     // Use search results if searching
-    final items = _isSearching && _searchResults.isNotEmpty 
-        ? _searchResults 
+    final items = _isSearching && _searchResults.isNotEmpty
+        ? _searchResults
         : (_isSearching ? _searchResults : _items);
-    
+
     if (_isSearching && _searchController.text.isNotEmpty && items.isEmpty) {
       return Center(
         child: Column(
@@ -870,15 +954,18 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     }
-    
+
     if (items.isEmpty) {
       return const Center(
         child: Text('Empty directory'),
       );
     }
-    
+
     // Show tree view if enabled and directory is verified (not in search mode)
-    if (!_isSearching && _showTreeView && _currentDir != null && _currentDir!.isVerified) {
+    if (!_isSearching &&
+        _showTreeView &&
+        _currentDir != null &&
+        _currentDir!.isVerified) {
       return DirectoryTreeWidget(
         rootPath: _currentDir!.path,
         currentPath: _currentPath,
@@ -891,7 +978,7 @@ class _HomePageState extends State<HomePage> {
         },
       );
     }
-    
+
     // Default list view or grid view based on _viewMode
     if (_viewMode == ViewMode.grid) {
       // Grid view
@@ -906,7 +993,7 @@ class _HomePageState extends State<HomePage> {
         itemBuilder: (context, index) {
           final item = items[index];
           final isSelected = _selectedFiles.contains(item);
-          
+
           return InkWell(
             onTap: () {
               if (_isSelectMode && !item.isDirectory) {
@@ -942,12 +1029,16 @@ class _HomePageState extends State<HomePage> {
               }
             },
             child: Card(
-              color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
+              color: isSelected
+                  ? Theme.of(context).primaryColor.withOpacity(0.1)
+                  : null,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    item.isDirectory ? Icons.folder : _getFileIcon(item.extension),
+                    item.isDirectory
+                        ? Icons.folder
+                        : _getFileIcon(item.extension),
                     size: 48,
                     color: item.isDirectory ? Colors.orange : null,
                   ),
@@ -966,14 +1057,14 @@ class _HomePageState extends State<HomePage> {
         },
       );
     }
-    
+
     // List view (default)
     return ListView.builder(
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
         final isSelected = _selectedFiles.contains(item);
-        
+
         return ListTile(
           leading: _isSelectMode && !item.isDirectory
               ? Checkbox(
@@ -989,12 +1080,14 @@ class _HomePageState extends State<HomePage> {
                   },
                 )
               : Icon(
-                  item.isDirectory ? Icons.folder : _getFileIcon(item.extension),
+                  item.isDirectory
+                      ? Icons.folder
+                      : _getFileIcon(item.extension),
                   color: item.isDirectory ? Colors.orange : null,
                 ),
           title: Text(item.name),
           subtitle: Text(
-            item.isDirectory 
+            item.isDirectory
                 ? '${item.children?.length ?? 0} items'
                 : item.formattedSize,
           ),
@@ -1041,7 +1134,7 @@ class _HomePageState extends State<HomePage> {
       },
     );
   }
-  
+
   void _showFileOptions(FileSystemNode item) {
     showModalBottomSheet(
       context: context,
@@ -1060,7 +1153,8 @@ class _HomePageState extends State<HomePage> {
               ),
             ListTile(
               leading: const Icon(Icons.download),
-              title: Text(item.isDirectory ? 'Export Directory' : 'Export Decrypted'),
+              title: Text(
+                  item.isDirectory ? 'Export Directory' : 'Export Decrypted'),
               onTap: () {
                 Navigator.pop(context);
                 if (item.isDirectory) {
@@ -1083,21 +1177,21 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   void _openNotepad(FileSystemNode item) {
     if (item.isDirectory) return;
-    
+
     final encryptedFile = EncryptedFile(
       name: item.name,
       encryptedPath: item.path,
       modifiedTime: DateTime.now(),
     );
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SecureNotepad(
-        tempKeyID: _currentDir!.tempKeyID!,
+          tempKeyID: _currentDir!.tempKeyID!,
           file: encryptedFile,
           cryptoService: _cryptoService,
           onSaved: () {
@@ -1107,95 +1201,99 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-  
+
   void _openImageViewer(FileSystemNode item) {
     if (item.isDirectory) return;
-    
+
     final encryptedFile = EncryptedFile(
       name: item.name,
       encryptedPath: item.path,
       modifiedTime: DateTime.now(),
     );
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SecureImageViewer(
-        tempKeyID: _currentDir!.tempKeyID!,
+          tempKeyID: _currentDir!.tempKeyID!,
           file: encryptedFile,
           cryptoService: _cryptoService,
         ),
       ),
     );
   }
-  
+
   /// Import a file from external location, encrypt it, and save to current directory
   Future<void> _importFile() async {
     if (!mounted) return;
-    
+
     // Check if directory is opened and verified
     if (_currentDir == null || !_currentDir!.isVerified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        CopyableSnackBar(message: 'Please verify the directory first', isError: true),
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.directoryNotVerified,
       );
       return;
     }
-    
+
     // Check if session is active
     if (_currentDir!.tempKeyID == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        CopyableSnackBar(message: 'Session expired. Please re-verify the directory', isError: true),
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.sessionExpired,
       );
       return;
     }
-    
+
     // Check if current path is set
     if (_currentPath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No directory selected')),
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.noDirectorySelected,
       );
       return;
     }
-    
+
     // Use file selector to choose file to import
     const XTypeGroup typeGroup = XTypeGroup(
       label: 'All Files',
     );
     final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
-    
+
     if (file == null) return; // User cancelled
-    
+
     try {
       // Show loading indicator
       setState(() {
         _isLoading = true;
       });
-      
+
       // Read file content
       final inputFile = File(file.path);
       final plaintext = await inputFile.readAsBytes();
-      
+
       // Encrypt and save to current directory
-      final encryptedDataBase64 = _cryptoService.encryptDataBytes(plaintext, _currentDir!.tempKeyID!);
+      final encryptedDataBase64 =
+          _cryptoService.encryptDataBytes(plaintext, _currentDir!.tempKeyID!);
       final encryptedData = base64Decode(encryptedDataBase64);
-      
+
       // Save encrypted file to current directory
       final fileName = file.name;
       final outputFile = File('$_currentPath/$fileName');
       await outputFile.writeAsBytes(encryptedData);
-      
+
       // Refresh file list
       await _loadCurrentPath();
-      
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('File imported: $fileName')),
-        );
+        ErrorHelper.showSuccess(context, '文件导入成功：$fileName');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to import file: $e')),
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.importFileFailed,
+          originalError: e.toString(),
         );
       }
     } finally {
@@ -1206,143 +1304,231 @@ class _HomePageState extends State<HomePage> {
       }
     }
   }
-  
+
   Future<void> _exportFile(FileSystemNode item) async {
     if (!mounted) return;
-    
+
     // Check if directory is opened and verified
     if (_currentDir == null || !_currentDir!.isVerified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        CopyableSnackBar(message: 'Please verify the directory first', isError: true),
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.directoryNotVerified,
       );
       return;
     }
-    
+
     // Check if session is active
     if (_currentDir!.tempKeyID == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        CopyableSnackBar(message: 'Session expired. Please re-verify the directory', isError: true),
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.sessionExpired,
       );
       return;
     }
-    
+
     // Use file selector to choose save location
     final FileSaveLocation? saveLocation = await getSaveLocation(
       suggestedName: item.name,
     );
-    
+
     if (saveLocation == null) return; // User cancelled
-    
+
     try {
       // Export file
-      await _fileService.exportFile(item, saveLocation.path, _currentDir!.tempKeyID!);
-      
+      await _fileService.exportFile(
+          item, saveLocation.path, _currentDir!.tempKeyID!);
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('File exported to: ${saveLocation.path}')),
-        );
+        ErrorHelper.showSuccess(context, '文件导出成功：${saveLocation.path}');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export file: $e')),
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.exportFileFailed,
+          originalError: e.toString(),
         );
       }
     }
   }
-  
+
+  /// Count total files in a directory (recursive, non-blocking)
+  /// Uses Isolate.run() to avoid UI jank for large directories
+  Future<int> _countFilesInDirectory(FileSystemNode node) async {
+    // If it's a file, return 1 directly
+    if (!node.isDirectory) {
+      return 1;
+    }
+
+    try {
+      // Run in background isolate with timeout
+      final count =
+          await Isolate.run(() => _countFilesInDirectorySync(node.path))
+              .timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('Warning: Count files timeout for ${node.path}');
+          return 0;
+        },
+      );
+      return count;
+    } catch (e) {
+      debugPrint('Error counting files in ${node.path}: $e');
+      return 0;
+    }
+  }
+
+  /// Synchronous file counting (runs in Isolate, safe to block)
+  static int _countFilesInDirectorySync(String path) {
+    try {
+      final dir = Directory(path);
+      if (!dir.existsSync()) return 0;
+
+      int count = 0;
+      // Use recursive listing to count all files
+      for (final entity in dir.listSync(recursive: true)) {
+        if (entity is File) count++;
+      }
+      return count;
+    } catch (e) {
+      // Return 0 on error to avoid crashing the isolate
+      return 0;
+    }
+  }
+
   Future<void> _exportDirectory(FileSystemNode item) async {
     if (!mounted) return;
-    
+
     // Check if directory is opened and verified
     if (_currentDir == null || !_currentDir!.isVerified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        CopyableSnackBar(message: 'Please verify the directory first', isError: true),
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.directoryNotVerified,
       );
       return;
     }
-    
+
     // Check if session is active
     if (_currentDir!.tempKeyID == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        CopyableSnackBar(message: 'Session expired. Please re-verify the directory', isError: true),
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.sessionExpired,
       );
       return;
     }
-    
+
     // Use file selector to choose export directory
     final String? exportDir = await getDirectoryPath();
-    
+
     if (exportDir == null) return; // User cancelled
-    
-    try {
-      int successCount = 0;
-      int failCount = 0;
-      
-      // Show progress indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-      
-      // Recursively export directory
-      await _exportDirectoryRecursive(item, exportDir, (success, fail) {
-        successCount += success;
-        failCount += fail;
-      });
-      
-      // Hide progress indicator
+
+    // Count total files first
+    final totalFiles = await _countFilesInDirectory(item);
+
+    if (totalFiles == 0) {
       if (mounted) {
-        Navigator.pop(context);
+        ErrorHelper.showInfo(context, '目录为空，无需导出');
       }
-      
-      // Show result
+      return;
+    }
+
+    // Show progress dialog
+    final progressController = ProgressHelper.showProgressDialog(
+      context,
+      title: '导出目录',
+      total: totalFiles,
+      status: '正在准备导出...',
+    );
+
+    final startTime = DateTime.now();
+    int successCount = 0;
+    int failCount = 0;
+
+    try {
+      // Recursively export directory
+      await _exportDirectoryRecursive(
+        item,
+        exportDir,
+        progressController,
+        startTime,
+        (success, fail) {
+          successCount += success;
+          failCount += fail;
+        },
+      );
+
+      // Close progress dialog
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Exported $successCount files${failCount > 0 ? ', $failCount failed' : ''}'),
-          ),
-        );
+        progressController.close(context);
+      }
+
+      // Show result
+      if (mounted && !progressController.isCancelled) {
+        final message = failCount > 0
+            ? '导出完成：成功 $successCount 个，失败 $failCount 个'
+            : '导出完成：成功 $successCount 个文件';
+        ErrorHelper.showSuccess(context, message);
+      } else if (mounted && progressController.isCancelled) {
+        ErrorHelper.showInfo(
+            context, '导出已取消：成功 $successCount 个，失败 $failCount 个');
       }
     } catch (e) {
-      // Hide progress indicator
+      // Close progress dialog
       if (mounted) {
-        Navigator.pop(context);
+        progressController.close(context);
       }
-      
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export directory: $e')),
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.exportDirectoryFailed,
+          originalError: e.toString(),
         );
       }
     }
   }
-  
+
   Future<void> _exportDirectoryRecursive(
     FileSystemNode node,
     String exportPath,
+    ProgressController progressController,
+    DateTime startTime,
     void Function(int success, int fail) onProgress,
   ) async {
+    // Check if cancelled
+    if (progressController.isCancelled) return;
+
     if (node.isDirectory) {
       // Create directory in export path
       final newDirPath = '$exportPath/${node.name}';
       await Directory(newDirPath).create(recursive: true);
-      
+
       // Load children
       final children = await _fileService.listCurrentDirectory(node.path);
-      
+
       // Recursively export children
       for (final child in children) {
-        await _exportDirectoryRecursive(child, newDirPath, onProgress);
+        if (progressController.isCancelled) return;
+        await _exportDirectoryRecursive(
+            child, newDirPath, progressController, startTime, onProgress);
       }
     } else {
+      // Update progress before exporting
+      progressController.update(
+        current: progressController.current + 1,
+        currentFileName: node.name,
+        status: '正在导出...',
+      );
+      progressController.estimateTimeRemaining(
+        startTime: startTime,
+        processedCount: progressController.current,
+      );
+
       // Export file
       try {
         final outputPath = '$exportPath/${node.name}';
-        await _fileService.exportFile(node, outputPath, _currentDir!.tempKeyID!);
+        await _fileService.exportFile(
+            node, outputPath, _currentDir!.tempKeyID!);
         onProgress(1, 0);
       } catch (e) {
         print('Failed to export ${node.name}: $e');
@@ -1350,89 +1536,111 @@ class _HomePageState extends State<HomePage> {
       }
     }
   }
-  
+
   Future<void> _batchExport() async {
     if (!mounted) return;
-    
+
     // Check if directory is opened and verified
     if (_currentDir == null || !_currentDir!.isVerified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        CopyableSnackBar(message: 'Please verify the directory first', isError: true),
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.directoryNotVerified,
       );
       return;
     }
-    
+
     // Check if session is active
     if (_currentDir!.tempKeyID == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        CopyableSnackBar(message: 'Session expired. Please re-verify the directory', isError: true),
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.sessionExpired,
       );
       return;
     }
-    
+
     // Use file selector to choose export directory
     final String? exportDir = await getDirectoryPath();
-    
+
     if (exportDir == null) return; // User cancelled
-    
+
+    // Show progress dialog
+    final totalFiles = _selectedFiles.length;
+    final progressController = ProgressHelper.showProgressDialog(
+      context,
+      title: '批量导出',
+      total: totalFiles,
+      status: '正在准备导出...',
+    );
+
+    final startTime = DateTime.now();
+    int successCount = 0;
+    int failCount = 0;
+
     try {
-      int successCount = 0;
-      int failCount = 0;
-      
-      // Show progress indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-      
       // Export each selected file
       for (final item in _selectedFiles) {
+        // Check if cancelled
+        if (progressController.isCancelled) break;
+
+        // Update progress
+        progressController.update(
+          current: successCount + failCount + 1,
+          currentFileName: item.name,
+          status: '正在导出...',
+        );
+        progressController.estimateTimeRemaining(
+          startTime: startTime,
+          processedCount: successCount + failCount + 1,
+        );
+
         try {
           final outputPath = '$exportDir/${item.name}';
-          await _fileService.exportFile(item, outputPath, _currentDir!.tempKeyID!);
+          await _fileService.exportFile(
+              item, outputPath, _currentDir!.tempKeyID!);
           successCount++;
         } catch (e) {
           print('Failed to export ${item.name}: $e');
           failCount++;
         }
       }
-      
-      // Hide progress indicator
+
+      // Close progress dialog
       if (mounted) {
-        Navigator.pop(context);
+        progressController.close(context);
       }
-      
+
       // Exit select mode
       setState(() {
         _isSelectMode = false;
         _selectedFiles.clear();
       });
-      
+
       // Show result
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Exported $successCount files${failCount > 0 ? ', $failCount failed' : ''}'),
-          ),
-        );
+      if (mounted && !progressController.isCancelled) {
+        final message = failCount > 0
+            ? '导出完成：成功 $successCount 个，失败 $failCount 个'
+            : '导出完成：成功 $successCount 个文件';
+        ErrorHelper.showSuccess(context, message);
+      } else if (mounted && progressController.isCancelled) {
+        ErrorHelper.showInfo(
+            context, '导出已取消：成功 $successCount 个，失败 $failCount 个');
       }
     } catch (e) {
-      // Hide progress indicator
+      // Close progress dialog
       if (mounted) {
-        Navigator.pop(context);
+        progressController.close(context);
       }
-      
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export files: $e')),
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.exportFileFailed,
+          originalError: e.toString(),
         );
       }
     }
   }
-  
+
   Future<void> _deleteFile(FileSystemNode item) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -1452,26 +1660,26 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
-    
+
     if (confirm == true) {
       try {
         final file = File(item.path);
         await file.delete();
         _loadCurrentPath();
-        
+
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File deleted')),
-        );
+        ErrorHelper.showSuccess(context, '文件已删除');
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete file: $e')),
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.deleteFileFailed,
+          originalError: e.toString(),
         );
       }
     }
   }
-  
+
   IconData _getFileIcon(String? extension) {
     switch (extension) {
       case 'txt':

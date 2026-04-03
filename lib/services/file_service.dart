@@ -34,7 +34,9 @@ class FileSystemNode {
     if (isDirectory || size == null) return '';
     if (size! < 1024) return '$size B';
     if (size! < 1024 * 1024) return '${(size! / 1024).toStringAsFixed(1)} KB';
-    if (size! < 1024 * 1024 * 1024) return '${(size! / 1024 / 1024).toStringAsFixed(1)} MB';
+    if (size! < 1024 * 1024 * 1024) {
+      return '${(size! / 1024 / 1024).toStringAsFixed(1)} MB';
+    }
     return '${(size! / 1024 / 1024 / 1024).toStringAsFixed(1)} GB';
   }
 
@@ -114,16 +116,6 @@ class _ListDirectoryResult {
       'totalCount': totalCount,
       'hasMore': hasMore,
     };
-  }
-
-  factory _ListDirectoryResult.fromMap(Map<String, dynamic> map) {
-    return _ListDirectoryResult(
-      nodes: (map['nodes'] as List<dynamic>)
-          .map((n) => n as Map<String, dynamic>)
-          .toList(),
-      totalCount: map['totalCount'] as int,
-      hasMore: map['hasMore'] as bool,
-    );
   }
 }
 
@@ -226,13 +218,12 @@ class FileService {
         () => _listDirectoryInBackground(params.toMap()),
       );
 
-      return result.nodes
-          .map((n) => FileSystemNode.fromMap(n))
-          .toList();
+      return result.nodes.map((n) => FileSystemNode.fromMap(n)).toList();
     } catch (e) {
       // Fallback to synchronous listing if Isolate fails
       print('Isolate listing failed, falling back to sync: $e');
-      return await _listCurrentDirectorySync(dirPath, offset: offset, limit: limit);
+      return await _listCurrentDirectorySync(dirPath,
+          offset: offset, limit: limit);
     }
   }
 
@@ -309,7 +300,8 @@ class FileService {
   }
 
   /// Recursively scans a directory tree
-  Future<FileSystemNode> scanDirectoryTree(String dirPath, {int maxDepth = 10}) async {
+  Future<FileSystemNode> scanDirectoryTree(String dirPath,
+      {int maxDepth = 10}) async {
     final dir = Directory(dirPath);
     if (!await dir.exists()) {
       throw Exception('Directory does not exist: $dirPath');
@@ -391,14 +383,15 @@ class FileService {
   /// SECURITY: Never save decrypted data to temporary files!
   /// NOTE: For large files (>100 MB), this may use significant memory.
   /// Consider using exportFile() for large files instead.
-  Future<Uint8List> decryptFileToBytes(FileSystemNode file, String tempKeyID) async {
+  Future<Uint8List> decryptFileToBytes(
+      FileSystemNode file, String tempKeyID) async {
     if (file.isDirectory) {
       throw Exception('Cannot decrypt a directory');
     }
 
     // Check if file is chunked format (supports streaming)
     final isChunked = _cryptoService.isChunkedFile(file.path);
-    
+
     if (isChunked) {
       // For chunked files, we can use memory-efficient decryption
       // But since we need to return bytes, we still load into memory
@@ -423,7 +416,8 @@ class FileService {
 
     // Decrypt using session key
     final encryptedDataBase64 = base64Encode(encryptedData);
-    final decryptedData = _cryptoService.decryptDataBytes(encryptedDataBase64, tempKeyID);
+    final decryptedData =
+        _cryptoService.decryptDataBytes(encryptedDataBase64, tempKeyID);
 
     // Clear sensitive data from memory
     encryptedData.fillRange(0, encryptedData.length, 0);
@@ -437,7 +431,8 @@ class FileService {
   /// Caller is responsible for deleting the temp file after use.
   Future<String> _decryptToTempFile(String inputPath, String tempKeyID) async {
     final tempDir = Directory.systemTemp;
-    final tempFileName = 'safedisk_decrypted_${DateTime.now().millisecondsSinceEpoch}';
+    final tempFileName =
+        'safedisk_decrypted_${DateTime.now().millisecondsSinceEpoch}';
     final tempPath = '${tempDir.path}/$tempFileName';
 
     _cryptoService.decryptFileToPath(inputPath, tempPath, tempKeyID);
@@ -446,12 +441,14 @@ class FileService {
   }
 
   /// Encrypts a file and saves to encrypted directory
-  Future<void> encryptFile(String inputPath, String outputDir, String tempKeyID) async {
+  Future<void> encryptFile(
+      String inputPath, String outputDir, String tempKeyID) async {
     final inputFile = File(inputPath);
     final plaintext = await inputFile.readAsBytes();
 
     // Encrypt using session key
-    final ciphertextBase64 = _cryptoService.encryptDataBytes(plaintext, tempKeyID);
+    final ciphertextBase64 =
+        _cryptoService.encryptDataBytes(plaintext, tempKeyID);
     final encrypted = base64Decode(ciphertextBase64);
 
     // Clear sensitive data from memory
@@ -464,7 +461,8 @@ class FileService {
 
   /// Exports decrypted file to a user-selected location.
   /// This method uses memory-efficient streaming decryption for large files.
-  Future<void> exportFile(FileSystemNode file, String outputPath, String tempKeyID) async {
+  Future<void> exportFile(
+      FileSystemNode file, String outputPath, String tempKeyID) async {
     if (file.isDirectory) {
       throw Exception('Cannot export a directory');
     }
@@ -477,7 +475,8 @@ class FileService {
   /// Exports decrypted file to a user-selected location.
   /// Uses the legacy in-memory method (for backward compatibility).
   /// DEPRECATED: Use exportFile() instead for better memory efficiency.
-  Future<void> exportFileLegacy(FileSystemNode file, String outputPath, String tempKeyID) async {
+  Future<void> exportFileLegacy(
+      FileSystemNode file, String outputPath, String tempKeyID) async {
     if (file.isDirectory) {
       throw Exception('Cannot export a directory');
     }
@@ -487,7 +486,8 @@ class FileService {
 
     // Decrypt using session key
     final encryptedDataBase64 = base64Encode(encryptedData);
-    final decryptedData = _cryptoService.decryptDataBytes(encryptedDataBase64, tempKeyID);
+    final decryptedData =
+        _cryptoService.decryptDataBytes(encryptedDataBase64, tempKeyID);
 
     // Clear sensitive data from memory
     encryptedData.fillRange(0, encryptedData.length, 0);
@@ -497,7 +497,8 @@ class FileService {
   }
 
   /// Creates a new subdirectory
-  Future<FileSystemNode> createDirectory(String parentPath, String dirName) async {
+  Future<FileSystemNode> createDirectory(
+      String parentPath, String dirName) async {
     final newDir = Directory('$parentPath/$dirName');
     await newDir.create(recursive: true);
 
