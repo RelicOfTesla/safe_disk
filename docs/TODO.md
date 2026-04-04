@@ -19,295 +19,32 @@
 
 ## 🔴 P0 - 紧急任务
 
-### 新增重构任务（2026-04-04）
-
-#### 1. FFI 接口重设计（优先级 0）⚠️ 最高优先级
-
-- [x] **去掉旧的 encryptXXX/decryptXXX 接口** ✅ 2026-04-04
-  - 删除所有旧的加密/解密 FFI 接口
-  - 保留向后兼容的废弃接口（临时）
-
-- [x] **设计 sec_* 系列接口** ✅ 2026-04-04
-  ```go
-  // 安全根目录操作
-  (sec_root_id, err) = sec_root_open(root_dir, input_pass, config(opt))
-  err = sec_root_change_pass(sec_root_id, new_pass)
-  err = sec_root_close(sec_root_id)
-
-  // 目录遍历
-  (dir_or_file_info, err) = sec_dir_walk(sec_root_id, sub_path, opt)
-  (..., err) = sec_dir_walk_next(dir_or_file_info)
-  err = sec_dir_walk_close(dir_or_file_info)
-
-  // 文件操作（类 C 标准库风格）
-  (fp, err) = sec_fopen(path, sec_root_id)
-  (data, err) = sec_fread(fp, size, count)
-  (written, err) = sec_fwrite(fp, data)
-  err = sec_fclose(fp)
-  (stat, err) = sec_fstat(fp)
-  err = sec_fseek(fp, offset, whence)
-  (pos, err) = sec_ftell(fp)
-  (info, err) = sec_fstat_info(fp)
-
-  // 快捷指令
-  full_decrypted_data = sec_readfile(path, sec_root_id)
-  err = sec_writefile(path, full_raw_data, sec_root_id)
-  ```
-
-- [x] **创建 sec_fs 包（独立 Go package）** ✅ 2026-04-04
-  - 路径：`native/sec_fs/`
-  - 实现所有 sec_* 系列接口
-  - 使用 ICryptorMaker 动态选择加密实现
-  - CLI 直接调用 `sec_fs.Default` 或 `sec_fs.OpenRoot()` 等
-  - **已验证**：目录存在，7个文件，编译成功
-
-- [x] **创建 ffs_sec_fs 包（FFI 封装层）** ✅ 2026-04-04
-  - 路径：`native/ffs_sec_fs/`
-  - 函数名与 sec_fs 基本同名
-  - 参数和返回值类型适配 FFI（C 类型）
-  - 底层调用 `sec_fs.xxx()`
-  - 示例：`ffs_sec_fs.SecRootOpen()` => `sec_fs.SecRootOpen()`
-  - **已验证**：目录存在，文件存在（26KB），编译成功，74个符号导出（37个FFI函数）
-
-- [ ] **更新 CLI 使用 sec_fs 包** ⚠️ 未完成
-  - CLI 命令直接调用 `sec_fs` 包
-  - 不再直接调用 crypto 包或 service 层
-  - 统一调用路径：CLI -> sec_fs -> ICryptorMaker
-
-- [ ] **废弃旧的 Service 层** ⚠️ 未完成
-  - EncryptionService/CryptoService/PasswordService 标记为 deprecated
-  - 临时保留的话，内部改为调用 `sec_fs`
-  - 统一架构：所有操作都通过 `sec_fs` 包
-
-#### 2. sec_fs 包（原生 Go 实现）✅ 2026-04-04
-
-- [x] **创建 native/sec_fs 包** ✅ 2026-04-04
-  - 独立的 Go 原生包
-  - 实现所有 sec_* 系列接口
-  - 动态选择加密实现（ICryptorMaker）
-  - 不依赖 FFI 类型
-  - CLI 直接调用此包
-
-- [x] **实现 sec_fs 核心功能** ✅ 2026-04-04
-  - 安全根目录管理（open/close/change_pass）
-  - 目录遍历（walk/walk_next/walk_close）
-  - 文件操作（fopen/fread/fwrite/fclose/fstat/fseek/ftell）
-  - 快捷指令（readfile/writefile）
-
-- [x] **加密实现动态选择** ✅ 2026-04-04
-  - 根据 config 和 source 动态选择 ICryptorMaker
-  - 支持 normal/chunked/incremental 等多种实现
-  - 对上层透明
-
-- [x] **sec_fs 测试用例** ✅ 2026-04-04
-  - 单元测试：基本功能测试
-  - 集成测试：端到端测试
-  - 性能测试：吞吐量、延迟、内存占用
-  - 增量加密测试：
-    - 100MB 已加密文件
-    - 随机在 5 个位置添加/编辑/删除 1-2000 byte 数据
-    - 再保存时文件修改量 **低于 8MB**
-    - 随机定位快速解密：O(1) 或 O(log n) 定位复杂度
-  - **已验证**：测试文件存在，测试全部通过（29.997s）
-
-- [x] **impl 灵活选择实现类** ✅ 2026-04-04
-  - sec_fs 支持不同的 impl 实现
-  - NormalImpl：标准模式（小文件 < 100MB）
-  - ChunkedImpl：分块模式（大文件）
-  - IncrementalImpl：增量模式（随机访问）
-  - 根据 config 和 source 动态选择实现类
-  - 测试用例符合不同 impl 的内存和性能要求
-
-#### 3. ffs_sec_fs 包（FFI 封装）✅ 2026-04-04
-
-- [x] **创建 native/ffs_sec_fs 包** ✅ 2026-04-04
-  - 封装 sec_fs 包
-  - 适配 FFI 类型（C 类型、指针等）
-  - 函数名与 sec_fs 基本同名
-  - 参数和返回值类型适配 FFI
-
-- [x] **实现 FFI 适配层** ✅ 2026-04-04
-  ```go
-  // 示例：FFI 封装调用原生 sec_fs
-  func SecFsRootOpen(rootDir *C.char, inputPass *C.char, ttlSeconds C.int) *C.char {
-      // 转换参数类型
-      // 调用 sec_fs.Default.OpenRoot()
-      // 返回 JSON 字符串
-  }
-  ```
-  - 37 个 FFI 函数已实现
-  - 74 个符号已导出
-
-#### 4. 废弃旧的 Service ✅ 2026-04-04
-
-- [x] **标记 deprecated** ✅ 2026-04-04
-  - EncryptionService: 标记为 deprecated
-  - CryptoService: 标记为 deprecated
-  - PasswordService: 标记为 deprecated
-  - 整个 service 包标记为 deprecated
-
-- [x] **CLI 改为调用 sec_fs** ✅ 2026-04-04
-  - CLI 直接调用 sec_fs 和 sec_transfer 包
-  - 新增 session.go, file_ops.go
-  - 新增 open/close/ls/read/write 等命令
-  - CLI 编译成功
-
-#### 5. CLI 重构 ✅ 2026-04-04
-
-- [x] **CLI 使用 sec_fs 包** ✅ 2026-04-04
-  - CLI 命令直接调用 `sec_fs` 包
-  - 不再直接调用 crypto 包或 service 层
-  - 统一调用路径：CLI -> sec_fs -> ICryptorMaker
-
-- [x] **创建 native/sec_transfer 包** ✅ 2026-04-04
-  - 独立的 Go 原生包
-  - 实现目录传输功能
-  - Default 服务暴露
-  - 测试通过（8/9）
-  - 实现 TransferService
-  - 底层调用 sec_fs
-  - 特点：安全 + 异步 + 原子化 + 持久队列
-  - 仅支持路径参数（src/target/dir/file）
-  - 不接受二进制数据参数传入传出
-
-- [x] **实现 TransferService 核心功能** ✅ 2026-04-04
-  - 异步加解密传输
-  - 原子化操作（atomic.go）
-  - 持久队列（queue.go）
-  - 进度回调
-  - 恢复功能（resume.go）
-  - 测试通过：14/16 tests
-
-- [x] **暴露 Default TransferService** ✅ 2026-04-04
-  - 类似 sec_fs.Default
-  - CLI 直接调用 sec_transfer.Default
-  - 编译成功
-
-#### 6. ffs_sec_transfer 包（FFI 封装）
-
-- [x] **创建 native/ffs_sec_transfer 包** ✅ 2026-04-04
-  - FFI 封装层
-  - 27 个 FFI 函数导出
-  - Simple API 和 Session-based API
-  - 共享库编译成功（54 个 FFS 函数）
-  - 封装 sec_transfer 包
-  - 适配 FFI 类型
-  - FFI 调用此包
-
----
-
-### 架构设计原则
-
-**分层架构**：
-```
-┌─────────────────────────────────────┐
-│  CLI                                │  ← 直接调用 sec_fs
-│  FFI (main.go)                      │  ← 调用 ffs_sec_fs
-└─────────────────────────────────────┘
-           ↓                    ↓
-┌─────────────────────────────────────┐
-│  ffs_sec_fs / ffs_sec_transfer      │  ← FFI 适配层
-└─────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────┐
-│  sec_fs / sec_transfer              │  ← 原生 Go 实现
-└─────────────────────────────────────┘
-           ↓
-┌─────────────────────────────────────┐
-│  crypto (ICryptorMaker)             │  ← 加密实现
-└─────────────────────────────────────┘
-```
-
-**设计原则**：
-1. **分层清晰**：CLI → sec_fs，FFI → ffs_sec_fs → sec_fs
-2. **职责单一**：每个包只负责一件事
-3. **接口统一**：所有接口基于 sec_* 系列
-4. **向后兼容**：旧的 Service 标记 deprecated，但临时保留
-5. **动态选择**：加密实现根据 config 和 source 动态选择
-
----
-
 ### 新增问题（2026-04-03）
 
-- [ ] **[Deprecated][REFACTOR] Go 架构重构：接口化加解密算法**（优先级 0）⚠️ 紧急
-  - ** 部分内容过期，应当以最新sec_fs/sec_transfer为准。**
-  - **目标**：灵活封装加解密实现算法，可以动态调整
-  - **具体要求**：
-    1. 将 service 中的 tempKeyID 参数改为 pCryptorMaker *ICryptorMaker
-    2. DeriveFileKey() 返回 ICryptorMaker
-    3. keystore 也返回 ICryptorMaker
-    4. 定义 ICryptorMaker 接口：GetConfigJson, GetConfigRaw, NewEncryptor, NewDecryptor
-    5. 定义 IEncryptor/IDecryptor 接口：Encrypt/DecryptToFile, ToData, ToWriter
-    6. 定义 ICryptSource 接口：isChunkType 等
-    7. 将 chunk 判断逻辑移入不同的 impl
-    8. 对 service 透明，具体算法由 ICryptorMaker 根据 config 和 source 决定
-  - **影响**：大幅提升代码灵活性和可维护性
-  - **问题**：CLI 代码已过时，部分命令未使用正确的 service 操作
-  - **影响**：CLI 命令可能无法正常工作，或与 FFI 行为不一致
-  - **现状**：
-    - verify.go、encrypt.go 已临时修复
-    - changepass.go、decrypt.go 已禁用（重命名为 .bak）
-  - **解决方案**：修复所有 CLI 命令，确保使用正确的 service 接口
-  - **优先级**：必须在继续其他任务之前完成
-  - **问题**：Flutter 端的目录加解密功能是自己实现的，而不是使用 FFI service
-  - **影响**：Flutter 端和 CLI/FFI 的行为可能不一致
-  - **现状**：FFI 代码已有，应当接入新接口
-  - **解决方案**：修改 Flutter 端代码，使用 FFI service 实现目录加解密功能
-  - **优先级**：与 CLI 重构任务一起完成
-  - **问题**：CLI 和 FFI 直接调用 crypto 包，而不是通过 service 调用
-  - **影响**：CLI 和 FFI 的调用方式不一致，可能导致行为差异
-  - **架构要求**：
-    1. crypto 包移入 service 中
-    2. CLI 或 FFI 不应当直接调用 crypto 包
-    3. 应当通过 service 调用
-    4. 统一调用路径：CLI/FFI -> service -> crypto
-  - **解决方案**：重构 CLI 和 FFI，使用 service 统一接口
-  - **优先级**：必须在自动化流程测试之前完成
+- [ ] **[BUG] UI 新创建的加密目录，侧边栏与解密栏标题为一段 json 字符串**（优先级 1）
+  - 问题：创建加密目录后，侧边栏和解密栏显示的不是目录名，而是一段 JSON 字符串
+  - 影响：严重影响用户体验
 
-- [x] **[BUG] createEncryptedDirectory 的 config 应当是 generateEncryptionConfig 得到的**（优先级 0） ✅ 2026-04-03
-  - **问题**：`createEncryptedDirectory` 的 config 是自己组装的，而不是通过 `generateEncryptionConfig` 得到的
-  - **影响**：代码已经过时，可能导致配置不一致
-  - **解决方案**：修复代码，使用 `generateEncryptionConfig` 得到的 config
-  - **Commit**: 1848943
-
-- [x] **[BUG] UI 新创建的加密目录，侧边栏与解密栏标题为一段 json 字符串**（优先级 1） ✅ 2026-04-03
-  - **问题**：创建加密目录后，侧边栏和解密栏显示的不是目录名，而是一段 JSON 字符串
-  - **原因**：FFI 响应解析逻辑不正确
-  - **修复**：修改 `lib/services/crypto_service.dart` 中的 FFI 响应解析逻辑
-  - **Commit**: 793c8f8
+- [x] **[BUG] UI 新创建的加密目录，输入正确密码却提示密码错误**（优先级 2） ✅ 2026-04-03
   - **问题**：刚创建的加密目录，输入正确的密码却提示密码错误
   - **原因**：FFI 响应解析逻辑不正确，Flutter 层无法正确解析 Go 层返回的 JSON
   - **修复**：修改 `lib/services/crypto_service.dart` 中的 FFI 响应解析逻辑
   - **测试**：新增 `test/services/ffi_response_parsing_test.dart` 单元测试
   - **Commit**: 793c8f8
 
-- [x] **新增系统自动化流程测试** ✅ 2026-04-04
-  - 集成测试通过（12 个测试用例）
-  - 端到端测试通过（15 个测试用例）
-  - 压力测试通过（20+ 测试/基准）
-  - 自动化脚本可用
-  - 测试覆盖率 > 60%（sec_fs: 67.2%）
-  - **问题**：当前测试是纯粹 CLI 的，应该有 FFI 接口的流程测试
-  - **原因**：CLI 和 FFI 的落地效果不一致时就无法检测出来了
-  - **详细测试流程**：
-    1. 创建临时测试目录：`/home/john/Desktop/dev/safe_test/tmp_xxx`
-    2. 新建 `/tmp_xxx/hello1.txt`，内容为 hello1
-    3. UI 模拟调用创建加密目录（FFI）
-    4. UI 模拟打开测试目录
-    5. UI 模拟安全记事本打开 hello1.txt（FFI）
-    6. UI 模拟判断安全记事本内容是 hello1
-    7. UI 模拟安全记事本修改内容
-    8. UI 模拟安全记事本保存
-    9. UI 模拟安全记事本再打开
-    10. UI 模拟安全记事本判断修改内容是否生效
-    11. 使用 CLI export 指令解密该文件，判断是否正确
-    12. 删除这个测试目录 tmp_xxx。确保_cryption.json 已删除
-    13. 新建一个 `/tmp_xxx/hello2.txt`，内容为 hello2
-    14. 使用 CLI 指令加密该目录，判断是否正确
-    15. UI 模拟打开测试目录
-    16. UI 模拟安全记事本打开 hello2.txt（FFI）
-    17. UI 模拟判断安全记事本内容是 hello2
-    18. 删除这个测试目录 tmp_xxx
+- [x] **新增系统自动化流程测试**（优先级 3） ✅ 2026-04-03
+  - 创建临时测试目录：`/home/john/Desktop/dev/safe_test/tmp_xxx`
+  - 新建 `/tmp_xxx/hello1.txt` 文件，内容为 hello
+  - UI 模拟调用创建加密目录
+  - UI 模拟打开解密目录
+  - UI 模拟安全记事本打开 hello1.txt，判断内容是否正确
+  - UI 模拟修改内容
+  - UI 模拟保存
+  - UI 再打开确认内容正确
+  - 使用 CLI export 指令解密该文件，判断内容是否正确
+  - 删除测试目录 tmp_xxx
+  - **新增文件**：test/system_test/system_flow_test.sh, system_flow_test.dart, ui_simulation_test.dart
+  - **Commit**: 1065cb0
 
 ### 安全问题
 
@@ -354,11 +91,10 @@
 
 ### 用户体验改进
 
-- [x] **安全记事本自动保存时间间隔可选**（优先级：中） ✅ 2026-04-04
+- [ ] **安全记事本自动保存时间间隔可选**（优先级：中）
   - 默认不保存
   - 可选时间间隔：30秒、3分钟、10分钟、30分钟、2小时
   - 添加设置选项框
-  - SharedPreferences 持久化存储
 
 - [x] **统一加密目录入口**：侧边栏改成打开/创建按钮，去掉右上角和启动页的重复按钮 ✅ 2026-04-03
   - 侧边栏："打开加密目录" → "打开/创建加密目录"
@@ -533,52 +269,29 @@
     - 存储开销：0.16%
   - 优化建议：调整默认块大小至 256KB-512KB
 
-- [x] **增量加密**：100MB 已加密文件，随机在 5 个位置添加/编辑/删除 1-2000byte 数据，再保存时文件修改量低于 8MB ✅ 2026-04-04
+- [ ] **增量加密**：100MB 已加密文件，随机在 5 个位置添加/编辑/删除 1-2000byte 数据，再保存时文件修改量低于 8MB
   - 测试要求：创建 100MB 测试文件，验证修改量
   - 目标：避免全文件重新加密
-  - 实际：文件修改量 0.43 MB（99.6% 减少）
-  - 加密速度：105.63 MB/s
-  - 解密速度：486.17 MB/s
-- [x] **随机定位快速解密**：支持任意位置定位的快速解密 ✅ 2026-04-04
+- [ ] **随机定位快速解密**：支持任意位置定位的快速解密
   - 测试要求：测试随机位置解密性能
   - 目标：O(1) 或 O(log n) 定位复杂度
-  - 实际：O(1) 定位复杂度
-  - 平均延迟：0.49ms（远低于 1ms）
-  - 吞吐量：127.25 MB/s
 
-- [x] **重构 stream 设计**：允许重构掉原来 V2 的 stream 设计，允许不兼容 ✅ 2026-04-04
+- [ ] **重构 stream 设计**：允许重构掉原来 V2 的 stream 设计，允许不兼容
   - 可以重新设计加密文件格式
   - 优先满足增量加密和随机定位需求
-  - 已完成 Stream V3 设计
-  - 追加写入优化：O(1) 添加块
-  - 标记删除优化：O(1) 删除块
-  - 简化 Merkle Tree：节省 50% 空间
 
-- [x] 大文件流式解密（避免内存溢出） ✅ 2026-04-04
-  - 流式解密到 Writer/文件
-  - 支持取消操作
-  - 内存占用有界（内存增加 0.00 MB）
-  - FFI 接口已添加
+- [ ] 大文件流式解密（避免内存溢出）
 ### UI性能优化
-- [x] 文件列表虚拟滚动（处理超大目录） ✅ 2026-04-04
-  - 支持分页加载（每页50个项目）
-  - 滚动监听器，自动加载下一页
-  - 超大目录加载流畅（10000+ 文件初始加载 159ms）
+- [ ] 文件列表虚拟滚动（处理超大目录）
 - [ ] 内存占用优化
 - [ ] 启动速度优化
 - [ ] 批量加密解密任务后台安全处理
 
 ### 功能增强
 
-- [x] 剪贴板复制/粘贴 ✅ 2026-04-04
-  - ClipboardService：跨平台剪贴板操作
-  - ClipboardHelper：粘贴文件到加密目录（带进度、支持取消）
-  - UI 集成：粘贴按钮、复制菜单、批量复制
+- [ ] 剪贴板复制/粘贴
 - [ ] 软件内右键菜单增强
-- [x] 设置界面 ✅ 2026-04-04
-  - SettingsService：管理所有设置项
-  - SettingsPage：设置界面 UI（安全、外观、行为）
-  - 侧边栏集成：设置按钮
+- [ ] 设置界面
 - [ ] 批量操作（批量导出、批量删除）
 - [ ] 文件排序（按名称、大小、日期）
 - [ ] 文件过滤（按类型）

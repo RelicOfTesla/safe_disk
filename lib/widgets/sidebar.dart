@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/cryption_config.dart';
-import '../pages/settings_page.dart';
 
 /// Sidebar widget for displaying opened directories
 class SidebarWidget extends StatelessWidget {
@@ -22,21 +21,6 @@ class SidebarWidget extends StatelessWidget {
     required this.onSwitchDirectory,
     required this.onTogglePin,
   });
-
-  void _openSettings(BuildContext context) {
-    // Close drawer if not pinned
-    if (!drawerPinned && Navigator.canPop(context)) {
-      Navigator.pop(context);
-    }
-    
-    // Use post-frame callback to avoid async gap warning
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const SettingsPage()),
-      );
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,13 +55,9 @@ class SidebarWidget extends StatelessWidget {
               IconButton(
                 icon: Icon(drawerPinned ? Icons.lock : Icons.lock_open),
                 onPressed: () async {
-                  // Check if we can pop before async gap
-                  final canPop = Navigator.canPop(context);
                   await onTogglePin(!drawerPinned);
-                  if (!drawerPinned && canPop) {
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
+                  if (!drawerPinned && Navigator.canPop(context)) {
+                    Navigator.pop(context);
                   }
                 },
                 tooltip: drawerPinned ? 'Unpin sidebar' : 'Pin sidebar',
@@ -154,18 +134,6 @@ class SidebarWidget extends StatelessWidget {
                     );
                   },
                 ),
-        ),
-
-        // Settings button at bottom
-        const Divider(),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text('设置'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _openSettings(context),
-          ),
         ),
       ],
     );

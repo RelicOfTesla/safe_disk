@@ -14,6 +14,200 @@ class NativeLib {
 
   NativeLib._();
 
+  // ==================== NEW FFI INTERFACE ====================
+
+  /// Verifies if the password is correct
+  /// inputPass: user input password
+  /// configJSON: config JSON string (from _cryption.json)
+  /// Returns: true if correct, false if incorrect
+  bool verifyPassword(String inputPass, String configJSON) {
+    final inputPassPtr = inputPass.toNativeUtf8();
+    final configJSONPtr = configJSON.toNativeUtf8();
+
+    try {
+      final result = _bindings.verifyPassword(inputPassPtr, configJSONPtr);
+      return result == 1;
+    } finally {
+      calloc.free(inputPassPtr);
+      calloc.free(configJSONPtr);
+    }
+  }
+
+  /// Generates a temporary key ID for session use
+  /// inputPass: user input password
+  /// configJSON: config JSON string (from _cryption.json)
+  /// ttlSeconds: time-to-live in seconds (0 = default 3600s)
+  /// Returns: temporary key ID (hex string) or empty string on error
+  String makeTemporaryKeyID(String inputPass, String configJSON,
+      {int ttlSeconds = 0}) {
+    final inputPassPtr = inputPass.toNativeUtf8();
+    final configJSONPtr = configJSON.toNativeUtf8();
+
+    try {
+      final resultPtr =
+          _bindings.makeTemporaryKeyID(inputPassPtr, configJSONPtr, ttlSeconds);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(inputPassPtr);
+      calloc.free(configJSONPtr);
+    }
+  }
+
+  /// Encrypts data with temporary key ID
+  /// dataBase64: base64-encoded data to encrypt
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: base64-encoded encrypted data or empty string on error
+  String encryptData(String dataBase64, String tempKeyID) {
+    final dataPtr = dataBase64.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.encryptData(dataPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(dataPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+
+  /// Decrypts data with temporary key ID
+  /// dataBase64: base64-encoded encrypted data
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: base64-encoded decrypted data or empty string on error
+  String decryptData(String dataBase64, String tempKeyID) {
+    final dataPtr = dataBase64.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.decryptData(dataPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(dataPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+
+  /// Encrypts a file with temporary key ID
+  /// srcPath: source file path
+  /// toPath: destination file path
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: JSON result {"success": true} or {"success": false, "error": "..."}
+  String encryptFile(String srcPath, String toPath, String tempKeyID) {
+    final srcPtr = srcPath.toNativeUtf8();
+    final toPtr = toPath.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.encryptFile(srcPtr, toPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(toPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+
+  /// Decrypts a file with temporary key ID and returns the data
+  /// path: encrypted file path
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: base64-encoded decrypted data or empty string on error
+  String decryptFileToData(String path, String tempKeyID) {
+    final pathPtr = path.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.decryptFileToData(pathPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(pathPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+
+  // ==================== STREAMING FILE OPERATIONS ====================
+
+  /// Decrypts an encrypted file directly to another file path.
+  /// This is memory-efficient for large files - uses streaming decryption for chunked files.
+  /// srcPath: source encrypted file path
+  /// toPath: destination decrypted file path
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: JSON result {"success": true} or {"success": false, "error": "..."}
+  String decryptFileToPath(String srcPath, String toPath, String tempKeyID) {
+    final srcPtr = srcPath.toNativeUtf8();
+    final toPtr = toPath.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.decryptFileToPath(srcPtr, toPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(toPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+
+  /// Encrypts a file using chunked format (memory-efficient for large files).
+  /// This format supports streaming decryption - only one chunk is loaded into memory at a time.
+  /// srcPath: source file path
+  /// toPath: destination encrypted file path
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// chunkSizeKB: chunk size in KB (0 = default 64 KB)
+  /// Returns: JSON result {"success": true} or {"success": false, "error": "..."}
+  String encryptFileChunked(String srcPath, String toPath, String tempKeyID,
+      {int chunkSizeKB = 0}) {
+    final srcPtr = srcPath.toNativeUtf8();
+    final toPtr = toPath.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+
+    try {
+      final resultPtr =
+          _bindings.encryptFileChunked(srcPtr, toPtr, keyIDPtr, chunkSizeKB);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(toPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+
+  /// Checks if a file is in chunked encrypted format.
+  /// path: file path to check
+  /// Returns: JSON result {"success": true, "isChunked": true/false}
+  String isChunkedFile(String path) {
+    final pathPtr = path.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.isChunkedFile(pathPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Gets information about an encrypted file.
+  /// path: file path
+  /// Returns: JSON result with file info (size, isChunked, recommendedMethod)
+  String getEncryptedFileInfo(String path) {
+    final pathPtr = path.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.getEncryptedFileInfo(pathPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
   // ==================== PRESERVED FUNCTIONS ====================
 
   /// Generates complete encryption configuration
@@ -87,6 +281,284 @@ class NativeLib {
     }
   }
 
+  // ==================== ASYNC DIRECTORY OPERATIONS ====================
+
+  /// Starts an async directory encryption job.
+  /// srcDir: source directory path (plaintext files)
+  /// dstDir: destination directory path (encrypted files)
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: JSON result {"success": true, "jobID": "..."} or error
+  String encryptDirectoryAsync(String srcDir, String dstDir, String tempKeyID) {
+    final srcPtr = srcDir.toNativeUtf8();
+    final dstPtr = dstDir.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+
+    try {
+      final resultPtr =
+          _bindings.encryptDirectoryAsync(srcPtr, dstPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(dstPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+
+  /// Starts an async directory decryption job.
+  /// srcDir: source directory path (encrypted files)
+  /// dstDir: destination directory path (decrypted files)
+  /// tempKeyID: temporary key ID (from makeTemporaryKeyID)
+  /// Returns: JSON result {"success": true, "jobID": "..."} or error
+  String decryptDirectoryAsync(String srcDir, String dstDir, String tempKeyID) {
+    final srcPtr = srcDir.toNativeUtf8();
+    final dstPtr = dstDir.toNativeUtf8();
+    final keyIDPtr = tempKeyID.toNativeUtf8();
+
+    try {
+      final resultPtr =
+          _bindings.decryptDirectoryAsync(srcPtr, dstPtr, keyIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPtr);
+      calloc.free(dstPtr);
+      calloc.free(keyIDPtr);
+    }
+  }
+
+  /// Gets the progress of an async job.
+  /// jobID: job ID (from encryptDirectoryAsync or decryptDirectoryAsync)
+  /// Returns: JSON result {"success": true, "progress": {...}} or error
+  String getJobProgress(String jobID) {
+    final jobIDPtr = jobID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.getJobProgress(jobIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(jobIDPtr);
+    }
+  }
+
+  /// Gets the status of an async job.
+  /// jobID: job ID
+  /// Returns: JSON result {"success": true, "status": "pending|running|completed|cancelled|failed"} or error
+  String getJobStatus(String jobID) {
+    final jobIDPtr = jobID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.getJobStatus(jobIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(jobIDPtr);
+    }
+  }
+
+  /// Cancels an async job.
+  /// jobID: job ID
+  /// Returns: JSON result {"success": true} or error
+  String cancelJob(String jobID) {
+    final jobIDPtr = jobID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.cancelJob(jobIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(jobIDPtr);
+    }
+  }
+
+  /// Deletes an async job.
+  /// jobID: job ID
+  /// Returns: JSON result {"success": true}
+  String deleteJob(String jobID) {
+    final jobIDPtr = jobID.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.deleteJob(jobIDPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(jobIDPtr);
+    }
+  }
+
+  // ==================== INCREMENTAL ENCRYPTION OPERATIONS ====================
+
+  /// Creates a new incremental encryptor.
+  /// dstPath: destination file path for the encrypted file
+  /// keyBase64: base64-encoded 32-byte key (AES-256)
+  /// chunkSizeKB: chunk size in KB (0 = default 64 KB)
+  /// Returns: JSON result {"success": true, "handleID": ...} or error
+  String incrementalEncryptorCreate(
+      String dstPath, String keyBase64, int chunkSizeKB) {
+    final dstPathPtr = dstPath.toNativeUtf8();
+    final keyBase64Ptr = keyBase64.toNativeUtf8();
+
+    try {
+      final resultPtr =
+          _bindings.incrementalEncryptorCreate(dstPathPtr, keyBase64Ptr, chunkSizeKB);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(dstPathPtr);
+      calloc.free(keyBase64Ptr);
+    }
+  }
+
+  /// Adds a block to the incremental encryptor.
+  /// handleID: encryptor handle ID (from incrementalEncryptorCreate)
+  /// dataBase64: base64-encoded block data
+  /// Returns: JSON result {"success": true} or error
+  String incrementalEncryptorAddBlock(int handleID, String dataBase64) {
+    final dataBase64Ptr = dataBase64.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.incrementalEncryptorAddBlock(handleID, dataBase64Ptr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(dataBase64Ptr);
+    }
+  }
+
+  /// Finalizes the incremental encryptor and writes the file.
+  /// handleID: encryptor handle ID (from incrementalEncryptorCreate)
+  /// Returns: JSON result {"success": true} or error
+  String incrementalEncryptorFinalize(int handleID) {
+    final resultPtr = _bindings.incrementalEncryptorFinalize(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Closes the incremental encryptor without finalizing.
+  /// handleID: encryptor handle ID (from incrementalEncryptorCreate)
+  /// Returns: JSON result {"success": true} or error
+  String incrementalEncryptorClose(int handleID) {
+    final resultPtr = _bindings.incrementalEncryptorClose(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Opens an incremental encrypted file for reading.
+  /// srcPath: source encrypted file path
+  /// keyBase64: base64-encoded 32-byte key (AES-256)
+  /// Returns: JSON result {"success": true, "handleID": ..., "chunkCount": ..., "totalSize": ...} or error
+  String incrementalDecryptorOpen(String srcPath, String keyBase64) {
+    final srcPathPtr = srcPath.toNativeUtf8();
+    final keyBase64Ptr = keyBase64.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.incrementalDecryptorOpen(srcPathPtr, keyBase64Ptr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(srcPathPtr);
+      calloc.free(keyBase64Ptr);
+    }
+  }
+
+  /// Decrypts a specific block by index.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// blockIndex: block index (0-based)
+  /// Returns: JSON result {"success": true, "data": "...base64..."} or error
+  String incrementalDecryptorDecryptBlock(int handleID, int blockIndex) {
+    final resultPtr = _bindings.incrementalDecryptorDecryptBlock(handleID, blockIndex);
+    return resultPtr.toDartString();
+  }
+
+  /// Decrypts a range of bytes from the file.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// offset: byte offset in the plaintext
+  /// length: number of bytes to decrypt
+  /// Returns: JSON result {"success": true, "data": "...base64..."} or error
+  String incrementalDecryptorDecryptRange(int handleID, int offset, int length) {
+    final resultPtr = _bindings.incrementalDecryptorDecryptRange(handleID, offset, length);
+    return resultPtr.toDartString();
+  }
+
+  /// Decrypts the entire file.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// Returns: JSON result {"success": true, "data": "...base64..."} or error
+  String incrementalDecryptorDecryptAll(int handleID) {
+    final resultPtr = _bindings.incrementalDecryptorDecryptAll(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Verifies the integrity of a specific block.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// blockIndex: block index (0-based)
+  /// Returns: JSON result {"success": true} or error
+  String incrementalDecryptorVerifyBlockIntegrity(int handleID, int blockIndex) {
+    final resultPtr = _bindings.incrementalDecryptorVerifyBlockIntegrity(handleID, blockIndex);
+    return resultPtr.toDartString();
+  }
+
+  /// Verifies the integrity of the entire file.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// Returns: JSON result {"success": true} or error
+  String incrementalDecryptorVerifyIntegrity(int handleID) {
+    final resultPtr = _bindings.incrementalDecryptorVerifyIntegrity(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Returns information about a specific block.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// blockIndex: block index (0-based)
+  /// Returns: JSON result {"success": true, "blockInfo": {...}} or error
+  String incrementalDecryptorGetBlockInfo(int handleID, int blockIndex) {
+    final resultPtr = _bindings.incrementalDecryptorGetBlockInfo(handleID, blockIndex);
+    return resultPtr.toDartString();
+  }
+
+  /// Returns information about all blocks.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// Returns: JSON result {"success": true, "blockInfos": [...]} or error
+  String incrementalDecryptorGetAllBlockInfo(int handleID) {
+    final resultPtr = _bindings.incrementalDecryptorGetAllBlockInfo(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Closes the incremental decryptor.
+  /// handleID: decryptor handle ID (from incrementalDecryptorOpen)
+  /// Returns: JSON result {"success": true} or error
+  String incrementalDecryptorClose(int handleID) {
+    final resultPtr = _bindings.incrementalDecryptorClose(handleID);
+    return resultPtr.toDartString();
+  }
+
+  /// Checks if a file is in incremental encrypted format.
+  /// path: file path to check
+  /// Returns: JSON result {"success": true, "isIncremental": true/false} or error
+  String isIncrementalFile(String path) {
+    final pathPtr = path.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.isIncrementalFile(pathPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Returns metadata about an incremental encrypted file.
+  /// path: file path
+  /// Returns: JSON result {"success": true, "header": {...}} or error
+  String getIncrementalFileInfo(String path) {
+    final pathPtr = path.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.getIncrementalFileInfo(pathPtr);
+      final result = resultPtr.toDartString();
+      return result;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
   // ==================== MEMORY MANAGEMENT ====================
 
   /// Clears sensitive data from memory securely.
@@ -102,287 +574,5 @@ class NativeLib {
     } finally {
       calloc.free(dataPtr);
     }
-  }
-
-  // ==================== SEC ROOT SERIES ====================
-
-  /// Opens an encrypted root directory and creates a session.
-  /// This replaces verifyPassword + makeTemporaryKeyID.
-  ///
-  /// [rootPath] - path to the encrypted root directory (containing _cryption.json)
-  /// [password] - user password
-  /// [ttlSeconds] - session TTL in seconds (0 = default 3600s)
-  ///
-  /// Returns: JSON result {"success": true, "sessionID": ..., "rootPath": ...} or error
-  String secRootOpen(String rootPath, String password, {int ttlSeconds = 0}) {
-    final rootPathPtr = rootPath.toNativeUtf8();
-    final passwordPtr = password.toNativeUtf8();
-
-    try {
-      final resultPtr = _bindings.secRootOpen(rootPathPtr, passwordPtr, ttlSeconds);
-      return resultPtr.toDartString();
-    } finally {
-      calloc.free(rootPathPtr);
-      calloc.free(passwordPtr);
-    }
-  }
-
-  /// Closes a root session and releases resources.
-  ///
-  /// [sessionID] - session ID from secRootOpen
-  ///
-  /// Returns: JSON result {"success": true} or error
-  String secRootClose(int sessionID) {
-    final resultPtr = _bindings.secRootClose(sessionID);
-    return resultPtr.toDartString();
-  }
-
-  /// Gets information about a root session.
-  ///
-  /// [sessionID] - session ID from secRootOpen
-  ///
-  /// Returns: JSON result {"success": true, "rootPath": ..., "config": {...}} or error
-  String secRootGetInfo(int sessionID) {
-    final resultPtr = _bindings.secRootGetInfo(sessionID);
-    return resultPtr.toDartString();
-  }
-
-  // ==================== SEC FILE SERIES ====================
-
-  /// Opens an encrypted file.
-  ///
-  /// [sessionID] - session ID from secRootOpen
-  /// [filePath] - relative path to the file within the root
-  /// [mode] - open mode: "r" (read), "w" (write), "a" (append)
-  ///
-  /// Returns: JSON result {"success": true, "fileHandle": ..., "size": ...} or error
-  String secFopen(int sessionID, String filePath, String mode) {
-    final filePathPtr = filePath.toNativeUtf8();
-    final modePtr = mode.toNativeUtf8();
-
-    try {
-      final resultPtr = _bindings.secFopen(sessionID, filePathPtr, modePtr);
-      return resultPtr.toDartString();
-    } finally {
-      calloc.free(filePathPtr);
-      calloc.free(modePtr);
-    }
-  }
-
-  /// Reads data from an open file.
-  ///
-  /// [fileHandle] - file handle from secFopen
-  /// [size] - number of bytes to read (0 = read all)
-  ///
-  /// Returns: JSON result {"success": true, "data": "...base64...", "bytesRead": ...} or error
-  String secFread(int fileHandle, {int size = 0}) {
-    final resultPtr = _bindings.secFread(fileHandle, size);
-    return resultPtr.toDartString();
-  }
-
-  /// Writes data to an open file.
-  ///
-  /// [fileHandle] - file handle from secFopen
-  /// [dataBase64] - base64-encoded data to write
-  ///
-  /// Returns: JSON result {"success": true, "bytesWritten": ...} or error
-  String secFwrite(int fileHandle, String dataBase64) {
-    final dataPtr = dataBase64.toNativeUtf8();
-
-    try {
-      final resultPtr = _bindings.secFwrite(fileHandle, dataPtr);
-      return resultPtr.toDartString();
-    } finally {
-      calloc.free(dataPtr);
-    }
-  }
-
-  /// Closes an open file and writes changes if modified.
-  ///
-  /// [fileHandle] - file handle from secFopen
-  ///
-  /// Returns: JSON result {"success": true} or error
-  String secFclose(int fileHandle) {
-    final resultPtr = _bindings.secFclose(fileHandle);
-    return resultPtr.toDartString();
-  }
-
-  /// Sets the file position.
-  ///
-  /// [fileHandle] - file handle from secFopen
-  /// [offset] - offset from origin
-  /// [whence] - 0 = SEEK_SET, 1 = SEEK_CUR, 2 = SEEK_END
-  ///
-  /// Returns: JSON result {"success": true, "position": ...} or error
-  String secFseek(int fileHandle, int offset, {int whence = 0}) {
-    final resultPtr = _bindings.secFseek(fileHandle, offset, whence);
-    return resultPtr.toDartString();
-  }
-
-  /// Returns the current file position.
-  ///
-  /// [fileHandle] - file handle from secFopen
-  ///
-  /// Returns: JSON result {"success": true, "position": ...} or error
-  String secFtell(int fileHandle) {
-    final resultPtr = _bindings.secFtell(fileHandle);
-    return resultPtr.toDartString();
-  }
-
-  /// Returns file status.
-  ///
-  /// [fileHandle] - file handle from secFopen
-  ///
-  /// Returns: JSON result {"success": true, "size": ...} or error
-  String secFstat(int fileHandle) {
-    final resultPtr = _bindings.secFstat(fileHandle);
-    return resultPtr.toDartString();
-  }
-
-  /// Returns detailed file information without opening.
-  ///
-  /// [sessionID] - session ID from secRootOpen
-  /// [filePath] - relative path to the file within the root
-  ///
-  /// Returns: JSON result {"success": true, "exists": ..., "size": ..., "isChunked": ..., "modTime": ...} or error
-  String secFstatInfo(int sessionID, String filePath) {
-    final filePathPtr = filePath.toNativeUtf8();
-
-    try {
-      final resultPtr = _bindings.secFstatInfo(sessionID, filePathPtr);
-      return resultPtr.toDartString();
-    } finally {
-      calloc.free(filePathPtr);
-    }
-  }
-
-  // ==================== SEC SHORTCUT FUNCTIONS ====================
-
-  /// Reads an entire file at once.
-  /// This is a convenience function that combines secFopen + secFread + secFclose.
-  ///
-  /// [sessionID] - session ID from secRootOpen
-  /// [filePath] - relative path to the file within the root
-  ///
-  /// Returns: JSON result {"success": true, "data": "...base64..."} or error
-  String secReadfile(int sessionID, String filePath) {
-    final filePathPtr = filePath.toNativeUtf8();
-
-    try {
-      final resultPtr = _bindings.secReadfile(sessionID, filePathPtr);
-      return resultPtr.toDartString();
-    } finally {
-      calloc.free(filePathPtr);
-    }
-  }
-
-  /// Writes an entire file at once.
-  /// This is a convenience function that combines secFopen + secFwrite + secFclose.
-  ///
-  /// [sessionID] - session ID from secRootOpen
-  /// [filePath] - relative path to the file within the root
-  /// [dataBase64] - base64-encoded data to write
-  ///
-  /// Returns: JSON result {"success": true} or error
-  String secWritefile(int sessionID, String filePath, String dataBase64) {
-    final filePathPtr = filePath.toNativeUtf8();
-    final dataPtr = dataBase64.toNativeUtf8();
-
-    try {
-      final resultPtr = _bindings.secWritefile(sessionID, filePathPtr, dataPtr);
-      return resultPtr.toDartString();
-    } finally {
-      calloc.free(filePathPtr);
-      calloc.free(dataPtr);
-    }
-  }
-
-  // ==================== SEC DIR WALK SERIES ====================
-
-  /// Starts walking a directory.
-  ///
-  /// [sessionID] - session ID from secRootOpen
-  /// [dirPath] - relative path to the directory within the root
-  ///
-  /// Returns: JSON result {"success": true, "walkerID": ..., "numFiles": ...} or error
-  String secDirWalk(int sessionID, String dirPath) {
-    final dirPathPtr = dirPath.toNativeUtf8();
-
-    try {
-      final resultPtr = _bindings.secDirWalk(sessionID, dirPathPtr);
-      return resultPtr.toDartString();
-    } finally {
-      calloc.free(dirPathPtr);
-    }
-  }
-
-  /// Gets the next entry from a directory walker.
-  ///
-  /// [walkerID] - walker ID from secDirWalk
-  ///
-  /// Returns: JSON result {"success": true, "name": ..., "isDir": ..., "size": ..., "modTime": ..., "done": false}
-  ///         or {"done": true} when finished, or error
-  String secDirWalkNext(int walkerID) {
-    final resultPtr = _bindings.secDirWalkNext(walkerID);
-    return resultPtr.toDartString();
-  }
-
-  /// Closes a directory walker.
-  ///
-  /// [walkerID] - walker ID from secDirWalk
-  ///
-  /// Returns: JSON result {"success": true} or error
-  String secDirWalkClose(int walkerID) {
-    final resultPtr = _bindings.secDirWalkClose(walkerID);
-    return resultPtr.toDartString();
-  }
-
-  // ==================== ITERATION BENCHMARK SERIES ====================
-
-  /// Runs a PBKDF2 benchmark to measure device performance.
-  ///
-  /// [sampleSize] - number of iterations to run (0 = use default)
-  ///
-  /// Returns: JSON result {"success": true, "iterationsPerMs": ..., "duration": ..., "sampleSize": ...} or error
-  String benchmarkPBKDF2({int sampleSize = 0}) {
-    final resultPtr = _bindings.benchmarkPBKDF2(sampleSize);
-    return resultPtr.toDartString();
-  }
-
-  /// Calculates optimal iteration count for a target derivation time.
-  ///
-  /// [targetTimeMs] - target key derivation time in milliseconds
-  /// [forceBenchmark] - if true, ignore cache and run new benchmark
-  ///
-  /// Returns: JSON result {"success": true, "iterations": ..., "fromCache": ...} or error
-  String calculateIterations(int targetTimeMs, {bool forceBenchmark = false}) {
-    final resultPtr = _bindings.calculateIterations(targetTimeMs, forceBenchmark ? 1 : 0);
-    return resultPtr.toDartString();
-  }
-
-  /// Estimates time for key derivation.
-  ///
-  /// [iterations] - iteration count to use
-  ///
-  /// Returns: JSON result {"success": true, "estimatedMs": ...} or error
-  String estimateKeyDerivationTime(int iterations) {
-    final resultPtr = _bindings.estimateKeyDerivationTime(iterations);
-    return resultPtr.toDartString();
-  }
-
-  /// Gets the cached benchmark result.
-  ///
-  /// Returns: JSON result {"success": true, "cached": ..., "iterationsPerMs": ..., "age": ...} or {"cached": false}
-  String getBenchmarkCache() {
-    final resultPtr = _bindings.getBenchmarkCache();
-    return resultPtr.toDartString();
-  }
-
-  /// Clears the cached benchmark result.
-  ///
-  /// Returns: JSON result {"success": true}
-  String clearBenchmarkCache() {
-    final resultPtr = _bindings.clearBenchmarkCache();
-    return resultPtr.toDartString();
   }
 }

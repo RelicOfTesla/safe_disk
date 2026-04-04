@@ -1,18 +1,21 @@
 package sec_fs
 
 import (
-	"github.com/safedisk/native/crypto"
+	"github.com/safedisk/native/sec_fs/crypto"
 	"github.com/safedisk/native/errors"
 	"github.com/safedisk/native/service"
 )
 
 // SecFile represents an open encrypted file.
 // It provides stdio-like operations for reading and writing.
+// Uses IIncrementalCryptor for actual encryption/decryption operations
+// instead of storing decrypted data in memory.
 type SecFile struct {
 	handle    *secFileHandle
 	cryptoSvc *service.CryptoService
 	root      *SecRoot
 	closed    bool
+	Impl      crypto.ICryptorMaker // CryptImpl from registry
 }
 
 // Read reads up to size bytes from the file.
@@ -34,21 +37,95 @@ func (f *SecFile) Read(size int) ([]byte, int, error) {
 		toRead = int(f.handle.size - f.handle.offset)
 	}
 
-	// Read from buffer
-	var data []byte
-	if toRead > 0 && f.handle.offset < int64(len(f.handle.data)) {
-		end := f.handle.offset + int64(toRead)
-		if end > int64(len(f.handle.data)) {
-			end = int64(len(f.handle.data))
-		}
-		data = make([]byte, end-f.handle.offset)
-		copy(data, f.handle.data[f.handle.offset:end])
-		f.handle.offset = end
-	} else {
-		data = []byte{}
+	if toRead <= 0 {
+		return []byte{}, 0, nil
 	}
 
-	return data, len(data), nil
+	// Read using incremental decryptor if available
+	if f.handle.isIncremental && f.handle.incDecryptor != nil {
+		data, err := f.readIncremental(toRead)
+		if err != nil {
+			return nil, 0, err
+		}
+		return data, len(data), nil
+	}
+
+	// Fallback: use one-shot decryption (for non-incremental files)
+	if f.handle.decryptor != nil {
+		data, err := f.handle.decryptor.DecryptToData()
+		if err != nil {
+			return nil, 0, err
+		}
+		defer crypto.MemZero(data)
+
+		// Extract the needed portion
+		start := f.handle.offset
+		end := start + int64(toRead)
+		if end > int64(len(data)) {
+			end = int64(len(data))
+		}
+
+		result := make([]byte, end-start)
+		copy(result, data[start:end])
+		f.handle.offset = end
+
+		return result, len(result), nil
+	}
+
+	return nil, 0, errors.NewWithMessage(errors.ErrOperationFailed,
+		"no decryptor available for reading")
+}
+
+// readIncremental reads data using the incremental decryptor
+func (f *SecFile) readIncremental(size int) ([]byte, error) {
+	blockSize := f.handle.blockSize
+	if blockSize <= 0 {
+		blockSize = crypto.DefaultChunkSize
+	}
+
+	// Calculate which blocks we need
+	startOffset := f.handle.offset
+	endOffset := startOffset + int64(size)
+	if endOffset > f.handle.size {
+		endOffset = f.handle.size
+	}
+
+	startBlock := int(startOffset / int64(blockSize))
+	endBlock := int((endOffset - 1) / int64(blockSize))
+
+	if startBlock < 0 {
+		startBlock = 0
+	}
+
+	// Read all needed blocks
+	var allData []byte
+	for i := startBlock; i <= endBlock; i++ {
+		blockData, err := f.handle.incDecryptor.GetBlock(i)
+		if err != nil {
+			return nil, err
+		}
+		allData = append(allData, blockData...)
+	}
+
+	// Calculate the exact range within the blocks
+	startInBlocks := startOffset % int64(blockSize)
+	endInBlocks := startInBlocks + int64(size)
+
+	if endInBlocks > int64(len(allData)) {
+		endInBlocks = int64(len(allData))
+	}
+
+	// Extract the needed data
+	result := make([]byte, endInBlocks-startInBlocks)
+	copy(result, allData[startInBlocks:endInBlocks])
+
+	// Update offset
+	f.handle.offset += int64(len(result))
+
+	// Clear sensitive data
+	crypto.MemZero(allData)
+
+	return result, nil
 }
 
 // ReadAll reads all remaining data from the file.
@@ -73,20 +150,195 @@ func (f *SecFile) Write(data []byte) (int, error) {
 			"file not open for writing")
 	}
 
-	// Write to buffer at current offset
-	endOffset := f.handle.offset + int64(len(data))
-	if endOffset > int64(len(f.handle.data)) {
-		// Extend buffer
-		newData := make([]byte, endOffset)
-		copy(newData, f.handle.data)
-		f.handle.data = newData
+	if len(data) == 0 {
+		return 0, nil
 	}
-	copy(f.handle.data[f.handle.offset:], data)
-	f.handle.offset = endOffset
-	f.handle.size = int64(len(f.handle.data))
+
+	// For incremental mode, initialize encryptor if needed
+	if f.handle.incEncryptor != nil {
+		// Check if encryptor needs initialization
+		if init, ok := f.handle.incEncryptor.(interface{ InitForWrite(string) error }); ok {
+			if f.handle.incEncryptor.GetBlockCount() == 0 {
+				// For append mode, we need to load existing data first
+				if f.handle.mode == "a" && f.handle.size > 0 && f.handle.decryptor != nil {
+					// Load existing data from non-incremental file
+					existingData, err := f.handle.decryptor.DecryptToData()
+					if err != nil {
+						return 0, err
+					}
+					// Initialize encryptor
+					if err := init.InitForWrite(f.handle.path); err != nil {
+						crypto.MemZero(existingData)
+						return 0, err
+					}
+					// Add existing data as blocks
+					blockSize := f.handle.blockSize
+					if blockSize <= 0 {
+						blockSize = crypto.DefaultChunkSize
+					}
+					for offset := 0; offset < len(existingData); offset += blockSize {
+						end := offset + blockSize
+						if end > len(existingData) {
+							end = len(existingData)
+						}
+						block := make([]byte, end-offset)
+						copy(block, existingData[offset:end])
+						if err := f.handle.incEncryptor.AddBlock(f.handle.incEncryptor.GetBlockCount(), block); err != nil {
+							crypto.MemZero(existingData)
+							return 0, err
+						}
+					}
+					crypto.MemZero(existingData)
+				} else {
+					// Initialize encryptor for new file
+					if err := init.InitForWrite(f.handle.path); err != nil {
+						return 0, err
+					}
+				}
+			}
+		}
+		return f.writeIncremental(data)
+	}
+
+	return 0, errors.NewWithMessage(errors.ErrOperationFailed,
+		"no encryptor available for writing")
+}
+
+// writeIncremental writes data using the incremental encryptor
+func (f *SecFile) writeIncremental(data []byte) (int, error) {
+	blockSize := f.handle.blockSize
+	if blockSize <= 0 {
+		blockSize = crypto.DefaultChunkSize
+	}
+
+	// Calculate which block we're writing to
+	offset := f.handle.offset
+	blockIndex := int(offset / int64(blockSize))
+	offsetInBlock := offset % int64(blockSize)
+
+	// If we're writing in the middle of a block, we need to read-modify-write
+	if offsetInBlock > 0 || len(data) < blockSize {
+		return f.writePartialBlock(blockIndex, offsetInBlock, data)
+	}
+
+	// If we're writing full blocks, use AddBlock/ModifyBlock
+	written := 0
+	for len(data) >= blockSize {
+		blockData := make([]byte, blockSize)
+		copy(blockData, data[:blockSize])
+
+		var err error
+		if blockIndex < f.handle.incEncryptor.GetBlockCount() {
+			err = f.handle.incEncryptor.ModifyBlock(blockIndex, blockData)
+		} else {
+			err = f.handle.incEncryptor.AddBlock(blockIndex, blockData)
+		}
+
+		if err != nil {
+			return written, err
+		}
+
+		written += blockSize
+		data = data[blockSize:]
+		blockIndex++
+		f.handle.offset += int64(blockSize)
+	}
+
+	// Handle remaining data (less than a block)
+	if len(data) > 0 {
+		n, err := f.writePartialBlock(blockIndex, 0, data)
+		written += n
+		return written, err
+	}
+
+	f.handle.modified = true
+	return written, nil
+}
+
+// writePartialBlock handles writing data that doesn't align with block boundaries
+func (f *SecFile) writePartialBlock(blockIndex int, offsetInBlock int64, data []byte) (int, error) {
+	blockSize := f.handle.blockSize
+	if blockSize <= 0 {
+		blockSize = crypto.DefaultChunkSize
+	}
+
+	// For new files or appending at the end, just add the actual data
+	// Don't pad to block size - this preserves the actual file size
+	if blockIndex >= f.handle.incEncryptor.GetBlockCount() && offsetInBlock == 0 {
+		// This is a new block at the end - just add the actual data
+		actualData := make([]byte, len(data))
+		copy(actualData, data)
+
+		err := f.handle.incEncryptor.AddBlock(blockIndex, actualData)
+		if err != nil {
+			return 0, err
+		}
+
+		f.handle.offset += int64(len(data))
+		if f.handle.offset > f.handle.size {
+			f.handle.size = f.handle.offset
+		}
+		f.handle.modified = true
+		return len(data), nil
+	}
+
+	// For modifying existing blocks or writing in the middle, we need read-modify-write
+	var existingBlock []byte
+	var err error
+
+	if blockIndex < f.handle.incEncryptor.GetBlockCount() {
+		existingBlock, err = f.handle.incEncryptor.GetBlock(blockIndex)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		// New block
+		existingBlock = make([]byte, offsetInBlock)
+	}
+
+	// Calculate how much we can write
+	availableInBlock := int64(blockSize) - offsetInBlock
+	if availableInBlock < 0 {
+		availableInBlock = 0
+	}
+	toWrite := int64(len(data))
+	if toWrite > availableInBlock {
+		toWrite = availableInBlock
+	}
+
+	// Extend the block if needed
+	newLen := offsetInBlock + toWrite
+	if int64(len(existingBlock)) < newLen {
+		newBlock := make([]byte, newLen)
+		copy(newBlock, existingBlock)
+		existingBlock = newBlock
+	}
+
+	// Modify the block
+	copy(existingBlock[offsetInBlock:offsetInBlock+toWrite], data[:toWrite])
+
+	// Write the block back
+	if blockIndex < f.handle.incEncryptor.GetBlockCount() {
+		err = f.handle.incEncryptor.ModifyBlock(blockIndex, existingBlock)
+	} else {
+		err = f.handle.incEncryptor.AddBlock(blockIndex, existingBlock)
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	// Update offset
+	f.handle.offset += toWrite
+	if f.handle.offset > f.handle.size {
+		f.handle.size = f.handle.offset
+	}
 	f.handle.modified = true
 
-	return len(data), nil
+	// Clear sensitive data
+	crypto.MemZero(existingBlock)
+
+	return int(toWrite), nil
 }
 
 // WriteString writes a string to the file.
@@ -160,14 +412,22 @@ func (f *SecFile) Truncate(size int64) error {
 		size = 0
 	}
 
-	if size > int64(len(f.handle.data)) {
-		// Extend
-		newData := make([]byte, size)
-		copy(newData, f.handle.data)
-		f.handle.data = newData
-	} else {
-		// Shrink
-		f.handle.data = f.handle.data[:size]
+	// For incremental mode, we need to handle block deletion/addition
+	if f.handle.isIncremental && f.handle.incEncryptor != nil {
+		blockSize := int64(f.handle.blockSize)
+		if blockSize <= 0 {
+			blockSize = crypto.DefaultChunkSize
+		}
+
+		currentBlocks := f.handle.incEncryptor.GetBlockCount()
+		targetBlocks := int((size + blockSize - 1) / blockSize)
+
+		// Delete extra blocks
+		for i := currentBlocks - 1; i >= targetBlocks; i-- {
+			if err := f.handle.incEncryptor.DeleteBlock(i); err != nil {
+				return err
+			}
+		}
 	}
 
 	f.handle.size = size
@@ -189,7 +449,6 @@ func (f *SecFile) Stat() (*SecFileStat, error) {
 }
 
 // Sync flushes changes to the encrypted file.
-// For in-memory files, this encrypts and writes to disk.
 func (f *SecFile) Sync() error {
 	if f.closed {
 		return errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
@@ -204,17 +463,9 @@ func (f *SecFile) Sync() error {
 
 // flush writes the data to disk.
 func (f *SecFile) flush() error {
-	if f.handle.data == nil {
-		return nil
+	if f.handle.incEncryptor != nil {
+		return f.handle.incEncryptor.Flush()
 	}
-
-	source := crypto.NewCryptSourceFromData(f.handle.data)
-	encryptor := f.handle.maker.NewEncryptor(source)
-	if err := encryptor.EncryptToFile(f.handle.path); err != nil {
-		return err
-	}
-
-	f.handle.modified = false
 	return nil
 }
 
@@ -226,17 +477,25 @@ func (f *SecFile) Close() error {
 
 	f.closed = true
 
-	// If modified, encrypt and save
+	// If modified, flush changes
 	if f.handle.modified && f.handle.mode != "r" {
 		if err := f.flush(); err != nil {
 			return err
 		}
 	}
 
-	// Clear sensitive data
-	if f.handle.data != nil {
-		f.cryptoSvc.MemZero(f.handle.data)
-		f.handle.data = nil
+	// Close decryptor if it has a Close method
+	if f.handle.incDecryptor != nil {
+		if closer, ok := f.handle.incDecryptor.(interface{ Close() error }); ok {
+			closer.Close()
+		}
+	}
+
+	// Close encryptor if it has a Close method
+	if f.handle.incEncryptor != nil {
+		if closer, ok := f.handle.incEncryptor.(interface{ Close() error }); ok {
+			closer.Close()
+		}
 	}
 
 	return nil

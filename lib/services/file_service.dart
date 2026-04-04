@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
-import '../native/native_lib.dart';
-import '../models/ffi_results.dart';
+import 'crypto_service.dart';
 
 /// Represents a file or directory node in the encrypted file system
 class FileSystemNode {
@@ -196,6 +195,10 @@ Future<_ListDirectoryResult> _listDirectoryInBackground(
 }
 
 class FileService {
+  final CryptoService _cryptoService;
+
+  FileService(this._cryptoService);
+
   /// Lists files and subdirectories in a directory (non-recursive) with pagination
   /// Uses Isolate to avoid blocking the main thread for large directories
   Future<List<FileSystemNode>> listCurrentDirectory(
@@ -375,6 +378,124 @@ class FileService {
     return file.size != null && file.size! > largeFileThreshold;
   }
 
+  /// Decrypts a file to memory (NOT to disk for security)
+  /// Returns decrypted data as Uint8List
+  /// SECURITY: Never save decrypted data to temporary files!
+  /// NOTE: For large files (>100 MB), this may use significant memory.
+  /// Consider using exportFile() for large files instead.
+  Future<Uint8List> decryptFileToBytes(
+      FileSystemNode file, String tempKeyID) async {
+    if (file.isDirectory) {
+      throw Exception('Cannot decrypt a directory');
+    }
+
+    // Check if file is chunked format (supports streaming)
+    final isChunked = _cryptoService.isChunkedFile(file.path);
+
+    if (isChunked) {
+      // For chunked files, we can use memory-efficient decryption
+      // But since we need to return bytes, we still load into memory
+      // However, the decryption process itself is memory-efficient
+      final tempPath = await _decryptToTempFile(file.path, tempKeyID);
+      try {
+        final tempFile = File(tempPath);
+        final decryptedData = await tempFile.readAsBytes();
+        return decryptedData;
+      } finally {
+        // Clean up temp file
+        final tempFile = File(tempPath);
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      }
+    }
+
+    // Standard decryption for non-chunked files
+    final inputFile = File(file.path);
+    final encryptedData = await inputFile.readAsBytes();
+
+    // Decrypt using session key
+    final encryptedDataBase64 = base64Encode(encryptedData);
+    final decryptedData =
+        _cryptoService.decryptDataBytes(encryptedDataBase64, tempKeyID);
+
+    // Clear sensitive data from memory
+    encryptedData.fillRange(0, encryptedData.length, 0);
+
+    return decryptedData;
+  }
+
+  /// Decrypts a file to a temporary file path.
+  /// This is memory-efficient for large files.
+  /// Returns the path to the temporary decrypted file.
+  /// Caller is responsible for deleting the temp file after use.
+  Future<String> _decryptToTempFile(String inputPath, String tempKeyID) async {
+    final tempDir = Directory.systemTemp;
+    final tempFileName =
+        'safedisk_decrypted_${DateTime.now().millisecondsSinceEpoch}';
+    final tempPath = '${tempDir.path}/$tempFileName';
+
+    _cryptoService.decryptFileToPath(inputPath, tempPath, tempKeyID);
+
+    return tempPath;
+  }
+
+  /// Encrypts a file and saves to encrypted directory
+  Future<void> encryptFile(
+      String inputPath, String outputDir, String tempKeyID) async {
+    final inputFile = File(inputPath);
+    final plaintext = await inputFile.readAsBytes();
+
+    // Encrypt using session key
+    final ciphertextBase64 =
+        _cryptoService.encryptDataBytes(plaintext, tempKeyID);
+    final encrypted = base64Decode(ciphertextBase64);
+
+    // Clear sensitive data from memory
+    plaintext.fillRange(0, plaintext.length, 0);
+
+    final name = inputPath.split('/').last;
+    final outputFile = File('$outputDir/$name');
+    await outputFile.writeAsBytes(encrypted);
+  }
+
+  /// Exports decrypted file to a user-selected location.
+  /// This method uses memory-efficient streaming decryption for large files.
+  Future<void> exportFile(
+      FileSystemNode file, String outputPath, String tempKeyID) async {
+    if (file.isDirectory) {
+      throw Exception('Cannot export a directory');
+    }
+
+    // Use streaming decryption directly to output path
+    // This is memory-efficient for both large and small files
+    _cryptoService.decryptFileToPath(file.path, outputPath, tempKeyID);
+  }
+
+  /// Exports decrypted file to a user-selected location.
+  /// Uses the legacy in-memory method (for backward compatibility).
+  /// DEPRECATED: Use exportFile() instead for better memory efficiency.
+  Future<void> exportFileLegacy(
+      FileSystemNode file, String outputPath, String tempKeyID) async {
+    if (file.isDirectory) {
+      throw Exception('Cannot export a directory');
+    }
+
+    final inputFile = File(file.path);
+    final encryptedData = await inputFile.readAsBytes();
+
+    // Decrypt using session key
+    final encryptedDataBase64 = base64Encode(encryptedData);
+    final decryptedData =
+        _cryptoService.decryptDataBytes(encryptedDataBase64, tempKeyID);
+
+    // Clear sensitive data from memory
+    encryptedData.fillRange(0, encryptedData.length, 0);
+
+    final outputFile = File(outputPath);
+    await outputFile.writeAsBytes(decryptedData);
+  }
+
   /// Creates a new subdirectory
   Future<FileSystemNode> createDirectory(
       String parentPath, String dirName) async {
@@ -400,234 +521,4 @@ class FileService {
       await file.delete();
     }
   }
-
-  // ==================== SEC SERIES FILE OPERATIONS (NEW) ====================
-  //
-  // The sec_* series provides a cleaner, session-based API for encrypted file operations.
-  // Key differences from the old interface:
-  // - Uses sessionID (int) instead of tempKeyID (string)
-  // - Uses relative paths within the root directory instead of absolute paths
-  // - File operations are more like C stdio (fopen, fread, fwrite, fclose)
-  //
-  // Migration guide:
-  // - decryptFileToBytes(file, tempKeyID) → secReadFile(sessionID, relativePath)
-  // - encryptFile(inputPath, outputDir, tempKeyID) → secWriteFile(sessionID, relativePath, data)
-  // - exportFile(file, outputPath, tempKeyID) → secReadFile(sessionID, relativePath) then save to outputPath
-  //
-
-  /// Reads an entire encrypted file at once using the sec_* series interface.
-  ///
-  /// [sessionID] - session ID from CryptoService.openSession
-  /// [relativePath] - relative path to the file within the root directory
-  ///
-  /// Returns: decrypted data as Uint8List
-  /// Throws: Exception if read fails
-  Uint8List secReadFile(int sessionID, String relativePath) {
-    final native = NativeLib.instance;
-    final resultStr = native.secReadfile(sessionID, relativePath);
-    final result = SecReadfileResult.fromJson(resultStr);
-    return result.dataOrThrow;
-  }
-
-  /// Writes an entire encrypted file at once using the sec_* series interface.
-  ///
-  /// [sessionID] - session ID from CryptoService.openSession
-  /// [relativePath] - relative path to the file within the root directory
-  /// [data] - data to write (will be encrypted)
-  ///
-  /// Throws: Exception if write fails
-  void secWriteFile(int sessionID, String relativePath, Uint8List data) {
-    final native = NativeLib.instance;
-    final dataBase64 = base64Encode(data);
-    final resultStr = native.secWritefile(sessionID, relativePath, dataBase64);
-    final result = FFIResult.fromJson(resultStr);
-    if (!result.success) {
-      throw Exception(result.error ?? 'Failed to write file');
-    }
-  }
-
-  /// Opens an encrypted file for reading or writing using the sec_* series interface.
-  ///
-  /// [sessionID] - session ID from CryptoService.openSession
-  /// [relativePath] - relative path to the file within the root directory
-  /// [mode] - open mode: "r" (read), "w" (write), "a" (append)
-  ///
-  /// Returns: SecFileHandle for subsequent operations
-  /// Throws: Exception if open fails
-  SecFileHandle secOpenFile(int sessionID, String relativePath, String mode) {
-    final native = NativeLib.instance;
-    final resultStr = native.secFopen(sessionID, relativePath, mode);
-    final result = SecFopenResult.fromJson(resultStr);
-    return SecFileHandle(
-      handle: result.fileHandleOrThrow,
-      size: result.size ?? 0,
-      sessionID: sessionID,
-      native: native,
-    );
-  }
-
-  /// Gets file information without opening the file.
-  ///
-  /// [sessionID] - session ID from CryptoService.openSession
-  /// [relativePath] - relative path to the file within the root directory
-  ///
-  /// Returns: SecFileInfo with exists, size, isChunked, modTime
-  SecFileInfo secGetFileInfo(int sessionID, String relativePath) {
-    final native = NativeLib.instance;
-    final resultStr = native.secFstatInfo(sessionID, relativePath);
-    final result = SecFstatInfoResult.fromJson(resultStr);
-    return SecFileInfo(
-      exists: result.exists ?? false,
-      size: result.size ?? 0,
-      isChunked: result.isChunked ?? false,
-      modTime: result.modTime != null
-          ? DateTime.fromMillisecondsSinceEpoch(result.modTime! * 1000)
-          : null,
-    );
-  }
-}
-
-/// Represents an open file handle for sec_* series operations
-///
-/// Use this class to read, write, and close files opened with secOpenFile.
-/// The file is automatically encrypted/decrypted transparently.
-class SecFileHandle {
-  final int handle;
-  final int size;
-  final int sessionID;
-  final NativeLib _native;
-
-  bool _closed = false;
-
-  SecFileHandle({
-    required this.handle,
-    required this.size,
-    required this.sessionID,
-    required NativeLib native,
-  }) : _native = native;
-
-  /// Whether the file has been closed
-  bool get isClosed => _closed;
-
-  /// Reads data from the file.
-  ///
-  /// [size] - number of bytes to read (0 = read all)
-  ///
-  /// Returns: decrypted data as Uint8List
-  /// Throws: Exception if read fails or file is closed
-  Uint8List read({int size = 0}) {
-    if (_closed) {
-      throw Exception('File is closed');
-    }
-
-    final resultStr = _native.secFread(handle, size: size);
-    final result = SecFreadResult.fromJson(resultStr);
-    return result.dataOrThrow;
-  }
-
-  /// Writes data to the file.
-  ///
-  /// [data] - data to write (will be encrypted)
-  ///
-  /// Returns: number of bytes written
-  /// Throws: Exception if write fails or file is closed
-  int write(Uint8List data) {
-    if (_closed) {
-      throw Exception('File is closed');
-    }
-
-    final dataBase64 = base64Encode(data);
-    final resultStr = _native.secFwrite(handle, dataBase64);
-    final result = SecFwriteResult.fromJson(resultStr);
-    if (!result.success) {
-      throw Exception(result.error ?? 'Write failed');
-    }
-    return result.bytesWritten ?? 0;
-  }
-
-  /// Sets the file position.
-  ///
-  /// [offset] - offset from origin
-  /// [whence] - 0 = SEEK_SET (start), 1 = SEEK_CUR (current), 2 = SEEK_END (end)
-  ///
-  /// Returns: new position
-  /// Throws: Exception if seek fails or file is closed
-  int seek(int offset, {int whence = 0}) {
-    if (_closed) {
-      throw Exception('File is closed');
-    }
-
-    final resultStr = _native.secFseek(handle, offset, whence: whence);
-    final result = FFIResult.fromJson(resultStr);
-    if (!result.success) {
-      throw Exception(result.error ?? 'Seek failed');
-    }
-    // The result contains 'position' field
-    final json = jsonDecode(resultStr) as Map<String, dynamic>;
-    return json['position'] as int? ?? 0;
-  }
-
-  /// Returns the current file position.
-  ///
-  /// Throws: Exception if file is closed
-  int tell() {
-    if (_closed) {
-      throw Exception('File is closed');
-    }
-
-    final resultStr = _native.secFtell(handle);
-    final result = FFIResult.fromJson(resultStr);
-    if (!result.success) {
-      throw Exception(result.error ?? 'Tell failed');
-    }
-    // The result contains 'position' field
-    final json = jsonDecode(resultStr) as Map<String, dynamic>;
-    return json['position'] as int? ?? 0;
-  }
-
-  /// Returns the file size.
-  ///
-  /// Throws: Exception if file is closed
-  int stat() {
-    if (_closed) {
-      throw Exception('File is closed');
-    }
-
-    final resultStr = _native.secFstat(handle);
-    final result = SecFstatResult.fromJson(resultStr);
-    if (!result.success) {
-      throw Exception(result.error ?? 'Stat failed');
-    }
-    return result.size ?? 0;
-  }
-
-  /// Closes the file and writes changes if modified.
-  ///
-  /// After calling this method, the handle can no longer be used.
-  void close() {
-    if (_closed) return;
-
-    final resultStr = _native.secFclose(handle);
-    final result = FFIResult.fromJson(resultStr);
-    _closed = true;
-
-    if (!result.success) {
-      throw Exception(result.error ?? 'Close failed');
-    }
-  }
-}
-
-/// File information from sec_fstat_info
-class SecFileInfo {
-  final bool exists;
-  final int size;
-  final bool isChunked;
-  final DateTime? modTime;
-
-  SecFileInfo({
-    required this.exists,
-    required this.size,
-    required this.isChunked,
-    this.modTime,
-  });
 }

@@ -27,21 +27,21 @@ bool isSupportedImageFormat(String? extension) {
 class SecureImageViewer extends StatefulWidget {
   final EncryptedFile file;
   final CryptoService cryptoService;
-  final FileService fileService;
-  final int sessionID;
-  final String rootPath;
+  final String tempKeyID;
   
   /// Directory path containing the image (for navigation)
   final String? directoryPath;
+  
+  /// File service for listing directory contents
+  final FileService? fileService;
 
   const SecureImageViewer({
     super.key,
     required this.file,
     required this.cryptoService,
-    required this.fileService,
-    required this.sessionID,
-    required this.rootPath,
+    required this.tempKeyID,
     this.directoryPath,
+    this.fileService,
   });
 
   @override
@@ -92,15 +92,12 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
 
   /// Load list of image files in the directory for navigation
   Future<void> _loadImageList() async {
-    if (widget.directoryPath == null) {
+    if (widget.directoryPath == null || widget.fileService == null) {
       return;
     }
 
     try {
-      // Calculate relative path from root directory
-      // Note: For now, we'll use the old file service method
-      // TODO: Update to use secListDirectory when available
-      final items = await widget.fileService.listCurrentDirectory(widget.directoryPath!);
+      final items = await widget.fileService!.listCurrentDirectory(widget.directoryPath!);
       
       // Filter only supported image files
       _imageFiles = items.where((item) {
@@ -127,11 +124,11 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
         _errorMessage = null;
       });
 
-      // Calculate relative path from root directory
-      final relativePath = widget.file.encryptedPath.substring(widget.rootPath.length + 1);
-
-      // Decrypt image file using secReadFile
-      final data = widget.fileService.secReadFile(widget.sessionID, relativePath);
+      // Decrypt image file
+      final data = widget.cryptoService.decryptFileToData(
+        widget.file.encryptedPath,
+        widget.tempKeyID,
+      );
 
       if (data.isNotEmpty) {
         setState(() {
@@ -182,11 +179,10 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
         _errorMessage = null;
       });
 
-      // Calculate relative path from root directory
-      final relativePath = file.path.substring(widget.rootPath.length + 1);
-
-      // Decrypt image file using secReadFile
-      final data = widget.fileService.secReadFile(widget.sessionID, relativePath);
+      final data = widget.cryptoService.decryptFileToData(
+        file.path,
+        widget.tempKeyID,
+      );
 
       if (data.isNotEmpty) {
         setState(() {

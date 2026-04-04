@@ -6,10 +6,7 @@ import '../services/crypto_service.dart';
 import '../services/file_service.dart';
 import '../services/directory_service.dart';
 import '../services/directory_persistence_service.dart';
-import '../services/clipboard_service.dart';
-import '../services/clipboard_helper.dart';
 import '../models/cryption_config.dart';
-import '../models/ffi_results.dart';
 import '../widgets/directory_tree.dart';
 import '../widgets/secure_notepad.dart';
 import '../widgets/secure_image_viewer.dart';
@@ -36,7 +33,6 @@ class _HomePageState extends State<HomePage> {
   late final FileService _fileService;
   final DirectoryPersistenceService _persistenceService =
       DirectoryPersistenceService();
-  final ClipboardService _clipboardService = ClipboardService.instance;
 
   final List<EncryptedDirectory> _openedDirs =
       []; // List of opened encrypted directories
@@ -58,27 +54,14 @@ class _HomePageState extends State<HomePage> {
   // View mode for file browsing (list or grid)
   ViewMode _viewMode = ViewMode.list; // Current view mode
 
-  // Pagination state for virtual scrolling
-  static const int _pageSize = 50; // Number of items per page
-  int _loadedItemCount = 0; // Number of items currently loaded
-  int _totalItemCount = 0; // Total number of items in directory
-  bool _hasMoreItems = false; // Whether there are more items to load
-  bool _isLoadingMore = false; // Whether currently loading more items
-  final ScrollController _scrollController = ScrollController(); // Scroll controller for detecting when to load more
-
-  // Clipboard state
-  bool _clipboardHasFiles = false; // Whether system clipboard has pasteable files
-
   @override
   void initState() {
     super.initState();
-    _fileService = FileService();
-    _scrollController.addListener(_onScroll); // Add scroll listener for pagination
+    _fileService = FileService(_cryptoService);
     _loadQuickList();
     _loadPersistedDirectories();
     _loadDrawerPinnedState();
     _checkFirstTimeUser();
-    _checkClipboard(); // Check if clipboard has files
   }
 
   /// Check if this is first time user and show welcome guide
@@ -118,8 +101,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
     _saveOpenedDirectories();
     _searchController.dispose();
     super.dispose();
@@ -239,12 +220,13 @@ class _HomePageState extends State<HomePage> {
         throw Exception(resultData['error'] ?? 'Failed to create config file');
       }
 
-      // Step 5: Open session for encryption
-      final session = _cryptoService.openSession(selectedPath, password);
-
-      // Step 6: Encrypt all files using new sec_* API
+      // Step 5: Encrypt all files
       final dir = Directory(selectedPath);
       final files = dir.listSync(recursive: true);
+
+      // Create session with password and config
+      final tempKeyID =
+          _cryptoService.createSession(password, jsonEncode(config));
 
       int fileCount = 0;
       for (final file in files) {
@@ -253,20 +235,19 @@ class _HomePageState extends State<HomePage> {
             // Read file
             final plaintext = await file.readAsBytes();
 
-            // Calculate relative path within the root directory
-            final relativePath = file.path.substring(selectedPath.length + 1);
+            // Encrypt using session key
+            final ciphertextBase64 =
+                _cryptoService.encryptDataBytes(plaintext, tempKeyID);
+            final ciphertext = base64Decode(ciphertextBase64);
 
-            // Encrypt using secWriteFile
-            _fileService.secWriteFile(session.sessionID, relativePath, plaintext);
+            // Write encrypted file
+            await file.writeAsBytes(ciphertext);
             fileCount++;
           } catch (e) {
             print('Failed to encrypt file ${file.path}: $e');
           }
         }
       }
-
-      // Close the session
-      _cryptoService.closeSession(session.sessionID);
 
       if (mounted) {
         ErrorHelper.showSuccess(context, '加密目录创建成功！已加密 $fileCount 个文件。');
@@ -343,29 +324,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Load initial page of files in current directory
   Future<void> _loadCurrentPath() async {
     if (_currentPath == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // Get total item count
-      final totalCount = await _fileService.getDirectoryItemCount(_currentPath!);
-      
-      // Load first page
-      final items = await _fileService.listCurrentDirectory(
-        _currentPath!,
-        offset: 0,
-        limit: _pageSize,
-      );
-
-      setState(() {
-        _items = items;
-        _totalItemCount = totalCount;
-        _loadedItemCount = items.length;
-        _hasMoreItems = _loadedItemCount < _totalItemCount;
-      });
+      final items = await _fileService.listCurrentDirectory(_currentPath!);
+      setState(() => _items = items);
     } catch (e) {
       if (mounted) {
         ErrorHelper.showError(
@@ -379,60 +345,24 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Load more items when scrolling near bottom
-  Future<void> _loadMoreItems() async {
-    if (_isLoadingMore || !_hasMoreItems || _currentPath == null) return;
-
-    setState(() => _isLoadingMore = true);
-
-    try {
-      final items = await _fileService.listCurrentDirectory(
-        _currentPath!,
-        offset: _loadedItemCount,
-        limit: _pageSize,
-      );
-
-      setState(() {
-        _items.addAll(items);
-        _loadedItemCount += items.length;
-        _hasMoreItems = _loadedItemCount < _totalItemCount;
-      });
-    } catch (e) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.loadDirectoryFailed,
-          originalError: e.toString(),
-        );
-      }
-    } finally {
-      setState(() => _isLoadingMore = false);
-    }
-  }
-
-  /// Scroll listener to detect when to load more items
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      // Load more when within 200 pixels of bottom
-      _loadMoreItems();
-    }
-  }
-
   Future<void> _verifyPassword(String password) async {
     if (_currentDir == null) return;
 
-    try {
-      // Use new sec_root_open API to verify password and create session
-      final session = _cryptoService.openSession(_currentDir!.path, password);
+    // Convert config to JSON string
+    final configJSON = jsonEncode(_currentDir!.config.toJson());
+
+    final result = _cryptoService.verifyPassword(password, configJSON);
+
+    if (result.success) {
+      // Create session with password and config
+      final tempKeyID = _cryptoService.createSession(password, configJSON);
 
       setState(() {
         _currentDir = EncryptedDirectory(
           path: _currentDir!.path,
           config: _currentDir!.config,
           isVerified: true,
-          sessionID: session.sessionID,
-          rootPath: session.rootPath,
+          tempKeyID: tempKeyID,
         );
 
         // Update in opened directories list
@@ -446,12 +376,11 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         ErrorHelper.showSuccess(context, '密码验证成功');
       }
-    } catch (e) {
+    } else {
       if (mounted) {
         ErrorHelper.showError(
           context,
           errorType: ErrorType.invalidPassword,
-          originalError: e.toString(),
         );
       }
     }
@@ -596,18 +525,12 @@ class _HomePageState extends State<HomePage> {
                   },
                   tooltip: 'Select all',
                 ),
-                if (_selectedFiles.isNotEmpty) ...[
-                  IconButton(
-                    icon: const Icon(Icons.copy),
-                    onPressed: _copySelectedToClipboard,
-                    tooltip: 'Copy to clipboard',
-                  ),
+                if (_selectedFiles.isNotEmpty)
                   IconButton(
                     icon: const Icon(Icons.save_alt),
                     onPressed: _batchExport,
                     tooltip: 'Export selected',
                   ),
-                ],
               ]
             : [
                 // Import file button
@@ -954,12 +877,6 @@ class _HomePageState extends State<HomePage> {
         _currentDir != null &&
         _currentPath != _currentDir!.path;
 
-    // Check if paste is available
-    final canPaste = _currentDir != null &&
-        _currentDir!.isVerified &&
-        _currentDir!.sessionID != null &&
-        _clipboardHasFiles;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -980,14 +897,6 @@ class _HomePageState extends State<HomePage> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-
-          // Paste button (only show if clipboard has files)
-          if (_clipboardHasFiles)
-            IconButton(
-              icon: const Icon(Icons.paste),
-              onPressed: canPaste ? _pasteFromClipboard : null,
-              tooltip: 'Paste from clipboard',
-            ),
 
           // Search button
           IconButton(
@@ -1064,36 +973,14 @@ class _HomePageState extends State<HomePage> {
     if (_viewMode == ViewMode.grid) {
       // Grid view
       return GridView.builder(
-        controller: _scrollController,
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 150,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
           childAspectRatio: 1.0,
         ),
-        itemCount: items.length + (_hasMoreItems ? 1 : 0),
+        itemCount: items.length,
         itemBuilder: (context, index) {
-          // Show loading indicator at the bottom
-          if (index == items.length) {
-            return Card(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '$_loadedItemCount/$_totalItemCount',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            );
-          }
-
           final item = items[index];
           final isSelected = _selectedFiles.contains(item);
 
@@ -1163,32 +1050,8 @@ class _HomePageState extends State<HomePage> {
 
     // List view (default)
     return ListView.builder(
-      controller: _scrollController,
-      itemCount: items.length + (_hasMoreItems ? 1 : 0),
+      itemCount: items.length,
       itemBuilder: (context, index) {
-        // Show loading indicator at the bottom
-        if (index == items.length) {
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Center(
-              child: Column(
-                children: [
-                  const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Loading... ($_loadedItemCount/$_totalItemCount)',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
         final item = items[index];
         final isSelected = _selectedFiles.contains(item);
 
@@ -1263,12 +1126,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showFileOptions(FileSystemNode item) {
-    // Check if copy is available
-    final canCopy = _currentDir != null &&
-        _currentDir!.isVerified &&
-        _currentDir!.sessionID != null &&
-        _currentDir!.rootPath != null;
-
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -1284,23 +1141,6 @@ class _HomePageState extends State<HomePage> {
                   _openNotepad(item);
                 },
               ),
-            // Copy option
-            ListTile(
-              leading: const Icon(Icons.copy),
-              title: const Text('Copy to Clipboard'),
-              enabled: canCopy,
-              onTap: canCopy
-                  ? () async {
-                      Navigator.pop(context);
-                      // Select this item and copy
-                      setState(() {
-                        _selectedFiles.clear();
-                        _selectedFiles.add(item);
-                      });
-                      await _copySelectedToClipboard();
-                    }
-                  : null,
-            ),
             ListTile(
               leading: const Icon(Icons.download),
               title: Text(
@@ -1341,11 +1181,9 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(
         builder: (context) => SecureNotepad(
-          sessionID: _currentDir!.sessionID!,
-          rootPath: _currentDir!.rootPath!,
+          tempKeyID: _currentDir!.tempKeyID!,
           file: encryptedFile,
           cryptoService: _cryptoService,
-          fileService: _fileService,
           onSaved: () {
             _loadCurrentPath();
           },
@@ -1367,12 +1205,11 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(
         builder: (context) => SecureImageViewer(
-          sessionID: _currentDir!.sessionID!,
-          rootPath: _currentDir!.rootPath!,
+          tempKeyID: _currentDir!.tempKeyID!,
           file: encryptedFile,
           cryptoService: _cryptoService,
-          fileService: _fileService,
           directoryPath: _currentPath,
+          fileService: _fileService,
         ),
       ),
     );
@@ -1392,7 +1229,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Check if session is active
-    if (_currentDir!.sessionID == null) {
+    if (_currentDir!.tempKeyID == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.sessionExpired,
@@ -1401,7 +1238,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Check if current path is set
-    if (_currentPath == null || _currentDir!.rootPath == null) {
+    if (_currentPath == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.noDirectorySelected,
@@ -1427,13 +1264,15 @@ class _HomePageState extends State<HomePage> {
       final inputFile = File(file.path);
       final plaintext = await inputFile.readAsBytes();
 
-      // Calculate relative path from root directory
-      final fileName = file.name;
-      final relativePath = _currentPath!.substring(_currentDir!.rootPath!.length + 1);
-      final fullRelativePath = relativePath.isEmpty ? fileName : '$relativePath/$fileName';
+      // Encrypt and save to current directory
+      final encryptedDataBase64 =
+          _cryptoService.encryptDataBytes(plaintext, _currentDir!.tempKeyID!);
+      final encryptedData = base64Decode(encryptedDataBase64);
 
-      // Encrypt and save using secWriteFile
-      _fileService.secWriteFile(_currentDir!.sessionID!, fullRelativePath, plaintext);
+      // Save encrypted file to current directory
+      final fileName = file.name;
+      final outputFile = File('$_currentPath/$fileName');
+      await outputFile.writeAsBytes(encryptedData);
 
       // Refresh file list
       await _loadCurrentPath();
@@ -1471,7 +1310,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Check if session is active
-    if (_currentDir!.sessionID == null || _currentDir!.rootPath == null) {
+    if (_currentDir!.tempKeyID == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.sessionExpired,
@@ -1487,15 +1326,9 @@ class _HomePageState extends State<HomePage> {
     if (saveLocation == null) return; // User cancelled
 
     try {
-      // Calculate relative path from root directory
-      final relativePath = item.path.substring(_currentDir!.rootPath!.length + 1);
-      
-      // Read decrypted data using secReadFile
-      final decryptedData = _fileService.secReadFile(_currentDir!.sessionID!, relativePath);
-      
-      // Write to output location
-      final outputFile = File(saveLocation.path);
-      await outputFile.writeAsBytes(decryptedData);
+      // Export file
+      await _fileService.exportFile(
+          item, saveLocation.path, _currentDir!.tempKeyID!);
 
       if (mounted) {
         ErrorHelper.showSuccess(context, '文件导出成功：${saveLocation.path}');
@@ -1525,7 +1358,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Check if session is active
-    if (_currentDir!.sessionID == null || _currentDir!.rootPath == null) {
+    if (_currentDir!.tempKeyID == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.sessionExpired,
@@ -1550,62 +1383,22 @@ class _HomePageState extends State<HomePage> {
     );
 
     try {
-      // Calculate relative path from root directory
-      final relativePath = item.path.substring(_currentDir!.rootPath!.length + 1);
-      
-      // Walk through directory using new sec_* API
-      final walker = _directoryService.secWalkDirectory(_currentDir!.sessionID!, relativePath);
-      final entries = <SecDirEntry>[];
-      
-      try {
-        while (true) {
-          final next = walker.next();
-          if (next.done) break;
-          if (next.entry != null) {
-            entries.add(next.entry!);
+      // Use FFI service to decrypt directory
+      final progress = await _directoryService.decryptDirectory(
+        item.path,
+        dstDir,
+        _currentDir!.tempKeyID!,
+        onProgress: (jobProgress) {
+          // Update progress dialog
+          if (!progressController.isCancelled) {
+            progressController.update(
+              current: jobProgress.percent,
+              currentFileName: jobProgress.currentFile,
+              status: '正在导出...',
+            );
           }
-        }
-      } finally {
-        walker.close();
-      }
-
-      // Create destination directory
-      final dstDirectory = Directory(dstDir);
-      await dstDirectory.create(recursive: true);
-
-      int processedFiles = 0;
-      int totalFiles = entries.where((e) => !e.isDir).length;
-
-      // Process each entry
-      for (final entry in entries) {
-        if (progressController.isCancelled) break;
-
-        final entryRelativePath = relativePath.isEmpty 
-            ? entry.name 
-            : '$relativePath/${entry.name}';
-
-        if (entry.isDir) {
-          // Create directory
-          final newDir = Directory('$dstDir/${entry.name}');
-          await newDir.create(recursive: true);
-        } else {
-          // Decrypt and save file
-          progressController.update(
-            current: processedFiles + 1,
-            currentFileName: entry.name,
-            status: '正在导出...',
-          );
-
-          try {
-            final decryptedData = _fileService.secReadFile(_currentDir!.sessionID!, entryRelativePath);
-            final outputFile = File('$dstDir/${entry.name}');
-            await outputFile.writeAsBytes(decryptedData);
-            processedFiles++;
-          } catch (e) {
-            print('Failed to export ${entry.name}: $e');
-          }
-        }
-      }
+        },
+      );
 
       // Close progress dialog
       if (mounted) {
@@ -1614,7 +1407,16 @@ class _HomePageState extends State<HomePage> {
 
       // Show result
       if (mounted && !progressController.isCancelled) {
-        ErrorHelper.showSuccess(context, '导出完成：$processedFiles 个文件');
+        if (progress.isComplete && !progress.isFailed && !progress.isCancelled) {
+          ErrorHelper.showSuccess(
+              context, '导出完成：${progress.processedFiles} 个文件');
+        } else if (progress.isFailed) {
+          ErrorHelper.showError(
+            context,
+            errorType: ErrorType.exportDirectoryFailed,
+            originalError: progress.error ?? 'Unknown error',
+          );
+        }
       } else if (mounted && progressController.isCancelled) {
         ErrorHelper.showInfo(context, '导出已取消');
       }
@@ -1648,7 +1450,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // Check if session is active
-    if (_currentDir!.sessionID == null || _currentDir!.rootPath == null) {
+    if (_currentDir!.tempKeyID == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.sessionExpired,
@@ -1692,17 +1494,9 @@ class _HomePageState extends State<HomePage> {
         );
 
         try {
-          // Calculate relative path from root directory
-          final relativePath = item.path.substring(_currentDir!.rootPath!.length + 1);
-          
-          // Read decrypted data using secReadFile
-          final decryptedData = _fileService.secReadFile(_currentDir!.sessionID!, relativePath);
-          
-          // Write to output location
           final outputPath = '$exportDir/${item.name}';
-          final outputFile = File(outputPath);
-          await outputFile.writeAsBytes(decryptedData);
-          
+          await _fileService.exportFile(
+              item, outputPath, _currentDir!.tempKeyID!);
           successCount++;
         } catch (e) {
           print('Failed to export ${item.name}: $e');
@@ -1806,171 +1600,6 @@ class _HomePageState extends State<HomePage> {
         return Icons.video_file;
       default:
         return Icons.insert_drive_file;
-    }
-  }
-
-  // ==================== Clipboard Operations ====================
-
-  /// Checks if the system clipboard has pasteable files
-  Future<void> _checkClipboard() async {
-    final hasFiles = await _clipboardService.hasFiles();
-    if (mounted && _clipboardHasFiles != hasFiles) {
-      setState(() {
-        _clipboardHasFiles = hasFiles;
-      });
-    }
-  }
-
-  /// Copies selected files to the system clipboard
-  Future<void> _copySelectedToClipboard() async {
-    if (_selectedFiles.isEmpty) {
-      ErrorHelper.showInfo(context, '请先选择要复制的文件');
-      return;
-    }
-
-    // Check if directory is verified and session is active
-    if (_currentDir == null || !_currentDir!.isVerified) {
-      ErrorHelper.showError(
-        context,
-        errorType: ErrorType.directoryNotVerified,
-      );
-      return;
-    }
-
-    if (_currentDir!.sessionID == null || _currentDir!.rootPath == null) {
-      ErrorHelper.showError(
-        context,
-        errorType: ErrorType.sessionExpired,
-      );
-      return;
-    }
-
-    try {
-      final copyHelper = ClipboardCopyHelper(
-        sessionID: _currentDir!.sessionID!,
-        rootPath: _currentDir!.rootPath!,
-        fileService: _fileService,
-      );
-
-      // Copy encrypted file paths to clipboard
-      final success = await copyHelper.copyToClipboard(_selectedFiles.toList());
-
-      if (success) {
-        // Update clipboard state
-        await _checkClipboard();
-
-        // Exit select mode and clear selection
-        setState(() {
-          _isSelectMode = false;
-          _selectedFiles.clear();
-        });
-
-        if (mounted) {
-          ErrorHelper.showSuccess(context, '已复制 ${_selectedFiles.length} 个文件到剪贴板');
-        }
-      } else {
-        if (mounted) {
-          ErrorHelper.showError(context, errorType: ErrorType.unknownError);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.unknownError,
-          originalError: e.toString(),
-        );
-      }
-    }
-  }
-
-  /// Pastes files from the system clipboard into the current encrypted directory
-  Future<void> _pasteFromClipboard() async {
-    if (!mounted) return;
-
-    // Check if directory is verified and session is active
-    if (_currentDir == null || !_currentDir!.isVerified) {
-      ErrorHelper.showError(
-        context,
-        errorType: ErrorType.directoryNotVerified,
-      );
-      return;
-    }
-
-    if (_currentDir!.sessionID == null || _currentDir!.rootPath == null) {
-      ErrorHelper.showError(
-        context,
-        errorType: ErrorType.sessionExpired,
-      );
-      return;
-    }
-
-    // Calculate target relative path
-    final relativePath = _currentPath != null && _currentDir!.rootPath != null
-        ? _currentPath!.substring(_currentDir!.rootPath!.length + 1)
-        : '';
-
-    // Show progress dialog
-    final progressController = ProgressHelper.showProgressDialog(
-      context,
-      title: '粘贴文件',
-      total: 100, // Will be updated
-      status: '正在读取剪贴板...',
-    );
-
-    try {
-      final pasteHelper = ClipboardPasteHelper(
-        sessionID: _currentDir!.sessionID!,
-        rootPath: _currentDir!.rootPath!,
-        targetRelativePath: relativePath,
-        fileService: _fileService,
-      );
-
-      final result = await pasteHelper.pasteFromClipboard(
-        onProgress: (current, total, fileName) {
-          progressController.update(
-            current: current,
-            total: total,
-            currentFileName: fileName,
-            status: '正在加密粘贴...',
-          );
-        },
-      );
-
-      // Close progress dialog
-      if (mounted) {
-        progressController.close(context);
-      }
-
-      // Update clipboard state
-      await _checkClipboard();
-
-      // Refresh file list
-      await _loadCurrentPath();
-
-      // Show result
-      if (mounted) {
-        if (result.success) {
-          ErrorHelper.showSuccess(context, result.summary);
-        } else if (result.cancelled) {
-          ErrorHelper.showInfo(context, result.summary);
-        } else {
-          ErrorHelper.showError(context, errorType: ErrorType.unknownError, originalError: result.errors.join('\n'));
-        }
-      }
-    } catch (e) {
-      // Close progress dialog
-      if (mounted) {
-        progressController.close(context);
-      }
-
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.importFileFailed,
-          originalError: e.toString(),
-        );
-      }
     }
   }
 }

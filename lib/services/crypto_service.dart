@@ -6,106 +6,186 @@ import '../models/ffi_results.dart';
 
 /// Crypto service for Safe Disk encryption operations
 ///
-/// This service provides encryption operations using the native library.
+/// This service provides stateless encryption operations using the native library.
 /// All key derivation and management is handled by the backend (Go FFI).
 ///
-/// **New Architecture (sec_* series)**:
-/// - **Session-based**: Use `openSession` to create a session, `closeSession` to close it
-/// - **Stateful**: The backend holds session state in memory
-/// - **Simpler**: One call (`openSession`) replaces `verifyPassword` + `createSession`
+/// **Architecture Design**:
+/// - **Stateless**: No internal state management
+/// - **Explicit key ID**: All operations require explicit tempKeyID parameter
+/// - **External management**: Caller is responsible for managing tempKeyID
+/// - **Flexible**: Supports any key management strategy (single directory, multi-directory, subdirectories, etc.)
 ///
-/// **Usage (NEW - Recommended)**:
-/// ```dart
-/// // Step 1: Open session (verifies password and creates session)
-/// final session = cryptoService.openSession(rootPath, password);
-/// // NOTE: Caller should store sessionID (e.g., in a Map, State, or Provider)
-///
-/// // Step 2: Use sessionID for file operations (via SecFileService)
-/// final data = secFileService.readFile(session.sessionID, 'file.txt');
-/// secFileService.writeFile(session.sessionID, 'file.txt', data);
-///
-/// // Step 3: Close session when done
-/// cryptoService.closeSession(session.sessionID);
-/// ```
-///
-/// **Legacy Usage (Deprecated)**:
+/// **Usage**:
 /// ```dart
 /// // Step 1: Verify password
 /// final result = cryptoService.verifyPassword(password, configJSON);
+/// if (!result.success) {
+///   print('Password incorrect: ${result.error}');
+///   return;
+/// }
 ///
 /// // Step 2: Create session and get tempKeyID
 /// final tempKeyID = cryptoService.createSession(password, configJSON);
+/// // NOTE: Caller should store tempKeyID (e.g., in a Map, State, or Provider)
 ///
 /// // Step 3: Use tempKeyID for encryption/decryption
 /// final encrypted = cryptoService.encryptData(data, tempKeyID);
+/// final decrypted = cryptoService.decryptData(encrypted, tempKeyID);
 /// ```
 class CryptoService {
   final NativeLib _native = NativeLib.instance;
 
-  // ==================== NEW SESSION MANAGEMENT (sec_* series) ====================
+  // ==================== SESSION MANAGEMENT ====================
 
-  /// Opens an encrypted root directory and creates a session.
-  ///
-  /// This replaces the old `verifyPassword` + `createSession` pattern.
-  /// One call verifies the password AND creates a session.
-  ///
-  /// [rootPath] - path to the encrypted root directory (containing _cryption.json)
-  /// [password] - user password
-  /// [ttlSeconds] - session TTL in seconds (0 = default 3600s = 1 hour)
-  ///
-  /// Returns: SecSession with sessionID and rootPath
-  /// Throws: Exception if password is incorrect or directory is invalid
-  SecSession openSession(String rootPath, String password, {int ttlSeconds = 0}) {
-    final resultStr = _native.secRootOpen(rootPath, password, ttlSeconds: ttlSeconds);
-    final result = SecRootOpenResult.fromJson(resultStr);
-    return result.sessionOrThrow;
+  /// Creates a session and returns the temporary key ID
+  /// The caller is responsible for storing and managing the key ID
+  /// password: user password
+  /// configJSON: config JSON string (from _cryption.json)
+  /// Returns: temporary key ID (caller should store it)
+  String createSession(String password, String configJSON) {
+    final resultStr = _native.makeTemporaryKeyID(password, configJSON,
+        ttlSeconds: 3600); // 1 hour TTL
+    final result = SessionResult.fromJson(resultStr);
+    return result.tempKeyIDOrThrow;
   }
 
-  /// Closes a root session and releases resources.
-  ///
-  /// [sessionID] - session ID from openSession
-  ///
-  /// Throws: Exception if session ID is invalid
-  void closeSession(int sessionID) {
-    final resultStr = _native.secRootClose(sessionID);
-    final result = FFIResult.fromJson(resultStr);
-    if (!result.success) {
-      throw Exception(result.error ?? 'Failed to close session');
+  // ==================== PASSWORD VERIFICATION ====================
+
+  /// Verifies if the password is correct
+  /// inputPass: user input password
+  /// configJSON: config JSON string (from _cryption.json)
+  /// Returns: VerifyResult with success status and error message
+  VerifyResult verifyPassword(String inputPass, String configJSON) {
+    final success = _native.verifyPassword(inputPass, configJSON);
+    if (success) {
+      return VerifyResult(success: true);
+    } else {
+      return VerifyResult(
+          success: false, error: 'Password verification failed');
     }
   }
 
-  /// Gets information about a root session.
-  ///
-  /// [sessionID] - session ID from openSession
-  ///
-  /// Returns: SecSessionInfo with rootPath and config
-  /// Throws: Exception if session ID is invalid
-  SecSessionInfo getSessionInfo(int sessionID) {
-    final resultStr = _native.secRootGetInfo(sessionID);
-    final result = SecRootInfoResult.fromJson(resultStr);
-    return result.infoOrThrow;
+  // ==================== DATA ENCRYPTION/DECRYPTION ====================
+
+  /// Encrypts data with a temporary key ID
+  /// data: plaintext data
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: encrypted data (base64)
+  String encryptData(String data, String tempKeyID) {
+    final dataBase64 = base64Encode(utf8.encode(data));
+    final resultStr = _native.encryptData(dataBase64, tempKeyID);
+    final result = DataResult.fromJson(resultStr);
+    return base64Encode(result.dataOrThrow);
   }
 
-  // ==================== LEGACY SESSION MANAGEMENT (Deprecated - Removed) ====================
-  // The following methods have been removed. Use openSession() instead.
-  // - createSession: use openSession()
-  // - verifyPassword: use openSession() which validates password automatically
+  /// Encrypts binary data with a temporary key ID
+  /// data: binary data
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: encrypted data (base64)
+  String encryptDataBytes(Uint8List data, String tempKeyID) {
+    final dataBase64 = base64Encode(data);
+    final resultStr = _native.encryptData(dataBase64, tempKeyID);
+    final result = DataResult.fromJson(resultStr);
+    return base64Encode(result.dataOrThrow);
+  }
 
-  // ==================== PASSWORD VERIFICATION ====================
-  // Password verification is now done automatically in openSession()
-  // If you need to verify password without creating a session, use openSession() and closeSession()
+  /// Decrypts data with a specific temp key ID (for async operations)
+  /// encryptedDataBase64: encrypted data (base64)
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: decrypted data (string)
+  String decryptData(String encryptedDataBase64, String tempKeyID) {
+    final resultStr = _native.decryptData(encryptedDataBase64, tempKeyID);
+    final result = DataResult.fromJson(resultStr);
+    return utf8.decode(result.dataOrThrow);
+  }
 
-  // ==================== DATA ENCRYPTION/DECRYPTION ====================
-  // Data encryption/decryption should be done through SecFileService
-  // Use secReadfile() and secWritefile() instead
+  /// Decrypts binary data with a temporary key ID (for async operations)
+  /// encryptedDataBase64: encrypted data (base64)
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: decrypted data (bytes)
+  Uint8List decryptDataBytes(String encryptedDataBase64, String tempKeyID) {
+    final resultStr = _native.decryptData(encryptedDataBase64, tempKeyID);
+    final result = DataResult.fromJson(resultStr);
+    return result.dataOrThrow;
+  }
 
   // ==================== FILE ENCRYPTION/DECRYPTION ====================
-  // File encryption/decryption should be done through SecFileService
-  // Use secFopen(), secFread(), secFwrite(), secFclose() instead
+
+  /// Encrypts a file with a specific temp key ID (for async operations)
+  /// srcPath: source file path
+  /// toPath: destination file path
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: JSON result {"success": true} or throws exception
+  Map<String, dynamic> encryptFile(
+      String srcPath, String toPath, String tempKeyID) {
+    final resultStr = _native.encryptFile(srcPath, toPath, tempKeyID);
+    final result = FileResult.fromJson(resultStr);
+    result.throwOnError();
+    return {'success': true};
+  }
+
+  /// Decrypts a file with a specific temp key ID (for async operations)
+  /// path: encrypted file path
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: decrypted data (bytes)
+  Uint8List decryptFileToData(String path, String tempKeyID) {
+    final resultStr = _native.decryptFileToData(path, tempKeyID);
+    final result = DataResult.fromJson(resultStr);
+    return result.dataOrThrow;
+  }
 
   // ==================== STREAMING FILE OPERATIONS ====================
-  // Streaming operations should be done through SecFileService
-  // The sec_* series handles large files automatically
+
+  /// Large file threshold (100 MB)
+  static const int largeFileThreshold = 100 * 1024 * 1024;
+
+  /// Decrypts an encrypted file directly to another file path.
+  /// This is memory-efficient for large files - uses streaming decryption for chunked files.
+  /// srcPath: source encrypted file path
+  /// toPath: destination decrypted file path
+  /// tempKeyID: temporary key ID (from createSession)
+  /// Returns: {"success": true} or throws exception
+  Map<String, dynamic> decryptFileToPath(
+      String srcPath, String toPath, String tempKeyID) {
+    final resultStr = _native.decryptFileToPath(srcPath, toPath, tempKeyID);
+    final result = FileResult.fromJson(resultStr);
+    result.throwOnError();
+    return {'success': true};
+  }
+
+  /// Encrypts a file using chunked format (memory-efficient for large files).
+  /// This format supports streaming decryption - only one chunk is loaded into memory at a time.
+  /// srcPath: source file path
+  /// toPath: destination encrypted file path
+  /// tempKeyID: temporary key ID (from createSession)
+  /// chunkSizeKB: chunk size in KB (0 = default 64 KB)
+  /// Returns: {"success": true} or throws exception
+  Map<String, dynamic> encryptFileChunked(
+      String srcPath, String toPath, String tempKeyID,
+      {int chunkSizeKB = 0}) {
+    final resultStr = _native.encryptFileChunked(srcPath, toPath, tempKeyID,
+        chunkSizeKB: chunkSizeKB);
+    final result = FileResult.fromJson(resultStr);
+    result.throwOnError();
+    return {'success': true};
+  }
+
+  /// Checks if a file is in chunked encrypted format.
+  /// path: file path to check
+  /// Returns: true if chunked, false otherwise
+  bool isChunkedFile(String path) {
+    final resultStr = _native.isChunkedFile(path);
+    final result = IsChunkedResult.fromJson(resultStr);
+    return result.isChunkedOrThrow;
+  }
+
+  /// Gets information about an encrypted file.
+  /// path: file path
+  /// Returns: FileInfo with size, isChunked, recommendedMethod
+  FileInfo getEncryptedFileInfo(String path) {
+    final resultStr = _native.getEncryptedFileInfo(path);
+    return FileInfo.fromJson(resultStr);
+  }
 
   // ==================== CONFIG MANAGEMENT ====================
 

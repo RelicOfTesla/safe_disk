@@ -1,12 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/crypto_service.dart';
-import '../services/file_service.dart';
 import '../models/cryption_config.dart';
 import '../utils/error_messages.dart';
 import '../widgets/copyable_snackbar.dart';
@@ -22,18 +19,14 @@ import '../native/native_lib.dart';
 class SecureNotepad extends StatefulWidget {
   final EncryptedFile file;
   final CryptoService cryptoService;
-  final FileService fileService;
-  final int sessionID;
-  final String rootPath;
+  final String tempKeyID;
   final VoidCallback? onSaved;
 
   const SecureNotepad({
     super.key,
     required this.file,
     required this.cryptoService,
-    required this.fileService,
-    required this.sessionID,
-    required this.rootPath,
+    required this.tempKeyID,
     this.onSaved,
   });
 
@@ -61,18 +54,7 @@ class _SecureNotepadState extends State<SecureNotepad> {
   
   // Auto-save
   Timer? _autoSaveTimer;
-  Duration _autoSaveInterval = Duration.zero; // Default: no auto-save
-  
-  // Auto-save interval options
-  static const String _prefKeyAutoSaveInterval = 'secure_notepad_auto_save_interval';
-  static const List<MapEntry<String, Duration>> _autoSaveOptions = [
-    MapEntry('不自动保存', Duration.zero),
-    MapEntry('30秒', Duration(seconds: 30)),
-    MapEntry('3分钟', Duration(minutes: 3)),
-    MapEntry('10分钟', Duration(minutes: 10)),
-    MapEntry('30分钟', Duration(minutes: 30)),
-    MapEntry('2小时', Duration(hours: 2)),
-  ];
+  static const Duration _autoSaveDelay = Duration(seconds: 30);
   
   // Find/Replace (optional feature)
   bool _showFindReplace = false;
@@ -85,8 +67,8 @@ class _SecureNotepadState extends State<SecureNotepad> {
     super.initState();
     _controller = TextEditingController();
     _focusNode = FocusNode();
-    _loadAutoSaveInterval();
     _loadFile();
+    _startAutoSaveTimer();
   }
 
   @override
@@ -145,71 +127,14 @@ class _SecureNotepadState extends State<SecureNotepad> {
     }
   }
 
-  /// Load auto-save interval from preferences
-  Future<void> _loadAutoSaveInterval() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final intervalSeconds = prefs.getInt(_prefKeyAutoSaveInterval) ?? 0;
-      setState(() {
-        _autoSaveInterval = Duration(seconds: intervalSeconds);
-      });
-      _startAutoSaveTimer();
-    } catch (e) {
-      print('[SecureNotepad] Failed to load auto-save interval: $e');
-      _startAutoSaveTimer();
-    }
-  }
-
-  /// Save auto-save interval to preferences
-  Future<void> _saveAutoSaveInterval(Duration interval) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_prefKeyAutoSaveInterval, interval.inSeconds);
-    } catch (e) {
-      print('[SecureNotepad] Failed to save auto-save interval: $e');
-    }
-  }
-
   /// Start auto-save timer
   void _startAutoSaveTimer() {
     _autoSaveTimer?.cancel();
-    
-    if (_autoSaveInterval == Duration.zero) {
-      return; // Auto-save disabled
-    }
-    
-    _autoSaveTimer = Timer.periodic(_autoSaveInterval, (timer) {
+    _autoSaveTimer = Timer.periodic(_autoSaveDelay, (timer) {
       if (_hasChanges && !_isSaving) {
         _saveFile(autoSave: true);
       }
     });
-  }
-
-  /// Show auto-save interval selection dialog
-  Future<void> _showAutoSaveSettings() async {
-    final result = await showDialog<Duration>(
-      context: context,
-      builder: (context) => _AutoSaveIntervalDialog(
-        currentInterval: _autoSaveInterval,
-        options: _autoSaveOptions,
-      ),
-    );
-    
-    if (result != null) {
-      setState(() {
-        _autoSaveInterval = result;
-      });
-      await _saveAutoSaveInterval(result);
-      _startAutoSaveTimer();
-      
-      if (mounted) {
-        final label = _autoSaveOptions.firstWhere(
-          (e) => e.value == result,
-          orElse: () => _autoSaveOptions.first,
-        ).key;
-        ErrorHelper.showSuccess(context, '已设置自动保存: $label');
-      }
-    }
   }
 
   Future<void> _loadFile() async {
@@ -219,11 +144,11 @@ class _SecureNotepadState extends State<SecureNotepad> {
         _errorMessage = null;
       });
 
-      // Calculate relative path from root directory
-      final relativePath = widget.file.encryptedPath.substring(widget.rootPath.length + 1);
-
-      // Decrypt file content using secReadFile
-      final contentBytes = widget.fileService.secReadFile(widget.sessionID, relativePath);
+      // Decrypt file content
+      final contentBytes = widget.cryptoService.decryptFileToData(
+        widget.file.encryptedPath,
+        widget.tempKeyID,
+      );
       final content = utf8.decode(contentBytes);
 
       if (content.isNotEmpty) {
@@ -263,12 +188,12 @@ class _SecureNotepadState extends State<SecureNotepad> {
     try {
       setState(() => _isSaving = true);
 
-      // Calculate relative path from root directory
-      final relativePath = widget.file.encryptedPath.substring(widget.rootPath.length + 1);
-
-      // Encrypt and save using secWriteFile
+      // Encrypt and save
       final contentBytes = utf8.encode(_controller.text);
-      widget.fileService.secWriteFile(widget.sessionID, relativePath, Uint8List.fromList(contentBytes));
+      final encryptedBase64 =
+          widget.cryptoService.encryptDataBytes(contentBytes, widget.tempKeyID);
+      final encryptedBytes = base64Decode(encryptedBase64);
+      await File(widget.file.encryptedPath).writeAsBytes(encryptedBytes);
 
       setState(() {
         _hasChanges = false;
@@ -515,12 +440,6 @@ class _SecureNotepadState extends State<SecureNotepad> {
               },
               tooltip: _showFindReplace ? '隐藏查找/替换' : '查找/替换',
             ),
-            // Auto-save settings
-            IconButton(
-              icon: const Icon(Icons.timer),
-              onPressed: _showAutoSaveSettings,
-              tooltip: '自动保存设置',
-            ),
             // Save button
             if (_hasChanges)
               IconButton(
@@ -600,23 +519,6 @@ class _SecureNotepadState extends State<SecureNotepad> {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const Spacer(),
-                  // Auto-save indicator
-                  if (_autoSaveInterval != Duration.zero) ...[
-                    Icon(
-                      Icons.timer,
-                      size: 14,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _autoSaveOptions.firstWhere(
-                        (e) => e.value == _autoSaveInterval,
-                        orElse: () => _autoSaveOptions.first,
-                      ).key,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(width: 16),
-                  ],
                   Text(
                     '${_controller.text.length} 字符',
                     style: Theme.of(context).textTheme.bodySmall,
@@ -740,45 +642,6 @@ class _SecureNotepadState extends State<SecureNotepad> {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Dialog for selecting auto-save interval
-class _AutoSaveIntervalDialog extends StatelessWidget {
-  final Duration currentInterval;
-  final List<MapEntry<String, Duration>> options;
-
-  const _AutoSaveIntervalDialog({
-    required this.currentInterval,
-    required this.options,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('自动保存设置'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: options.map((option) {
-          return RadioListTile<Duration>(
-            title: Text(option.key),
-            value: option.value,
-            groupValue: currentInterval,
-            onChanged: (value) {
-              if (value != null) {
-                Navigator.of(context).pop(value);
-              }
-            },
-          );
-        }).toList(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-      ],
     );
   }
 }
