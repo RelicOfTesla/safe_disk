@@ -2,7 +2,6 @@ package sec_fs
 
 import (
 	"bytes"
-	"encoding/base64"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -549,43 +548,7 @@ func TestSecFile_WriteString(t *testing.T) {
 	}
 }
 
-// TestSecFile_Base64 tests base64 operations
-func TestSecFile_Base64(t *testing.T) {
-	password := "test_password"
-	rootDir, cleanup := createTestRoot(t, password)
-	defer cleanup()
-
-	root, err := OpenRootDirect(rootDir, password)
-	if err != nil {
-		t.Fatalf("Failed to open root: %v", err)
-	}
-	defer root.Close()
-
-	testData := []byte("Base64 test data")
-
-	// WriteFileBase64
-	err = root.WriteFileBase64("b64_test.txt", base64.StdEncoding.EncodeToString(testData))
-	if err != nil {
-		t.Fatalf("WriteFileBase64 failed: %v", err)
-	}
-
-	// ReadFileBase64
-	b64Data, err := root.ReadFileBase64("b64_test.txt")
-	if err != nil {
-		t.Fatalf("ReadFileBase64 failed: %v", err)
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(b64Data)
-	if err != nil {
-		t.Fatalf("Base64 decode failed: %v", err)
-	}
-
-	if !bytes.Equal(testData, decoded) {
-		t.Errorf("Base64 data mismatch")
-	}
-}
-
-// TestSecFile_InvalidMode tests opening file with invalid mode
+// TestSecFile_WriteString tests WriteString method
 func TestSecFile_InvalidMode(t *testing.T) {
 	password := "test_password"
 	rootDir, cleanup := createTestRoot(t, password)

@@ -124,6 +124,28 @@ typedef SecDirWalkNextDart = Pointer<Utf8> Function(int walkerID);
 typedef SecDirWalkCloseC = Pointer<Utf8> Function(Int64 walkerID);
 typedef SecDirWalkCloseDart = Pointer<Utf8> Function(int walkerID);
 
+// ==================== ITERATION BENCHMARK SERIES ====================
+
+// BenchmarkPBKDF2: (sampleSize) -> string
+typedef BenchmarkPBKDF2C = Pointer<Utf8> Function(Int32 sampleSize);
+typedef BenchmarkPBKDF2Dart = Pointer<Utf8> Function(int sampleSize);
+
+// CalculateIterations: (targetTimeMs, forceBenchmark) -> string
+typedef CalculateIterationsC = Pointer<Utf8> Function(Int32 targetTimeMs, Int32 forceBenchmark);
+typedef CalculateIterationsDart = Pointer<Utf8> Function(int targetTimeMs, int forceBenchmark);
+
+// EstimateKeyDerivationTime: (iterations) -> string
+typedef EstimateKeyDerivationTimeC = Pointer<Utf8> Function(Int32 iterations);
+typedef EstimateKeyDerivationTimeDart = Pointer<Utf8> Function(int iterations);
+
+// GetBenchmarkCache: () -> string
+typedef GetBenchmarkCacheC = Pointer<Utf8> Function();
+typedef GetBenchmarkCacheDart = Pointer<Utf8> Function();
+
+// ClearBenchmarkCache: () -> string
+typedef ClearBenchmarkCacheC = Pointer<Utf8> Function();
+typedef ClearBenchmarkCacheDart = Pointer<Utf8> Function();
+
 // ==================== NATIVE BINDINGS ====================
 
 class NativeBindings {
@@ -179,6 +201,18 @@ class NativeBindings {
         _lib.lookupFunction<SecDirWalkNextC, SecDirWalkNextDart>('sec_dir_walk_next');
     secDirWalkClose =
         _lib.lookupFunction<SecDirWalkCloseC, SecDirWalkCloseDart>('sec_dir_walk_close');
+
+    // BENCHMARK SERIES
+    benchmarkPBKDF2 =
+        _lib.lookupFunction<BenchmarkPBKDF2C, BenchmarkPBKDF2Dart>('BenchmarkPBKDF2');
+    calculateIterations =
+        _lib.lookupFunction<CalculateIterationsC, CalculateIterationsDart>('CalculateIterations');
+    estimateKeyDerivationTime =
+        _lib.lookupFunction<EstimateKeyDerivationTimeC, EstimateKeyDerivationTimeDart>('EstimateKeyDerivationTime');
+    getBenchmarkCache =
+        _lib.lookupFunction<GetBenchmarkCacheC, GetBenchmarkCacheDart>('GetBenchmarkCache');
+    clearBenchmarkCache =
+        _lib.lookupFunction<ClearBenchmarkCacheC, ClearBenchmarkCacheDart>('ClearBenchmarkCache');
   }
 
   static NativeBindings? _instance;
@@ -236,4 +270,11 @@ class NativeBindings {
   late final SecDirWalkDart secDirWalk;
   late final SecDirWalkNextDart secDirWalkNext;
   late final SecDirWalkCloseDart secDirWalkClose;
+
+  // BENCHMARK SERIES
+  late final BenchmarkPBKDF2Dart benchmarkPBKDF2;
+  late final CalculateIterationsDart calculateIterations;
+  late final EstimateKeyDerivationTimeDart estimateKeyDerivationTime;
+  late final GetBenchmarkCacheDart getBenchmarkCache;
+  late final ClearBenchmarkCacheDart clearBenchmarkCache;
 }

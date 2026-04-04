@@ -66,6 +66,9 @@ enum ErrorType {
 
   /// 操作失败（通用）
   operationFailed,
+
+  /// 未知错误
+  unknownError,
 }
 
 /// 错误提示信息
@@ -203,6 +206,11 @@ class ErrorMessages {
       title: '操作失败',
       description: '操作未完成，请稍后重试。',
       suggestion: '如果问题持续存在，请联系技术支持。',
+    ),
+    ErrorType.unknownError: ErrorMessage(
+      title: '未知错误',
+      description: '发生未知错误，操作未完成。',
+      suggestion: '请稍后重试，如果问题持续存在，请联系技术支持。',
     ),
   };
 

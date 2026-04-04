@@ -6,6 +6,8 @@ import '../services/crypto_service.dart';
 import '../services/file_service.dart';
 import '../services/directory_service.dart';
 import '../services/directory_persistence_service.dart';
+import '../services/clipboard_service.dart';
+import '../services/clipboard_helper.dart';
 import '../models/cryption_config.dart';
 import '../models/ffi_results.dart';
 import '../widgets/directory_tree.dart';
@@ -34,6 +36,7 @@ class _HomePageState extends State<HomePage> {
   late final FileService _fileService;
   final DirectoryPersistenceService _persistenceService =
       DirectoryPersistenceService();
+  final ClipboardService _clipboardService = ClipboardService.instance;
 
   final List<EncryptedDirectory> _openedDirs =
       []; // List of opened encrypted directories
@@ -55,14 +58,27 @@ class _HomePageState extends State<HomePage> {
   // View mode for file browsing (list or grid)
   ViewMode _viewMode = ViewMode.list; // Current view mode
 
+  // Pagination state for virtual scrolling
+  static const int _pageSize = 50; // Number of items per page
+  int _loadedItemCount = 0; // Number of items currently loaded
+  int _totalItemCount = 0; // Total number of items in directory
+  bool _hasMoreItems = false; // Whether there are more items to load
+  bool _isLoadingMore = false; // Whether currently loading more items
+  final ScrollController _scrollController = ScrollController(); // Scroll controller for detecting when to load more
+
+  // Clipboard state
+  bool _clipboardHasFiles = false; // Whether system clipboard has pasteable files
+
   @override
   void initState() {
     super.initState();
     _fileService = FileService();
+    _scrollController.addListener(_onScroll); // Add scroll listener for pagination
     _loadQuickList();
     _loadPersistedDirectories();
     _loadDrawerPinnedState();
     _checkFirstTimeUser();
+    _checkClipboard(); // Check if clipboard has files
   }
 
   /// Check if this is first time user and show welcome guide
@@ -102,6 +118,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _saveOpenedDirectories();
     _searchController.dispose();
     super.dispose();
@@ -325,14 +343,29 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Load initial page of files in current directory
   Future<void> _loadCurrentPath() async {
     if (_currentPath == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final items = await _fileService.listCurrentDirectory(_currentPath!);
-      setState(() => _items = items);
+      // Get total item count
+      final totalCount = await _fileService.getDirectoryItemCount(_currentPath!);
+      
+      // Load first page
+      final items = await _fileService.listCurrentDirectory(
+        _currentPath!,
+        offset: 0,
+        limit: _pageSize,
+      );
+
+      setState(() {
+        _items = items;
+        _totalItemCount = totalCount;
+        _loadedItemCount = items.length;
+        _hasMoreItems = _loadedItemCount < _totalItemCount;
+      });
     } catch (e) {
       if (mounted) {
         ErrorHelper.showError(
@@ -343,6 +376,46 @@ class _HomePageState extends State<HomePage> {
       }
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  /// Load more items when scrolling near bottom
+  Future<void> _loadMoreItems() async {
+    if (_isLoadingMore || !_hasMoreItems || _currentPath == null) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final items = await _fileService.listCurrentDirectory(
+        _currentPath!,
+        offset: _loadedItemCount,
+        limit: _pageSize,
+      );
+
+      setState(() {
+        _items.addAll(items);
+        _loadedItemCount += items.length;
+        _hasMoreItems = _loadedItemCount < _totalItemCount;
+      });
+    } catch (e) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.loadDirectoryFailed,
+          originalError: e.toString(),
+        );
+      }
+    } finally {
+      setState(() => _isLoadingMore = false);
+    }
+  }
+
+  /// Scroll listener to detect when to load more items
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      // Load more when within 200 pixels of bottom
+      _loadMoreItems();
     }
   }
 
@@ -523,12 +596,18 @@ class _HomePageState extends State<HomePage> {
                   },
                   tooltip: 'Select all',
                 ),
-                if (_selectedFiles.isNotEmpty)
+                if (_selectedFiles.isNotEmpty) ...[
+                  IconButton(
+                    icon: const Icon(Icons.copy),
+                    onPressed: _copySelectedToClipboard,
+                    tooltip: 'Copy to clipboard',
+                  ),
                   IconButton(
                     icon: const Icon(Icons.save_alt),
                     onPressed: _batchExport,
                     tooltip: 'Export selected',
                   ),
+                ],
               ]
             : [
                 // Import file button
@@ -875,6 +954,12 @@ class _HomePageState extends State<HomePage> {
         _currentDir != null &&
         _currentPath != _currentDir!.path;
 
+    // Check if paste is available
+    final canPaste = _currentDir != null &&
+        _currentDir!.isVerified &&
+        _currentDir!.sessionID != null &&
+        _clipboardHasFiles;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -895,6 +980,14 @@ class _HomePageState extends State<HomePage> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
+
+          // Paste button (only show if clipboard has files)
+          if (_clipboardHasFiles)
+            IconButton(
+              icon: const Icon(Icons.paste),
+              onPressed: canPaste ? _pasteFromClipboard : null,
+              tooltip: 'Paste from clipboard',
+            ),
 
           // Search button
           IconButton(
@@ -971,14 +1064,36 @@ class _HomePageState extends State<HomePage> {
     if (_viewMode == ViewMode.grid) {
       // Grid view
       return GridView.builder(
+        controller: _scrollController,
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 150,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
           childAspectRatio: 1.0,
         ),
-        itemCount: items.length,
+        itemCount: items.length + (_hasMoreItems ? 1 : 0),
         itemBuilder: (context, index) {
+          // Show loading indicator at the bottom
+          if (index == items.length) {
+            return Card(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '$_loadedItemCount/$_totalItemCount',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            );
+          }
+
           final item = items[index];
           final isSelected = _selectedFiles.contains(item);
 
@@ -1048,8 +1163,32 @@ class _HomePageState extends State<HomePage> {
 
     // List view (default)
     return ListView.builder(
-      itemCount: items.length,
+      controller: _scrollController,
+      itemCount: items.length + (_hasMoreItems ? 1 : 0),
       itemBuilder: (context, index) {
+        // Show loading indicator at the bottom
+        if (index == items.length) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Center(
+              child: Column(
+                children: [
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Loading... ($_loadedItemCount/$_totalItemCount)',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         final item = items[index];
         final isSelected = _selectedFiles.contains(item);
 
@@ -1124,6 +1263,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showFileOptions(FileSystemNode item) {
+    // Check if copy is available
+    final canCopy = _currentDir != null &&
+        _currentDir!.isVerified &&
+        _currentDir!.sessionID != null &&
+        _currentDir!.rootPath != null;
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -1139,6 +1284,23 @@ class _HomePageState extends State<HomePage> {
                   _openNotepad(item);
                 },
               ),
+            // Copy option
+            ListTile(
+              leading: const Icon(Icons.copy),
+              title: const Text('Copy to Clipboard'),
+              enabled: canCopy,
+              onTap: canCopy
+                  ? () async {
+                      Navigator.pop(context);
+                      // Select this item and copy
+                      setState(() {
+                        _selectedFiles.clear();
+                        _selectedFiles.add(item);
+                      });
+                      await _copySelectedToClipboard();
+                    }
+                  : null,
+            ),
             ListTile(
               leading: const Icon(Icons.download),
               title: Text(
@@ -1644,6 +1806,171 @@ class _HomePageState extends State<HomePage> {
         return Icons.video_file;
       default:
         return Icons.insert_drive_file;
+    }
+  }
+
+  // ==================== Clipboard Operations ====================
+
+  /// Checks if the system clipboard has pasteable files
+  Future<void> _checkClipboard() async {
+    final hasFiles = await _clipboardService.hasFiles();
+    if (mounted && _clipboardHasFiles != hasFiles) {
+      setState(() {
+        _clipboardHasFiles = hasFiles;
+      });
+    }
+  }
+
+  /// Copies selected files to the system clipboard
+  Future<void> _copySelectedToClipboard() async {
+    if (_selectedFiles.isEmpty) {
+      ErrorHelper.showInfo(context, '请先选择要复制的文件');
+      return;
+    }
+
+    // Check if directory is verified and session is active
+    if (_currentDir == null || !_currentDir!.isVerified) {
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.directoryNotVerified,
+      );
+      return;
+    }
+
+    if (_currentDir!.sessionID == null || _currentDir!.rootPath == null) {
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.sessionExpired,
+      );
+      return;
+    }
+
+    try {
+      final copyHelper = ClipboardCopyHelper(
+        sessionID: _currentDir!.sessionID!,
+        rootPath: _currentDir!.rootPath!,
+        fileService: _fileService,
+      );
+
+      // Copy encrypted file paths to clipboard
+      final success = await copyHelper.copyToClipboard(_selectedFiles.toList());
+
+      if (success) {
+        // Update clipboard state
+        await _checkClipboard();
+
+        // Exit select mode and clear selection
+        setState(() {
+          _isSelectMode = false;
+          _selectedFiles.clear();
+        });
+
+        if (mounted) {
+          ErrorHelper.showSuccess(context, '已复制 ${_selectedFiles.length} 个文件到剪贴板');
+        }
+      } else {
+        if (mounted) {
+          ErrorHelper.showError(context, errorType: ErrorType.unknownError);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.unknownError,
+          originalError: e.toString(),
+        );
+      }
+    }
+  }
+
+  /// Pastes files from the system clipboard into the current encrypted directory
+  Future<void> _pasteFromClipboard() async {
+    if (!mounted) return;
+
+    // Check if directory is verified and session is active
+    if (_currentDir == null || !_currentDir!.isVerified) {
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.directoryNotVerified,
+      );
+      return;
+    }
+
+    if (_currentDir!.sessionID == null || _currentDir!.rootPath == null) {
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.sessionExpired,
+      );
+      return;
+    }
+
+    // Calculate target relative path
+    final relativePath = _currentPath != null && _currentDir!.rootPath != null
+        ? _currentPath!.substring(_currentDir!.rootPath!.length + 1)
+        : '';
+
+    // Show progress dialog
+    final progressController = ProgressHelper.showProgressDialog(
+      context,
+      title: '粘贴文件',
+      total: 100, // Will be updated
+      status: '正在读取剪贴板...',
+    );
+
+    try {
+      final pasteHelper = ClipboardPasteHelper(
+        sessionID: _currentDir!.sessionID!,
+        rootPath: _currentDir!.rootPath!,
+        targetRelativePath: relativePath,
+        fileService: _fileService,
+      );
+
+      final result = await pasteHelper.pasteFromClipboard(
+        onProgress: (current, total, fileName) {
+          progressController.update(
+            current: current,
+            total: total,
+            currentFileName: fileName,
+            status: '正在加密粘贴...',
+          );
+        },
+      );
+
+      // Close progress dialog
+      if (mounted) {
+        progressController.close(context);
+      }
+
+      // Update clipboard state
+      await _checkClipboard();
+
+      // Refresh file list
+      await _loadCurrentPath();
+
+      // Show result
+      if (mounted) {
+        if (result.success) {
+          ErrorHelper.showSuccess(context, result.summary);
+        } else if (result.cancelled) {
+          ErrorHelper.showInfo(context, result.summary);
+        } else {
+          ErrorHelper.showError(context, errorType: ErrorType.unknownError, originalError: result.errors.join('\n'));
+        }
+      }
+    } catch (e) {
+      // Close progress dialog
+      if (mounted) {
+        progressController.close(context);
+      }
+
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.importFileFailed,
+          originalError: e.toString(),
+        );
+      }
     }
   }
 }

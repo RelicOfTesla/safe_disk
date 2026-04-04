@@ -1,8 +1,6 @@
 package sec_fs
 
 import (
-	"encoding/base64"
-
 	"github.com/safedisk/native/crypto"
 	"github.com/safedisk/native/errors"
 	"github.com/safedisk/native/service"
@@ -94,16 +92,6 @@ func (f *SecFile) Write(data []byte) (int, error) {
 // WriteString writes a string to the file.
 func (f *SecFile) WriteString(s string) (int, error) {
 	return f.Write([]byte(s))
-}
-
-// WriteBase64 writes base64-encoded data to the file.
-func (f *SecFile) WriteBase64(dataBase64 string) (int, error) {
-	data, err := base64.StdEncoding.DecodeString(dataBase64)
-	if err != nil {
-		return 0, errors.WrapWithMessage(errors.ErrBase64Decode,
-			"invalid base64 data", err)
-	}
-	return f.Write(data)
 }
 
 // Seek sets the file position.

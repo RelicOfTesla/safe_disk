@@ -1,13 +1,16 @@
 package sec_fs
 
 import "io"
+import "fs"
 
 type ISecFile interface{
-	io.ReadWriteSeeker
-	io.Closer
+	fs.File
+	io.Writer
+	io.Seeker
 	// TODO: more
 }
 
+//TODO:
 //var _ ISecFile = (*SecFile)(nil)
 
 type IDirWalker interface{
@@ -15,11 +18,12 @@ type IDirWalker interface{
 	
 }
 
+//TODO:
 //var _ IDirWalker = (*SecRoot)(nil)
 
 type ISecRoot interface{
 	// TODO: 
 	
 }
-
+//TODO:
 //var _ ISecRoot = (*SecDirWalker)(nil)

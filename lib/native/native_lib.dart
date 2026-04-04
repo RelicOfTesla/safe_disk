@@ -336,4 +336,53 @@ class NativeLib {
     final resultPtr = _bindings.secDirWalkClose(walkerID);
     return resultPtr.toDartString();
   }
+
+  // ==================== ITERATION BENCHMARK SERIES ====================
+
+  /// Runs a PBKDF2 benchmark to measure device performance.
+  ///
+  /// [sampleSize] - number of iterations to run (0 = use default)
+  ///
+  /// Returns: JSON result {"success": true, "iterationsPerMs": ..., "duration": ..., "sampleSize": ...} or error
+  String benchmarkPBKDF2({int sampleSize = 0}) {
+    final resultPtr = _bindings.benchmarkPBKDF2(sampleSize);
+    return resultPtr.toDartString();
+  }
+
+  /// Calculates optimal iteration count for a target derivation time.
+  ///
+  /// [targetTimeMs] - target key derivation time in milliseconds
+  /// [forceBenchmark] - if true, ignore cache and run new benchmark
+  ///
+  /// Returns: JSON result {"success": true, "iterations": ..., "fromCache": ...} or error
+  String calculateIterations(int targetTimeMs, {bool forceBenchmark = false}) {
+    final resultPtr = _bindings.calculateIterations(targetTimeMs, forceBenchmark ? 1 : 0);
+    return resultPtr.toDartString();
+  }
+
+  /// Estimates time for key derivation.
+  ///
+  /// [iterations] - iteration count to use
+  ///
+  /// Returns: JSON result {"success": true, "estimatedMs": ...} or error
+  String estimateKeyDerivationTime(int iterations) {
+    final resultPtr = _bindings.estimateKeyDerivationTime(iterations);
+    return resultPtr.toDartString();
+  }
+
+  /// Gets the cached benchmark result.
+  ///
+  /// Returns: JSON result {"success": true, "cached": ..., "iterationsPerMs": ..., "age": ...} or {"cached": false}
+  String getBenchmarkCache() {
+    final resultPtr = _bindings.getBenchmarkCache();
+    return resultPtr.toDartString();
+  }
+
+  /// Clears the cached benchmark result.
+  ///
+  /// Returns: JSON result {"success": true}
+  String clearBenchmarkCache() {
+    final resultPtr = _bindings.clearBenchmarkCache();
+    return resultPtr.toDartString();
+  }
 }
