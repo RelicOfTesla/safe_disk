@@ -1,27 +1,99 @@
 package sec_fs
 
 import (
+	"io"
+	"io/fs"
+	"time"
+
 	"github.com/safedisk/native/sec_fs/crypto"
 	"github.com/safedisk/native/errors"
-	"github.com/safedisk/native/service"
 )
 
-// SecFile represents an open encrypted file.
+// secFileImpl represents an open encrypted file.
 // It provides stdio-like operations for reading and writing.
 // Uses IIncrementalCryptor for actual encryption/decryption operations
 // instead of storing decrypted data in memory.
-type SecFile struct {
-	handle    *secFileHandle
-	cryptoSvc *service.CryptoService
-	root      *SecRoot
-	closed    bool
-	Impl      crypto.ICryptorMaker // CryptImpl from registry
+type secFileImpl struct {
+	handle *secFileHandle
+	root   *secRootImpl
+	closed bool
+	impl   crypto.ICryptorMaker // CryptImpl from registry (private)
 }
 
-// Read reads up to size bytes from the file.
-// Returns the data and number of bytes read.
+// Read reads up to len(p) bytes into p. It satisfies the io.Reader interface.
+// Returns the number of bytes read and any error encountered.
+func (f *secFileImpl) Read(p []byte) (n int, err error) {
+	if f.closed {
+		return 0, errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
+	}
+
+	if f.handle.mode == "w" {
+		return 0, errors.NewWithMessage(errors.ErrInvalidParameter,
+			"file not open for reading")
+	}
+
+	if len(p) == 0 {
+		return 0, nil
+	}
+
+	// Determine how much to read
+	remaining := f.handle.size - f.handle.offset
+	if remaining <= 0 {
+		return 0, io.EOF
+	}
+
+	toRead := int64(len(p))
+	if toRead > remaining {
+		toRead = remaining
+	}
+
+	// Read using incremental decryptor if available
+	if f.handle.isIncremental && f.handle.incDecryptor != nil {
+		data, err := f.readIncremental(int(toRead))
+		if err != nil {
+			return 0, err
+		}
+		n = copy(p, data)
+		if n < len(data) {
+			// Didn't read all the data, need to adjust offset back
+			f.handle.offset -= int64(len(data) - n)
+		}
+		return n, nil
+	}
+
+	// Fallback: use one-shot decryption (for non-incremental files)
+	if f.handle.decryptor != nil {
+		data, err := f.handle.decryptor.DecryptToData()
+		if err != nil {
+			return 0, err
+		}
+		defer crypto.MemZero(data)
+
+		// Extract the needed portion
+		start := f.handle.offset
+		end := start + toRead
+		if end > int64(len(data)) {
+			end = int64(len(data))
+		}
+
+		n = copy(p, data[start:end])
+		f.handle.offset += int64(n)
+
+		if f.handle.offset >= f.handle.size {
+			return n, io.EOF
+		}
+		return n, nil
+	}
+
+	return 0, errors.NewWithMessage(errors.ErrOperationFailed,
+		"no decryptor available for reading")
+}
+
+// ReadSize reads up to size bytes from the file and returns an allocated buffer.
+// This is a convenience method for when you want the buffer allocated for you.
+// For io.Reader compatibility, prefer the Read(p []byte) method.
 // If size <= 0, reads all remaining data.
-func (f *SecFile) Read(size int) ([]byte, int, error) {
+func (f *secFileImpl) ReadSize(size int) ([]byte, int, error) {
 	if f.closed {
 		return nil, 0, errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
 	}
@@ -77,7 +149,7 @@ func (f *SecFile) Read(size int) ([]byte, int, error) {
 }
 
 // readIncremental reads data using the incremental decryptor
-func (f *SecFile) readIncremental(size int) ([]byte, error) {
+func (f *secFileImpl) readIncremental(size int) ([]byte, error) {
 	blockSize := f.handle.blockSize
 	if blockSize <= 0 {
 		blockSize = crypto.DefaultChunkSize
@@ -129,18 +201,19 @@ func (f *SecFile) readIncremental(size int) ([]byte, error) {
 }
 
 // ReadAll reads all remaining data from the file.
-func (f *SecFile) ReadAll() ([]byte, error) {
+// This is a convenience method; for standard usage, prefer io.ReadAll(f).
+func (f *secFileImpl) ReadAll() ([]byte, error) {
 	if f.closed {
 		return nil, errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
 	}
 
-	data, _, err := f.Read(-1)
+	data, _, err := f.ReadSize(-1)
 	return data, err
 }
 
 // Write writes data to the file.
 // Returns the number of bytes written.
-func (f *SecFile) Write(data []byte) (int, error) {
+func (f *secFileImpl) Write(data []byte) (int, error) {
 	if f.closed {
 		return 0, errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
 	}
@@ -205,7 +278,7 @@ func (f *SecFile) Write(data []byte) (int, error) {
 }
 
 // writeIncremental writes data using the incremental encryptor
-func (f *SecFile) writeIncremental(data []byte) (int, error) {
+func (f *secFileImpl) writeIncremental(data []byte) (int, error) {
 	blockSize := f.handle.blockSize
 	if blockSize <= 0 {
 		blockSize = crypto.DefaultChunkSize
@@ -256,7 +329,7 @@ func (f *SecFile) writeIncremental(data []byte) (int, error) {
 }
 
 // writePartialBlock handles writing data that doesn't align with block boundaries
-func (f *SecFile) writePartialBlock(blockIndex int, offsetInBlock int64, data []byte) (int, error) {
+func (f *secFileImpl) writePartialBlock(blockIndex int, offsetInBlock int64, data []byte) (int, error) {
 	blockSize := f.handle.blockSize
 	if blockSize <= 0 {
 		blockSize = crypto.DefaultChunkSize
@@ -342,7 +415,7 @@ func (f *SecFile) writePartialBlock(blockIndex int, offsetInBlock int64, data []
 }
 
 // WriteString writes a string to the file.
-func (f *SecFile) WriteString(s string) (int, error) {
+func (f *secFileImpl) WriteString(s string) (int, error) {
 	return f.Write([]byte(s))
 }
 
@@ -353,7 +426,7 @@ func (f *SecFile) WriteString(s string) (int, error) {
 //   - SeekSet (0): offset from start
 //   - SeekCur (1): offset from current position
 //   - SeekEnd (2): offset from end
-func (f *SecFile) Seek(offset int64, whence int) (int64, error) {
+func (f *secFileImpl) Seek(offset int64, whence int) (int64, error) {
 	if f.closed {
 		return 0, errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
 	}
@@ -384,7 +457,7 @@ func (f *SecFile) Seek(offset int64, whence int) (int64, error) {
 }
 
 // Tell returns the current file position.
-func (f *SecFile) Tell() (int64, error) {
+func (f *secFileImpl) Tell() (int64, error) {
 	if f.closed {
 		return 0, errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
 	}
@@ -392,13 +465,13 @@ func (f *SecFile) Tell() (int64, error) {
 }
 
 // Rewind resets the position to the start of the file.
-func (f *SecFile) Rewind() error {
+func (f *secFileImpl) Rewind() error {
 	_, err := f.Seek(0, SeekSet)
 	return err
 }
 
 // Truncate truncates the file to the specified size.
-func (f *SecFile) Truncate(size int64) error {
+func (f *secFileImpl) Truncate(size int64) error {
 	if f.closed {
 		return errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
 	}
@@ -436,8 +509,23 @@ func (f *SecFile) Truncate(size int64) error {
 	return nil
 }
 
-// Stat returns basic file status.
-func (f *SecFile) Stat() (*SecFileStat, error) {
+// Stat returns file information. It satisfies the fs.File interface.
+func (f *secFileImpl) Stat() (fs.FileInfo, error) {
+	if f.closed {
+		return nil, errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
+	}
+
+	return &secFileInfo{
+		name:     f.handle.path,
+		size:     f.handle.size,
+		mode:     0, // Regular file
+		modTime:  time.Now(), // We don't track modification time currently
+		isDir:    false,
+	}, nil
+}
+
+// StatDetail returns detailed file status (extended version of Stat).
+func (f *secFileImpl) StatDetail() (*SecFileStat, error) {
 	if f.closed {
 		return nil, errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
 	}
@@ -449,7 +537,7 @@ func (f *SecFile) Stat() (*SecFileStat, error) {
 }
 
 // Sync flushes changes to the encrypted file.
-func (f *SecFile) Sync() error {
+func (f *secFileImpl) Sync() error {
 	if f.closed {
 		return errors.NewWithMessage(errors.ErrInvalidParameter, "file is closed")
 	}
@@ -462,7 +550,7 @@ func (f *SecFile) Sync() error {
 }
 
 // flush writes the data to disk.
-func (f *SecFile) flush() error {
+func (f *secFileImpl) flush() error {
 	if f.handle.incEncryptor != nil {
 		return f.handle.incEncryptor.Flush()
 	}
@@ -470,7 +558,7 @@ func (f *SecFile) flush() error {
 }
 
 // Close closes the file and writes changes if modified.
-func (f *SecFile) Close() error {
+func (f *secFileImpl) Close() error {
 	if f.closed {
 		return nil
 	}
@@ -504,38 +592,38 @@ func (f *SecFile) Close() error {
 // ==================== Status Methods ====================
 
 // IsClosed returns true if the file is closed.
-func (f *SecFile) IsClosed() bool {
+func (f *secFileImpl) IsClosed() bool {
 	return f.closed
 }
 
 // Size returns the file size.
-func (f *SecFile) Size() int64 {
+func (f *secFileImpl) Size() int64 {
 	return f.handle.size
 }
 
 // Mode returns the open mode.
-func (f *SecFile) Mode() string {
+func (f *secFileImpl) Mode() string {
 	return f.handle.mode
 }
 
 // Path returns the file path.
-func (f *SecFile) Path() string {
+func (f *secFileImpl) Path() string {
 	return f.handle.path
 }
 
 // ==================== Convenience Methods ====================
 
-// ReadAt reads data at a specific offset.
-func (f *SecFile) ReadAt(offset int64, size int) ([]byte, error) {
+// ReadAt reads data at a specific offset without changing the file position.
+func (f *secFileImpl) ReadAt(offset int64, size int) ([]byte, error) {
 	if _, err := f.Seek(offset, SeekSet); err != nil {
 		return nil, err
 	}
-	data, _, err := f.Read(size)
+	data, _, err := f.ReadSize(size)
 	return data, err
 }
 
 // WriteAt writes data at a specific offset.
-func (f *SecFile) WriteAt(offset int64, data []byte) (int, error) {
+func (f *secFileImpl) WriteAt(offset int64, data []byte) (int, error) {
 	if _, err := f.Seek(offset, SeekSet); err != nil {
 		return 0, err
 	}
@@ -543,7 +631,7 @@ func (f *SecFile) WriteAt(offset int64, data []byte) (int, error) {
 }
 
 // Append appends data to the end of the file.
-func (f *SecFile) Append(data []byte) (int, error) {
+func (f *secFileImpl) Append(data []byte) (int, error) {
 	if _, err := f.Seek(0, SeekEnd); err != nil {
 		return 0, err
 	}
@@ -551,14 +639,14 @@ func (f *SecFile) Append(data []byte) (int, error) {
 }
 
 // AppendString appends a string to the end of the file.
-func (f *SecFile) AppendString(s string) (int, error) {
+func (f *secFileImpl) AppendString(s string) (int, error) {
 	return f.Append([]byte(s))
 }
 
 // ==================== StatInfo ====================
 
 // StatInfo returns detailed file information from the root context.
-func (f *SecFile) StatInfo() (*SecFileInfo, error) {
+func (f *secFileImpl) StatInfo() (*SecFileInfo, error) {
 	if f.root == nil {
 		return nil, errors.NewWithMessage(errors.ErrOperationFailed,
 			"no root context available")

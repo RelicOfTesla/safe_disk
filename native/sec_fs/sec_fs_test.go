@@ -7,48 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/safedisk/native/config"
-	"github.com/safedisk/native/service"
 )
 
 // ==================== Test Helpers ====================
-
-// createTestRoot creates a test encrypted root directory
-func createTestRoot(t *testing.T, password string) (rootDir string, cleanup func()) {
-	t.Helper()
-
-	// Create temp directory
-	tempDir, err := os.MkdirTemp("", "secfs_test_*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-
-	// Generate encryption config
-	cfgSvc := service.NewConfigService()
-	cfg, err := cfgSvc.GenerateEncryptionConfig(&service.EncryptionConfigParams{
-		Password: password,
-		Mutable:  true,
-	})
-	if err != nil {
-		os.RemoveAll(tempDir)
-		t.Fatalf("Failed to generate config: %v", err)
-	}
-
-	// Save config
-	if err := config.SaveCryptionJSON(tempDir, cfg); err != nil {
-		os.RemoveAll(tempDir)
-		t.Fatalf("Failed to save config: %v", err)
-	}
-
-	// Create some test subdirectories
-	os.MkdirAll(filepath.Join(tempDir, "subdir1"), 0755)
-	os.MkdirAll(filepath.Join(tempDir, "subdir2", "nested"), 0755)
-
-	return tempDir, func() {
-		os.RemoveAll(tempDir)
-	}
-}
 
 // generateRandomData generates random test data
 func generateRandomData(size int) []byte {
@@ -73,7 +34,7 @@ func TestOpenRootDirect(t *testing.T) {
 	defer root.Close()
 
 	// Verify root path
-	if root.GetRootPath() != rootDir {
+	if string(root.GetRootPath()) != rootDir {
 		t.Errorf("Expected root path %s, got %s", rootDir, root.GetRootPath())
 	}
 
@@ -352,12 +313,11 @@ func TestSecFile_Seek(t *testing.T) {
 	}
 
 	// Read from position
-	data := make([]byte, 5)
-	n, _, err := file.Read(5)
+	data, n, err := file.ReadSize(5)
 	if err != nil {
 		t.Fatalf("Read failed: %v", err)
 	}
-	data = n
+	_ = n // n is the number of bytes read
 	if string(data) != "ABCDE" {
 		t.Errorf("Expected 'ABCDE', got '%s'", string(data))
 	}
@@ -412,7 +372,7 @@ func TestSecFile_Tell(t *testing.T) {
 	}
 
 	// Read some data
-	file.Read(5)
+	file.ReadSize(5)
 
 	// Position should be 5
 	pos, err = file.Tell()
@@ -445,9 +405,9 @@ func TestSecFile_Stat(t *testing.T) {
 	}
 	defer file.Close()
 
-	stat, err := file.Stat()
+	stat, err := file.StatDetail()
 	if err != nil {
-		t.Fatalf("Stat failed: %v", err)
+		t.Fatalf("StatDetail failed: %v", err)
 	}
 
 	if stat.Size != int64(len(testData)) {
@@ -584,7 +544,7 @@ func TestSecFile_ReadOnWriteMode(t *testing.T) {
 	}
 	defer file.Close()
 
-	_, _, err = file.Read(10)
+	_, _, err = file.ReadSize(10)
 	if err == nil {
 		t.Error("Expected error when reading from write-mode file")
 	}
@@ -675,7 +635,7 @@ func TestSecDirWalker_NextBatch(t *testing.T) {
 
 	// Create files
 	for i := 0; i < 10; i++ {
-		root.WriteFile(filepath.Join("batch_test", string(rune('A'+i)))+".txt", []byte("data"))
+		root.WriteFile(RelativeViewPath(filepath.Join("batch_test", string(rune('A'+i)))+".txt"), []byte("data"))
 	}
 
 	walker, err := root.WalkDir("batch_test", nil)
@@ -922,7 +882,7 @@ func TestSessionManager_GetRoot(t *testing.T) {
 	}
 
 	// Verify root works
-	if root.GetRootPath() != rootDir {
+	if string(root.GetRootPath()) != rootDir {
 		t.Errorf("Expected path %s, got %s", rootDir, root.GetRootPath())
 	}
 }
@@ -1044,7 +1004,7 @@ func TestDefaultSessionManager(t *testing.T) {
 		t.Fatalf("Failed to get root: %v", err)
 	}
 
-	if root.GetRootPath() != rootDir {
+	if string(root.GetRootPath()) != rootDir {
 		t.Errorf("Expected path %s, got %s", rootDir, root.GetRootPath())
 	}
 
