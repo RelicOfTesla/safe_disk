@@ -3,90 +3,18 @@
 package crypto_name
 
 import (
-	"fmt"
-	"sync"
+	"safe_disk/native/sec_fs/internal/utils"
 )
 
 // ==================== NameFactoryRegistry ====================
 
-// NameFactoryRegistry manages registered name cryptor factories.
+// NameFactoryRegistry is a type alias for NameRegistry[ICryptoNameFactory].
 // It provides thread-safe registration and retrieval of factories by name.
-type NameFactoryRegistry struct {
-	mu        sync.RWMutex
-	factories map[string]ICryptoNameFactory
-}
+type NameFactoryRegistry = utils.NameRegistry[ICryptoNameFactory]
 
 // NewNameFactoryRegistry creates a new empty factory registry.
 func NewNameFactoryRegistry() *NameFactoryRegistry {
-	return &NameFactoryRegistry{
-		factories: make(map[string]ICryptoNameFactory),
-	}
-}
-
-// Register adds a new name cryptor factory to the registry.
-// Returns an error if a factory with the same name already exists.
-func (r *NameFactoryRegistry) Register(factory ICryptoNameFactory) error {
-	if factory == nil {
-		return fmt.Errorf("cannot register nil factory")
-	}
-
-	name := factory.GetName()
-	if name == "" {
-		return fmt.Errorf("factory name cannot be empty")
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if _, exists := r.factories[name]; exists {
-		return fmt.Errorf("factory with name %q already registered", name)
-	}
-
-	r.factories[name] = factory
-	return nil
-}
-
-// Get retrieves a factory by its unique name.
-// Returns nil if no factory with the given name is registered.
-func (r *NameFactoryRegistry) Get(name string) ICryptoNameFactory {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	return r.factories[name]
-}
-
-// List returns all registered factory names.
-func (r *NameFactoryRegistry) List() []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	names := make([]string, 0, len(r.factories))
-	for name := range r.factories {
-		names = append(names, name)
-	}
-	return names
-}
-
-// Count returns the number of registered factories.
-func (r *NameFactoryRegistry) Count() int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	return len(r.factories)
-}
-
-// Unregister removes a factory from the registry by name.
-// Returns true if the factory was found and removed, false otherwise.
-func (r *NameFactoryRegistry) Unregister(name string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if _, exists := r.factories[name]; !exists {
-		return false
-	}
-
-	delete(r.factories, name)
-	return true
+	return utils.NewNameRegistry[ICryptoNameFactory]()
 }
 
 // ==================== Global Registry ====================
@@ -103,7 +31,7 @@ func RegisterNameFactory(factory ICryptoNameFactory) error {
 // GetNameFactory retrieves a factory from the global registry by name.
 // Returns nil if no factory with the given name is registered.
 func GetNameFactory(name string) ICryptoNameFactory {
-	return globalRegistry.Get(name)
+	return globalRegistry.GetOrNil(name)
 }
 
 // ListNameFactories returns all registered factory names in the global registry.

@@ -11,10 +11,10 @@ import (
 
 var (
 	// rootStore manages ISecRoot instances with int64 IDs.
-	rootStore = ffi_comm.NewStore[sec_fs.ISecRoot]()
+	rootStore = ffi_comm.NewIDStore[sec_fs.ISecRoot]()
 
 	// fileStore manages ISecFile instances with int64 IDs.
-	fileStore = ffi_comm.NewStore[sec_fs.ISecFile]()
+	fileStore = ffi_comm.NewIDStore[sec_fs.ISecFile]()
 )
 
 // InitStores initializes the global stores.
@@ -28,13 +28,13 @@ func InitStores() {
 
 // GetRootStore returns the global root store.
 // This is primarily used for testing purposes.
-func GetRootStore() *ffi_comm.Store[sec_fs.ISecRoot] {
+func GetRootStore() *ffi_comm.IDStore[sec_fs.ISecRoot] {
 	return rootStore
 }
 
 // GetFileStore returns the global file store.
 // This is primarily used for testing purposes.
-func GetFileStore() *ffi_comm.Store[sec_fs.ISecFile] {
+func GetFileStore() *ffi_comm.IDStore[sec_fs.ISecFile] {
 	return fileStore
 }
 

@@ -3,122 +3,18 @@
 package crypto_data
 
 import (
-	"fmt"
-	"sync"
+	"safe_disk/native/sec_fs/internal/utils"
 )
 
-// ==================== Factory Registry ====================
+// ==================== FactoryRegistry ====================
 
-// FactoryRegistry manages registered cryptor factories.
-// It provides thread-safe registration and retrieval of factories by name or mode.
-type FactoryRegistry struct {
-	mu       sync.RWMutex
-	factories map[string]ICryptoDataFactory
-	byMode   map[CryptMode][]ICryptoDataFactory
-}
+// FactoryRegistry is a type alias for NameRegistry[ICryptoDataFactory].
+// It provides thread-safe registration and retrieval of factories by name.
+type FactoryRegistry = utils.NameRegistry[ICryptoDataFactory]
 
 // NewFactoryRegistry creates a new empty factory registry.
 func NewFactoryRegistry() *FactoryRegistry {
-	return &FactoryRegistry{
-		factories: make(map[string]ICryptoDataFactory),
-		byMode:    make(map[CryptMode][]ICryptoDataFactory),
-	}
-}
-
-// Register adds a new cryptor factory to the registry.
-// Returns an error if a factory with the same name already exists.
-func (r *FactoryRegistry) Register(factory ICryptoDataFactory) error {
-	if factory == nil {
-		return fmt.Errorf("cannot register nil factory")
-	}
-
-	name := factory.GetName()
-	if name == "" {
-		return fmt.Errorf("factory name cannot be empty")
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if _, exists := r.factories[name]; exists {
-		return fmt.Errorf("factory with name %q already registered", name)
-	}
-
-	r.factories[name] = factory
-
-	// Also index by mode
-	caps := factory.GetCapabilities()
-	r.byMode[caps.Mode] = append(r.byMode[caps.Mode], factory)
-
-	return nil
-}
-
-// Get retrieves a factory by its unique name.
-// Returns nil if no factory with the given name is registered.
-func (r *FactoryRegistry) Get(name string) ICryptoDataFactory {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	return r.factories[name]
-}
-
-// GetByMode retrieves all factories that support the given encryption mode.
-// Returns an empty slice if no factories support the mode.
-func (r *FactoryRegistry) GetByMode(mode CryptMode) []ICryptoDataFactory {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	// Return a copy to prevent modification of the internal slice
-	factories := r.byMode[mode]
-	result := make([]ICryptoDataFactory, len(factories))
-	copy(result, factories)
-	return result
-}
-
-// List returns all registered factory names.
-func (r *FactoryRegistry) List() []string {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	names := make([]string, 0, len(r.factories))
-	for name := range r.factories {
-		names = append(names, name)
-	}
-	return names
-}
-
-// Count returns the number of registered factories.
-func (r *FactoryRegistry) Count() int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	return len(r.factories)
-}
-
-// Unregister removes a factory from the registry by name.
-// Returns true if the factory was found and removed, false otherwise.
-func (r *FactoryRegistry) Unregister(name string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	factory, exists := r.factories[name]
-	if !exists {
-		return false
-	}
-
-	delete(r.factories, name)
-
-	// Remove from byMode index
-	caps := factory.GetCapabilities()
-	factories := r.byMode[caps.Mode]
-	for i, f := range factories {
-		if f.GetName() == name {
-			r.byMode[caps.Mode] = append(factories[:i], factories[i+1:]...)
-			break
-		}
-	}
-
-	return true
+	return utils.NewNameRegistry[ICryptoDataFactory]()
 }
 
 // ==================== Global Registry ====================
@@ -135,13 +31,7 @@ func RegisterFactory(factory ICryptoDataFactory) error {
 // GetFactory retrieves a factory from the global registry by name.
 // Returns nil if no factory with the given name is registered.
 func GetFactory(name string) ICryptoDataFactory {
-	return globalRegistry.Get(name)
-}
-
-// GetFactoryByMode retrieves all factories from the global registry
-// that support the given encryption mode.
-func GetFactoryByMode(mode CryptMode) []ICryptoDataFactory {
-	return globalRegistry.GetByMode(mode)
+	return globalRegistry.GetOrNil(name)
 }
 
 // ListFactories returns all registered factory names in the global registry.
