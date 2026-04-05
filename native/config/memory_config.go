@@ -7,6 +7,9 @@ import (
 
 // MemoryConfig is an in-memory implementation of SharedConfig.
 // It is thread-safe using sync.RWMutex.
+//
+// Note: This implementation is primarily intended for testing.
+// For persistent configuration, use FileConfig instead.
 type MemoryConfig struct {
 	mu     sync.RWMutex
 	data   map[string]interface{}
@@ -91,8 +94,9 @@ func (m *MemoryConfig) SetBool(key string, val bool) error {
 	return nil
 }
 
-// WithPrefix returns a new SharedConfig with the given prefix applied to all keys.
+// WithGroup returns a new SharedConfig with the given group name applied to all keys.
+// The group name will be automatically suffixed with "_" to create a namespace.
 // This returns a PrefixedConfig that wraps this MemoryConfig.
-func (m *MemoryConfig) WithPrefix(prefix string) SharedConfig {
-	return NewPrefixedConfig(prefix, m)
+func (m *MemoryConfig) WithGroup(name string) SharedConfig {
+	return NewPrefixedConfig(name+"_", m)
 }

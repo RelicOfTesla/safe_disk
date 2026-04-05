@@ -2,6 +2,8 @@
 package aes_gcm_name
 
 import (
+	"safe_disk/native/config"
+	"safe_disk/native/sec_fs/crypto_key"
 	"safe_disk/native/sec_fs/crypto_name"
 )
 
@@ -18,8 +20,8 @@ func NewFactory() *Factory {
 }
 
 // NewContext creates a new INameCryptorContext for encrypting/decrypting names.
-func (f *Factory) NewContext(keyInfo crypto_name.IKeyInfo) (crypto_name.INameCryptorContext, error) {
-	return NewContext(keyInfo)
+func (f *Factory) NewContext(keyInfo crypto_key.IKeyInfo, cfg config.SharedConfig) (crypto_name.INameCryptorContext, error) {
+	return NewContext(keyInfo, cfg)
 }
 
 // GetName returns the unique name of this cryptor factory.

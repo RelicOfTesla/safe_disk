@@ -4,6 +4,7 @@ package aes_gcm_name_test
 import (
 	"testing"
 
+	"safe_disk/native/config"
 	"safe_disk/native/sec_fs/crypto_name"
 	"safe_disk/native/sec_fs/crypto_name/algorithm_impl/aes_gcm_name"
 )
@@ -18,10 +19,6 @@ func (m *mockKeyInfo) GetKey() []byte {
 }
 
 func (m *mockKeyInfo) GetSalt() []byte {
-	return nil
-}
-
-func (m *mockKeyInfo) GetInitConfig() any {
 	return nil
 }
 
@@ -49,8 +46,11 @@ func TestNameEncryptDecrypt(t *testing.T) {
 
 	keyInfo := &mockKeyInfo{key: key}
 
+	// Create config
+	cfg := config.NewMemoryConfig()
+
 	// Create context
-	ctx, err := factory.NewContext(keyInfo)
+	ctx, err := factory.NewContext(keyInfo, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create context: %v", err)
 	}
@@ -106,7 +106,10 @@ func TestEncryptEmptyName(t *testing.T) {
 	key := make([]byte, 32)
 	keyInfo := &mockKeyInfo{key: key}
 
-	ctx, err := factory.NewContext(keyInfo)
+	// Create config
+	cfg := config.NewMemoryConfig()
+
+	ctx, err := factory.NewContext(keyInfo, cfg)
 	if err != nil {
 		t.Fatalf("Failed to create context: %v", err)
 	}

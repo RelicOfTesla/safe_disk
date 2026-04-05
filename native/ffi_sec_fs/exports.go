@@ -3,7 +3,7 @@
 //
 // To use these exports, compile with CGO enabled:
 //   go build -buildmode=c-shared -o libffi_sec_fs.so
-package ffi_sec_fs
+package main
 
 /*
 #include <stdlib.h>
@@ -124,4 +124,42 @@ func sec_quick_write_file(rootID C.int64_t, path *C.char, data *C.char, size C.i
 //export sec_free_string
 func sec_free_string(s *C.char) {
 	C.free(unsafe.Pointer(s))
+}
+
+// ==================== Transfer Operations (Async) ====================
+
+//export sec_export_directory_async
+func sec_export_directory_async(rootID C.int64_t, srcPath *C.char, destPath *C.char) *C.char {
+	goSrcPath := C.GoString(srcPath)
+	goDestPath := C.GoString(destPath)
+
+	result := ExportDirectoryAsync_FFI(int64(rootID), goSrcPath, goDestPath)
+	return C.CString(result)
+}
+
+//export sec_import_directory_async
+func sec_import_directory_async(rootID C.int64_t, srcPath *C.char, destPath *C.char) *C.char {
+	goSrcPath := C.GoString(srcPath)
+	goDestPath := C.GoString(destPath)
+
+	result := ImportDirectoryAsync_FFI(int64(rootID), goSrcPath, goDestPath)
+	return C.CString(result)
+}
+
+//export sec_export_file_async
+func sec_export_file_async(rootID C.int64_t, srcPath *C.char, destPath *C.char) *C.char {
+	goSrcPath := C.GoString(srcPath)
+	goDestPath := C.GoString(destPath)
+
+	result := ExportFileAsync_FFI(int64(rootID), goSrcPath, goDestPath)
+	return C.CString(result)
+}
+
+//export sec_import_file_async
+func sec_import_file_async(rootID C.int64_t, srcPath *C.char, destPath *C.char) *C.char {
+	goSrcPath := C.GoString(srcPath)
+	goDestPath := C.GoString(destPath)
+
+	result := ImportFileAsync_FFI(int64(rootID), goSrcPath, goDestPath)
+	return C.CString(result)
 }

@@ -4,6 +4,9 @@ package crypto_data
 
 import (
 	"io"
+
+	"safe_disk/native/config"
+	"safe_disk/native/sec_fs/crypto_key"
 )
 
 // ==================== IReadWriterSeeker Interface ====================
@@ -79,21 +82,6 @@ type CryptorCapabilities struct {
 	RecommendedChunkSize int
 }
 
-// ==================== IKeyInfo Interface ====================
-
-// IKeyInfo provides key information for encryption/decryption operations.
-type IKeyInfo interface {
-	// GetKey returns the encryption key.
-	GetKey() []byte
-
-	// GetSalt returns the salt used for key derivation.
-	GetSalt() []byte
-
-	// GetInitConfig returns the initialization configuration.
-	// The returned value is implementation-specific and may be nil.
-	GetInitConfig() any
-}
-
 // ==================== IDataCryptorContext Interface ====================
 
 // IDataCryptorContext defines the interface for a cryptographic context that
@@ -120,7 +108,8 @@ type ICryptoDataFactory interface {
 	// NewContext creates a new IDataCryptorContext for encrypting/decrypting data.
 	// storeFileIo is the underlying storage file I/O interface.
 	// keyInfo provides the key information for encryption/decryption.
-	NewContext(storeFileIo IReadWriterSeeker, keyInfo IKeyInfo) (IDataCryptorContext, error)
+	// cfg provides algorithm-specific configuration.
+	NewContext(storeFileIo IReadWriterSeeker, keyInfo crypto_key.IKeyInfo, cfg config.SharedConfig) (IDataCryptorContext, error)
 
 	// GetName returns the unique name of this cryptor factory.
 	GetName() string
@@ -133,21 +122,13 @@ type ICryptoDataFactory interface {
 
 // These declarations ensure that implementation types satisfy the interfaces.
 var (
-	_ IKeyInfo            = (*keyInfoImpl)(nil)
 	_ IDataCryptorContext = (*dataCryptorContextImpl)(nil)
 	_ ICryptoDataFactory  = (*cryptoDataFactoryImpl)(nil)
 )
 
 // ==================== Placeholder Implementation Types ====================
 // These are minimal implementations to satisfy compile-time interface verification.
-// The actual implementations will be added in future tasks.
-
-// keyInfoImpl is a placeholder type for IKeyInfo implementation.
-type keyInfoImpl struct{}
-
-func (k *keyInfoImpl) GetKey() []byte       { return nil }
-func (k *keyInfoImpl) GetSalt() []byte      { return nil }
-func (k *keyInfoImpl) GetInitConfig() any   { return nil }
+// The actual implementations will be added in algorithm_impl/ directory.
 
 // dataCryptorContextImpl is a placeholder type for IDataCryptorContext implementation.
 type dataCryptorContextImpl struct{}
@@ -165,7 +146,7 @@ func (c *dataCryptorContextImpl) Sync() error           { return nil }
 // cryptoDataFactoryImpl is a placeholder type for ICryptoDataFactory implementation.
 type cryptoDataFactoryImpl struct{}
 
-func (f *cryptoDataFactoryImpl) NewContext(storeFileIo IReadWriterSeeker, keyInfo IKeyInfo) (IDataCryptorContext, error) {
+func (f *cryptoDataFactoryImpl) NewContext(storeFileIo IReadWriterSeeker, keyInfo crypto_key.IKeyInfo, cfg config.SharedConfig) (IDataCryptorContext, error) {
 	return nil, nil
 }
 func (f *cryptoDataFactoryImpl) GetName() string            { return "" }

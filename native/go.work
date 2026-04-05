@@ -1,0 +1,10 @@
+go 1.21
+
+use (
+	./config
+	./sec_fs
+	./sec_transfer
+	./ffi_comm
+	./ffi_sec_fs
+	./cli
+)

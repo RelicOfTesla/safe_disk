@@ -1,268 +1,191 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import '../native/native_lib.dart';
-import '../models/cryption_config.dart';
-import '../models/ffi_results.dart';
 
-/// Crypto service for Safe Disk encryption operations
+import '../native/native_lib.dart';
+
+/// Crypto service for Safe Disk encryption operations.
 ///
-/// This service provides stateless encryption operations using the native library.
-/// All key derivation and management is handled by the backend (Go FFI).
-///
-/// **Architecture Design**:
-/// - **Stateless**: No internal state management
-/// - **Explicit key ID**: All operations require explicit tempKeyID parameter
-/// - **External management**: Caller is responsible for managing tempKeyID
-/// - **Flexible**: Supports any key management strategy (single directory, multi-directory, subdirectories, etc.)
+/// **Architecture (V2)**:
+/// - Root-based operations: Open a root directory, get a rootID
+/// - All file operations use rootID
+/// - ID mapping managed by Go backend (ffi_comm.Store)
 ///
 /// **Usage**:
 /// ```dart
-/// // Step 1: Verify password
-/// final result = cryptoService.verifyPassword(password, configJSON);
-/// if (!result.success) {
-///   print('Password incorrect: ${result.error}');
-///   return;
-/// }
+/// final cryptoService = CryptoService();
 ///
-/// // Step 2: Create session and get tempKeyID
-/// final tempKeyID = cryptoService.createSession(password, configJSON);
-/// // NOTE: Caller should store tempKeyID (e.g., in a Map, State, or Provider)
+/// // 1. Open root
+/// final rootID = cryptoService.openRoot('/path/to/root', 'password', '{}');
 ///
-/// // Step 3: Use tempKeyID for encryption/decryption
-/// final encrypted = cryptoService.encryptData(data, tempKeyID);
-/// final decrypted = cryptoService.decryptData(encrypted, tempKeyID);
+/// // 2. Read file
+/// final data = cryptoService.readFile(rootID, 'path/to/file.txt');
+///
+/// // 3. Write file
+/// cryptoService.writeFile(rootID, 'path/to/file.txt', data);
+///
+/// // 4. Close root
+/// cryptoService.closeRoot(rootID);
 /// ```
 class CryptoService {
   final NativeLib _native = NativeLib.instance;
 
-  // ==================== SESSION MANAGEMENT ====================
+  // ==================== ROOT OPERATIONS ====================
 
-  /// Creates a session and returns the temporary key ID
-  /// The caller is responsible for storing and managing the key ID
-  /// password: user password
-  /// configJSON: config JSON string (from _cryption.json)
-  /// Returns: temporary key ID (caller should store it)
-  String createSession(String password, String configJSON) {
-    final resultStr = _native.makeTemporaryKeyID(password, configJSON,
-        ttlSeconds: 3600); // 1 hour TTL
-    final result = SessionResult.fromJson(resultStr);
-    return result.tempKeyIDOrThrow;
+  /// Opens a secure root directory.
+  ///
+  /// [rootPath] - Full path to the root directory
+  /// [password] - User password
+  /// [configJSON] - Configuration JSON string
+  /// Returns rootID on success, throws on error.
+  int openRoot(String rootPath, String password, String configJSON) {
+    return _native.secRootOpen(rootPath, password, configJSON);
   }
 
-  // ==================== PASSWORD VERIFICATION ====================
-
-  /// Verifies if the password is correct
-  /// inputPass: user input password
-  /// configJSON: config JSON string (from _cryption.json)
-  /// Returns: VerifyResult with success status and error message
-  VerifyResult verifyPassword(String inputPass, String configJSON) {
-    final success = _native.verifyPassword(inputPass, configJSON);
-    if (success) {
-      return VerifyResult(success: true);
-    } else {
-      return VerifyResult(
-          success: false, error: 'Password verification failed');
-    }
+  /// Closes a secure root directory.
+  void closeRoot(int rootID) {
+    _native.secRootClose(rootID);
   }
 
-  // ==================== DATA ENCRYPTION/DECRYPTION ====================
+  // ==================== FILE OPERATIONS ====================
 
-  /// Encrypts data with a temporary key ID
-  /// data: plaintext data
-  /// tempKeyID: temporary key ID (from createSession)
-  /// Returns: encrypted data (base64)
-  String encryptData(String data, String tempKeyID) {
-    final dataBase64 = base64Encode(utf8.encode(data));
-    final resultStr = _native.encryptData(dataBase64, tempKeyID);
-    final result = DataResult.fromJson(resultStr);
-    return base64Encode(result.dataOrThrow);
+  /// Reads a file from a secure root (async).
+  ///
+  /// [rootID] - Root ID from openRoot()
+  /// [path] - Relative path to the file
+  /// Returns file content as bytes.
+  Future<Uint8List> readFile(int rootID, String path) async {
+    // Use microtask to avoid blocking UI thread
+    return Future.microtask(
+      () => Uint8List.fromList(_native.secQuickReadFile(rootID, path)),
+    );
   }
 
-  /// Encrypts binary data with a temporary key ID
-  /// data: binary data
-  /// tempKeyID: temporary key ID (from createSession)
-  /// Returns: encrypted data (base64)
-  String encryptDataBytes(Uint8List data, String tempKeyID) {
-    final dataBase64 = base64Encode(data);
-    final resultStr = _native.encryptData(dataBase64, tempKeyID);
-    final result = DataResult.fromJson(resultStr);
-    return base64Encode(result.dataOrThrow);
+  /// Reads a file as string (async).
+  Future<String> readTextFile(int rootID, String path) async {
+    final bytes = await readFile(rootID, path);
+    return utf8.decode(bytes);
   }
 
-  /// Decrypts data with a specific temp key ID (for async operations)
-  /// encryptedDataBase64: encrypted data (base64)
-  /// tempKeyID: temporary key ID (from createSession)
-  /// Returns: decrypted data (string)
-  String decryptData(String encryptedDataBase64, String tempKeyID) {
-    final resultStr = _native.decryptData(encryptedDataBase64, tempKeyID);
-    final result = DataResult.fromJson(resultStr);
-    return utf8.decode(result.dataOrThrow);
+  /// Writes data to a file in a secure root (async).
+  ///
+  /// [rootID] - Root ID from openRoot()
+  /// [path] - Relative path to the file
+  /// [data] - File content as bytes
+  Future<void> writeFile(int rootID, String path, Uint8List data) async {
+    return Future.microtask(
+      () => _native.secQuickWriteFile(rootID, path, data),
+    );
   }
 
-  /// Decrypts binary data with a temporary key ID (for async operations)
-  /// encryptedDataBase64: encrypted data (base64)
-  /// tempKeyID: temporary key ID (from createSession)
-  /// Returns: decrypted data (bytes)
-  Uint8List decryptDataBytes(String encryptedDataBase64, String tempKeyID) {
-    final resultStr = _native.decryptData(encryptedDataBase64, tempKeyID);
-    final result = DataResult.fromJson(resultStr);
-    return result.dataOrThrow;
+  /// Writes a string to a file (async).
+  Future<void> writeTextFile(int rootID, String path, String content) async {
+    await writeFile(rootID, path, Uint8List.fromList(utf8.encode(content)));
   }
 
-  // ==================== FILE ENCRYPTION/DECRYPTION ====================
-
-  /// Encrypts a file with a specific temp key ID (for async operations)
-  /// srcPath: source file path
-  /// toPath: destination file path
-  /// tempKeyID: temporary key ID (from createSession)
-  /// Returns: JSON result {"success": true} or throws exception
-  Map<String, dynamic> encryptFile(
-      String srcPath, String toPath, String tempKeyID) {
-    final resultStr = _native.encryptFile(srcPath, toPath, tempKeyID);
-    final result = FileResult.fromJson(resultStr);
-    result.throwOnError();
-    return {'success': true};
+  /// Deletes a file from a secure root (async).
+  Future<void> deleteFile(int rootID, String path) async {
+    return Future.microtask(
+      () => _native.secFileDelete(rootID, path),
+    );
   }
 
-  /// Decrypts a file with a specific temp key ID (for async operations)
-  /// path: encrypted file path
-  /// tempKeyID: temporary key ID (from createSession)
-  /// Returns: decrypted data (bytes)
-  Uint8List decryptFileToData(String path, String tempKeyID) {
-    final resultStr = _native.decryptFileToData(path, tempKeyID);
-    final result = DataResult.fromJson(resultStr);
-    return result.dataOrThrow;
+  /// Checks if a file exists in a secure root (async).
+  Future<bool> fileExists(int rootID, String path) async {
+    return Future.microtask(
+      () => _native.secFileExists(rootID, path),
+    );
   }
 
-  // ==================== STREAMING FILE OPERATIONS ====================
+  // ==================== DIRECTORY OPERATIONS ====================
 
-  /// Large file threshold (100 MB)
-  static const int largeFileThreshold = 100 * 1024 * 1024;
-
-  /// Decrypts an encrypted file directly to another file path.
-  /// This is memory-efficient for large files - uses streaming decryption for chunked files.
-  /// srcPath: source encrypted file path
-  /// toPath: destination decrypted file path
-  /// tempKeyID: temporary key ID (from createSession)
-  /// Returns: {"success": true} or throws exception
-  Map<String, dynamic> decryptFileToPath(
-      String srcPath, String toPath, String tempKeyID) {
-    final resultStr = _native.decryptFileToPath(srcPath, toPath, tempKeyID);
-    final result = FileResult.fromJson(resultStr);
-    result.throwOnError();
-    return {'success': true};
+  /// Lists directory entries (async).
+  ///
+  /// [rootID] - Root ID from openRoot()
+  /// [path] - Relative path to the directory (empty string for root)
+  /// Returns list of directory entries.
+  Future<List<DirEntry>> listDir(int rootID, String path) async {
+    return Future.microtask(() {
+      final entries = _native.secReadDir(rootID, path);
+      return entries.map((e) => DirEntry.fromJson(e)).toList();
+    });
   }
 
-  /// Encrypts a file using chunked format (memory-efficient for large files).
-  /// This format supports streaming decryption - only one chunk is loaded into memory at a time.
-  /// srcPath: source file path
-  /// toPath: destination encrypted file path
-  /// tempKeyID: temporary key ID (from createSession)
-  /// chunkSizeKB: chunk size in KB (0 = default 64 KB)
-  /// Returns: {"success": true} or throws exception
-  Map<String, dynamic> encryptFileChunked(
-      String srcPath, String toPath, String tempKeyID,
-      {int chunkSizeKB = 0}) {
-    final resultStr = _native.encryptFileChunked(srcPath, toPath, tempKeyID,
-        chunkSizeKB: chunkSizeKB);
-    final result = FileResult.fromJson(resultStr);
-    result.throwOnError();
-    return {'success': true};
+  /// Creates a directory in a secure root (async).
+  Future<void> createDir(int rootID, String path) async {
+    return Future.microtask(
+      () => _native.secMkdirAll(rootID, path),
+    );
   }
 
-  /// Checks if a file is in chunked encrypted format.
-  /// path: file path to check
-  /// Returns: true if chunked, false otherwise
-  bool isChunkedFile(String path) {
-    final resultStr = _native.isChunkedFile(path);
-    final result = IsChunkedResult.fromJson(resultStr);
-    return result.isChunkedOrThrow;
+  // ==================== ADVANCED FILE OPERATIONS ====================
+
+  /// Opens a file for streaming operations.
+  ///
+  /// Returns fileID for subsequent operations.
+  int openFile(int rootID, String path, FileMode mode) {
+    final modeInt = mode == FileMode.read ? 0 : (mode == FileMode.write ? 1 : 2);
+    return _native.secFileOpen(rootID, path, modeInt);
   }
 
-  /// Gets information about an encrypted file.
-  /// path: file path
-  /// Returns: FileInfo with size, isChunked, recommendedMethod
-  FileInfo getEncryptedFileInfo(String path) {
-    final resultStr = _native.getEncryptedFileInfo(path);
-    return FileInfo.fromJson(resultStr);
+  /// Closes an open file.
+  void closeFile(int fileID) {
+    _native.secFileClose(fileID);
   }
 
-  // ==================== CONFIG MANAGEMENT ====================
-
-  /// Generates complete encryption configuration
-  /// password: user password
-  /// keyStrengthMs: target key derivation time in milliseconds (e.g., 1000 for 1 second)
-  /// mutable: whether to use mutable mode (unique file key)
-  /// challengeId: optional challenge ID (use empty string for default "safe_disk")
-  /// Returns: JSON config string
-  String generateEncryptionConfig(
-      String password, int keyStrengthMs, bool mutable, String challengeId) {
-    return _native.generateEncryptionConfig(
-        password, keyStrengthMs, mutable, challengeId);
+  /// Reads from an open file.
+  Uint8List readFileByID(int fileID, int size) {
+    return Uint8List.fromList(_native.secFileRead(fileID, size));
   }
 
-  /// Loads config from an encrypted directory
-  /// dirPath: directory path
-  /// Returns: JSON config string
-  String loadCryptionConfig(String dirPath) {
-    return _native.loadCryptionConfig(dirPath);
+  /// Writes to an open file.
+  void writeToFile(int fileID, Uint8List data) {
+    _native.secFileWrite(fileID, data);
   }
 
-  /// Finds the encrypted root directory (searches upward like .git)
-  /// startPath: starting path
-  /// Returns: root directory path or empty string if not found
-  String findCryptionRoot(String startPath) {
-    final resultStr = _native.findCryptionRoot(startPath);
-    final result = FindRootResult.fromJson(resultStr);
-    return result.rootPath ?? '';
+  /// Seeks in an open file.
+  int seekFile(int fileID, int offset, {int whence = 0}) {
+    return _native.secFileSeek(fileID, offset, whence);
   }
 
-  /// Creates an encrypted directory
-  /// dirPath: directory path
-  /// configJSON: config JSON string
-  /// Returns: JSON result {"success": true} or {"success": false, "error": "..."}
-  Map<String, dynamic> createEncryptedDirectory(
-      String dirPath, Map<String, dynamic> config) {
-    final configJSON = jsonEncode(config);
-    final resultStr = _native.createEncryptedDirectory(dirPath, configJSON);
-    final result = FFIResult.fromJson(resultStr);
-    if (!result.success) {
-      throw Exception(result.error ?? 'Failed to create encrypted directory');
-    }
-    return {'success': true};
-  }
-
-  // ==================== LEGACY COMPATIBILITY ====================
-
-  /// Loads config from an encrypted directory and returns CryptionConfig object
-  /// This method is provided for backward compatibility
-  CryptionConfig loadConfig(String dirPath) {
-    final configJSON = loadCryptionConfig(dirPath);
-    // Parse the FFI response to extract the actual config
-    final response = jsonDecode(configJSON) as Map<String, dynamic>;
-    
-    // Check if the response has the expected structure
-    if (response.containsKey('config')) {
-      // New format: {"success": true, "code": 0, "config": {...}}
-      return CryptionConfig.fromJson(response['config'] as Map<String, dynamic>);
-    } else {
-      // Fallback: assume the entire response is the config (for backward compatibility)
-      return CryptionConfig.fromJson(response);
-    }
+  /// Truncates an open file.
+  void truncateFile(int fileID, int size) {
+    _native.secFileTruncate(fileID, size);
   }
 }
 
-/// Result of password verification
-class VerifyResult {
-  final bool success;
-  final String? error;
+/// File mode for open operations.
+enum FileMode {
+  read,
+  write,
+  readWrite,
+}
 
-  VerifyResult({required this.success, this.error});
+/// Directory entry information.
+class DirEntry {
+  final String name;
+  final bool isDir;
+  final int size;
+  final int modTime;
+  final int mode;
+  final String path;
 
-  /// Throws an exception if verification failed
-  void throwOnError() {
-    if (!success) {
-      throw Exception(error ?? 'Password verification failed');
-    }
+  DirEntry({
+    required this.name,
+    required this.isDir,
+    required this.size,
+    required this.modTime,
+    required this.mode,
+    required this.path,
+  });
+
+  factory DirEntry.fromJson(Map<String, dynamic> json) {
+    return DirEntry(
+      name: json['name'] as String,
+      isDir: json['is_dir'] as bool,
+      size: json['size'] as int,
+      modTime: json['mod_time'] as int,
+      mode: json['mode'] as int,
+      path: json['path'] as String,
+    );
   }
 }

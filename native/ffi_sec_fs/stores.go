@@ -1,6 +1,6 @@
 // Package ffi_sec_fs provides FFI adapter layer for sec_fs.
 // This package only does type conversion and delegates all operations to the sec_fs package.
-package ffi_sec_fs
+package main
 
 import (
 	"safe_disk/native/ffi_comm"

@@ -13,7 +13,8 @@ type SharedConfig interface {
 	SetInt(key string, val int) error
 	SetBool(key string, val bool) error
 
-	// WithPrefix returns a new SharedConfig with the given prefix applied to all keys.
-	// This allows modules to use their own namespace without modifying the underlying config.
-	WithPrefix(prefix string) SharedConfig
+	// WithGroup returns a new SharedConfig with the given group name applied to all keys.
+	// The group name will be automatically suffixed with "_" to create a namespace.
+	// Example: cfg.WithGroup("pbkdf2") creates a config with prefix "pbkdf2_".
+	WithGroup(name string) SharedConfig
 }

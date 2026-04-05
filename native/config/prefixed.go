@@ -46,8 +46,9 @@ func (p *PrefixedConfig) SetBool(key string, val bool) error {
 	return p.config.SetBool(p.prefix+key, val)
 }
 
-// WithPrefix returns a new SharedConfig with an additional prefix applied.
-// This allows chaining multiple prefixes.
-func (p *PrefixedConfig) WithPrefix(prefix string) SharedConfig {
-	return NewPrefixedConfig(p.prefix+prefix, p.config)
+// WithGroup returns a new SharedConfig with an additional group name applied to all keys.
+// The group name will be automatically suffixed with "_" to create a namespace.
+// This allows chaining multiple groups.
+func (p *PrefixedConfig) WithGroup(name string) SharedConfig {
+	return NewPrefixedConfig(p.prefix+name+"_", p.config)
 }

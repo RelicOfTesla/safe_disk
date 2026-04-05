@@ -1,13 +1,16 @@
 // Package ffi_sec_fs provides FFI adapter layer for sec_fs.
 // This file contains FFI interface implementations that delegate to sec_fs.
-package ffi_sec_fs
+package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
+	"safe_disk/native/config"
 	"safe_disk/native/ffi_comm"
 	"safe_disk/native/sec_fs"
+	"safe_disk/native/sec_transfer"
 )
 
 // ==================== Response Helper Functions ====================
@@ -71,18 +74,47 @@ type ReadDirResult struct {
 	Count   int              `json:"count"`
 }
 
+// ==================== Config Helper Functions ====================
+
+// parseConfig parses a JSON string into a config.SharedConfig.
+// Returns a MemoryConfig populated with the JSON data.
+func parseConfig(configJSON string) (config.SharedConfig, error) {
+	cfg := config.NewMemoryConfig()
+	
+	if configJSON == "" {
+		return cfg, nil
+	}
+	
+	var data map[string]interface{}
+	if err := json.Unmarshal([]byte(configJSON), &data); err != nil {
+		return nil, fmt.Errorf("invalid config JSON: %w", err)
+	}
+	
+	for key, value := range data {
+		switch v := value.(type) {
+		case string:
+			cfg.SetStr(key, v)
+		case float64:
+			cfg.SetInt(key, int(v))
+		case bool:
+			cfg.SetBool(key, v)
+		}
+	}
+	
+	return cfg, nil
+}
+
 // ==================== Root Operations ====================
 
 // OpenRoot_FFI opens a secure root directory with the given parameters.
 // Returns a JSON string with root_id on success, or an error message on failure.
 func OpenRoot_FFI(rootPath string, password string, configJSON string) string {
-	// Open the root using sec_fs
-	var config interface{}
-	if configJSON != "" {
-		config = configJSON
+	cfg, err := parseConfig(configJSON)
+	if err != nil {
+		return errorResponse(err)
 	}
 
-	root, err := sec_fs.OpenRoot(sec_fs.FullStorePath(rootPath), password, config)
+	root, err := sec_fs.OpenRoot(sec_fs.FullStorePath(rootPath), password, cfg)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -410,19 +442,71 @@ func QuickWriteFile_FFI(rootID int64, path string, data []byte) string {
 }
 
 // ==================== JSON Config Parsing Helper ====================
+// parseConfig is now defined at the top of the file (returns config.SharedConfig).
 
-// parseConfig parses a JSON configuration string into an interface.
-// This helper function is used for parsing config.json files.
-func parseConfig(configJSON string) (interface{}, error) {
-	if configJSON == "" {
-		return nil, nil
+// ==================== Transfer Operations (Async) ====================
+
+// ExportDirectoryAsync_FFI exports an encrypted directory to a plaintext directory asynchronously.
+func ExportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) string {
+	root, ok := rootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
 	}
 
-	var config interface{}
-	err := json.Unmarshal([]byte(configJSON), &config)
+	svc := sec_transfer.NewTransferService()
+	err := svc.ExportDirectoryAsync(root, srcPath, destPath, nil)
 	if err != nil {
-		return nil, err
+		return errorResponse(err)
 	}
 
-	return config, nil
+	return successResponse(map[string]string{"status": "started"})
 }
+
+// ImportDirectoryAsync_FFI imports a plaintext directory into an encrypted directory asynchronously.
+func ImportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) string {
+	root, ok := rootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+
+	svc := sec_transfer.NewTransferService()
+	err := svc.ImportDirectoryAsync(root, srcPath, destPath, nil)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return successResponse(map[string]string{"status": "started"})
+}
+
+// ExportFileAsync_FFI exports an encrypted file to a plaintext file asynchronously.
+func ExportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
+	root, ok := rootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+
+	svc := sec_transfer.NewTransferService()
+	err := svc.ExportFileAsync(root, srcPath, destPath, nil)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return successResponse(map[string]string{"status": "started"})
+}
+
+// ImportFileAsync_FFI imports a plaintext file into an encrypted file asynchronously.
+func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
+	root, ok := rootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+
+	svc := sec_transfer.NewTransferService()
+	err := svc.ImportFileAsync(root, srcPath, destPath, nil)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return successResponse(map[string]string{"status": "started"})
+}
+

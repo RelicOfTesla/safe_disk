@@ -8,7 +8,9 @@ import (
 	"encoding/base64"
 	"io"
 
+	"safe_disk/native/config"
 	"safe_disk/native/sec_fs"
+	"safe_disk/native/sec_fs/crypto_key"
 	"safe_disk/native/sec_fs/crypto_name"
 	"safe_disk/native/sec_fs/internal/utils"
 )
@@ -20,7 +22,11 @@ type Context struct {
 }
 
 // NewContext creates a new AES-256-GCM context for name encryption.
-func NewContext(keyInfo crypto_name.IKeyInfo) (*Context, error) {
+//
+// Expected cfg to be already grouped by caller with cfg.WithGroup("name").
+// This method will further group with cfg.WithGroup("aes-gcm-name") to read algorithm-specific config.
+// Current implementation only uses IKeyInfo, but config is available for future extensions.
+func NewContext(keyInfo crypto_key.IKeyInfo, cfg config.SharedConfig) (*Context, error) {
 	key := keyInfo.GetKey()
 	if len(key) != 32 {
 		return nil, sec_fs.NewCryptoError("new_context", "AES-256 requires 32-byte key", nil)
