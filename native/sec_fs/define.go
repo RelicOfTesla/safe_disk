@@ -1,278 +1,212 @@
+// Package sec_fs provides a secure file system implementation with encryption support.
+// This package is designed to be independently usable without FFI dependencies.
 package sec_fs
 
 import (
 	"io"
 	"io/fs"
 	"os"
-
-	"github.com/safedisk/native/sec_fs/crypto"
 )
-
-// ==================== Path Types ====================
-// Path types provide type safety for different path representations.
-// All path parameters should use these types instead of plain string.
-
-// RelativeViewPath is a relative path from user's perspective (relative to RootDir).
-// Example: "documents/report.pdf"
-type RelativeViewPath string
-
-// FullViewPath is an absolute path from user's perspective.
-// Example: "/data/safe_disk_root/documents/report.pdf"
-type FullViewPath string
-
-// RelativeStorePath is a relative path from storage perspective (encrypted or plaintext).
-// Example: "a1b2c3d4e5f6..."
-type RelativeStorePath string
-
-// FullStorePath is an absolute path from storage perspective.
-// Example: "/data/safe_disk_root/a1b2c3d4e5f6..."
-type FullStorePath string
 
 // ==================== Core Interfaces ====================
 
-// ISecReadWriter combines basic I/O interfaces.
-type ISecReadWriter interface {
-	io.ReadWriteCloser
-	io.Seeker
-}
-
-// ISecFile is the core interface for encrypted file operations.
-// It satisfies io.Reader, io.Writer, io.Seeker, and fs.File interfaces.
-//
-// Usage:
-//
-//	f, err := root.OpenFile("document.txt", "r")
-//	if err != nil { log.Fatal(err) }
-//	defer f.Close()
-//
-//	// Read all content
-//	data, err := io.ReadAll(f)
-//
-//	// Or use ReadSize for convenience (returns allocated buffer)
-//	data, n, err := f.ReadSize(1024)
+// ISecFile defines the interface for a secure file with encryption support.
+// It combines standard file operations with encryption capabilities.
 type ISecFile interface {
-	io.Reader       // Read(p []byte) (n int, err error)
-	io.Writer       // Write(p []byte) (n int, err error)
-	io.Seeker       // Seek(offset int64, whence int) (int64, error)
-	fs.File         // Stat() (FileInfo, error) + Close() error
-
-	// Size returns the decrypted file size in bytes.
+	io.Reader
+	io.Writer
+	io.Seeker
+	fs.File // includes Close() error and Stat() (FileInfo, error)
+	
+	// Size returns the current size of the file.
 	Size() int64
-
-	// Truncate truncates the file to the specified size.
+	
+	// Truncate changes the size of the file.
 	Truncate(size int64) error
-
-	// ===== Convenience Methods (from original ISecFile) =====
-
-	// ReadSize reads up to size bytes and returns an allocated buffer.
-	// If size <= 0, reads all remaining data.
-	// This is a convenience method; prefer Read(p []byte) for io.Reader compatibility.
-	ReadSize(size int) (data []byte, n int, err error)
-
-	// ReadAll reads all remaining data from the file.
-	// This is a convenience method; prefer io.ReadAll(f) for standard usage.
-	ReadAll() ([]byte, error)
-
-	// WriteString writes a string to the file.
-	WriteString(s string) (int, error)
-
-	// Tell returns the current file position.
-	Tell() (int64, error)
-
-	// Rewind resets the position to the start of the file.
-	Rewind() error
-
-	// Sync flushes changes to the encrypted file.
-	Sync() error
-
-	// IsClosed returns true if the file is closed.
-	IsClosed() bool
-
-	// Mode returns the open mode ("r", "w", or "a").
-	Mode() string
-
-	// Path returns the file path.
-	Path() string
-
-	// ReadAt reads data at a specific offset without changing the file position.
-	ReadAt(offset int64, size int) ([]byte, error)
-
-	// WriteAt writes data at a specific offset without changing the file position.
-	WriteAt(offset int64, data []byte) (int, error)
-
-	// Append appends data to the end of the file.
-	Append(data []byte) (int, error)
-
-	// AppendString appends a string to the end of the file.
-	AppendString(s string) (int, error)
-
-	// StatDetail returns detailed file status including position.
-	// This provides more information than the standard Stat() method.
-	StatDetail() (*SecFileStat, error)
 }
 
-// ISecFilePlus extends ISecFile with additional metadata methods.
-// It provides path information in both view and store perspectives.
+// ISecFilePlus extends ISecFile with additional metadata and utility methods.
 type ISecFilePlus interface {
 	ISecFile
-
-	// FileMode returns the file mode (permissions).
-	FileMode() os.FileMode
-
-	// RelativeViewPath returns the path relative to the root directory (user perspective).
+	
+	// Mode returns the file mode (permissions).
+	Mode() os.FileMode
+	
+	// RelativeViewPath returns the relative path from the user's perspective.
 	RelativeViewPath() RelativeViewPath
-
-	// FullStorePath returns the absolute storage path (storage perspective).
+	
+	// FullStorePath returns the full path from the storage perspective.
 	FullStorePath() FullStorePath
+	
+	// IsClosed returns true if the file has been closed.
+	IsClosed() bool
+	
+	// Sync commits the current contents of the file to stable storage.
+	Sync() error
 }
 
-// IDirWalker provides directory traversal for encrypted file systems.
-// It iterates over directory entries without decrypting file contents.
-//
-// Usage:
-//
-//	walker, err := root.WalkDir("documents", nil)
-//	if err != nil { log.Fatal(err) }
-//	defer walker.Close()
-//
-//	for walker.HasNext() {
-//		entry, err := walker.Next()
-//		if err != nil { log.Fatal(err) }
-//		fmt.Println(entry.Name)
-//	}
+// ISecRoot defines the interface for a secure root directory.
+type ISecRoot interface {
+	// OpenFile opens a file at the given relative view path with the specified mode.
+	OpenFile(path RelativeViewPath, mode int) (ISecFile, error)
+	
+	// Close closes the root and releases any associated resources.
+	Close() error
+	
+	// DeleteFile deletes the file at the given relative view path.
+	DeleteFile(path RelativeViewPath) error
+	
+	// FileExists returns true if a file exists at the given relative view path.
+	FileExists(path RelativeViewPath) bool
+	
+	// MkdirAll creates a directory named path, along with any necessary parents.
+	MkdirAll(path RelativeViewPath) error
+	
+	// WalkDir returns a directory walker for the given path.
+	WalkDir(path RelativeViewPath, opts ...WalkOption) (IDirWalker, error)
+}
+
+// IDirWalker defines the interface for iterating over directory entries.
 type IDirWalker interface {
 	// Next returns the next directory entry.
-	// Returns nil, nil when there are no more entries.
-	Next() (*SecDirEntry, error)
-
-	// NextBatch returns the next batch of entries.
-	// If batchSize <= 0, returns all remaining entries.
-	NextBatch(batchSize int) ([]*SecDirEntry, error)
-
-	// HasNext returns true if there are more entries.
+	// Returns ErrNoMoreEntries when there are no more entries.
+	Next() (DirEntry, error)
+	
+	// NextBatch returns the next batch of directory entries.
+	NextBatch(batchSize int) ([]DirEntry, error)
+	
+	// HasNext returns true if there are more entries to read.
 	HasNext() bool
-
-	// Close closes the walker and releases resources.
+	
+	// Close closes the walker and releases any associated resources.
 	Close() error
-
-	// Reset resets the walker to the beginning.
-	Reset() error
-
-	// Count returns the total number of entries.
-	Count() int
-
-	// Remaining returns the number of remaining entries.
-	Remaining() int
-
-	// IsClosed returns true if the walker is closed.
-	IsClosed() bool
-
-	// Path returns the directory path being walked.
-	Path() string
-
-	// WalkAll returns all entries.
-	WalkAll() ([]*SecDirEntry, error)
-
-	// CollectFiles returns all file entries.
-	CollectFiles() ([]*SecDirEntry, error)
-
-	// CollectDirs returns all directory entries.
-	CollectDirs() ([]*SecDirEntry, error)
-
-	// Stats returns walker statistics.
-	Stats() map[string]interface{}
 }
 
-// IFileInfo is an alias for fs.FileInfo.
-type IFileInfo interface {
-	fs.FileInfo
-}
-
-// IDirEntry is an alias for fs.DirEntry.
-type IDirEntry interface {
-	fs.DirEntry
-}
-
-// ISecRoot is the interface for managing an encrypted root directory.
-// It provides file operations, directory traversal, and configuration management.
-//
-// Usage:
-//
-//	root, err := OpenRoot("/path/to/vault", "password", nil)
-//	if err != nil { log.Fatal(err) }
-//	defer root.Close()
-//
-//	// File operations
-//	f, err := root.OpenFile("secret.txt", "r")
-//	data, err := root.ReadFile("secret.txt")
-//
-//	// Directory traversal
-//	walker, err := root.WalkDir("documents", nil)
-type ISecRoot interface {
-	// Close closes the root and releases resources.
-	// For session-based roots, this also closes the session.
-	Close() error
-
-	// ChangePass changes the password for the encrypted root.
-	// This only works if the root was created with mutable=true.
-	ChangePass(newPass string) error
-
-	// GetInfo returns information about the root.
-	GetInfo() (*SecRootInfo, error)
-
-	// GetSessionID returns the session ID (0 for direct mode).
-	GetSessionID() int64
-
-	// GetRootPath returns the root directory path.
+// ISecRootInfo provides information about a secure root.
+type ISecRootInfo interface {
+	// GetRootPath returns the full store path of the root directory.
 	GetRootPath() FullStorePath
+	
+	// GetConfig returns the current configuration as JSON.
+	GetConfig() string
+	
+	// IsOpen returns true if the root is currently open.
+	IsOpen() bool
+}
 
-	// ==================== File Operations ====================
+// ==================== Helper Types ====================
 
-	// OpenFile opens an encrypted file for reading or writing.
-	// Mode: "r" (read), "w" (write), "a" (append).
-	OpenFile(path RelativeViewPath, mode string) (ISecFile, error)
+// DirEntry represents a directory entry (file or subdirectory).
+type DirEntry struct {
+	// Name is the base name of the file or directory.
+	Name string
+	
+	// IsDir reports whether the entry is a directory.
+	IsDir bool
+	
+	// Size is the size in bytes for files; 0 for directories.
+	Size int64
+	
+	// ModTime is the modification time.
+	ModTime int64 // Unix timestamp in nanoseconds
+	
+	// Mode is the file mode (permissions).
+	Mode os.FileMode
+	
+	// RelativePath is the relative view path from the root.
+	RelativePath RelativeViewPath
+}
 
-	// ReadFile reads an entire file at once.
-	ReadFile(path RelativeViewPath) ([]byte, error)
+// WalkOption is a functional option for configuring directory walking.
+type WalkOption func(*WalkOptions)
 
-	// WriteFile writes an entire file at once.
-	// Creates parent directories if needed.
-	WriteFile(path RelativeViewPath, data []byte) error
-
-	// DeleteFile deletes a file.
-	DeleteFile(path RelativeViewPath) error
-
-	// StatFile returns detailed file information.
-	StatFile(path RelativeViewPath) (*SecFileInfo, error)
-
-	// FileExists checks if a file exists.
-	FileExists(path RelativeViewPath) bool
-
-	// ==================== Directory Operations ====================
-
-	// MkdirAll creates a directory and all parent directories.
-	MkdirAll(path RelativeViewPath) error
-
-	// ReadDir reads a directory and returns entries.
-	// The entries are NOT decrypted; they represent the encrypted file system view.
-	ReadDir(path RelativeViewPath) ([]os.DirEntry, error)
-
-	// WalkDir creates a directory walker for traversing entries.
-	WalkDir(path RelativeViewPath, opt *WalkOpt) (IDirWalker, error)
-
-	// ==================== Advanced Operations ====================
-
-	// GetCryptorMaker returns the cryptor maker for custom operations.
-	// Advanced users can use this to create custom encryptors/decryptors.
-	GetCryptorMaker() crypto.ICryptorMaker
+// WalkOptions holds configuration options for directory walking.
+type WalkOptions struct {
+	// Recursive indicates whether to walk subdirectories recursively.
+	Recursive bool
+	
+	// MaxDepth limits the recursion depth (0 = unlimited).
+	MaxDepth int
+	
+	// SkipFiles indicates whether to skip regular files.
+	SkipFiles bool
+	
+	// SkipDirs indicates whether to skip directories.
+	SkipDirs bool
+	
+	// IncludeHidden indicates whether to include hidden files/directories.
+	IncludeHidden bool
 }
 
 // ==================== Compile-time Interface Verification ====================
-// These assertions ensure that our implementations satisfy the interfaces.
-// If a type doesn't implement an interface, the compiler will fail.
 
+// These declarations ensure that the implementation types satisfy the interfaces.
+// The actual implementation types will be defined in separate files.
 var (
-	_ ISecFile    = (*secFileImpl)(nil)
-	_ IDirWalker  = (*secDirWalker)(nil)
-	_ ISecRoot    = (*secRootImpl)(nil)
+	_ ISecFile     = (*secFileImpl)(nil)
+	_ ISecFilePlus = (*secFileImpl)(nil)
+	_ ISecRoot     = (*secRootImpl)(nil)
+	_ IDirWalker   = (*secDirWalker)(nil)
 )
+
+// ==================== Path Types ====================
+
+// RelativeViewPath represents a relative path from the user's perspective within RootDir.
+// This is the path that users interact with when navigating the encrypted file system.
+// Example: "documents/report.pdf"
+type RelativeViewPath string
+
+// FullViewPath represents a complete absolute path from the user's perspective.
+// This includes the full path to a file or directory within the view layer.
+// Example: "/data/safe_disk_root/documents/report.pdf"
+type FullViewPath string
+
+// RelativeStorePath represents a relative path from the storage perspective.
+// This path reflects the actual stored file name, which may be encrypted or in plain text.
+// Example: "a1b2c3d4e5f6..." (encrypted file name)
+type RelativeStorePath string
+
+// FullStorePath represents a complete absolute path from the storage perspective.
+// This is the actual path on disk where the encrypted or unencrypted data is stored.
+// Example: "/data/safe_disk_root/a1b2c3d4e5f6..."
+type FullStorePath string
+
+// String returns the string representation of RelativeViewPath.
+func (p RelativeViewPath) String() string {
+	return string(p)
+}
+
+// String returns the string representation of FullViewPath.
+func (p FullViewPath) String() string {
+	return string(p)
+}
+
+// String returns the string representation of RelativeStorePath.
+func (p RelativeStorePath) String() string {
+	return string(p)
+}
+
+// String returns the string representation of FullStorePath.
+func (p FullStorePath) String() string {
+	return string(p)
+}
+
+// IsEmpty returns true if the RelativeViewPath is empty.
+func (p RelativeViewPath) IsEmpty() bool {
+	return string(p) == ""
+}
+
+// IsEmpty returns true if the FullViewPath is empty.
+func (p FullViewPath) IsEmpty() bool {
+	return string(p) == ""
+}
+
+// IsEmpty returns true if the RelativeStorePath is empty.
+func (p RelativeStorePath) IsEmpty() bool {
+	return string(p) == ""
+}
+
+// IsEmpty returns true if the FullStorePath is empty.
+func (p FullStorePath) IsEmpty() bool {
+	return string(p) == ""
+}
