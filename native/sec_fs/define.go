@@ -17,10 +17,10 @@ type ISecFile interface {
 	io.Writer
 	io.Seeker
 	fs.File // includes Close() error and Stat() (FileInfo, error)
-	
+
 	// Size returns the current size of the file.
 	Size() int64
-	
+
 	// Truncate changes the size of the file.
 	Truncate(size int64) error
 }
@@ -28,19 +28,19 @@ type ISecFile interface {
 // ISecFilePlus extends ISecFile with additional metadata and utility methods.
 type ISecFilePlus interface {
 	ISecFile
-	
+
 	// Mode returns the file mode (permissions).
 	Mode() os.FileMode
-	
+
 	// RelativeViewPath returns the relative path from the user's perspective.
 	RelativeViewPath() RelativeViewPath
-	
+
 	// FullStorePath returns the full path from the storage perspective.
 	FullStorePath() FullStorePath
-	
+
 	// IsClosed returns true if the file has been closed.
 	IsClosed() bool
-	
+
 	// Sync commits the current contents of the file to stable storage.
 	Sync() error
 }
@@ -49,19 +49,19 @@ type ISecFilePlus interface {
 type ISecRoot interface {
 	// OpenFile opens a file at the given relative view path with the specified mode.
 	OpenFile(path RelativeViewPath, mode int) (ISecFile, error)
-	
+
 	// Close closes the root and releases any associated resources.
 	Close() error
-	
+
 	// DeleteFile deletes the file at the given relative view path.
 	DeleteFile(path RelativeViewPath) error
-	
+
 	// FileExists returns true if a file exists at the given relative view path.
 	FileExists(path RelativeViewPath) bool
-	
+
 	// MkdirAll creates a directory named path, along with any necessary parents.
 	MkdirAll(path RelativeViewPath) error
-	
+
 	// WalkDir returns a directory walker for the given path.
 	WalkDir(path RelativeViewPath, opts ...WalkOption) (IDirWalker, error)
 }
@@ -71,13 +71,13 @@ type IDirWalker interface {
 	// Next returns the next directory entry.
 	// Returns ErrNoMoreEntries when there are no more entries.
 	Next() (DirEntry, error)
-	
+
 	// NextBatch returns the next batch of directory entries.
 	NextBatch(batchSize int) ([]DirEntry, error)
-	
+
 	// HasNext returns true if there are more entries to read.
 	HasNext() bool
-	
+
 	// Close closes the walker and releases any associated resources.
 	Close() error
 }
@@ -86,10 +86,10 @@ type IDirWalker interface {
 type ISecRootInfo interface {
 	// GetRootPath returns the full store path of the root directory.
 	GetRootPath() FullStorePath
-	
+
 	// GetConfig returns the current configuration as JSON.
 	GetConfig() string
-	
+
 	// IsOpen returns true if the root is currently open.
 	IsOpen() bool
 }
@@ -100,19 +100,19 @@ type ISecRootInfo interface {
 type DirEntry struct {
 	// Name is the base name of the file or directory.
 	Name string
-	
+
 	// IsDir reports whether the entry is a directory.
 	IsDir bool
-	
+
 	// Size is the size in bytes for files; 0 for directories.
 	Size int64
-	
+
 	// ModTime is the modification time.
 	ModTime int64 // Unix timestamp in nanoseconds
-	
+
 	// Mode is the file mode (permissions).
 	Mode os.FileMode
-	
+
 	// RelativePath is the relative view path from the root.
 	RelativePath RelativeViewPath
 }
@@ -124,18 +124,53 @@ type WalkOption func(*WalkOptions)
 type WalkOptions struct {
 	// Recursive indicates whether to walk subdirectories recursively.
 	Recursive bool
-	
+
 	// MaxDepth limits the recursion depth (0 = unlimited).
 	MaxDepth int
-	
+
 	// SkipFiles indicates whether to skip regular files.
 	SkipFiles bool
-	
+
 	// SkipDirs indicates whether to skip directories.
 	SkipDirs bool
-	
+
 	// IncludeHidden indicates whether to include hidden files/directories.
 	IncludeHidden bool
+}
+
+// WithRecursive returns a WalkOption that enables recursive directory walking.
+func WithRecursive() WalkOption {
+	return func(opts *WalkOptions) {
+		opts.Recursive = true
+	}
+}
+
+// WithMaxDepth returns a WalkOption that sets the maximum recursion depth.
+func WithMaxDepth(depth int) WalkOption {
+	return func(opts *WalkOptions) {
+		opts.MaxDepth = depth
+	}
+}
+
+// WithSkipFiles returns a WalkOption that skips regular files.
+func WithSkipFiles() WalkOption {
+	return func(opts *WalkOptions) {
+		opts.SkipFiles = true
+	}
+}
+
+// WithSkipDirs returns a WalkOption that skips directories.
+func WithSkipDirs() WalkOption {
+	return func(opts *WalkOptions) {
+		opts.SkipDirs = true
+	}
+}
+
+// WithIncludeHidden returns a WalkOption that includes hidden files/directories.
+func WithIncludeHidden() WalkOption {
+	return func(opts *WalkOptions) {
+		opts.IncludeHidden = true
+	}
 }
 
 // ==================== Compile-time Interface Verification ====================

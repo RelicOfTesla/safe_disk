@@ -155,11 +155,11 @@
 ## 阶段 2: 适配层 - FFI 包（P0）
 
 ### 任务 2.1: ffi_comm 包
-- [ ] 创建 native/ffi_comm/ 目录
-- [ ] 创建 store.go：实现 Store[T] 泛型（ID 映射管理）
-- [ ] 创建 response.go：实现 Response 结构
-- [ ] 创建 response.go：实现辅助函数（SuccessWithData/ErrorResponse/JsonResult 等）
-- [ ] 编译通过
+- [x] 创建 native/ffi_comm/ 目录 ✅ 2026-04-05
+- [x] 创建 store.go：实现 Store[T] 泛型（ID 映射管理）✅ 2026-04-05
+- [x] 创建 response.go：实现 Response 结构 ✅ 2026-04-05
+- [x] 创建 response.go：实现辅助函数（SuccessWithData/ErrorResponse/JsonResult 等）✅ 2026-04-05
+- [x] 编译通过 ✅ 2026-04-05
 
 **验收标准**：
 - ✅ Store[T] 线程安全实现（Add/Get/Remove/Contains 等）
@@ -170,18 +170,18 @@
 ---
 
 ### 任务 2.2: ffi_sec_fs 包
-- [ ] 创建 native/ffi_sec_fs/ 目录
-- [ ] 创建 stores.go：实例存储管理（Store[ISecRoot], Store[ISecFile] 等）
-- [ ] 创建 ffi.go：FFI 接口实现（Go 层）
+- [x] 创建 native/ffi_sec_fs/ 目录 ✅ 2026-04-05
+- [x] 创建 stores.go：实例存储管理（Store[ISecRoot], Store[ISecFile] 等）✅ 2026-04-05
+- [x] 创建 ffi.go：FFI 接口实现（Go 层）✅ 2026-04-05
 - [ ] 创建 exports.go：C 导出函数（CGO 层）
-- [ ] 实现 FFI 接口：
-  - OpenRoot_FFI / CloseRoot_FFI
-  - OpenFile_FFI / CloseFile_FFI
-  - ReadFile_FFI / WriteFile_FFI
-  - SeekFile_FFI / TruncateFile_FFI
-  - DeleteFile_FFI / FileExists_FFI
-  - MkdirAll_FFI / ReadDir_FFI
-- [ ] 编译通过
+- [x] 实现 FFI 接口：
+  - OpenRoot_FFI / CloseRoot_FFI ✅ 2026-04-05
+  - OpenFile_FFI / CloseFile_FFI ✅ 2026-04-05
+  - ReadFile_FFI / WriteFile_FFI ✅ 2026-04-05
+  - SeekFile_FFI / TruncateFile_FFI ✅ 2026-04-05
+  - DeleteFile_FFI / FileExists_FFI ✅ 2026-04-05
+  - MkdirAll_FFI / ReadDir_FFI ✅ 2026-04-05
+- [x] 编译通过 ✅ 2026-04-05
 
 **验收标准**：
 - ✅ FFI 接口实现（对应 sec_fs 的所有方法）
@@ -191,13 +191,15 @@
 ---
 
 ### 任务 2.3: ffi_sec_transfer 包
-- [ ] 创建 native/ffi_sec_transfer/ 目录
-- [ ] 创建 ffi.go：FFI 接口实现（Go 层）
+- [x] 创建 native/ffi_sec_transfer/ 目录 ✅ 2026-04-05
+- [x] 创建 ffi.go：FFI 接口实现（Go 层）✅ 2026-04-05
 - [ ] 创建 exports.go：C 导出函数（CGO 层）
-- [ ] 实现 FFI 接口：
-  - ExportDirectory_FFI / ImportDirectory_FFI
-  - ExportFile_FFI / ImportFile_FFI
-- [ ] 编译通过
+- [x] 实现 FFI 接口：
+  - ExportDirectoryAsync_FFI ✅ 2026-04-05
+  - ImportDirectoryAsync_FFI ✅ 2026-04-05
+  - ExportFileAsync_FFI ✅ 2026-04-05
+  - ImportFileAsync_FFI ✅ 2026-04-05
+- [x] 编译通过 ✅ 2026-04-05
 
 **验收标准**：
 - ✅ FFI 接口实现（对应 sec_transfer 的所有方法）
@@ -209,21 +211,23 @@
 ## 阶段 3: 核心层 - sec_transfer 包（P1）
 
 ### 任务 3.1: sec_transfer 包
-- [ ] 创建 native/sec_transfer/ 目录
-- [ ] 创建 transfer.go：实现 TransferService
-- [ ] 实现核心方法：
-  - ExportDirectoryAsync
-  - ImportDirectoryAsync
-  - ExportFileAsync
-  - ImportFileAsync
-- [ ] 底层调用 sec_fs
-- [ ] 只接受路径参数，不接受二进制数据
-- [ ] 编译通过
+- [x] 创建 native/sec_transfer/ 目录 ✅ 2026-04-05
+- [x] 创建 transfer.go：实现 TransferService ✅ 2026-04-05
+- [x] 实现核心方法：
+  - ExportDirectoryAsync ✅ 2026-04-05
+  - ImportDirectoryAsync ✅ 2026-04-05
+  - ExportFileAsync ✅ 2026-04-05
+  - ImportFileAsync ✅ 2026-04-05
+- [x] 底层调用 sec_fs ✅ 2026-04-05
+- [x] 只接受路径参数，不接受二进制数据 ✅ 2026-04-05
+- [x] 创建测试文件 ✅ 2026-04-05
+- [x] 编译通过 ✅ 2026-04-05
 
 **验收标准**：
 - ✅ TransferService 实现
 - ✅ 底层调用 sec_fs
 - ✅ 只接受路径参数
+- ✅ 异步接口实现
 - ✅ 编译通过
 
 ---
@@ -231,9 +235,9 @@
 ## 阶段 4: 应用层（P1）
 
 ### 任务 4.1: CLI 集成
-- [ ] 创建 native/cli/ 目录
-- [ ] CLI 使用 sec_fs 和 sec_transfer
-- [ ] 编译通过
+- [x] 创建 native/cli/ 目录 ✅ 2026-04-05
+- [x] CLI 使用 sec_fs 和 sec_transfer ✅ 2026-04-05
+- [x] 编译通过 ✅ 2026-04-05
 
 **验收标准**：
 - ✅ CLI 编译通过
@@ -242,9 +246,11 @@
 ---
 
 ### 任务 4.2: Flutter 端集成
-- [ ] Flutter 使用 FFI 接口
-- [ ] Flutter 端和 CLI 行为一致
-- [ ] 编译通过
+- [ ] 暂时跳过（2026-04-05）- FFI 绑定需要完整迁移
+- [ ] 创建 native/go.mod 和 main.go
+- [ ] 编译 FFI 库
+- [ ] 创建 lib/native/ 目录和 FFI 绑定
+- [ ] Flutter analyze 无 error
 
 **验收标准**：
 - ✅ Flutter 编译通过
