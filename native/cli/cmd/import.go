@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"safe_disk/native/sec_fs"
-	"safe_disk/native/sec_transfer"
+	"safe_disk/native/sec_fs/sec_transfer"
 
 	"github.com/spf13/cobra"
 )

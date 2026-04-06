@@ -8,27 +8,27 @@ import (
 	"os"
 
 	"safe_disk/native/config"
-	"safe_disk/native/ffi_comm"
-	"safe_disk/native/ffi_stores"
+	
+	
 	"safe_disk/native/sec_fs"
-	"safe_disk/native/sec_transfer"
+	"safe_disk/native/sec_fs/sec_transfer"
 )
 
 // ==================== Response Helper Functions ====================
 
 // successResponse creates a success JSON response.
 func successResponse(data interface{}) string {
-	return ffi_comm.SuccessWithData(data)
+	return SuccessWithData(data)
 }
 
 // errorResponse creates an error JSON response.
 func errorResponse(err error) string {
-	return ffi_comm.ErrorResponse(err.Error())
+	return ErrorResponse(err.Error())
 }
 
 // errorResponseStr creates an error JSON response from a string.
 func errorResponseStr(msg string) string {
-	return ffi_comm.ErrorResponse(msg)
+	return ErrorResponse(msg)
 }
 
 // ==================== Data Structures for Responses ====================
@@ -121,7 +121,7 @@ func OpenRoot_FFI(rootPath string, password string, configJSON string) string {
 	}
 
 	// Store the root instance and get its ID
-	rootID := ffi_stores.RootStore.Add(root)
+	rootID := RootStore.Add(root)
 
 	return successResponse(RootOpenResult{RootID: rootID})
 }
@@ -129,7 +129,7 @@ func OpenRoot_FFI(rootPath string, password string, configJSON string) string {
 // CloseRoot_FFI closes a secure root directory.
 // Returns a JSON string indicating success or failure.
 func CloseRoot_FFI(rootID int64) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
@@ -140,9 +140,9 @@ func CloseRoot_FFI(rootID int64) string {
 	}
 
 	// Remove from store
-	ffi_stores.RootStore.Remove(rootID)
+	RootStore.Remove(rootID)
 
-	return ffi_comm.Success()
+	return Success()
 }
 
 // ==================== File Operations ====================
@@ -150,7 +150,7 @@ func CloseRoot_FFI(rootID int64) string {
 // OpenFile_FFI opens a file within a secure root.
 // Returns a JSON string with file_id on success, or an error message on failure.
 func OpenFile_FFI(rootID int64, path string, mode int) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
@@ -161,7 +161,7 @@ func OpenFile_FFI(rootID int64, path string, mode int) string {
 	}
 
 	// Store the file instance and get its ID
-	fileID := ffi_stores.FileStore.Add(file)
+	fileID := FileStore.Add(file)
 
 	return successResponse(FileOpenResult{FileID: fileID})
 }
@@ -169,7 +169,7 @@ func OpenFile_FFI(rootID int64, path string, mode int) string {
 // CloseFile_FFI closes a file.
 // Returns a JSON string indicating success or failure.
 func CloseFile_FFI(fileID int64) string {
-	file, ok := ffi_stores.FileStore.Get(fileID)
+	file, ok := FileStore.Get(fileID)
 	if !ok {
 		return errorResponseStr("file not found")
 	}
@@ -180,15 +180,15 @@ func CloseFile_FFI(fileID int64) string {
 	}
 
 	// Remove from store
-	ffi_stores.FileStore.Remove(fileID)
+	FileStore.Remove(fileID)
 
-	return ffi_comm.Success()
+	return Success()
 }
 
 // ReadFile_FFI reads data from a file.
 // Returns a JSON string with data and size on success, or an error message on failure.
 func ReadFile_FFI(fileID int64, size int) string {
-	file, ok := ffi_stores.FileStore.Get(fileID)
+	file, ok := FileStore.Get(fileID)
 	if !ok {
 		return errorResponseStr("file not found")
 	}
@@ -209,7 +209,7 @@ func ReadFile_FFI(fileID int64, size int) string {
 // WriteFile_FFI writes data to a file.
 // Returns a JSON string with the number of bytes written on success, or an error message on failure.
 func WriteFile_FFI(fileID int64, data []byte) string {
-	file, ok := ffi_stores.FileStore.Get(fileID)
+	file, ok := FileStore.Get(fileID)
 	if !ok {
 		return errorResponseStr("file not found")
 	}
@@ -225,7 +225,7 @@ func WriteFile_FFI(fileID int64, data []byte) string {
 // SeekFile_FFI sets the file position.
 // Returns a JSON string with the new position on success, or an error message on failure.
 func SeekFile_FFI(fileID int64, offset int64, whence int) string {
-	file, ok := ffi_stores.FileStore.Get(fileID)
+	file, ok := FileStore.Get(fileID)
 	if !ok {
 		return errorResponseStr("file not found")
 	}
@@ -241,7 +241,7 @@ func SeekFile_FFI(fileID int64, offset int64, whence int) string {
 // TruncateFile_FFI truncates a file to the specified size.
 // Returns a JSON string indicating success or failure.
 func TruncateFile_FFI(fileID int64, size int64) string {
-	file, ok := ffi_stores.FileStore.Get(fileID)
+	file, ok := FileStore.Get(fileID)
 	if !ok {
 		return errorResponseStr("file not found")
 	}
@@ -251,7 +251,7 @@ func TruncateFile_FFI(fileID int64, size int64) string {
 		return errorResponse(err)
 	}
 
-	return ffi_comm.Success()
+	return Success()
 }
 
 // ==================== Root-level File Operations ====================
@@ -259,7 +259,7 @@ func TruncateFile_FFI(fileID int64, size int64) string {
 // DeleteFile_FFI deletes a file from a secure root.
 // Returns a JSON string indicating success or failure.
 func DeleteFile_FFI(rootID int64, path string) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
@@ -269,13 +269,13 @@ func DeleteFile_FFI(rootID int64, path string) string {
 		return errorResponse(err)
 	}
 
-	return ffi_comm.Success()
+	return Success()
 }
 
 // FileExists_FFI checks if a file exists in a secure root.
 // Returns a JSON string with exists=true/false on success, or an error message on failure.
 func FileExists_FFI(rootID int64, path string) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
@@ -288,7 +288,7 @@ func FileExists_FFI(rootID int64, path string) string {
 // MkdirAll_FFI creates a directory and all parent directories.
 // Returns a JSON string indicating success or failure.
 func MkdirAll_FFI(rootID int64, path string) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
@@ -298,13 +298,13 @@ func MkdirAll_FFI(rootID int64, path string) string {
 		return errorResponse(err)
 	}
 
-	return ffi_comm.Success()
+	return Success()
 }
 
 // ReadDir_FFI reads directory entries from a path in a secure root.
 // Returns a JSON string with directory entries on success, or an error message on failure.
 func ReadDir_FFI(rootID int64, path string) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
@@ -345,7 +345,7 @@ func ReadDir_FFI(rootID int64, path string) string {
 // ReadAllFile_FFI reads all data from a file.
 // Returns a JSON string with all file data on success, or an error message on failure.
 func ReadAllFile_FFI(fileID int64) string {
-	file, ok := ffi_stores.FileStore.Get(fileID)
+	file, ok := FileStore.Get(fileID)
 	if !ok {
 		return errorResponseStr("file not found")
 	}
@@ -375,7 +375,7 @@ func ReadAllFile_FFI(fileID int64) string {
 // GetFileSize_FFI returns the current size of a file.
 // Returns a JSON string with the file size on success, or an error message on failure.
 func GetFileSize_FFI(fileID int64) string {
-	file, ok := ffi_stores.FileStore.Get(fileID)
+	file, ok := FileStore.Get(fileID)
 	if !ok {
 		return errorResponseStr("file not found")
 	}
@@ -390,7 +390,7 @@ func GetFileSize_FFI(fileID int64) string {
 // QuickReadFile_FFI reads a file directly from a root without managing file IDs.
 // This is useful for one-shot read operations.
 func QuickReadFile_FFI(rootID int64, path string) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
@@ -421,7 +421,7 @@ func QuickReadFile_FFI(rootID int64, path string) string {
 // QuickWriteFile_FFI writes a file directly to a root without managing file IDs.
 // This is useful for one-shot write operations.
 func QuickWriteFile_FFI(rootID int64, path string, data []byte) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
@@ -449,118 +449,121 @@ func QuickWriteFile_FFI(rootID int64, path string, data []byte) string {
 
 // ExportDirectoryAsync_FFI exports an encrypted directory to a plaintext directory asynchronously.
 func ExportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
 
 	// Create job
-	jobID := sec_transfer.GetJobManager().CreateJob(sec_transfer.TransferTypeExport)
+	taskID := sec_transfer.GetTaskManager().CreateTask(sec_transfer.TransferTypeExport)
 
 	// Create wrapper callback to update job progress
 	callback := func(status sec_transfer.ProgressStatus) {
-		sec_transfer.GetJobManager().UpdateJob(jobID, status)
+		sec_transfer.GetTaskManager().UpdateTask(taskID, status)
 	}
 
 	svc := sec_transfer.DefaultTransferService
-	err := svc.ExportDirectoryAsync(root, srcPath, destPath, nil, callback)
+	err := svc.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(srcPath), sec_transfer.ExternalPath(destPath), nil, callback)
 	if err != nil {
-		sec_transfer.GetJobManager().RemoveJob(jobID)
+		sec_transfer.GetTaskManager().RemoveTask(taskID)
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"job_id": jobID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskID, "status": "started"})
 }
 
 // ImportDirectoryAsync_FFI imports a plaintext directory into an encrypted directory asynchronously.
 func ImportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
 
 	// Create job
-	jobID := sec_transfer.GetJobManager().CreateJob(sec_transfer.TransferTypeImport)
+	taskID := sec_transfer.GetTaskManager().CreateTask(sec_transfer.TransferTypeImport)
 
 	// Create wrapper callback to update job progress
 	callback := func(status sec_transfer.ProgressStatus) {
-		sec_transfer.GetJobManager().UpdateJob(jobID, status)
+		sec_transfer.GetTaskManager().UpdateTask(taskID, status)
 	}
 
 	svc := sec_transfer.DefaultTransferService
-	err := svc.ImportDirectoryAsync(root, srcPath, destPath, nil, callback)
+	err := svc.ImportDirectoryAsync(root, sec_transfer.ExternalPath(srcPath), sec_fs.RelativeViewPath(destPath), nil, callback)
 	if err != nil {
-		sec_transfer.GetJobManager().RemoveJob(jobID)
+		sec_transfer.GetTaskManager().RemoveTask(taskID)
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"job_id": jobID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskID, "status": "started"})
 }
 
 // ExportFileAsync_FFI exports an encrypted file to a plaintext file asynchronously.
 func ExportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
 
 	// Create job
-	jobID := sec_transfer.GetJobManager().CreateJob(sec_transfer.TransferTypeExport)
+	taskID := sec_transfer.GetTaskManager().CreateTask(sec_transfer.TransferTypeExport)
 
 	// Create wrapper callback to update job progress
 	callback := func(status sec_transfer.ProgressStatus) {
-		sec_transfer.GetJobManager().UpdateJob(jobID, status)
+		sec_transfer.GetTaskManager().UpdateTask(taskID, status)
 	}
 
 	svc := sec_transfer.DefaultTransferService
-	err := svc.ExportFileAsync(root, srcPath, destPath, nil, callback)
+	err := svc.ExportFileAsync(root, sec_fs.RelativeViewPath(srcPath), sec_transfer.ExternalPath(destPath), nil, callback)
 	if err != nil {
-		sec_transfer.GetJobManager().RemoveJob(jobID)
+		sec_transfer.GetTaskManager().RemoveTask(taskID)
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"job_id": jobID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskID, "status": "started"})
 }
 
 // ImportFileAsync_FFI imports a plaintext file into an encrypted file asynchronously.
 func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	root, ok := ffi_stores.RootStore.Get(rootID)
+	root, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
 
 	// Create job
-	jobID := sec_transfer.GetJobManager().CreateJob(sec_transfer.TransferTypeImport)
+	taskID := sec_transfer.GetTaskManager().CreateTask(sec_transfer.TransferTypeImport)
 
 	// Create wrapper callback to update job progress
 	callback := func(status sec_transfer.ProgressStatus) {
-		sec_transfer.GetJobManager().UpdateJob(jobID, status)
+		sec_transfer.GetTaskManager().UpdateTask(taskID, status)
 	}
 
 	svc := sec_transfer.DefaultTransferService
-	err := svc.ImportFileAsync(root, srcPath, destPath, nil, callback)
+	err := svc.ImportFileAsync(root, sec_transfer.ExternalPath(srcPath), sec_fs.RelativeViewPath(destPath), nil, callback)
 	if err != nil {
-		sec_transfer.GetJobManager().RemoveJob(jobID)
+		sec_transfer.GetTaskManager().RemoveTask(taskID)
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"job_id": jobID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskID, "status": "started"})
 }
 
 // GetTransferProgress_FFI gets the progress of a transfer job.
-func GetTransferProgress_FFI(jobID string) string {
-	job, ok := sec_transfer.GetJobManager().GetJob(jobID)
-	if !ok {
-		return errorResponseStr("job not found")
+func GetTransferProgress_FFI(taskID string) string {
+	job, err := sec_transfer.DefaultTransferService.GetTaskProgress(taskID)
+	if err != nil {
+		return errorResponse(err)
 	}
 
 	return successResponse(job)
 }
 
 // CancelTransfer_FFI cancels a transfer job.
-func CancelTransfer_FFI(jobID string) string {
-	// TODO: Implement cancellation in TransferService
-	return errorResponseStr("cancellation not yet implemented")
+func CancelTransfer_FFI(taskID string) string {
+	err := sec_transfer.DefaultTransferService.CancelTask(taskID)
+	if err != nil {
+		return errorResponse(err)
+	}
+	return successResponse(map[string]string{"status": "cancelled"})
 }
 
 // ==================== Async Directory Transfer Operations (from ffi_sec_transfer) ====================
@@ -575,7 +578,7 @@ type TransferResult struct {
 
 // getRoot retrieves an ISecRoot instance by its ID from ffi_stores.
 func getRoot(rootID int64) (sec_fs.ISecRoot, bool) {
-	return ffi_stores.RootStore.Get(rootID)
+	return RootStore.Get(rootID)
 }
 
 // ExportDirectoryAsync_FFI exports an encrypted directory to a plaintext directory asynchronously.

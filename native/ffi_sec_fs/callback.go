@@ -51,7 +51,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"safe_disk/native/sec_transfer"
+	"safe_disk/native/sec_fs/sec_transfer"
 )
 
 // ==================== Callback Registry ====================

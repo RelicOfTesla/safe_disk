@@ -107,8 +107,8 @@ extern char* sec_export_directory_async(int64_t rootID, char* srcPath, char* des
 extern char* sec_import_directory_async(int64_t rootID, char* srcPath, char* destPath);
 extern char* sec_export_file_async(int64_t rootID, char* srcPath, char* destPath);
 extern char* sec_import_file_async(int64_t rootID, char* srcPath, char* destPath);
-extern char* sec_get_transfer_progress(char* jobID);
-extern char* sec_cancel_transfer(char* jobID);
+extern char* action_task_get_progress(char* taskID);
+extern char* action_task_close(char* taskID);
 
 #ifdef __cplusplus
 }

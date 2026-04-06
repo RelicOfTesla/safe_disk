@@ -19,6 +19,50 @@
 
 ## 🔴 P0 - 紧急任务
 
+### ActionTask 任务管理接口
+
+**背景**：ExportDirectoryAsync/ImportDirectoryAsync 需要返回任务管理对象，支持暂停、继续、回滚等操作。
+
+**接口设计**：
+```go
+type ActionTask interface {
+    GetProgress() *TaskProgress
+    AsyncPause() error
+    AsyncContinue() error
+    AsyncRollback() error  // 仅能回滚导入/导出一回
+    Close() error
+}
+```
+
+**FFI 导出函数**：
+```c
+// 任务进度查询
+char* action_task_get_progress(const char* action_task_id);
+
+// 任务控制
+char* action_task_async_pause(const char* action_task_id);
+char* action_task_async_continue(const char* action_task_id);
+char* action_task_async_rollback(const char* action_task_id);
+
+// 任务关闭
+char* action_task_close(const char* action_task_id);
+```
+
+**实现要点**：
+- ActionTask 内部维护任务状态（pending/running/paused/complete/failed/rolled_back）
+- AsyncRollback 记录已完成的操作，按逆序撤销
+- 导入回滚：删除已导入的文件
+- 导出回滚：删除已导出的文件
+- FFI 返回 JSON 格式的结果
+
+**验收标准**：
+- [ ] ActionTask 接口定义
+- [ ] TransferService 返回 ActionTask 对象
+- [ ] FFI 导出函数实现
+- [ ] Dart 端测试通过
+
+---
+
 ### 新增问题（2026-04-03）
 
 - [ ] **[BUG] UI 新创建的加密目录，侧边栏与解密栏标题为一段 json 字符串**（优先级 1）
@@ -355,6 +399,40 @@
 ## ✅ 已完成任务
 
 > 以下任务已完成，保留作为历史记录
+
+### 2026-04-06
+
+- [x] **架构重构：统一配置传递** ✅ 2026-04-06
+  - **目标**：统一配置传递方式，避免硬编码和重复配置
+  - **实现**：
+    - `name.NewContext(..., config.WithPrefix("name"))`
+    - `data.NewContext(..., config.WithPrefix("data"))`
+    - `IKeyDeriver.LoadKey(..., config.WithPrefix("key"))`
+    - 内部 factory 选择：`{algorithmName}Impl.NewContext(..., config.WithPrefix("{algorithmName}"))`
+  - **修改文件**：crypto_name/interface.go, crypto_data/interface.go, crypto_key/interface.go
+  - **Commit**: 27b2051
+
+- [x] **架构重构：路径类型安全强制** ✅ 2026-04-06
+  - **目标**：TransferService 内禁止 `path string`，遵从四种路径类型强制要求
+  - **实现**：
+    - 定义 `ExternalPath` 类型（外部文件系统路径）
+    - Export 方法：`srcPath RelativeViewPath`, `destPath ExternalPath`
+    - Import 方法：`srcPath ExternalPath`, `destPath RelativeViewPath`
+  - **修改文件**：sec_transfer/define.go, sec_transfer/transfer.go, ffi_sec_fs/ffi.go
+  - **Commit**: 117da20
+
+- [x] **架构重构：修复过度设计** ✅ 2026-04-06
+  - **问题**：ffi_comm 和 ffi_stores 是不必要的间接层
+  - **解决**：合并 ffi_comm 和 ffi_stores 到 ffi_sec_fs
+  - **删除**：ffi_comm/, ffi_stores/ 目录
+  - **新增**：ffi_sec_fs/response.go, ffi_sec_fs/idstore.go, ffi_sec_fs/stores.go
+  - **Commit**: b452578
+
+- [x] **架构重构：移动 sec_transfer 到 sec_fs** ✅ 2026-04-06
+  - **目标**：简化模块结构，sec_transfer 是 sec_fs 的一部分
+  - **实现**：移动 `native/sec_transfer` → `native/sec_fs/sec_transfer`
+  - **更新导入**：`safe_disk/native/sec_transfer` → `safe_disk/native/sec_fs/sec_transfer`
+  - **Commit**: aee3f8d
 
 ### 2026-04-03
 
