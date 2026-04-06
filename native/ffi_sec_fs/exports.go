@@ -163,3 +163,19 @@ func sec_import_file_async(rootID C.int64_t, srcPath *C.char, destPath *C.char) 
 	result := ImportFileAsync_FFI(int64(rootID), goSrcPath, goDestPath)
 	return C.CString(result)
 }
+
+// ==================== Transfer Progress Query ====================
+
+//export sec_get_transfer_progress
+func sec_get_transfer_progress(jobID *C.char) *C.char {
+	goJobID := C.GoString(jobID)
+	result := GetTransferProgress_FFI(goJobID)
+	return C.CString(result)
+}
+
+//export sec_cancel_transfer
+func sec_cancel_transfer(jobID *C.char) *C.char {
+	goJobID := C.GoString(jobID)
+	result := CancelTransfer_FFI(goJobID)
+	return C.CString(result)
+}

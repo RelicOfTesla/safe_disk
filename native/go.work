@@ -5,6 +5,7 @@ use (
 	./sec_fs
 	./sec_transfer
 	./ffi_comm
+	./ffi_stores
 	./ffi_sec_fs
 	./cli
 )

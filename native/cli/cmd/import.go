@@ -63,10 +63,10 @@ var importCmd = &cobra.Command{
 		var result *sec_transfer.TransferResult
 		if importRecursive {
 			fmt.Printf("Importing directory: %s -> %s\n", importSrcPath, importDestPath)
-			result, err = transferService.ImportDirectory(root, importSrcPath, importDestPath)
+			result, err = transferService.ImportDirectory(root, importSrcPath, importDestPath, nil)
 		} else {
 			fmt.Printf("Importing file: %s -> %s\n", importSrcPath, importDestPath)
-			result, err = transferService.ImportFile(root, importSrcPath, importDestPath)
+			result, err = transferService.ImportFile(root, importSrcPath, importDestPath, nil)
 		}
 
 		if err != nil {
