@@ -2,12 +2,22 @@
 // This file contains global stores for root and file instances.
 package main
 
-import "safe_disk/native/sec_fs"
+import (
+	"safe_disk/native/config"
+	"safe_disk/native/sec_fs"
+)
+
+// RootEntry stores both the root and its path.
+type RootEntry struct {
+	Root     sec_fs.ISecRoot
+	RootPath string
+	Cfg      config.SharedConfig
+}
 
 // Global stores for root and file instances.
 var (
-	// RootStore manages ISecRoot instances with int64 IDs.
-	RootStore = NewIDStore[sec_fs.ISecRoot]()
+	// RootStore manages RootEntry instances with int64 IDs.
+	RootStore = NewIDStore[RootEntry]()
 
 	// FileStore manages ISecFile instances with int64 IDs.
 	FileStore = NewIDStore[sec_fs.ISecFile]()

@@ -93,10 +93,10 @@ var exportCmd = &cobra.Command{
 		var taskID string
 		if exportRecursive {
 			fmt.Printf("Exporting directory: %s -> %s\n", exportSrcPath, exportDestPath)
-			taskID, err = transferService.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(exportSrcPath), sec_transfer.ExternalPath(exportDestPath), nil, callback)
+			taskID, err = transferService.ExportDirectoryAsync(root, nil, sec_fs.RelativeViewPath(exportSrcPath), exportDestPath, nil, callback)
 		} else {
 			fmt.Printf("Exporting file: %s -> %s\n", exportSrcPath, exportDestPath)
-			taskID, err = transferService.ExportFileAsync(root, sec_fs.RelativeViewPath(exportSrcPath), sec_transfer.ExternalPath(exportDestPath), nil, callback)
+			taskID, err = transferService.ExportFileAsync(root, nil, sec_fs.RelativeViewPath(exportSrcPath), exportDestPath, nil, callback)
 		}
 
 		if err != nil {

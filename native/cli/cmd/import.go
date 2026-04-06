@@ -93,10 +93,10 @@ var importCmd = &cobra.Command{
 		var taskID string
 		if importRecursive {
 			fmt.Printf("Importing directory: %s -> %s\n", importSrcPath, importDestPath)
-			taskID, err = transferService.ImportDirectoryAsync(root, sec_transfer.ExternalPath(importSrcPath), sec_fs.RelativeViewPath(importDestPath), nil, callback)
+			taskID, err = transferService.ImportDirectoryAsync(root, nil, importSrcPath, sec_fs.RelativeViewPath(importDestPath), nil, callback)
 		} else {
 			fmt.Printf("Importing file: %s -> %s\n", importSrcPath, importDestPath)
-			taskID, err = transferService.ImportFileAsync(root, sec_transfer.ExternalPath(importSrcPath), sec_fs.RelativeViewPath(importDestPath), nil, callback)
+			taskID, err = transferService.ImportFileAsync(root, nil, importSrcPath, sec_fs.RelativeViewPath(importDestPath), nil, callback)
 		}
 
 		if err != nil {

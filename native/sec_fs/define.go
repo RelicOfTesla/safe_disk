@@ -3,6 +3,7 @@
 package sec_fs
 
 import (
+	"safe_disk/native/config"
 	"io"
 	"io/fs"
 	"os"
@@ -64,6 +65,12 @@ type ISecRoot interface {
 
 	// WalkDir returns a directory walker for the given path.
 	WalkDir(path RelativeViewPath, opts ...WalkOption) (IDirWalker, error)
+
+	// GetRootPath returns the full store path of the root directory.
+	GetRootPath() FullStorePath
+
+	// GetConfig returns the current configuration.
+	GetConfig() config.SharedConfig
 }
 
 // IDirWalker defines the interface for iterating over directory entries.
@@ -82,19 +89,6 @@ type IDirWalker interface {
 	Close() error
 }
 
-// ISecRootInfo provides information about a secure root.
-type ISecRootInfo interface {
-	// GetRootPath returns the full store path of the root directory.
-	GetRootPath() FullStorePath
-
-	// GetConfig returns the current configuration as JSON.
-	GetConfig() string
-
-	// IsOpen returns true if the root is currently open.
-	IsOpen() bool
-}
-
-// ==================== Helper Types ====================
 
 // DirEntry represents a directory entry (file or subdirectory).
 type DirEntry struct {

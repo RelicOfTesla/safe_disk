@@ -176,6 +176,6 @@ func action_task_get_progress(taskID *C.char) *C.char {
 //export action_task_close
 func action_task_close(taskID *C.char) *C.char {
 	goJobID := C.GoString(taskID)
-	result := CancelTransfer_FFI(goJobID)
+	result := RollbackTransfer_FFI(goJobID)
 	return C.CString(result)
 }
