@@ -465,12 +465,12 @@ func ExportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 
 	// Start export - task is created internally by TransferService
 	svc := sec_transfer.NewTransferService()
-	taskID, err := svc.ExportDirectoryAsync(root, entry.Cfg, sec_fs.RelativeViewPath(srcPath), string(destPath), nil, nil)
+	taskInfo, err := svc.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(srcPath), sec_transfer.FullStorePath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"task_id": taskID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskInfo.TaskID, "status": "started"})
 }
 
 // ImportDirectoryAsync_FFI imports a plaintext directory into an encrypted directory asynchronously.
@@ -483,12 +483,12 @@ func ImportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 
 	// Start import - task is created internally by TransferService
 	svc := sec_transfer.NewTransferService()
-	taskID, err := svc.ImportDirectoryAsync(root, entry.Cfg, string(srcPath), sec_fs.RelativeViewPath(destPath), nil, nil)
+	taskInfo, err := svc.ImportDirectoryAsync(sec_transfer.FullStorePath(srcPath), root, sec_fs.RelativeViewPath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"task_id": taskID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskInfo.TaskID, "status": "started"})
 }
 
 // ExportFileAsync_FFI exports an encrypted file to a plaintext file asynchronously.
@@ -501,12 +501,12 @@ func ExportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 
 	// Start export - task is created internally by TransferService
 	svc := sec_transfer.NewTransferService()
-	taskID, err := svc.ExportFileAsync(root, entry.Cfg, sec_fs.RelativeViewPath(srcPath), string(destPath), nil, nil)
+	taskInfo, err := svc.ExportFileAsync(root, sec_fs.RelativeViewPath(srcPath), sec_transfer.FullStorePath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"task_id": taskID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskInfo.TaskID, "status": "started"})
 }
 
 // ImportFileAsync_FFI imports a plaintext file into an encrypted file asynchronously.
@@ -519,12 +519,12 @@ func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 
 	// Start import - task is created internally by TransferService
 	svc := sec_transfer.NewTransferService()
-	taskID, err := svc.ImportFileAsync(root, entry.Cfg, string(srcPath), sec_fs.RelativeViewPath(destPath), nil, nil)
+	taskInfo, err := svc.ImportFileAsync(sec_transfer.FullStorePath(srcPath), root, sec_fs.RelativeViewPath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"task_id": taskID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskInfo.TaskID, "status": "started"})
 }
 
 // GetTransferProgress_FFI gets the progress of a transfer job.

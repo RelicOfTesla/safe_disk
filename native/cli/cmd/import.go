@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"safe_disk/native/sec_fs/sec_transfer"
 	"fmt"
 	"os"
 	"sync"
 
 	"safe_disk/native/sec_fs"
-	"safe_disk/native/sec_fs/sec_transfer"
 
 	"github.com/spf13/cobra"
 )
@@ -90,13 +90,13 @@ var importCmd = &cobra.Command{
 		}
 
 		// Perform import
-		var taskID string
+		var taskInfo *sec_transfer.ActionTaskInfo
 		if importRecursive {
-			fmt.Printf("Importing directory: %s -> %s\n", importSrcPath, importDestPath)
-			taskID, err = transferService.ImportDirectoryAsync(root, nil, importSrcPath, sec_fs.RelativeViewPath(importDestPath), nil, callback)
+			fmt.Printf("Importing directory: %s -> %s\n", sec_transfer.FullStorePath(importSrcPath), importDestPath)
+			taskInfo, err = transferService.ImportDirectoryAsync(sec_transfer.FullStorePath(importSrcPath), root, sec_fs.RelativeViewPath(importDestPath), nil, callback)
 		} else {
-			fmt.Printf("Importing file: %s -> %s\n", importSrcPath, importDestPath)
-			taskID, err = transferService.ImportFileAsync(root, nil, importSrcPath, sec_fs.RelativeViewPath(importDestPath), nil, callback)
+			fmt.Printf("Importing file: %s -> %s\n", sec_transfer.FullStorePath(importSrcPath), importDestPath)
+			taskInfo, err = transferService.ImportFileAsync(sec_transfer.FullStorePath(importSrcPath), root, sec_fs.RelativeViewPath(importDestPath), nil, callback)
 		}
 
 		if err != nil {
@@ -104,7 +104,7 @@ var importCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("Task started: %s\n", taskID)
+		fmt.Printf("Task started: %s\n", taskInfo.TaskID)
 
 		// Wait for completion
 		wg.Wait()

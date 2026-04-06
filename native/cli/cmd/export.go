@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"safe_disk/native/sec_fs/sec_transfer"
 	"fmt"
 	"os"
 	"sync"
 
 	"safe_disk/native/sec_fs"
-	"safe_disk/native/sec_fs/sec_transfer"
 
 	"github.com/spf13/cobra"
 )
@@ -90,13 +90,13 @@ var exportCmd = &cobra.Command{
 		}
 
 		// Perform export
-		var taskID string
+		var taskInfo *sec_transfer.ActionTaskInfo
 		if exportRecursive {
 			fmt.Printf("Exporting directory: %s -> %s\n", exportSrcPath, exportDestPath)
-			taskID, err = transferService.ExportDirectoryAsync(root, nil, sec_fs.RelativeViewPath(exportSrcPath), exportDestPath, nil, callback)
+			taskInfo, err = transferService.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(exportSrcPath), sec_transfer.FullStorePath(exportDestPath), nil, callback)
 		} else {
 			fmt.Printf("Exporting file: %s -> %s\n", exportSrcPath, exportDestPath)
-			taskID, err = transferService.ExportFileAsync(root, nil, sec_fs.RelativeViewPath(exportSrcPath), exportDestPath, nil, callback)
+			taskInfo, err = transferService.ExportFileAsync(root, sec_fs.RelativeViewPath(exportSrcPath), sec_transfer.FullStorePath(exportDestPath), nil, callback)
 		}
 
 		if err != nil {
@@ -104,7 +104,7 @@ var exportCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Printf("Task started: %s\n", taskID)
+		fmt.Printf("Task started: %s\n", taskInfo.TaskID)
 
 		// Wait for completion
 		wg.Wait()
