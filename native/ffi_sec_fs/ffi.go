@@ -454,18 +454,10 @@ func ExportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 		return errorResponseStr("root not found")
 	}
 
-	// Create job
-	taskID := sec_transfer.GetTaskManager().CreateTask(sec_transfer.TransferTypeExport)
-
-	// Create wrapper callback to update job progress
-	callback := func(status sec_transfer.ProgressStatus) {
-		sec_transfer.GetTaskManager().UpdateTask(taskID, status)
-	}
-
+	// Start export - task is created internally by TransferService
 	svc := sec_transfer.DefaultTransferService
-	err := svc.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(srcPath), sec_transfer.ExternalPath(destPath), nil, callback)
+	taskID, err := svc.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(srcPath), sec_transfer.ExternalPath(destPath), nil, nil)
 	if err != nil {
-		sec_transfer.GetTaskManager().RemoveTask(taskID)
 		return errorResponse(err)
 	}
 
@@ -479,18 +471,10 @@ func ImportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 		return errorResponseStr("root not found")
 	}
 
-	// Create job
-	taskID := sec_transfer.GetTaskManager().CreateTask(sec_transfer.TransferTypeImport)
-
-	// Create wrapper callback to update job progress
-	callback := func(status sec_transfer.ProgressStatus) {
-		sec_transfer.GetTaskManager().UpdateTask(taskID, status)
-	}
-
+	// Start import - task is created internally by TransferService
 	svc := sec_transfer.DefaultTransferService
-	err := svc.ImportDirectoryAsync(root, sec_transfer.ExternalPath(srcPath), sec_fs.RelativeViewPath(destPath), nil, callback)
+	taskID, err := svc.ImportDirectoryAsync(root, sec_transfer.ExternalPath(srcPath), sec_fs.RelativeViewPath(destPath), nil, nil)
 	if err != nil {
-		sec_transfer.GetTaskManager().RemoveTask(taskID)
 		return errorResponse(err)
 	}
 
@@ -504,18 +488,10 @@ func ExportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 		return errorResponseStr("root not found")
 	}
 
-	// Create job
-	taskID := sec_transfer.GetTaskManager().CreateTask(sec_transfer.TransferTypeExport)
-
-	// Create wrapper callback to update job progress
-	callback := func(status sec_transfer.ProgressStatus) {
-		sec_transfer.GetTaskManager().UpdateTask(taskID, status)
-	}
-
+	// Start export - task is created internally by TransferService
 	svc := sec_transfer.DefaultTransferService
-	err := svc.ExportFileAsync(root, sec_fs.RelativeViewPath(srcPath), sec_transfer.ExternalPath(destPath), nil, callback)
+	taskID, err := svc.ExportFileAsync(root, sec_fs.RelativeViewPath(srcPath), sec_transfer.ExternalPath(destPath), nil, nil)
 	if err != nil {
-		sec_transfer.GetTaskManager().RemoveTask(taskID)
 		return errorResponse(err)
 	}
 
@@ -529,18 +505,10 @@ func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 		return errorResponseStr("root not found")
 	}
 
-	// Create job
-	taskID := sec_transfer.GetTaskManager().CreateTask(sec_transfer.TransferTypeImport)
-
-	// Create wrapper callback to update job progress
-	callback := func(status sec_transfer.ProgressStatus) {
-		sec_transfer.GetTaskManager().UpdateTask(taskID, status)
-	}
-
+	// Start import - task is created internally by TransferService
 	svc := sec_transfer.DefaultTransferService
-	err := svc.ImportFileAsync(root, sec_transfer.ExternalPath(srcPath), sec_fs.RelativeViewPath(destPath), nil, callback)
+	taskID, err := svc.ImportFileAsync(root, sec_transfer.ExternalPath(srcPath), sec_fs.RelativeViewPath(destPath), nil, nil)
 	if err != nil {
-		sec_transfer.GetTaskManager().RemoveTask(taskID)
 		return errorResponse(err)
 	}
 
@@ -567,14 +535,6 @@ func CancelTransfer_FFI(taskID string) string {
 }
 
 // ==================== Async Directory Transfer Operations (from ffi_sec_transfer) ====================
-
-// TransferResult represents the result of a transfer FFI operation.
-type TransferResult struct {
-	Success      bool   `json:"success"`
-	FilesCount   int    `json:"files_count"`
-	TotalBytes   int64  `json:"total_bytes"`
-	ErrorMessage string `json:"error_message,omitempty"`
-}
 
 // getRoot retrieves an ISecRoot instance by its ID from ffi_stores.
 func getRoot(rootID int64) (sec_fs.ISecRoot, bool) {

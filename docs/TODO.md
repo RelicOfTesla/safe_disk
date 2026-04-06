@@ -19,116 +19,47 @@
 
 ## 🔴 P0 - 紧急任务
 
-### ActionTask 任务管理接口
+### [BUG] UI 新创建的加密目录，侧边栏与解密栏标题为一段 json 字符串
 
-**背景**：ExportDirectoryAsync/ImportDirectoryAsync 需要返回任务管理对象，支持暂停、继续、回滚等操作。
+**优先级**：1（最高）
 
-**接口设计**：
-```go
-type ActionTask interface {
-    GetProgress() *TaskProgress
-    AsyncPause() error
-    AsyncContinue() error
-    AsyncRollback() error  // 仅能回滚导入/导出一回
-    Close() error
-}
-```
+**问题**：创建加密目录后，侧边栏和解密栏显示的不是目录名，而是一段 JSON 字符串
 
-**FFI 导出函数**：
-```c
-// 任务进度查询
-char* action_task_get_progress(const char* action_task_id);
-
-// 任务控制
-char* action_task_async_pause(const char* action_task_id);
-char* action_task_async_continue(const char* action_task_id);
-char* action_task_async_rollback(const char* action_task_id);
-
-// 任务关闭
-char* action_task_close(const char* action_task_id);
-```
-
-**实现要点**：
-- ActionTask 内部维护任务状态（pending/running/paused/complete/failed/rolled_back）
-- AsyncRollback 记录已完成的操作，按逆序撤销
-- 导入回滚：删除已导入的文件
-- 导出回滚：删除已导出的文件
-- FFI 返回 JSON 格式的结果
+**影响**：严重影响用户体验
 
 **验收标准**：
-- [ ] ActionTask 接口定义
-- [ ] TransferService 返回 ActionTask 对象
-- [ ] FFI 导出函数实现
-- [ ] Dart 端测试通过
+- [ ] 侧边栏显示正确的目录名
+- [ ] 解密栏显示正确的目录名
 
 ---
 
-### 新增问题（2026-04-03）
+## 🟡 P1 - 高优先级任务
 
-- [ ] **[BUG] UI 新创建的加密目录，侧边栏与解密栏标题为一段 json 字符串**（优先级 1）
-  - 问题：创建加密目录后，侧边栏和解密栏显示的不是目录名，而是一段 JSON 字符串
-  - 影响：严重影响用户体验
+**优先级**：2
 
-- [x] **[BUG] UI 新创建的加密目录，输入正确密码却提示密码错误**（优先级 2） ✅ 2026-04-03
-  - **问题**：刚创建的加密目录，输入正确的密码却提示密码错误
-  - **原因**：FFI 响应解析逻辑不正确，Flutter 层无法正确解析 Go 层返回的 JSON
-  - **修复**：修改 `lib/services/crypto_service.dart` 中的 FFI 响应解析逻辑
-  - **测试**：新增 `test/services/ffi_response_parsing_test.dart` 单元测试
-  - **Commit**: 793c8f8
+**背景**：TransferService 需要支持断电恢复、幂等性、数据安全
 
-- [x] **新增系统自动化流程测试**（优先级 3） ✅ 2026-04-03
-  - 创建临时测试目录：`/home/john/Desktop/dev/safe_test/tmp_xxx`
-  - 新建 `/tmp_xxx/hello1.txt` 文件，内容为 hello
-  - UI 模拟调用创建加密目录
-  - UI 模拟打开解密目录
-  - UI 模拟安全记事本打开 hello1.txt，判断内容是否正确
-  - UI 模拟修改内容
-  - UI 模拟保存
-  - UI 再打开确认内容正确
-  - 使用 CLI export 指令解密该文件，判断内容是否正确
-  - 删除测试目录 tmp_xxx
-  - **新增文件**：test/system_test/system_flow_test.sh, system_flow_test.dart, ui_simulation_test.dart
-  - **Commit**: 1065cb0
+**核心设计**（详见 V2 文档）：
+- 进度持久化：`_progress_files.json`
+- 原子化文件替换：`rename -> rename -> update progress -> remove temp`
+- 断电恢复：启动时检查进度文件，清理临时文件
 
-### 安全问题
+**流程**（Import/Export 统一）：
+```
+Step 1: 扫描所有文件，保存 -> _progress_files.json
+Step 2: 加密/解密文件
+Step 3: 安全替换（原子操作）：rename(a.txt -> a.txt.raw), rename(a.txt.enc -> a.txt)
+Step 4: 保存进度（更新 _progress_files.json）← 先更新进度
+Step 5: 清理临时文件：remove(a.txt.raw) ← 后删除临时文件
+Step 6: 返回 Step 2 处理下一个文件
+```
 
-- [x] **内存清零可能不彻底**（优先级 1，实施成本：中） ✅ 2026-04-03
-  - 已创建 `native/crypto/memzero.go` 工具函数
-  - Go 层：`aes_gcm.go`, `key_derive.go`, `temp_key_manager.go`, `encryption_service.go` 已添加清零
-  - FFI 层：`main.go` 已添加清零
-  - Flutter 层：`file_service.dart` 已添加清零
-  - 所有测试通过，功能正常
+**验收标准**：
+- [ ] ImportDirectoryAsync 实现原子化流程
+- [ ] ExportDirectoryAsync 实现原子化流程
+- [ ] 断电恢复测试通过
+- [ ] 幂等性测试通过
 
-- [x] **大文件（>100 MB）解密可能占用大量内存**（优先级 2，实施成本：高） ✅ 2026-04-03
-  - 已实现分块加密/解密功能
-  - 新增 `native/crypto/stream.go` - 流式加密/解密模块
-  - 新增 FFI 接口：`DecryptFileToPath`, `EncryptFileChunked`, `IsChunkedFile`, `GetEncryptedFileInfo`
-  - 新增 Flutter 绑定和 API
-  - 文件格式：`[Header(20)] + [Chunks: IV(12) + Size(4) + Ciphertext + Tag(16)]`
-  - 内存占用有界，不随文件大小增长
-  - 基准测试：10 MB 文件加密/解密正常
-  - 注意：新加密的文件使用分块格式，旧文件仍使用标准 AES-GCM
-
-- [x] **超大目录（>1000 文件）加载可能缓慢**（优先级 3，实施成本：中） ✅ 2026-04-03
-  - 已实现后台遍历：使用 `Isolate.run()` 在后台线程遍历目录
-  - 已实现分页加载：添加 `offset` 和 `limit` 参数支持分页
-  - 已实现 UI 分页：树形视图支持分页加载，添加"Load more"按钮
-  - 修改文件：`lib/services/file_service.dart`, `lib/widgets/directory_tree.dart`
-  - 创建测试脚本：`scripts/test_large_directory.py`
-  - Flutter 应用编译成功
-  - 注意：列表/网格视图仍一次性加载所有文件，建议超大目录使用树形视图
-  
-- [x] **输入正确密码后无提醒（有日志）** ✅ 2026-04-03
-  - **问题**：输入正确密码后无提醒，但日志中有错误 `No temporary key ID returned`
-  - **原因**：Go 层 `MakeTemporaryKeyID` 返回的 JSON 格式不正确
-    - Go 层返回：`{"success":true,"data":{"tempKeyID":"xxx"}}`
-    - Flutter 期望：`{"success":true,"tempKeyID":"xxx"}`
-  - **修复**：修改 `native/main.go` 中的 `MakeTemporaryKeyID` 函数，返回扁平化的 JSON
-  - **测试**：
-    - 单元测试通过：验证 JSON 格式正确
-    - 测试 vault 创建成功：`/tmp/test_vault_fix`，密码：`test123`
-    - Flutter 应用编译成功，运行正常
-  - **修改文件**：`native/main.go`
 ---
 
 ## 🟡 P1 - 高优先级任务

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"safe_disk/native/sec_fs"
 	"safe_disk/native/sec_fs/sec_transfer"
@@ -11,11 +12,11 @@ import (
 )
 
 var (
-	exportRootPath   string
-	exportPassword   string
-	exportSrcPath    string
-	exportDestPath   string
-	exportRecursive  bool
+	exportRootPath  string
+	exportPassword  string
+	exportSrcPath   string
+	exportDestPath  string
+	exportRecursive bool
 )
 
 var exportCmd = &cobra.Command{
@@ -59,29 +60,64 @@ var exportCmd = &cobra.Command{
 		// Create transfer service
 		transferService := sec_transfer.NewTransferService()
 
+		// Wait for completion using channel
+		var wg sync.WaitGroup
+		wg.Add(1)
+
+		var lastStatus sec_transfer.ProgressStatus
+		var exportErr error
+
+		callback := func(status sec_transfer.ProgressStatus) {
+			lastStatus = status
+
+			// Print progress
+			if status.CurrentFile != "" {
+				fmt.Printf("\rExporting: %s (%d/%d files, %d/%d bytes)",
+					status.CurrentFile,
+					status.FilesCompleted,
+					status.FilesTotal,
+					status.BytesCompleted,
+					status.BytesTotal)
+			}
+
+			// Check if complete
+			if status.IsComplete {
+				if status.Error != nil {
+					exportErr = status.Error
+				}
+				wg.Done()
+			}
+		}
+
 		// Perform export
-		var result *sec_transfer.TransferResult
+		var taskID string
 		if exportRecursive {
 			fmt.Printf("Exporting directory: %s -> %s\n", exportSrcPath, exportDestPath)
-			result, err = transferService.ExportDirectory(root, exportSrcPath, exportDestPath, nil)
+			taskID, err = transferService.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(exportSrcPath), sec_transfer.ExternalPath(exportDestPath), nil, callback)
 		} else {
 			fmt.Printf("Exporting file: %s -> %s\n", exportSrcPath, exportDestPath)
-			result, err = transferService.ExportFile(root, exportSrcPath, exportDestPath, nil)
+			taskID, err = transferService.ExportFileAsync(root, sec_fs.RelativeViewPath(exportSrcPath), sec_transfer.ExternalPath(exportDestPath), nil, callback)
 		}
 
 		if err != nil {
-			fmt.Printf("Error: export failed: %v\n", err)
+			fmt.Printf("\nError: failed to start export: %v\n", err)
 			os.Exit(1)
 		}
 
-		if !result.Success {
-			fmt.Printf("Error: export failed: %s\n", result.ErrorMessage)
+		fmt.Printf("Task started: %s\n", taskID)
+
+		// Wait for completion
+		wg.Wait()
+
+		// Check result
+		if exportErr != nil {
+			fmt.Printf("\nError: export failed: %v\n", exportErr)
 			os.Exit(1)
 		}
 
-		fmt.Println("Export successful!")
-		fmt.Printf("Files exported: %d\n", result.FilesCount)
-		fmt.Printf("Total bytes: %d\n", result.TotalBytes)
+		fmt.Println("\nExport successful!")
+		fmt.Printf("Files exported: %d\n", lastStatus.FilesCompleted)
+		fmt.Printf("Total bytes: %d\n", lastStatus.BytesCompleted)
 	},
 }
 

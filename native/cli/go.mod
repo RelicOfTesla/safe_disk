@@ -5,7 +5,6 @@ go 1.21
 require (
 	github.com/spf13/cobra v1.8.0
 	safe_disk/native/sec_fs v0.0.0
-	safe_disk/native/sec_transfer v0.0.0
 )
 
 require (
@@ -15,5 +14,4 @@ require (
 
 replace (
 	safe_disk/native/sec_fs => ../sec_fs
-	safe_disk/native/sec_transfer => ../sec_transfer
 )
