@@ -35,28 +35,32 @@ func newMockReadWriterSeeker() *mockReadWriterSeeker {
 
 func (m *mockReadWriterSeeker) Read(p []byte) (n int, err error) {
 	if m.pos >= len(m.data) {
-		return 0, nil
+		return 0, io.EOF
 	}
 	n = copy(p, m.data[m.pos:])
 	m.pos += n
+	// Return EOF if we've read to the end of the file (consistent with os.File)
+	if m.pos >= len(m.data) {
+		return n, io.EOF
+	}
 	return n, nil
 }
 
 func (m *mockReadWriterSeeker) Write(p []byte) (n int, err error) {
 	// Calculate the end position after writing
 	endPos := m.pos + len(p)
-	
+
 	// Extend data if necessary
 	if endPos > len(m.data) {
 		newData := make([]byte, endPos)
 		copy(newData, m.data)
 		m.data = newData
 	}
-	
+
 	// Write data at current position
 	copy(m.data[m.pos:], p)
 	m.pos = endPos
-	
+
 	return len(p), nil
 }
 
@@ -136,12 +140,12 @@ func (m *mockReadWriterSeeker) Sync() error {
 
 // IOStats tracks I/O operation statistics.
 type IOStats struct {
-	ReadBytes   int64
-	ReadCalls   int
-	WriteBytes  int64
-	WriteCalls  int
-	SeekCalls   int
-	TruncCalls  int
+	ReadBytes  int64
+	ReadCalls  int
+	WriteBytes int64
+	WriteCalls int
+	SeekCalls  int
+	TruncCalls int
 }
 
 // Amplification returns the I/O amplification ratios compared to another IOStats.
@@ -269,8 +273,6 @@ func (t *trackerMockReadWriter) GetStats() IOStats {
 	return t.stats
 }
 
-
-
 // Read tracks read operations.
 func (t *trackerMockReadWriter) Read(p []byte) (n int, err error) {
 	n, err = t.mockReadWriterSeeker.Read(p)
@@ -359,6 +361,61 @@ func reportAndReset(t *testing.T, tw *trackerContext, storeIo *trackerMockReadWr
 	storeIo.ResetTracker()
 }
 
+// verifyAndReport is a combination of report + verifyIntegrity + report + diff_find.
+// This function reduces code duplication by encapsulating the common pattern:
+// 1. Report I/O stats before verification
+// 2. Verify integrity (compare decrypted data with plaintext mirror)
+// 3. Report I/O stats after verification
+// 4. Find and report first diff if mismatch
+// Returns true if integrity check passes, false otherwise.
+// If successMsg is not empty, logs success message when integrity passes.
+func verifyAndReport(t *testing.T, tw *trackerContext, storeIo *trackerMockReadWriter, dw *dualWriter, prefix string, successMsg string) bool {
+	// Report and reset before verifyIntegrity
+	reportAndReset(t, tw, storeIo, prefix+" - BeforeVerify")
+
+	// Verify integrity
+	match, decrypted, expected, err := dw.verifyIntegrity()
+	if err != nil {
+		t.Errorf("%s: verifyIntegrity failed: %v", prefix, err)
+		return false
+	}
+
+	// Report and reset after verifyIntegrity
+	reportAndReset(t, tw, storeIo, prefix+" - AfterVerify")
+
+	// Check match and find first diff if mismatch
+	if !match {
+		firstDiff := findFirstDiff(decrypted, expected)
+		if firstDiff == -1 {
+			t.Errorf("%s: Integrity mismatch, size mismatch: decrypted=%d, expected=%d", prefix, len(decrypted), len(expected))
+		} else {
+			t.Errorf("%s: Integrity mismatch, size=%d, first diff at position %d", prefix, len(decrypted), firstDiff)
+		}
+		return false
+	}
+
+	// Log success message if provided
+	if successMsg != "" {
+		t.Log(successMsg)
+	}
+
+	return true
+}
+
+// findFirstDiff finds the first position where two byte slices differ.
+// Returns -1 if they are equal or have different lengths.
+func findFirstDiff(a, b []byte) int {
+	if len(a) != len(b) {
+		return -1
+	}
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return i
+		}
+	}
+	return -1
+}
+
 // ==================== Dual Writer for Integrity Verification ====================
 
 // dualWriter is a wrapper that simultaneously writes to both an encrypted context
@@ -366,8 +423,9 @@ func reportAndReset(t *testing.T, tw *trackerContext, storeIo *trackerMockReadWr
 // comparing decrypted data against the plaintext mirror.
 //
 // Concept: Similar to io.MultiWriter, but for encrypted contexts:
-//   ctx.Write(data) => { encryptFile.Write(encrypted), plaintextMirror.Write(data) }
-//   ctx.Seek(pos)   => { encryptFile.Seek(pos), plaintextMirror.Seek(pos) }
+//
+//	ctx.Write(data) => { encryptFile.Write(encrypted), plaintextMirror.Write(data) }
+//	ctx.Seek(pos)   => { encryptFile.Seek(pos), plaintextMirror.Seek(pos) }
 //
 // Verification: readAll(encryptFile, decrypt) == readAll(plaintextMirror)
 type dualWriter struct {
@@ -383,7 +441,6 @@ func newDualWriter(ctx crypto_data.IDataCryptorContext) *dualWriter {
 		plaintextMirror: newMockReadWriterSeeker(),
 	}
 }
-
 
 // Write writes data to both the encrypted context and plaintext mirror.
 func (d *dualWriter) Write(p []byte) (n int, err error) {
@@ -407,6 +464,7 @@ func (d *dualWriter) Write(p []byte) (n int, err error) {
 // Read reads data from the encrypted context (decrypted automatically).
 func (d *dualWriter) Read(p []byte) (n int, err error) {
 	return d.ctx.Read(p)
+	// TODO: SEEK
 }
 
 // Seek sets the position for both the encrypted context and plaintext mirror.
@@ -652,8 +710,8 @@ func testEncryptDecrypt(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 		data []byte
 	}{
 		{"Small", []byte("Hello, World!")},
-		{"Medium", make([]byte, 1024)},     // 1KB
-		{"Large", make([]byte, 64*1024)},   // 64KB
+		{"Medium", make([]byte, 1024)},   // 1KB
+		{"Large", make([]byte, 64*1024)}, // 64KB
 	}
 
 	for _, tc := range testCases {
@@ -691,33 +749,9 @@ func testEncryptDecrypt(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 				t.Errorf("Expected to write %d bytes, wrote %d", len(tc.data), n)
 			}
 
-			// Report and reset before verifyIntegrity
-			reportAndReset(t, tw, storeIo, "BeforeVerify")
-
 			// Verify integrity using dualWriter
-			match, decrypted, expected, err := dw.verifyIntegrity()
-			if err != nil {
-				t.Fatalf("Integrity verification failed: %v", err)
-			}
-
-			// Report and reset after verifyIntegrity
-			reportAndReset(t, tw, storeIo, "AfterVerify")
-			if !match {
-				firstDiff := -1
-				minLen := len(decrypted)
-				if len(expected) < minLen {
-					minLen = len(expected)
-				}
-				for i := 0; i < minLen; i++ {
-					if decrypted[i] != expected[i] {
-						firstDiff = i
-						break
-					}
-				}
-				t.Errorf("Integrity mismatch: size=%d, first diff at position %d", len(decrypted), firstDiff)
-				t.Errorf("Expected %d bytes, got %d bytes", len(expected), len(decrypted))
-			} else {
-				t.Logf("Encrypt/Decrypt verified for %d bytes", len(tc.data))
+			if verifyAndReport(t, tw, storeIo, dw, "", fmt.Sprintf("Encrypt/Decrypt verified for %d bytes", len(tc.data))) {
+				// Success
 			}
 		})
 	}
@@ -762,33 +796,9 @@ func testMultipleWriteRead(t *testing.T, factory crypto_data.ICryptoDataFactory)
 				t.Errorf("Expected to write %d bytes, wrote %d", len(chunk), n)
 			}
 
-			// Report and reset before verifyIntegrity
-			reportAndReset(t, tw, storeIo, "BeforeVerify")
-
 			// Verify integrity using dualWriter
-			match, decrypted, expected, err := dw.verifyIntegrity()
-			if err != nil {
-				t.Fatalf("Integrity verification failed: %v", err)
-			}
-
-			// Report and reset after verifyIntegrity
-			reportAndReset(t, tw, storeIo, "AfterVerify")
-			if !match {
-				firstDiff := -1
-				minLen := len(decrypted)
-				if len(expected) < minLen {
-					minLen = len(expected)
-				}
-				for j := 0; j < minLen; j++ {
-					if decrypted[j] != expected[j] {
-						firstDiff = j
-						break
-					}
-				}
-				t.Errorf("Integrity mismatch for chunk %d: first diff at position %d", i+1, firstDiff)
-				t.Errorf("Expected %d bytes, got %d bytes", len(expected), len(decrypted))
-			} else {
-				t.Logf("Chunk %d verified: %d bytes", i+1, len(chunk))
+			if verifyAndReport(t, tw, storeIo, dw, "", fmt.Sprintf("Chunk %d verified: %d bytes", i+1, len(chunk))) {
+				// Success
 			}
 		})
 	}
@@ -857,33 +867,9 @@ func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 		t.Errorf("SeekEnd: expected pos 31, got %d", pos)
 	}
 
-	// Report and reset before verifyIntegrity
-	reportAndReset(t, tw, storeIo, "BeforeVerify")
-
 	// Verify integrity using dualWriter
-	match, decrypted, expected, err := dw.verifyIntegrity()
-	if err != nil {
-		t.Fatalf("Integrity verification failed: %v", err)
-	}
-
-	// Report and reset after verifyIntegrity
-	reportAndReset(t, tw, storeIo, "AfterVerify")
-
-	if !match {
-		firstDiff := -1
-		minLen := len(decrypted)
-		if len(expected) < minLen {
-			minLen = len(expected)
-		}
-		for i := 0; i < minLen; i++ {
-			if decrypted[i] != expected[i] {
-				firstDiff = i
-				break
-			}
-		}
-		t.Errorf("Integrity mismatch after Seek operations: first diff at position %d", firstDiff)
-	} else {
-		t.Logf("Seek operations verified with full integrity check")
+	if verifyAndReport(t, tw, storeIo, dw, "", "Seek operations verified with full integrity check") {
+		// Success
 	}
 }
 
@@ -920,19 +906,12 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	t.Logf("Initial size: %d bytes", initialSize)
 
 	// Verify initial write integrity
-	match, _, _, err := dw.verifyIntegrity()
-	if err != nil {
-		t.Fatalf("Initial integrity verification failed: %v", err)
+	if !verifyAndReport(t, tw, storeIo, dw, "Initial write", "Initial write integrity verified") {
+		return
 	}
-	if !match {
-		t.Fatalf("Initial write: decrypted data doesn't match plaintext mirror")
-	}
-
-	// Report initial I/O statistics
-	reportAndReset(t, tw, storeIo, "After initial write")
 
 	// Test 1: Truncate to remove data from the end
-	reportAndReset(t, tw, storeIo, "Before truncate shrink")
+	t.Log("Before truncate shrink")
 
 	err = tw.Truncate(800)
 	if err != nil {
@@ -946,18 +925,12 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	t.Logf("After truncate: size = %d bytes", newSize)
 
 	// Verify integrity after truncate shrink
-	match, _, _, err = dw.verifyIntegrity()
-	if err != nil {
-		t.Fatalf("Truncate shrink integrity verification failed: %v", err)
+	if !verifyAndReport(t, tw, storeIo, dw, "Truncate shrink", "Truncate shrink integrity verified") {
+		return
 	}
-	if !match {
-		t.Fatalf("Truncate shrink: decrypted data doesn't match plaintext mirror")
-	}
-
-	reportAndReset(t, tw, storeIo, "After truncate shrink")
 
 	// Test 2: Expand file with Truncate
-	reportAndReset(t, tw, storeIo, "Before truncate expand")
+	t.Log("Before truncate expand")
 
 	err = tw.Truncate(1200)
 	if err != nil {
@@ -970,20 +943,18 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	}
 	t.Logf("After expand: size = %d bytes", expandedSize)
 
+	// RC4 deadlock marker removed
+
 	// Verify integrity after truncate expand (expanded area should be zeros)
-	match, _, _, err = dw.verifyIntegrity()
-	if err != nil {
-		t.Fatalf("Truncate expand integrity verification failed: %v", err)
-	}
-	if !match {
-		t.Fatalf("Truncate expand: decrypted data doesn't match plaintext mirror")
+	if !verifyAndReport(t, tw, storeIo, dw, "Truncate expand", "Truncate expand integrity verified") {
+		return
 	}
 
-	reportAndReset(t, tw, storeIo, "After truncate expand")
+	// RC4 deadlock marker removed
 
 	// Test 3: Simulate "delete in middle" by overwriting with zeros
 	// This is not a real delete, but simulates the effect
-	reportAndReset(t, tw, storeIo, "Before write zeros")
+	t.Log("Before write zeros")
 
 	_, err = tw.Seek(400, 0)
 	if err != nil {
@@ -998,15 +969,9 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	t.Logf("Wrote 100 zeros at position 400")
 
 	// Verify integrity after write
-	match, _, _, err = dw.verifyIntegrity()
-	if err != nil {
-		t.Fatalf("Write zeros integrity verification failed: %v", err)
+	if !verifyAndReport(t, tw, storeIo, dw, "Write zeros", "Write zeros integrity verified") {
+		return
 	}
-	if !match {
-		t.Fatalf("Write zeros: decrypted data doesn't match plaintext mirror")
-	}
-
-	reportAndReset(t, tw, storeIo, "After write zeros")
 
 	t.Logf("Random delete test passed: all data integrity verified")
 }
@@ -1017,7 +982,8 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 //   - Plaintext mirror: stores plaintext data
 //
 // Verification: After each operation, we compare:
-//   decrypt(ctx) == plaintextMirror
+//
+//	decrypt(ctx) == plaintextMirror
 //
 // This is more accurate than hash-based verification because it directly
 // compares the expected plaintext with the decrypted data.
@@ -1051,28 +1017,16 @@ func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactor
 		t.Fatalf("Failed to write initial data: %v", err)
 	}
 
-	// Report and reset before verifyIntegrity
-	reportAndReset(t, tw, storeIo, "BeforeVerify")
-
 	// Verify integrity after initial write
-	match, decrypted, expected, err := dw.verifyIntegrity()
-	if err != nil {
-		t.Fatalf("Integrity verification failed: %v", err)
+	if !verifyAndReport(t, tw, storeIo, dw, "", fmt.Sprintf("Initial write verified: size=%d bytes", initialSize)) {
+		return
 	}
-
-	// Report and reset after verifyIntegrity
-	reportAndReset(t, tw, storeIo, "AfterVerify")
-
-	if !match {
-		t.Fatalf("Initial write: decrypted data doesn't match plaintext mirror\nDecrypted: %v\nExpected:  %v", decrypted[:50], expected[:50])
-	}
-	t.Logf("Initial write verified: size=%d bytes", initialSize)
 
 	// Test operations
 	testCases := []struct {
-		name   string
-		op     func() error
-		desc   string
+		name string
+		op   func() error
+		desc string
 	}{
 		{
 			name: "WriteAt_block_boundary",
@@ -1145,33 +1099,8 @@ func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactor
 			}
 
 			// Verify integrity after operation
-			// Report and reset before verifyIntegrity
-			reportAndReset(t, tw, storeIo, "BeforeVerify")
-
-			match, decrypted, expected, err := dw.verifyIntegrity()
-			if err != nil {
-				t.Fatalf("Integrity verification failed: %v", err)
-			}
-
-			// Report and reset after verifyIntegrity
-			reportAndReset(t, tw, storeIo, "AfterVerify")
-
-			if !match {
-				// Find first mismatch for better error message
-				firstDiff := -1
-				minLen := len(decrypted)
-				if len(expected) < minLen {
-					minLen = len(expected)
-				}
-				for i := 0; i < minLen; i++ {
-					if decrypted[i] != expected[i] {
-						firstDiff = i
-						break
-					}
-				}
-				t.Errorf("%s: decrypted data doesn't match plaintext mirror\nSize: decrypted=%d, expected=%d\nFirst diff at position: %d\nDecrypted: %v\nExpected:  %v", tc.desc, len(decrypted), len(expected), firstDiff, decrypted[:min(100, len(decrypted))], expected[:min(100, len(expected))])
-			} else {
-				t.Logf("%s: integrity verified", tc.desc)
+			if !verifyAndReport(t, tw, storeIo, dw, tc.desc, fmt.Sprintf("%s: integrity verified", tc.desc)) {
+				return
 			}
 		})
 	}
@@ -1218,20 +1147,15 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 	}
 
 	// Verify initial write
-	match, _, _, err := dw.verifyIntegrity()
-	if err != nil {
-		t.Fatalf("Initial integrity verification failed: %v", err)
+	if !verifyAndReport(t, tw, storeIo, dw, "", fmt.Sprintf("Initial data written and verified: size=%d bytes", initialSize)) {
+		return
 	}
-	if !match {
-		t.Fatalf("Initial write: decrypted data doesn't match plaintext mirror")
-	}
-	t.Logf("Initial data written and verified: size=%d bytes", initialSize)
 
 	// Test 1: Fixed position tests
 	t.Run("FixedPositions", func(t *testing.T) {
 		// Test data sizes: smaller than block, equal to block, larger than block
 		testSizes := []int{
-			1, 8, 15,   // smaller than block size (16)
+			1, 8, 15, // smaller than block size (16)
 			16,         // equal to block size
 			17, 24, 31, // larger than block size
 			32, 48, 64, // multiple blocks
@@ -1239,8 +1163,8 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 
 		// Test positions: block boundary, block middle, cross-block boundary
 		testPositions := []int{
-			0, 16, 32, 64,  // block boundaries
-			8, 24, 40, 72,  // block middle
+			0, 16, 32, 64, // block boundaries
+			8, 24, 40, 72, // block middle
 			15, 31, 47, 79, // cross-block boundary
 		}
 
@@ -1268,25 +1192,8 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				}
 
 				// Verify integrity using dualWriter
-				match, decrypted, expected, err := dw.verifyIntegrity()
-				if err != nil {
-					t.Errorf("Integrity verification failed: size=%d pos=%d, err=%v", size, pos, err)
+				if !verifyAndReport(t, tw, storeIo, dw, fmt.Sprintf("size=%d pos=%d", size, pos), "") {
 					continue
-				}
-				if !match {
-					// Find first mismatch for better error message
-					firstDiff := -1
-					minLen := len(decrypted)
-					if len(expected) < minLen {
-						minLen = len(expected)
-					}
-					for i := 0; i < minLen; i++ {
-						if decrypted[i] != expected[i] {
-							firstDiff = i
-							break
-						}
-					}
-					t.Errorf("Integrity mismatch: size=%d pos=%d, first diff at position %d", size, pos, firstDiff)
 				}
 			}
 		}
@@ -1308,13 +1215,10 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 		rand.Seed(seed)
 		t.Logf("Using random seed: %d", seed)
 
-		numStressTests := 50 // Reduced for performance
+		numStressTests := 200 // Reduced for performance
 		maxDataSize := 512   // Reduced max size
 
 		// Create expected tracker to record user-level operations
-
-		// Track current position for Write operations
-		currentPos := 0
 
 		for i := 0; i < numStressTests; i++ {
 			opType := rand.Intn(7) // 0-6: different operation types
@@ -1356,7 +1260,6 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				if n != size {
 					t.Errorf("Stress test %d: Write wrote %d bytes, expected %d", i, n, size)
 				}
-				currentPos = seekPos + size
 				reportAndReset(t, tw, storeIo, fmt.Sprintf("Op %d: Seek+Write(seek=%d, size=%d)", i, seekPos, size))
 
 			case 2: // Truncate shrink: random smaller size
@@ -1394,7 +1297,6 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				if n != size {
 					t.Errorf("Stress test %d: Write wrote %d bytes, expected %d", i, n, size)
 				}
-				currentPos += size
 				reportAndReset(t, tw, storeIo, fmt.Sprintf("Op %d: Write(size=%d)", i, size))
 
 			case 5: // Random Read: seek to random position, then read random size
@@ -1448,52 +1350,16 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 
 			// Verify integrity every 10 operations (reduce overhead)
 			if i%10 == 9 {
-				match, decrypted, expected, err := dw.verifyIntegrity()
-				if err != nil {
-					t.Errorf("Stress test %d: Integrity verification failed: %v", i, err)
-					continue
-				}
-				if !match {
-					firstDiff := -1
-					minLen := len(decrypted)
-					if len(expected) < minLen {
-						minLen = len(expected)
-					}
-					for j := 0; j < minLen; j++ {
-						if decrypted[j] != expected[j] {
-							firstDiff = j
-							break
-						}
-					}
-					t.Errorf("Stress test %d: Integrity mismatch after operation %d, first diff at position %d", i, opType, firstDiff)
+				if !verifyAndReport(t, tw, storeIo, dw, fmt.Sprintf("Stress test %d after op %d", i, opType), "") {
 					break // Stop on first error
 				}
 			}
 		}
 
 		// Final integrity verification
-		match, decrypted, expected, err := dw.verifyIntegrity()
-		if err != nil {
-			reportAndReset(t, tw, storeIo, "Before final verify error")
-			t.Fatalf("Final integrity verification failed: %v", err)
+		if !verifyAndReport(t, tw, storeIo, dw, "Final", fmt.Sprintf("Random stress test passed: %d operations verified, final size=%d bytes", numStressTests, tw.Size())) {
+			return
 		}
-		if !match {
-			firstDiff := -1
-			minLen := len(decrypted)
-			if len(expected) < minLen {
-				minLen = len(expected)
-			}
-			for j := 0; j < minLen; j++ {
-				if decrypted[j] != expected[j] {
-					firstDiff = j
-					break
-				}
-			}
-			reportAndReset(t, tw, storeIo, "Before integrity mismatch")
-			t.Fatalf("Final integrity mismatch: size=%d, first diff at position %d", len(decrypted), firstDiff)
-		}
-
-		t.Logf("Random stress test passed: %d operations verified, final size=%d bytes", numStressTests, tw.Size())
 
 		// Report I/O statistics using reportAndReset
 		reportAndReset(t, tw, storeIo, "After stress test")

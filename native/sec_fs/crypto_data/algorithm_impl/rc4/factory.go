@@ -33,11 +33,11 @@ func (f *Factory) GetName() string {
 func (f *Factory) GetCapabilities() crypto_data.CryptorCapabilities {
 	return crypto_data.CryptorCapabilities{
 		Mode:                   crypto_data.CryptModeNormal,
-		StreamingComplexity:    crypto_data.O1,     // RC4 supports streaming efficiently
-		RandomAccessComplexity: crypto_data.O1,     // RC4 supports random access efficiently
-		ModificationComplexity: crypto_data.O1,     // RC4 supports in-place modification
-		RandomDeleteComplexity: crypto_data.O1,     // RC4 supports deletion efficiently
-		MaxFileSize:            0,                  // Unlimited
+		StreamingComplexity:    crypto_data.O1, // RC4 supports streaming efficiently
+		RandomAccessComplexity: crypto_data.O1, // RC4 supports random access efficiently
+		ModificationComplexity: crypto_data.O1, // RC4 supports in-place modification
+		RandomDeleteComplexity: crypto_data.O1, // RC4 supports deletion efficiently
+		MaxFileSize:            0,              // Unlimited
 		RecommendedChunkSize:   0,
 	}
 }

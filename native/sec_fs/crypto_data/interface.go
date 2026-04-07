@@ -69,27 +69,28 @@ func (m CryptMode) String() string {
 // ==================== Complexity Constants ====================
 
 type ComplexityScore int8
+
 // Complexity constants for CryptorCapabilities.
 // Lower values indicate better performance.
 const (
 	// O1 indicates constant time complexity - best performance.
 	O1 ComplexityScore = 1
-	
+
 	// OLogN indicates logarithmic time complexity - good performance.
 	OLogN ComplexityScore = 2
-	
+
 	// OSqrtN indicates square root time complexity - moderate performance.
 	OSqrtN ComplexityScore = 3
-	
+
 	// ON indicates linear time complexity - acceptable for small data.
 	ON ComplexityScore = 4
-	
+
 	// ONLogN indicates linearithmic time complexity - slower.
 	ONLogN ComplexityScore = 5
-	
+
 	// ON2 indicates quadratic time complexity - slow, avoid for large data.
 	ON2 ComplexityScore = 6
-	
+
 	// Unsupported indicates the operation is not implemented.
 	Unsupported ComplexityScore = 127
 )
@@ -185,10 +186,10 @@ func (c *dataCryptorContextImpl) Write(p []byte) (n int, err error) { return 0, 
 func (c *dataCryptorContextImpl) Seek(offset int64, whence int) (int64, error) {
 	return 0, nil
 }
-func (c *dataCryptorContextImpl) Close() error          { return nil }
-func (c *dataCryptorContextImpl) Size() int64           { return 0 }
+func (c *dataCryptorContextImpl) Close() error              { return nil }
+func (c *dataCryptorContextImpl) Size() int64               { return 0 }
 func (c *dataCryptorContextImpl) Truncate(size int64) error { return nil }
-func (c *dataCryptorContextImpl) Sync() error           { return nil }
+func (c *dataCryptorContextImpl) Sync() error               { return nil }
 func (c *dataCryptorContextImpl) ReadAt(p []byte, off int64) (n int, err error) {
 	return 0, nil
 }
@@ -202,7 +203,7 @@ type cryptoDataFactoryImpl struct{}
 func (f *cryptoDataFactoryImpl) NewContext(storeFileIo IFileContext, keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (IDataCryptorContext, error) {
 	return nil, nil
 }
-func (f *cryptoDataFactoryImpl) GetName() string            { return "" }
+func (f *cryptoDataFactoryImpl) GetName() string { return "" }
 func (f *cryptoDataFactoryImpl) GetCapabilities() CryptorCapabilities {
 	return CryptorCapabilities{}
 }
