@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math/rand"
 	"testing"
+	"time"
 
 	"safe_disk/native/config"
 	"safe_disk/native/sec_fs/crypto_data"
@@ -83,7 +85,7 @@ func (m *mockReadWriterSeeker) Truncate(size int64) error {
 	if size < 0 {
 		return fmt.Errorf("negative size")
 	}
-	if size > int64(len(m.data)) {
+	if int(size) > len(m.data) {
 		// Extend with zeros
 		newData := make([]byte, size)
 		copy(newData, m.data)
@@ -94,9 +96,283 @@ func (m *mockReadWriterSeeker) Truncate(size int64) error {
 	return nil
 }
 
+// ReadAt reads data at the specified offset.
+func (m *mockReadWriterSeeker) ReadAt(p []byte, off int64) (n int, err error) {
+	if off < 0 {
+		return 0, fmt.Errorf("negative offset")
+	}
+	if int(off) >= len(m.data) {
+		return 0, io.EOF
+	}
+	n = copy(p, m.data[off:])
+	if n < len(p) {
+		err = io.EOF
+	}
+	return n, err
+}
+
+// WriteAt writes data at the specified offset.
+func (m *mockReadWriterSeeker) WriteAt(p []byte, off int64) (n int, err error) {
+	if off < 0 {
+		return 0, fmt.Errorf("negative offset")
+	}
+	endPos := int(off) + len(p)
+	if endPos > len(m.data) {
+		newData := make([]byte, endPos)
+		copy(newData, m.data)
+		m.data = newData
+	}
+	copy(m.data[off:], p)
+	return len(p), nil
+}
+
 // Sync commits the current state (no-op for mock).
 func (m *mockReadWriterSeeker) Sync() error {
 	return nil
+}
+
+// ==================== Tracker Mock for Performance Statistics ====================
+
+// IOStats tracks I/O operation statistics.
+type IOStats struct {
+	ReadBytes   int64
+	ReadCalls   int
+	WriteBytes  int64
+	WriteCalls  int
+	SeekCalls   int
+	TruncCalls  int
+}
+
+// Amplification returns the I/O amplification ratios compared to another IOStats.
+func (s *IOStats) Amplification(other *IOStats) (readAmp, writeAmp, totalAmp float64) {
+	if other.ReadBytes > 0 {
+		readAmp = float64(s.ReadBytes) / float64(other.ReadBytes)
+	}
+	if other.WriteBytes > 0 {
+		writeAmp = float64(s.WriteBytes) / float64(other.WriteBytes)
+	}
+	otherTotal := other.ReadBytes + other.WriteBytes
+	selfTotal := s.ReadBytes + s.WriteBytes
+	if otherTotal > 0 {
+		totalAmp = float64(selfTotal) / float64(otherTotal)
+	}
+	return
+}
+
+// trackerMockReadWriter wraps mockReadWriterSeeker and tracks I/O statistics.
+type trackerMockReadWriter struct {
+	*mockReadWriterSeeker
+	stats IOStats
+}
+
+// newTrackerMockReadWriter creates a new tracker wrapper.
+func newTrackerMockReadWriter() *trackerMockReadWriter {
+	return &trackerMockReadWriter{
+		mockReadWriterSeeker: newMockReadWriterSeeker(),
+	}
+}
+
+// ResetTracker resets the statistics.
+func (t *trackerMockReadWriter) ResetTracker() {
+	t.stats = IOStats{}
+}
+
+// GetStats returns the current statistics.
+func (t *trackerMockReadWriter) GetStats() IOStats {
+	return t.stats
+}
+
+
+
+// Read tracks read operations.
+func (t *trackerMockReadWriter) Read(p []byte) (n int, err error) {
+	n, err = t.mockReadWriterSeeker.Read(p)
+	t.stats.ReadBytes += int64(n)
+	t.stats.ReadCalls++
+	return
+}
+
+// Write tracks write operations.
+func (t *trackerMockReadWriter) Write(p []byte) (n int, err error) {
+	n, err = t.mockReadWriterSeeker.Write(p)
+	t.stats.WriteBytes += int64(n)
+	t.stats.WriteCalls++
+	return
+}
+
+// Seek tracks seek operations.
+func (t *trackerMockReadWriter) Seek(offset int64, whence int) (int64, error) {
+	pos, err := t.mockReadWriterSeeker.Seek(offset, whence)
+	t.stats.SeekCalls++
+	return pos, err
+}
+
+// ReadAt tracks read-at operations.
+func (t *trackerMockReadWriter) ReadAt(p []byte, off int64) (n int, err error) {
+	n, err = t.mockReadWriterSeeker.ReadAt(p, off)
+	t.stats.ReadBytes += int64(n)
+	t.stats.ReadCalls++
+	return
+}
+
+// WriteAt tracks write-at operations.
+func (t *trackerMockReadWriter) WriteAt(p []byte, off int64) (n int, err error) {
+	n, err = t.mockReadWriterSeeker.WriteAt(p, off)
+	t.stats.WriteBytes += int64(n)
+	t.stats.WriteCalls++
+	return
+}
+
+// Truncate tracks truncate operations.
+func (t *trackerMockReadWriter) Truncate(size int64) error {
+	err := t.mockReadWriterSeeker.Truncate(size)
+	t.stats.TruncCalls++
+	return err
+}
+
+// ==================== Dual Writer for Integrity Verification ====================
+
+// dualWriter is a wrapper that simultaneously writes to both an encrypted context
+// and a plaintext mirror. This allows for accurate integrity verification by
+// comparing decrypted data against the plaintext mirror.
+//
+// Concept: Similar to io.MultiWriter, but for encrypted contexts:
+//   ctx.Write(data) => { encryptFile.Write(encrypted), plaintextMirror.Write(data) }
+//   ctx.Seek(pos)   => { encryptFile.Seek(pos), plaintextMirror.Seek(pos) }
+//
+// Verification: readAll(encryptFile, decrypt) == readAll(plaintextMirror)
+type dualWriter struct {
+	ctx             crypto_data.IDataCryptorContext // Encrypted context
+	plaintextMirror *mockReadWriterSeeker           // Plaintext mirror
+}
+
+// newDualWriter creates a new dualWriter that simultaneously writes to both
+// the encrypted context and a plaintext mirror.
+func newDualWriter(ctx crypto_data.IDataCryptorContext) *dualWriter {
+	return &dualWriter{
+		ctx:             ctx,
+		plaintextMirror: newMockReadWriterSeeker(),
+	}
+}
+
+// Write writes data to both the encrypted context and plaintext mirror.
+func (d *dualWriter) Write(p []byte) (n int, err error) {
+	// Write to encrypted context
+	n, err = d.ctx.Write(p)
+	if err != nil {
+		return n, err
+	}
+
+	// Write to plaintext mirror
+	_, err = d.plaintextMirror.Write(p)
+	if err != nil {
+		return n, err
+	}
+
+	return n, nil
+}
+
+// Read reads data from the encrypted context (decrypted automatically).
+func (d *dualWriter) Read(p []byte) (n int, err error) {
+	return d.ctx.Read(p)
+}
+
+// Seek sets the position for both the encrypted context and plaintext mirror.
+func (d *dualWriter) Seek(offset int64, whence int) (int64, error) {
+	pos, err := d.ctx.Seek(offset, whence)
+	if err != nil {
+		return pos, err
+	}
+
+	// Sync position in plaintext mirror
+	_, err = d.plaintextMirror.Seek(offset, whence)
+	if err != nil {
+		return pos, err
+	}
+
+	return pos, nil
+}
+
+// Close closes both the encrypted context and plaintext mirror.
+func (d *dualWriter) Close() error {
+	return d.ctx.Close()
+}
+
+// Size returns the size of the decrypted data.
+func (d *dualWriter) Size() int64 {
+	return d.ctx.Size()
+}
+
+// Truncate truncates both the encrypted context and plaintext mirror.
+func (d *dualWriter) Truncate(size int64) error {
+	err := d.ctx.Truncate(size)
+	if err != nil {
+		return err
+	}
+
+	return d.plaintextMirror.Truncate(size)
+}
+
+// Sync syncs the encrypted context.
+func (d *dualWriter) Sync() error {
+	return d.ctx.Sync()
+}
+
+// WriteAt writes data at the specified offset to both contexts.
+func (d *dualWriter) WriteAt(p []byte, off int64) (n int, err error) {
+	// Write to encrypted context
+	n, err = d.ctx.WriteAt(p, off)
+	if err != nil {
+		return n, err
+	}
+
+	// Write to plaintext mirror
+	_, err = d.plaintextMirror.WriteAt(p, off)
+	if err != nil {
+		return n, err
+	}
+
+	return n, nil
+}
+
+// ReadAt reads data at the specified offset from the encrypted context.
+func (d *dualWriter) ReadAt(p []byte, off int64) (n int, err error) {
+	return d.ctx.ReadAt(p, off)
+}
+
+// verifyIntegrity compares decrypted data from ctx with the plaintext mirror.
+// Returns true if they match, false otherwise.
+func (d *dualWriter) verifyIntegrity() (bool, []byte, []byte, error) {
+	// Read all data from encrypted context (decrypted)
+	ctxSize := d.ctx.Size()
+	ctxData := make([]byte, ctxSize)
+	_, err := d.ctx.Seek(0, 0)
+	if err != nil {
+		return false, nil, nil, err
+	}
+	_, err = io.ReadFull(d.ctx, ctxData)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return false, nil, nil, err
+	}
+
+	// Read all data from plaintext mirror
+	mirrorSize := d.plaintextMirror.Size()
+	mirrorData := make([]byte, mirrorSize)
+	_, err = d.plaintextMirror.Seek(0, 0)
+	if err != nil {
+		return false, nil, nil, err
+	}
+	_, err = io.ReadFull(d.plaintextMirror, mirrorData)
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return false, nil, nil, err
+	}
+
+	// Compare
+	if !bytes.Equal(ctxData, mirrorData) {
+		return false, ctxData, mirrorData, nil
+	}
+
+	return true, ctxData, mirrorData, nil
 }
 
 // mockKeyInfo is a mock implementation of IKeyInfo for testing.
@@ -173,14 +449,19 @@ func TestAllFactories(t *testing.T) {
 				testSeekOperations(t, factory)
 			})
 
-			// Test 7: Random write/read
-			t.Run("RandomWriteRead", func(t *testing.T) {
-				testRandomWriteRead(t, factory)
-			})
-
-			// Test 8: Random delete
+			// Test 7: Random delete
 			t.Run("RandomDelete", func(t *testing.T) {
 				testRandomDelete(t, factory)
+			})
+
+			// Test 8: Block boundary operations (neighbor block corruption test)
+			t.Run("BlockBoundaryOperations", func(t *testing.T) {
+				testBlockBoundaryOperations(t, factory)
+			})
+
+			// Test 9: Dual-writer integrity (MultiWriter-like verification)
+			t.Run("DualWriterIntegrity", func(t *testing.T) {
+				testDualWriterIntegrity(t, factory)
 			})
 		})
 	}
@@ -253,8 +534,11 @@ func testEncryptDecrypt(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 			}
 			defer ctx.Close()
 
-			// Write (encrypt)
-			n, err := ctx.Write(tc.data)
+			// Create dualWriter for integrity verification
+			dw := newDualWriter(ctx)
+
+			// Write (encrypt) using dualWriter
+			n, err := dw.Write(tc.data)
 			if err != nil {
 				t.Fatalf("Failed to write: %v", err)
 			}
@@ -262,30 +546,25 @@ func testEncryptDecrypt(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 				t.Errorf("Expected to write %d bytes, wrote %d", len(tc.data), n)
 			}
 
-			// Seek to beginning
-			_, err = ctx.Seek(0, 0)
+			// Verify integrity using dualWriter
+			match, decrypted, expected, err := dw.verifyIntegrity()
 			if err != nil {
-				t.Fatalf("Failed to seek: %v", err)
+				t.Fatalf("Integrity verification failed: %v", err)
 			}
-
-			// Read (decrypt)
-			readBuf := make([]byte, len(tc.data))
-			n, err = ctx.Read(readBuf)
-			if err != nil {
-				t.Fatalf("Failed to read: %v", err)
-			}
-
-			// Verify
-			if !bytes.Equal(readBuf[:n], tc.data) {
-				t.Errorf("Decrypted data doesn't match plaintext")
-				t.Errorf("Data size: %d bytes", len(tc.data))
-				// Only print first 100 bytes for debugging
-				maxPrint := 100
-				if len(tc.data) < maxPrint {
-					maxPrint = len(tc.data)
+			if !match {
+				firstDiff := -1
+				minLen := len(decrypted)
+				if len(expected) < minLen {
+					minLen = len(expected)
 				}
-				t.Errorf("Expected first %d bytes: %v", maxPrint, tc.data[:maxPrint])
-				t.Errorf("Got first %d bytes: %v", maxPrint, readBuf[:maxPrint])
+				for i := 0; i < minLen; i++ {
+					if decrypted[i] != expected[i] {
+						firstDiff = i
+						break
+					}
+				}
+				t.Errorf("Integrity mismatch: size=%d, first diff at position %d", len(decrypted), firstDiff)
+				t.Errorf("Expected %d bytes, got %d bytes", len(expected), len(decrypted))
 			} else {
 				t.Logf("Encrypt/Decrypt verified for %d bytes", len(tc.data))
 			}
@@ -317,8 +596,11 @@ func testMultipleWriteRead(t *testing.T, factory crypto_data.ICryptoDataFactory)
 			}
 			defer ctx.Close()
 
-			// Write chunk
-			n, err := ctx.Write(chunk)
+			// Create dualWriter for integrity verification
+			dw := newDualWriter(ctx)
+
+			// Write chunk using dualWriter
+			n, err := dw.Write(chunk)
 			if err != nil {
 				t.Fatalf("Failed to write chunk: %v", err)
 			}
@@ -326,24 +608,25 @@ func testMultipleWriteRead(t *testing.T, factory crypto_data.ICryptoDataFactory)
 				t.Errorf("Expected to write %d bytes, wrote %d", len(chunk), n)
 			}
 
-			// Seek to beginning
-			_, err = ctx.Seek(0, 0)
+			// Verify integrity using dualWriter
+			match, decrypted, expected, err := dw.verifyIntegrity()
 			if err != nil {
-				t.Fatalf("Failed to seek: %v", err)
+				t.Fatalf("Integrity verification failed: %v", err)
 			}
-
-			// Read back
-			readBuf := make([]byte, len(chunk))
-			n, err = ctx.Read(readBuf)
-			if err != nil {
-				t.Fatalf("Failed to read: %v", err)
-			}
-
-			// Verify
-			if !bytes.Equal(readBuf[:n], chunk) {
-				t.Errorf("Data mismatch for chunk %d", i+1)
-				t.Errorf("Expected: %s", chunk)
-				t.Errorf("Got: %s", readBuf[:n])
+			if !match {
+				firstDiff := -1
+				minLen := len(decrypted)
+				if len(expected) < minLen {
+					minLen = len(expected)
+				}
+				for j := 0; j < minLen; j++ {
+					if decrypted[j] != expected[j] {
+						firstDiff = j
+						break
+					}
+				}
+				t.Errorf("Integrity mismatch for chunk %d: first diff at position %d", i+1, firstDiff)
+				t.Errorf("Expected %d bytes, got %d bytes", len(expected), len(decrypted))
 			} else {
 				t.Logf("Chunk %d verified: %d bytes", i+1, len(chunk))
 			}
@@ -362,15 +645,18 @@ func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	}
 	defer ctx.Close()
 
-	// Write test data
+	// Create dualWriter for integrity verification
+	dw := newDualWriter(ctx)
+
+	// Write test data using dualWriter
 	testData := []byte("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	_, err = ctx.Write(testData)
+	_, err = dw.Write(testData)
 	if err != nil {
 		t.Fatalf("Failed to write: %v", err)
 	}
 
-	// Test SeekStart
-	pos, err := ctx.Seek(10, 0)
+	// Test SeekStart on dualWriter
+	pos, err := dw.Seek(10, 0)
 	if err != nil {
 		t.Errorf("SeekStart failed: %v", err)
 	}
@@ -380,7 +666,7 @@ func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 
 	// Read from position 10
 	buf := make([]byte, 5)
-	n, err := ctx.Read(buf)
+	n, err := dw.Read(buf)
 	if err != nil {
 		t.Errorf("Read after SeekStart failed: %v", err)
 	}
@@ -388,8 +674,8 @@ func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 		t.Errorf("Read after SeekStart: expected 'ABCDE', got '%s'", string(buf[:n]))
 	}
 
-	// Test SeekCurrent
-	pos, err = ctx.Seek(5, 1)
+	// Test SeekCurrent on dualWriter
+	pos, err = dw.Seek(5, 1)
 	if err != nil {
 		t.Errorf("SeekCurrent failed: %v", err)
 	}
@@ -398,8 +684,8 @@ func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 		t.Errorf("SeekCurrent: expected pos 20, got %d", pos)
 	}
 
-	// Test SeekEnd
-	pos, err = ctx.Seek(-5, 2)
+	// Test SeekEnd on dualWriter
+	pos, err = dw.Seek(-5, 2)
 	if err != nil {
 		t.Errorf("SeekEnd failed: %v", err)
 	}
@@ -408,137 +694,26 @@ func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 		t.Errorf("SeekEnd: expected pos 31, got %d", pos)
 	}
 
-	t.Logf("Seek operations verified")
-}
-
-func testRandomWriteRead(t *testing.T, factory crypto_data.ICryptoDataFactory) {
-	storeIo := newMockReadWriterSeeker()
-	keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
-	cfg := config.NewMemoryConfig()
-
-	ctx, err := factory.NewContext(storeIo, keyInfo, cfg)
+	// Verify integrity using dualWriter
+	match, decrypted, expected, err := dw.verifyIntegrity()
 	if err != nil {
-		t.Fatalf("Failed to create context: %v", err)
+		t.Fatalf("Integrity verification failed: %v", err)
 	}
-	defer ctx.Close()
-
-	// Create initial data (1000 bytes)
-	initialData := make([]byte, 1000)
-	for i := range initialData {
-		initialData[i] = byte(i % 256)
-	}
-
-	// Write initial data
-	_, err = ctx.Write(initialData)
-	if err != nil {
-		t.Fatalf("Failed to write initial data: %v", err)
-	}
-
-	// Random write at different positions
-	writeTests := []struct {
-		offset int64
-		data   []byte
-	}{
-		{100, []byte("RANDOM_WRITE_1")},
-		{500, []byte("RANDOM_WRITE_2_AT_500")},
-		{900, []byte("END_WRITE")},
-		{0, []byte("START_WRITE")},
-	}
-
-	for _, wt := range writeTests {
-		n, err := ctx.WriteAt(wt.data, wt.offset)
-		if err != nil {
-			t.Errorf("WriteAt at offset %d failed: %v", wt.offset, err)
-			continue
+	if !match {
+		firstDiff := -1
+		minLen := len(decrypted)
+		if len(expected) < minLen {
+			minLen = len(expected)
 		}
-		if n != len(wt.data) {
-			t.Errorf("WriteAt at offset %d: expected %d bytes, got %d", wt.offset, len(wt.data), n)
-		}
-		t.Logf("WriteAt at offset %d: %d bytes written", wt.offset, n)
-	}
-
-	// Random read at different positions
-	readTests := []struct {
-		offset   int64
-		length   int
-		expected []byte
-	}{
-		{0, 11, []byte("START_WRITE")},
-		{100, 14, []byte("RANDOM_WRITE_1")},
-		{500, 21, []byte("RANDOM_WRITE_2_AT_500")},
-		{900, 9, []byte("END_WRITE")},
-	}
-
-	for _, rt := range readTests {
-		buf := make([]byte, rt.length)
-		n, err := ctx.ReadAt(buf, rt.offset)
-		if err != nil {
-			t.Errorf("ReadAt at offset %d failed: %v", rt.offset, err)
-			continue
-		}
-		if n != rt.length {
-			t.Errorf("ReadAt at offset %d: expected %d bytes, got %d", rt.offset, rt.length, n)
-			continue
-		}
-		if string(buf) != string(rt.expected) {
-			t.Errorf("ReadAt at offset %d: expected '%s', got '%s'", rt.offset, string(rt.expected), string(buf))
-			continue
-		}
-		t.Logf("ReadAt at offset %d: verified '%s'", rt.offset, string(buf))
-	}
-
-	// Verify entire data integrity
-	// Read the entire file and verify that:
-	// 1. Random writes are in the correct positions
-	// 2. Other data remains unchanged (no neighbor block corruption)
-	fullBuf := make([]byte, 1000)
-	_, err = ctx.Seek(0, 0)
-	if err != nil {
-		t.Fatalf("Seek to start failed: %v", err)
-	}
-	_, err = io.ReadFull(ctx, fullBuf)
-	if err != nil && err != io.ErrUnexpectedEOF {
-		t.Fatalf("Failed to read full data: %v", err)
-	}
-
-	// Build expected data: start with initial data, then apply writes
-	expectedData := make([]byte, 1000)
-	copy(expectedData, initialData)
-	copy(expectedData[0:], []byte("START_WRITE"))
-	copy(expectedData[100:], []byte("RANDOM_WRITE_1"))
-	copy(expectedData[500:], []byte("RANDOM_WRITE_2_AT_500"))
-	copy(expectedData[900:], []byte("END_WRITE"))
-
-	// Verify all data positions
-	corruptionCount := 0
-	for i := 0; i < 1000; i++ {
-		if fullBuf[i] != expectedData[i] {
-			if corruptionCount < 10 { // Limit error output
-				t.Errorf("Data corruption at position %d: expected %d, got %d", i, expectedData[i], fullBuf[i])
+		for i := 0; i < minLen; i++ {
+			if decrypted[i] != expected[i] {
+				firstDiff = i
+				break
 			}
-			corruptionCount++
 		}
-	}
-	if corruptionCount > 0 {
-		t.Errorf("Total %d bytes corrupted (neighbor block corruption detected)", corruptionCount)
-	}
-
-	// Verify specific positions (for readability)
-	if string(fullBuf[0:11]) != "START_WRITE" {
-		t.Errorf("Position 0-11: expected 'START_WRITE', got '%s'", string(fullBuf[0:11]))
-	}
-	if string(fullBuf[100:114]) != "RANDOM_WRITE_1" {
-		t.Errorf("Position 100-114: expected 'RANDOM_WRITE_1', got '%s'", string(fullBuf[100:114]))
-	}
-	if string(fullBuf[500:521]) != "RANDOM_WRITE_2_AT_500" {
-		t.Errorf("Position 500-521: expected 'RANDOM_WRITE_2_AT_500', got '%s'", string(fullBuf[500:521]))
-	}
-	if string(fullBuf[900:909]) != "END_WRITE" {
-		t.Errorf("Position 900-909: expected 'END_WRITE', got '%s'", string(fullBuf[900:909]))
-	}
-
-	if corruptionCount == 0 {
-		t.Logf("Random write/read test passed: all 1000 bytes verified, no neighbor block corruption")
+		t.Errorf("Integrity mismatch after Seek operations: first diff at position %d", firstDiff)
+	} else {
+		t.Logf("Seek operations verified with full integrity check")
 	}
 }
 
@@ -692,6 +867,423 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	}
 
 	t.Logf("Random delete test passed: all data integrity verified")
+}
+
+// testDualWriterIntegrity tests data integrity using a dual-writer mechanism.
+// Similar to io.MultiWriter, this approach writes to both:
+//   - Encrypted context (ctx): stores encrypted data
+//   - Plaintext mirror: stores plaintext data
+//
+// Verification: After each operation, we compare:
+//   decrypt(ctx) == plaintextMirror
+//
+// This is more accurate than hash-based verification because it directly
+// compares the expected plaintext with the decrypted data.
+func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactory) {
+	storeIo := newMockReadWriterSeeker()
+	keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
+	cfg := config.NewMemoryConfig()
+
+	ctx, err := factory.NewContext(storeIo, keyInfo, cfg)
+	if err != nil {
+		t.Fatalf("Failed to create context: %v", err)
+	}
+	defer ctx.Close()
+
+	// Create dual writer
+	dw := newDualWriter(ctx)
+
+	// Create initial data
+	initialSize := 256
+	initialData := make([]byte, initialSize)
+	for i := range initialData {
+		initialData[i] = byte(i % 256)
+	}
+
+	// Write initial data
+	_, err = dw.Write(initialData)
+	if err != nil {
+		t.Fatalf("Failed to write initial data: %v", err)
+	}
+
+	// Verify integrity after initial write
+	match, decrypted, expected, err := dw.verifyIntegrity()
+	if err != nil {
+		t.Fatalf("Integrity verification failed: %v", err)
+	}
+	if !match {
+		t.Fatalf("Initial write: decrypted data doesn't match plaintext mirror\nDecrypted: %v\nExpected:  %v", decrypted[:50], expected[:50])
+	}
+	t.Logf("Initial write verified: size=%d bytes", initialSize)
+
+	// Test operations
+	testCases := []struct {
+		name   string
+		op     func() error
+		desc   string
+	}{
+		{
+			name: "WriteAt_block_boundary",
+			op: func() error {
+				data := []byte("MODIFIED_AT_BLOCK_BOUNDARY")
+				_, err := dw.WriteAt(data, 16)
+				return err
+			},
+			desc: "WriteAt at block boundary (pos=16)",
+		},
+		{
+			name: "WriteAt_block_middle",
+			op: func() error {
+				data := []byte("MODIFIED_IN_MIDDLE")
+				_, err := dw.WriteAt(data, 40)
+				return err
+			},
+			desc: "WriteAt at block middle (pos=40)",
+		},
+		{
+			name: "WriteAt_cross_boundary",
+			op: func() error {
+				data := []byte("CROSSING_BOUNDARY")
+				_, err := dw.WriteAt(data, 15)
+				return err
+			},
+			desc: "WriteAt crossing block boundary (pos=15)",
+		},
+		{
+			name: "Seek_and_Write",
+			op: func() error {
+				_, err := dw.Seek(100, 0)
+				if err != nil {
+					return err
+				}
+				_, err = dw.Write([]byte("SEEK_AND_WRITE"))
+				return err
+			},
+			desc: "Seek then Write",
+		},
+		{
+			name: "Truncate_shrink",
+			op: func() error {
+				return dw.Truncate(200)
+			},
+			desc: "Truncate to shrink (256 -> 200)",
+		},
+		{
+			name: "Truncate_expand",
+			op: func() error {
+				return dw.Truncate(300)
+			},
+			desc: "Truncate to expand (200 -> 300)",
+		},
+		{
+			name: "Small_write",
+			op: func() error {
+				_, err := dw.WriteAt([]byte("X"), 50)
+				return err
+			},
+			desc: "Write single byte",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.op()
+			if err != nil {
+				t.Fatalf("Operation failed: %v", err)
+			}
+
+			// Verify integrity after operation
+			match, decrypted, expected, err := dw.verifyIntegrity()
+			if err != nil {
+				t.Fatalf("Integrity verification failed: %v", err)
+			}
+			if !match {
+				// Find first mismatch for better error message
+				firstDiff := -1
+				minLen := len(decrypted)
+				if len(expected) < minLen {
+					minLen = len(expected)
+				}
+				for i := 0; i < minLen; i++ {
+					if decrypted[i] != expected[i] {
+						firstDiff = i
+						break
+					}
+				}
+				t.Errorf("%s: decrypted data doesn't match plaintext mirror\nSize: decrypted=%d, expected=%d\nFirst diff at position: %d\nDecrypted: %v\nExpected:  %v", tc.desc, len(decrypted), len(expected), firstDiff, decrypted[:min(100, len(decrypted))], expected[:min(100, len(expected))])
+			} else {
+				t.Logf("%s: integrity verified", tc.desc)
+			}
+		})
+	}
+
+	t.Logf("Dual-writer integrity test passed: all operations verified")
+}
+
+// testBlockBoundaryOperations tests random operations with different data sizes
+// to detect neighbor block corruption issues using dualWriter.
+// AES uses 16-byte blocks, so we test:
+// - Sizes smaller than block size: 1, 8, 15 bytes
+// - Size equal to block size: 16 bytes
+// - Sizes larger than block size: 17, 24, 31, 32, 48 bytes
+// - Cross-block boundary sizes: 15, 17 bytes
+func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
+	storeIo := newTrackerMockReadWriter()
+	keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
+	cfg := config.NewMemoryConfig()
+
+	ctx, err := factory.NewContext(storeIo, keyInfo, cfg)
+	if err != nil {
+		t.Fatalf("Failed to create context: %v", err)
+	}
+	defer ctx.Close()
+
+	// Create dual writer for integrity verification
+	dw := newDualWriter(ctx)
+
+	// Create initial data (256 bytes = 16 blocks of 16 bytes each)
+	initialSize := 256
+	initialData := make([]byte, initialSize)
+	for i := range initialData {
+		initialData[i] = byte(i % 256)
+	}
+
+	// Write initial data using dualWriter
+	_, err = dw.Write(initialData)
+	if err != nil {
+		t.Fatalf("Failed to write initial data: %v", err)
+	}
+
+	// Verify initial write
+	match, _, _, err := dw.verifyIntegrity()
+	if err != nil {
+		t.Fatalf("Initial integrity verification failed: %v", err)
+	}
+	if !match {
+		t.Fatalf("Initial write: decrypted data doesn't match plaintext mirror")
+	}
+	t.Logf("Initial data written and verified: size=%d bytes", initialSize)
+
+	// Test 1: Fixed position tests
+	t.Run("FixedPositions", func(t *testing.T) {
+		// Test data sizes: smaller than block, equal to block, larger than block
+		testSizes := []int{
+			1, 8, 15,   // smaller than block size (16)
+			16,         // equal to block size
+			17, 24, 31, // larger than block size
+			32, 48, 64, // multiple blocks
+		}
+
+		// Test positions: block boundary, block middle, cross-block boundary
+		testPositions := []int{
+			0, 16, 32, 64,  // block boundaries
+			8, 24, 40, 72,  // block middle
+			15, 31, 47, 79, // cross-block boundary
+		}
+
+		for _, size := range testSizes {
+			for _, pos := range testPositions {
+				if pos+size > initialSize {
+					continue // skip if exceeds initial data size
+				}
+
+				// Create test data with unique pattern
+				testData := make([]byte, size)
+				for i := range testData {
+					testData[i] = byte((pos + i) % 256)
+				}
+
+				// WriteAt at position using dualWriter
+				n, err := dw.WriteAt(testData, int64(pos))
+				if err != nil {
+					t.Errorf("WriteAt size=%d pos=%d failed: %v", size, pos, err)
+					continue
+				}
+				if n != size {
+					t.Errorf("WriteAt size=%d pos=%d: expected %d bytes, got %d", size, pos, size, n)
+					continue
+				}
+
+				// Verify integrity using dualWriter
+				match, decrypted, expected, err := dw.verifyIntegrity()
+				if err != nil {
+					t.Errorf("Integrity verification failed: size=%d pos=%d, err=%v", size, pos, err)
+					continue
+				}
+				if !match {
+					// Find first mismatch for better error message
+					firstDiff := -1
+					minLen := len(decrypted)
+					if len(expected) < minLen {
+						minLen = len(expected)
+					}
+					for i := 0; i < minLen; i++ {
+						if decrypted[i] != expected[i] {
+							firstDiff = i
+							break
+						}
+					}
+					t.Errorf("Integrity mismatch: size=%d pos=%d, first diff at position %d", size, pos, firstDiff)
+				}
+			}
+		}
+
+		t.Logf("Fixed positions test passed: all sizes and positions verified")
+	})
+
+	t.Run("RandomStressTest", func(t *testing.T) {
+		rand.Seed(time.Now().UnixNano())
+
+		numStressTests := 50 // Reduced for performance
+		maxDataSize := 512   // Reduced max size
+
+		// Track current position for Write operations
+		currentPos := 0
+
+		for i := 0; i < numStressTests; i++ {
+			opType := rand.Intn(5) // 0-4: different operation types
+
+			switch opType {
+			case 0: // WriteAt: random position, random size, random data
+				size := rand.Intn(maxDataSize) + 1
+				pos := rand.Intn(maxDataSize)
+				testData := make([]byte, size)
+				rand.Read(testData)
+
+				n, err := dw.WriteAt(testData, int64(pos))
+				if err != nil {
+					t.Errorf("Stress test %d: WriteAt size=%d pos=%d failed: %v", i, size, pos, err)
+					continue
+				}
+				if n != size {
+					t.Errorf("Stress test %d: WriteAt size=%d pos=%d: wrote %d bytes", i, size, pos, n)
+				}
+
+			case 1: // Seek + Write: random seek, then write random data
+				seekPos := rand.Intn(maxDataSize)
+				_, err := dw.Seek(int64(seekPos), 0)
+				if err != nil {
+					t.Errorf("Stress test %d: Seek to %d failed: %v", i, seekPos, err)
+					continue
+				}
+
+				size := rand.Intn(128) + 1
+				testData := make([]byte, size)
+				rand.Read(testData)
+
+				n, err := dw.Write(testData)
+				if err != nil {
+					t.Errorf("Stress test %d: Write after Seek failed: %v", i, err)
+					continue
+				}
+				if n != size {
+					t.Errorf("Stress test %d: Write wrote %d bytes, expected %d", i, n, size)
+				}
+				currentPos = seekPos + size
+
+			case 2: // Truncate shrink: random smaller size
+				currentSize := int(dw.Size())
+				if currentSize <= 0 {
+					continue
+				}
+				newSize := rand.Intn(currentSize)
+				err := dw.Truncate(int64(newSize))
+				if err != nil {
+					t.Errorf("Stress test %d: Truncate shrink to %d failed: %v", i, newSize, err)
+				}
+
+			case 3: // Truncate expand: random larger size
+				currentSize := int(dw.Size())
+				expandBy := rand.Intn(128) + 1 // Smaller expansion
+				newSize := currentSize + expandBy
+				err := dw.Truncate(int64(newSize))
+				if err != nil {
+					t.Errorf("Stress test %d: Truncate expand to %d failed: %v", i, newSize, err)
+				}
+
+			case 4: // Write at current position
+				size := rand.Intn(64) + 1
+				testData := make([]byte, size)
+				rand.Read(testData)
+
+				n, err := dw.Write(testData)
+				if err != nil {
+					t.Errorf("Stress test %d: Write failed: %v", i, err)
+					continue
+				}
+				if n != size {
+					t.Errorf("Stress test %d: Write wrote %d bytes, expected %d", i, n, size)
+				}
+				currentPos += size
+			}
+
+			// Verify integrity every 10 operations (reduce overhead)
+			if i%10 == 9 {
+				match, decrypted, expected, err := dw.verifyIntegrity()
+				if err != nil {
+					t.Errorf("Stress test %d: Integrity verification failed: %v", i, err)
+					continue
+				}
+				if !match {
+					firstDiff := -1
+					minLen := len(decrypted)
+					if len(expected) < minLen {
+						minLen = len(expected)
+					}
+					for j := 0; j < minLen; j++ {
+						if decrypted[j] != expected[j] {
+							firstDiff = j
+							break
+						}
+					}
+					t.Errorf("Stress test %d: Integrity mismatch after operation %d, first diff at position %d", i, opType, firstDiff)
+					break // Stop on first error
+				}
+			}
+		}
+
+		// Final integrity verification
+		match, decrypted, expected, err := dw.verifyIntegrity()
+		if err != nil {
+			t.Fatalf("Final integrity verification failed: %v", err)
+		}
+		if !match {
+			firstDiff := -1
+			minLen := len(decrypted)
+			if len(expected) < minLen {
+				minLen = len(expected)
+			}
+			for j := 0; j < minLen; j++ {
+				if decrypted[j] != expected[j] {
+					firstDiff = j
+					break
+				}
+			}
+			t.Fatalf("Final integrity mismatch: size=%d, first diff at position %d", len(decrypted), firstDiff)
+		}
+
+		t.Logf("Random stress test passed: %d operations verified, final size=%d bytes", numStressTests, dw.Size())
+
+		// Print I/O statistics
+		// Note: storeIo tracks actual I/O operations at the storage level
+		// For I/O amplification analysis, we compare:
+		// - User writes N bytes -> storeIo tracks actual bytes written
+		// - Total I/O = Read + Write at storage level
+		stats := storeIo.GetStats()
+
+		t.Logf("=== I/O Statistics (Storage Level) ===")
+		t.Logf("Read:  %d bytes in %d calls (avg %.1f bytes/call)",
+			stats.ReadBytes, stats.ReadCalls, float64(stats.ReadBytes)/float64(max(stats.ReadCalls, 1)))
+		t.Logf("Write: %d bytes in %d calls (avg %.1f bytes/call)",
+			stats.WriteBytes, stats.WriteCalls, float64(stats.WriteBytes)/float64(max(stats.WriteCalls, 1)))
+		t.Logf("Seek: %d calls, Truncate: %d calls",
+			stats.SeekCalls, stats.TruncCalls)
+		t.Logf("Total: %d I/O calls, %d bytes transferred",
+			stats.ReadCalls+stats.WriteCalls+stats.SeekCalls+stats.TruncCalls,
+			stats.ReadBytes+stats.WriteBytes)
+	})
+
+	t.Logf("Block boundary operations test passed: fixed, random, and stress tests verified with dualWriter")
 }
 
 // ==================== Helper Functions ====================
