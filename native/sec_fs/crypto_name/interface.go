@@ -4,7 +4,7 @@ package crypto_name
 
 import (
 	"safe_disk/native/config"
-	"safe_disk/native/sec_fs/crypto_key"
+	"safe_disk/native/sec_fs/crypto_hkdf"
 )
 
 // ==================== INameCryptorContext Interface ====================
@@ -30,7 +30,7 @@ type ICryptoNameFactory interface {
 	// NewContext creates a new INameCryptorContext for encrypting/decrypting names.
 	// keyInfo provides the key information for encryption/decryption.
 	// cfg provides algorithm-specific configuration.
-	NewContext(keyInfo crypto_key.IKeyInfo, cfg config.SharedConfig) (INameCryptorContext, error)
+	NewContext(keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (INameCryptorContext, error)
 
 	// GetName returns the unique name of this cryptor factory.
 	GetName() string
@@ -61,7 +61,7 @@ func (c *nameCryptorContextImpl) DecryptName(encrypted string) (string, error) {
 // cryptoNameFactoryImpl is a placeholder type for ICryptoNameFactory implementation.
 type cryptoNameFactoryImpl struct{}
 
-func (f *cryptoNameFactoryImpl) NewContext(keyInfo crypto_key.IKeyInfo, cfg config.SharedConfig) (INameCryptorContext, error) {
+func (f *cryptoNameFactoryImpl) NewContext(keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (INameCryptorContext, error) {
 	return nil, nil
 }
 func (f *cryptoNameFactoryImpl) GetName() string { return "" }

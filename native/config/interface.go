@@ -2,6 +2,7 @@ package config
 
 // SharedConfig defines a unified configuration interface for Safe Disk.
 // Each module using SharedConfig should add its own key prefix (e.g., "xxx_").
+
 type SharedConfig interface {
 	// Getters
 	GetStr(key string) (string, error)

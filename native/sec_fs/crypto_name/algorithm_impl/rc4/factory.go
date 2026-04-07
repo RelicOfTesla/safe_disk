@@ -1,5 +1,5 @@
-// Package aes_gcm_name provides AES-256-GCM encryption implementation for names.
-package aes_gcm_name
+// Package rc4 provides RC4 stream cipher encryption implementation for file names.
+package rc4
 
 import (
 	"safe_disk/native/config"
@@ -7,15 +7,15 @@ import (
 	"safe_disk/native/sec_fs/crypto_name"
 )
 
-// Factory implements ICryptoNameFactory for AES-256-GCM.
+// Factory implements ICryptoNameFactory for RC4.
 type Factory struct {
 	name string
 }
 
-// NewFactory creates a new AES-256-GCM name cryptor factory.
+// NewFactory creates a new RC4 factory for name encryption.
 func NewFactory() *Factory {
 	return &Factory{
-		name: "aes-gcm-name",
+		name: "rc4",
 	}
 }
 

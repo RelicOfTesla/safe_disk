@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"safe_disk/native/config"
-	"safe_disk/native/sec_fs/crypto_key"
+	"safe_disk/native/sec_fs/crypto_hkdf"
 )
 
 // ==================== IReadWriterSeeker Interface ====================
@@ -109,7 +109,7 @@ type ICryptoDataFactory interface {
 	// storeFileIo is the underlying storage file I/O interface.
 	// keyInfo provides the key information for encryption/decryption.
 	// cfg provides algorithm-specific configuration.
-	NewContext(storeFileIo IReadWriterSeeker, keyInfo crypto_key.IKeyInfo, cfg config.SharedConfig) (IDataCryptorContext, error)
+	NewContext(storeFileIo IReadWriterSeeker, keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (IDataCryptorContext, error)
 
 	// GetName returns the unique name of this cryptor factory.
 	GetName() string
@@ -146,7 +146,7 @@ func (c *dataCryptorContextImpl) Sync() error           { return nil }
 // cryptoDataFactoryImpl is a placeholder type for ICryptoDataFactory implementation.
 type cryptoDataFactoryImpl struct{}
 
-func (f *cryptoDataFactoryImpl) NewContext(storeFileIo IReadWriterSeeker, keyInfo crypto_key.IKeyInfo, cfg config.SharedConfig) (IDataCryptorContext, error) {
+func (f *cryptoDataFactoryImpl) NewContext(storeFileIo IReadWriterSeeker, keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (IDataCryptorContext, error) {
 	return nil, nil
 }
 func (f *cryptoDataFactoryImpl) GetName() string            { return "" }
