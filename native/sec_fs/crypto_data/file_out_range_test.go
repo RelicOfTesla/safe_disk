@@ -5,53 +5,10 @@ import (
 	"io"
 	"testing"
 
-	"safe_disk/native/config"
 	"safe_disk/native/sec_fs/crypto_data"
-	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_gcm"
-	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/rc4"
 )
 
-// ==================== Test Factory ====================
-
-// ContextFactory creates IFullDataCryptorContext for testing
-type ContextFactory struct {
-	Name    string
-	Factory crypto_data.ICryptoDataFactory
-}
-
-// GetAllFactories returns all context factories for testing
-func GetAllFactories() []ContextFactory {
-	// TODO: crypto_data.ListFactories()
-	return []ContextFactory{
-		{Name: "mockFile", Factory: nil},
-		{Name: "rc4", Factory: rc4.NewFactory()},
-		{Name: "aes-gcm", Factory: aes_gcm.NewFactory()},
-	}
-}
-
-// CreateContext creates a context for testing
-func CreateContext(t *testing.T, factory crypto_data.ICryptoDataFactory) crypto_data.IDataCryptorContext {
-	if factory == nil {
-		return newMockReadWriterSeeker()
-	}
-
-	storeIo := newMockReadWriterSeeker()
-	key := make([]byte, 32)
-	for i := range key {
-		key[i] = byte(i)
-	}
-	keyInfo := &mockKeyInfo{key: key}
-	cfg := config.NewMemoryConfig()
-
-	ctx, err := factory.NewContext(storeIo, keyInfo, cfg)
-	if err != nil {
-		t.Fatalf("Failed to create context: %v", err)
-	}
-	return ctx
-}
-
 // ==================== Test 1 & 2: Gap Write ====================
-
 // TestFileOutOfRange tests writing beyond file end
 // Test 1: WriteAt(pos=100) -> tell()==104 -> ReadAll == "prefix\0\0...test"
 // Test 2: Seek(100)+Write -> tell()==104 -> ReadAll == "prefix\0\0...test"
@@ -361,6 +318,259 @@ func TestSeekOutReadBehavior(t *testing.T) {
 			}
 
 			t.Logf("Test 4: Gap filled with zeros, data = 'Hello' + 95 zeros + 'World'")
+		})
+	}
+}
+
+// ==================== Test 5: Truncate Expand ====================
+
+// TestTruncateExpand tests Truncate(expand) behavior
+// Expected: Truncate should expand file with zeros
+func TestTruncateExpand(t *testing.T) {
+	factories := GetAllFactories()
+
+	for _, ff := range factories {
+		t.Run(ff.Name, func(t *testing.T) {
+			ctx := CreateContext(t, ff.Factory)
+			defer ctx.Close()
+
+			// Write "Hello" (5 bytes)
+			testData := []byte("Hello")
+			n, err := ctx.Write(testData)
+			if err != nil || n != len(testData) {
+				t.Fatalf("Write failed: n=%d, err=%v", n, err)
+			}
+
+			// Truncate to 100 bytes (expand)
+			err = ctx.Truncate(100)
+			if err != nil {
+				t.Fatalf("Truncate(100) failed: %v", err)
+			}
+
+			// Verify size
+			size := ctx.Size()
+			if size != 100 {
+				t.Errorf("Size after Truncate: expected 100, got %d", size)
+			}
+			t.Logf("Test 1: Truncate(100) -> size=%d", size)
+
+			// Verify tell() unchanged (Truncate does not change seek position)
+			tell, err := ctx.Seek(0, io.SeekCurrent)
+			if err != nil {
+				t.Errorf("Seek current failed: %v", err)
+			}
+			if tell != 5 {
+				t.Errorf("Truncate changed seek position: expected 5, got %d", tell)
+			}
+			t.Logf("Test 2: tell()=%d after Truncate (expected 5)", tell)
+
+			// Read all and verify zeros
+			ctx.Seek(0, io.SeekStart)
+			allData := make([]byte, 100)
+			n, err = io.ReadFull(ctx, allData)
+			if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+				t.Fatalf("ReadAll failed: %v", err)
+			}
+
+			// First 5 bytes should be "Hello"
+			if string(allData[:5]) != "Hello" {
+				t.Errorf("First 5 bytes: expected 'Hello', got %q", allData[:5])
+			}
+
+			// Bytes 5-99 should be zeros
+			for i := 5; i < 100; i++ {
+				if allData[i] != 0 {
+					t.Errorf("Expanded byte %d: expected 0, got %d", i, allData[i])
+					break
+				}
+			}
+
+			t.Logf("Test 3: Truncate expand filled with zeros: 'Hello' + 95 zeros")
+
+			// Test 4: Truncate expand again
+			err = ctx.Truncate(200)
+			if err != nil {
+				t.Fatalf("Truncate(200) failed: %v", err)
+			}
+
+			size = ctx.Size()
+			if size != 200 {
+				t.Errorf("Size after second Truncate: expected 200, got %d", size)
+			}
+			t.Logf("Test 4: Truncate(200) -> size=%d", size)
+		})
+	}
+}
+
+// ==================== Test 6: ReadAt/WriteAt Seek Position Check ====================
+
+// TestReadAtWriteAtSeekPosition verifies ReadAt/WriteAt do not change seek position
+func TestReadAtWriteAtSeekPosition(t *testing.T) {
+	factories := GetAllFactories()
+
+	for _, ff := range factories {
+		t.Run(ff.Name, func(t *testing.T) {
+			ctx := CreateContext(t, ff.Factory)
+			defer ctx.Close()
+
+			// Write initial data: "Hello, World!" (13 bytes)
+			testData := []byte("Hello, World!")
+			n, err := ctx.Write(testData)
+			if err != nil || n != len(testData) {
+				t.Fatalf("Write failed: n=%d, err=%v", n, err)
+			}
+
+			// Test 1: ReadAt should not change seek position
+			t.Run("ReadAt_SeekCheck", func(t *testing.T) {
+				// Seek to position 5
+				pos, err := ctx.Seek(5, io.SeekStart)
+				if err != nil || pos != 5 {
+					t.Fatalf("Seek(5) failed: pos=%d, err=%v", pos, err)
+				}
+
+				// ReadAt at position 0
+				buf := make([]byte, 5)
+				n, err := ctx.ReadAt(buf, 0)
+				if err != nil && err != io.EOF {
+					t.Errorf("ReadAt failed: %v", err)
+				}
+				if n != 5 {
+					t.Errorf("ReadAt: expected n=5, got n=%d", n)
+				}
+
+				// Verify seek position unchanged (should still be 5)
+				pos, err = ctx.Seek(0, io.SeekCurrent)
+				if err != nil {
+					t.Errorf("Seek current failed: %v", err)
+				}
+				if pos != 5 {
+					t.Errorf("ReadAt changed seek position: expected 5, got %d", pos)
+				}
+				t.Logf("ReadAt(0, 5) -> seek position still at %d", pos)
+			})
+
+			// Test 2: WriteAt should not change seek position
+			t.Run("WriteAt_SeekCheck", func(t *testing.T) {
+				// Seek to position 7
+				pos, err := ctx.Seek(7, io.SeekStart)
+				if err != nil || pos != 7 {
+					t.Fatalf("Seek(7) failed: pos=%d, err=%v", pos, err)
+				}
+
+				// WriteAt at position 0
+				n, err := ctx.WriteAt([]byte("HELLO"), 0)
+				if err != nil {
+					t.Errorf("WriteAt failed: %v", err)
+				}
+				if n != 5 {
+					t.Errorf("WriteAt: expected n=5, got n=%d", n)
+				}
+
+				// Verify seek position unchanged (should still be 7)
+				pos, err = ctx.Seek(0, io.SeekCurrent)
+				if err != nil {
+					t.Errorf("Seek current failed: %v", err)
+				}
+				if pos != 7 {
+					t.Errorf("WriteAt changed seek position: expected 7, got %d", pos)
+				}
+				t.Logf("WriteAt(0, 5) -> seek position still at %d", pos)
+			})
+
+			// Test 3: Multiple ReadAt/WriteAt should preserve seek position
+			t.Run("Multiple_ReadAt_WriteAt_SeekCheck", func(t *testing.T) {
+				// Seek to position 10
+				pos, err := ctx.Seek(10, io.SeekStart)
+				if err != nil || pos != 10 {
+					t.Fatalf("Seek(10) failed: pos=%d, err=%v", pos, err)
+				}
+
+				// Multiple ReadAt
+				for i := 0; i < 5; i++ {
+					buf := make([]byte, 2)
+					ctx.ReadAt(buf, int64(i*2))
+				}
+
+				// Verify seek position unchanged (should still be 10)
+				pos, err = ctx.Seek(0, io.SeekCurrent)
+				if err != nil {
+					t.Errorf("Seek current failed: %v", err)
+				}
+				if pos != 10 {
+					t.Errorf("Multiple ReadAt changed seek position: expected 10, got %d", pos)
+				}
+
+				// Multiple WriteAt
+				for i := 0; i < 5; i++ {
+					ctx.WriteAt([]byte("XX"), int64(i*3))
+				}
+
+				// Verify seek position unchanged (should still be 10)
+				pos, err = ctx.Seek(0, io.SeekCurrent)
+				if err != nil {
+					t.Errorf("Seek current failed: %v", err)
+				}
+				if pos != 10 {
+					t.Errorf("Multiple WriteAt changed seek position: expected 10, got %d", pos)
+				}
+				t.Logf("Multiple ReadAt/WriteAt -> seek position still at %d", pos)
+			})
+		})
+	}
+}
+
+// ==================== Test 7: Seek Size+Offset ====================
+
+// TestSeekSizePlusOffset tests Seek(Size()+offset, io.SeekStart) behavior
+func TestSeekSizePlusOffset(t *testing.T) {
+	factories := GetAllFactories()
+
+	for _, ff := range factories {
+		t.Run(ff.Name, func(t *testing.T) {
+			ctx := CreateContext(t, ff.Factory)
+			defer ctx.Close()
+
+			// Write test data: 100 bytes
+			testData := make([]byte, 100)
+			for i := range testData {
+				testData[i] = byte(i)
+			}
+			n, err := ctx.Write(testData)
+			if err != nil || n != 100 {
+				t.Fatalf("Write failed: n=%d, err=%v", n, err)
+			}
+
+			// Get current size
+			size := ctx.Size()
+			t.Logf("After Write(100): size=%d", size)
+
+			// Seek to size + 100
+			off := size + 100
+			pos, err := ctx.Seek(off, io.SeekStart)
+			if err != nil {
+				t.Errorf("Seek(Size()+100) failed: %v", err)
+			}
+			if pos != off {
+				t.Errorf("Seek position: expected %d, got %d", off, pos)
+			}
+			t.Logf("Seek(Size()+100) = %d (expected %d)", pos, off)
+
+			// Verify tell() returns the same value
+			tell, err := ctx.Seek(0, io.SeekCurrent)
+			if err != nil {
+				t.Errorf("Seek(0, Current) failed: %v", err)
+			}
+			if tell != off {
+				t.Errorf("tell(): expected %d, got %d", off, tell)
+			}
+			t.Logf("tell() = %d (expected %d)", tell, off)
+
+			// Verify size hasn't changed
+			newSize := ctx.Size()
+			if newSize != size {
+				t.Errorf("Size changed after Seek: expected %d, got %d", size, newSize)
+			}
+			t.Logf("Size after Seek = %d (expected %d)", newSize, size)
 		})
 	}
 }

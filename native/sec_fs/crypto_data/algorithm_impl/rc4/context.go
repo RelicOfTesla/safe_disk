@@ -243,8 +243,9 @@ func (c *Context) ReadAt(p []byte, off int64) (n int, err error) {
 		c.decryptAt(p[:n], off)
 	}
 
-	// Restore position
+	// Restore position (both c.pos and underlying storage)
 	c.pos = oldPos
+	c.storeFileIo.Seek(oldPos, io.SeekStart)
 
 	return n, err
 }
