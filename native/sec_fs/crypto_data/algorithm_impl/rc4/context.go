@@ -14,7 +14,7 @@ import (
 // Context implements IDataCryptorContext for RC4 encryption.
 type Context struct {
 	mu          sync.RWMutex
-	storeFileIo crypto_data.IReadWriterSeeker
+	storeFileIo crypto_data.IFileContext
 	key         []byte
 	cipher      *rc4.Cipher
 	pos         int64
@@ -22,7 +22,7 @@ type Context struct {
 }
 
 // NewContext creates a new RC4 encryption context.
-func NewContext(storeFileIo crypto_data.IReadWriterSeeker, keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (*Context, error) {
+func NewContext(storeFileIo crypto_data.IFileContext, keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (*Context, error) {
 	// Get key from keyInfo
 	key := keyInfo.GetKey()
 	if len(key) == 0 {
@@ -200,6 +200,72 @@ func (c *Context) encryptAt(data []byte, pos int64) {
 func (c *Context) decryptAt(data []byte, pos int64) {
 	// RC4 encryption and decryption are the same operation (XOR)
 	c.encryptAt(data, pos)
+}
+
+// ==================== ReadAt/WriteAt Methods ====================
+
+// ReadAt reads and decrypts data at a specific offset.
+// It implements io.ReaderAt for random access support.
+func (c *Context) ReadAt(p []byte, off int64) (n int, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Save current position
+	oldPos := c.pos
+
+	// Seek to the specified offset
+	_, err = c.Seek(off, io.SeekStart)
+	if err != nil {
+		return 0, err
+	}
+
+	// Read data
+	n, err = c.storeFileIo.Read(p)
+	if n > 0 {
+		// Decrypt data
+		c.decryptAt(p[:n], off)
+	}
+
+	// Restore position
+	c.pos = oldPos
+
+	return n, err
+}
+
+// WriteAt encrypts and writes data at a specific offset.
+// It implements io.WriterAt for random access support.
+func (c *Context) WriteAt(p []byte, off int64) (n int, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Make a copy of data to encrypt
+	encrypted := make([]byte, len(p))
+	copy(encrypted, p)
+
+	// Encrypt data at the specified offset
+	c.encryptAt(encrypted, off)
+
+	// Write encrypted data at the specified offset
+	if writerAt, ok := c.storeFileIo.(io.WriterAt); ok {
+		n, err = writerAt.WriteAt(encrypted, off)
+	} else {
+		// Fallback: seek and write
+		_, err = c.storeFileIo.Seek(off, io.SeekStart)
+		if err != nil {
+			return 0, err
+		}
+		n, err = c.storeFileIo.Write(encrypted)
+	}
+
+	if n > 0 {
+		// Update size if necessary
+		newEnd := off + int64(n)
+		if newEnd > c.size {
+			c.size = newEnd
+		}
+	}
+
+	return n, err
 }
 
 // Compile-time interface verification
