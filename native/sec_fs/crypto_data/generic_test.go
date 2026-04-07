@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
+	"strconv"
 	"testing"
-	"time"
 
 	"safe_disk/native/config"
 	"safe_disk/native/sec_fs/crypto_data"
@@ -159,6 +160,92 @@ func (s *IOStats) Amplification(other *IOStats) (readAmp, writeAmp, totalAmp flo
 	return
 }
 
+// ==================== Tracker Context (Implements IFullDataCryptorContext) ====================
+
+// trackerContext wraps any IFullDataCryptorContext and tracks I/O statistics.
+// Business layer is unaware of whether it's using aesContext, dualWriter, or tracker.
+// This is the correct design pattern for transparent tracking.
+type trackerContext struct {
+	ctx   crypto_data.IDataCryptorContext
+	stats IOStats
+}
+
+// Compile-time interface verification
+var _ crypto_data.IDataCryptorContext = (*trackerContext)(nil)
+
+// newTrackerContext creates a new tracker wrapper for any IFullDataCryptorContext.
+func newTrackerContext(ctx crypto_data.IDataCryptorContext) *trackerContext {
+	return &trackerContext{
+		ctx: ctx,
+	}
+}
+
+// GetStats returns the current statistics.
+func (t *trackerContext) GetStats() IOStats {
+	return t.stats
+}
+
+// ResetTracker resets the statistics.
+func (t *trackerContext) ResetTracker() {
+	t.stats = IOStats{}
+}
+
+// All IFullDataCryptorContext methods with tracking:
+
+func (t *trackerContext) Read(p []byte) (n int, err error) {
+	n, err = t.ctx.Read(p)
+	t.stats.ReadBytes += int64(n)
+	t.stats.ReadCalls++
+	return
+}
+
+func (t *trackerContext) Write(p []byte) (n int, err error) {
+	n, err = t.ctx.Write(p)
+	t.stats.WriteBytes += int64(n)
+	t.stats.WriteCalls++
+	return
+}
+
+func (t *trackerContext) Seek(offset int64, whence int) (int64, error) {
+	pos, err := t.ctx.Seek(offset, whence)
+	t.stats.SeekCalls++
+	return pos, err
+}
+
+func (t *trackerContext) Close() error {
+	return t.ctx.Close()
+}
+
+func (t *trackerContext) Size() int64 {
+	return t.ctx.Size()
+}
+
+func (t *trackerContext) Truncate(size int64) error {
+	err := t.ctx.Truncate(size)
+	t.stats.TruncCalls++
+	return err
+}
+
+func (t *trackerContext) Sync() error {
+	return t.ctx.Sync()
+}
+
+func (t *trackerContext) ReadAt(p []byte, off int64) (n int, err error) {
+	n, err = t.ctx.ReadAt(p, off)
+	t.stats.ReadBytes += int64(n)
+	t.stats.ReadCalls++
+	return
+}
+
+func (t *trackerContext) WriteAt(p []byte, off int64) (n int, err error) {
+	n, err = t.ctx.WriteAt(p, off)
+	t.stats.WriteBytes += int64(n)
+	t.stats.WriteCalls++
+	return
+}
+
+// ==================== trackerMockReadWriter (for storage layer) ====================
+
 // trackerMockReadWriter wraps mockReadWriterSeeker and tracks I/O statistics.
 type trackerMockReadWriter struct {
 	*mockReadWriterSeeker
@@ -230,6 +317,48 @@ func (t *trackerMockReadWriter) Truncate(size int64) error {
 	return err
 }
 
+// Size returns the current size of the data.
+func (t *trackerMockReadWriter) Size() int64 {
+	return t.mockReadWriterSeeker.Size()
+}
+
+// Sync is a no-op for mock implementation.
+func (t *trackerMockReadWriter) Sync() error {
+	return nil
+}
+
+// Compile-time interface verification
+var _ crypto_data.IFileContext = (*trackerMockReadWriter)(nil)
+var _ crypto_data.IDataCryptorContext = (*trackerMockReadWriter)(nil)
+
+// ==================== Helper Functions ====================
+
+// reportAndReset reports I/O statistics and resets the counters.
+// This function is used to track I/O amplification at different stages of testing.
+func reportAndReset(t *testing.T, tw *trackerContext, storeIo *trackerMockReadWriter, prefix string) {
+	userStats := tw.GetStats()
+	storeStats := storeIo.GetStats()
+
+	if userStats.WriteBytes == 0 && userStats.ReadBytes == 0 {
+		// No user operations, skip report
+		return
+	}
+
+	readAmp := float64(storeStats.ReadBytes) / float64(max(userStats.ReadBytes, 1))
+	writeAmp := float64(storeStats.WriteBytes) / float64(max(userStats.WriteBytes, 1))
+
+	t.Logf("[%s] Expected/User: Write %d bytes (%d calls), Read %d bytes (%d calls)",
+		prefix, userStats.WriteBytes, userStats.WriteCalls, userStats.ReadBytes, userStats.ReadCalls)
+	t.Logf("[%s] Actual/Store: Write %d bytes (%d calls), Read %d bytes (%d calls)",
+		prefix, storeStats.WriteBytes, storeStats.WriteCalls, storeStats.ReadBytes, storeStats.ReadCalls)
+	t.Logf("[%s] Amplification: Read %.2fx, Write %.2fx",
+		prefix, readAmp, writeAmp)
+
+	// Reset counters
+	tw.ResetTracker()
+	storeIo.ResetTracker()
+}
+
 // ==================== Dual Writer for Integrity Verification ====================
 
 // dualWriter is a wrapper that simultaneously writes to both an encrypted context
@@ -255,8 +384,11 @@ func newDualWriter(ctx crypto_data.IDataCryptorContext) *dualWriter {
 	}
 }
 
+
 // Write writes data to both the encrypted context and plaintext mirror.
 func (d *dualWriter) Write(p []byte) (n int, err error) {
+	// Auto-track user operation
+
 	// Write to encrypted context
 	n, err = d.ctx.Write(p)
 	if err != nil {
@@ -279,6 +411,8 @@ func (d *dualWriter) Read(p []byte) (n int, err error) {
 
 // Seek sets the position for both the encrypted context and plaintext mirror.
 func (d *dualWriter) Seek(offset int64, whence int) (int64, error) {
+	// Auto-track user operation
+
 	pos, err := d.ctx.Seek(offset, whence)
 	if err != nil {
 		return pos, err
@@ -305,6 +439,8 @@ func (d *dualWriter) Size() int64 {
 
 // Truncate truncates both the encrypted context and plaintext mirror.
 func (d *dualWriter) Truncate(size int64) error {
+	// Auto-track user operation
+
 	err := d.ctx.Truncate(size)
 	if err != nil {
 		return err
@@ -320,6 +456,8 @@ func (d *dualWriter) Sync() error {
 
 // WriteAt writes data at the specified offset to both contexts.
 func (d *dualWriter) WriteAt(p []byte, off int64) (n int, err error) {
+	// Auto-track user operation
+
 	// Write to encrypted context
 	n, err = d.ctx.WriteAt(p, off)
 	if err != nil {
@@ -339,6 +477,10 @@ func (d *dualWriter) WriteAt(p []byte, off int64) (n int, err error) {
 func (d *dualWriter) ReadAt(p []byte, off int64) (n int, err error) {
 	return d.ctx.ReadAt(p, off)
 }
+
+// Compile-time interface verification
+var _ crypto_data.IFileContext = (*dualWriter)(nil)
+var _ crypto_data.IDataCryptorContext = (*dualWriter)(nil)
 
 // verifyIntegrity compares decrypted data from ctx with the plaintext mirror.
 // Returns true if they match, false otherwise.
@@ -524,7 +666,7 @@ func testEncryptDecrypt(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 			}
 
 			// Create new context for each test case (isolation)
-			storeIo := newMockReadWriterSeeker()
+			storeIo := newTrackerMockReadWriter()
 			keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
 			cfg := config.NewMemoryConfig()
 
@@ -534,8 +676,11 @@ func testEncryptDecrypt(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 			}
 			defer ctx.Close()
 
+			// Create trackerContext to track user-level operations
+			tw := newTrackerContext(ctx)
+
 			// Create dualWriter for integrity verification
-			dw := newDualWriter(ctx)
+			dw := newDualWriter(tw)
 
 			// Write (encrypt) using dualWriter
 			n, err := dw.Write(tc.data)
@@ -546,11 +691,17 @@ func testEncryptDecrypt(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 				t.Errorf("Expected to write %d bytes, wrote %d", len(tc.data), n)
 			}
 
+			// Report and reset before verifyIntegrity
+			reportAndReset(t, tw, storeIo, "BeforeVerify")
+
 			// Verify integrity using dualWriter
 			match, decrypted, expected, err := dw.verifyIntegrity()
 			if err != nil {
 				t.Fatalf("Integrity verification failed: %v", err)
 			}
+
+			// Report and reset after verifyIntegrity
+			reportAndReset(t, tw, storeIo, "AfterVerify")
 			if !match {
 				firstDiff := -1
 				minLen := len(decrypted)
@@ -586,7 +737,7 @@ func testMultipleWriteRead(t *testing.T, factory crypto_data.ICryptoDataFactory)
 	// Test: Write each chunk in a separate context (simulating separate files)
 	for i, chunk := range chunks {
 		t.Run(fmt.Sprintf("Chunk%d", i+1), func(t *testing.T) {
-			storeIo := newMockReadWriterSeeker()
+			storeIo := newTrackerMockReadWriter()
 			keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
 			cfg := config.NewMemoryConfig()
 
@@ -596,8 +747,11 @@ func testMultipleWriteRead(t *testing.T, factory crypto_data.ICryptoDataFactory)
 			}
 			defer ctx.Close()
 
+			// Create trackerContext to track user-level operations
+			tw := newTrackerContext(ctx)
+
 			// Create dualWriter for integrity verification
-			dw := newDualWriter(ctx)
+			dw := newDualWriter(tw)
 
 			// Write chunk using dualWriter
 			n, err := dw.Write(chunk)
@@ -608,11 +762,17 @@ func testMultipleWriteRead(t *testing.T, factory crypto_data.ICryptoDataFactory)
 				t.Errorf("Expected to write %d bytes, wrote %d", len(chunk), n)
 			}
 
+			// Report and reset before verifyIntegrity
+			reportAndReset(t, tw, storeIo, "BeforeVerify")
+
 			// Verify integrity using dualWriter
 			match, decrypted, expected, err := dw.verifyIntegrity()
 			if err != nil {
 				t.Fatalf("Integrity verification failed: %v", err)
 			}
+
+			// Report and reset after verifyIntegrity
+			reportAndReset(t, tw, storeIo, "AfterVerify")
 			if !match {
 				firstDiff := -1
 				minLen := len(decrypted)
@@ -635,7 +795,7 @@ func testMultipleWriteRead(t *testing.T, factory crypto_data.ICryptoDataFactory)
 }
 
 func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
-	storeIo := newMockReadWriterSeeker()
+	storeIo := newTrackerMockReadWriter()
 	keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
 	cfg := config.NewMemoryConfig()
 
@@ -645,8 +805,11 @@ func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	}
 	defer ctx.Close()
 
+	// Create trackerContext to track user-level operations
+	tw := newTrackerContext(ctx)
+
 	// Create dualWriter for integrity verification
-	dw := newDualWriter(ctx)
+	dw := newDualWriter(tw)
 
 	// Write test data using dualWriter
 	testData := []byte("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -694,11 +857,18 @@ func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 		t.Errorf("SeekEnd: expected pos 31, got %d", pos)
 	}
 
+	// Report and reset before verifyIntegrity
+	reportAndReset(t, tw, storeIo, "BeforeVerify")
+
 	// Verify integrity using dualWriter
 	match, decrypted, expected, err := dw.verifyIntegrity()
 	if err != nil {
 		t.Fatalf("Integrity verification failed: %v", err)
 	}
+
+	// Report and reset after verifyIntegrity
+	reportAndReset(t, tw, storeIo, "AfterVerify")
+
 	if !match {
 		firstDiff := -1
 		minLen := len(decrypted)
@@ -718,7 +888,7 @@ func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 }
 
 func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
-	storeIo := newMockReadWriterSeeker()
+	storeIo := newTrackerMockReadWriter()
 	keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
 	cfg := config.NewMemoryConfig()
 
@@ -728,6 +898,12 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	}
 	defer ctx.Close()
 
+	// Create dual writer for integrity verification
+	dw := newDualWriter(ctx)
+
+	// Wrap with trackerContext to track user-level operations
+	tw := newTrackerContext(dw)
+
 	// Create initial data (1000 bytes)
 	initialData := make([]byte, 1000)
 	for i := range initialData {
@@ -735,136 +911,102 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	}
 
 	// Write initial data
-	_, err = ctx.Write(initialData)
+	_, err = tw.Write(initialData)
 	if err != nil {
 		t.Fatalf("Failed to write initial data: %v", err)
 	}
 
-	initialSize := ctx.Size()
+	initialSize := tw.Size()
 	t.Logf("Initial size: %d bytes", initialSize)
 
+	// Verify initial write integrity
+	match, _, _, err := dw.verifyIntegrity()
+	if err != nil {
+		t.Fatalf("Initial integrity verification failed: %v", err)
+	}
+	if !match {
+		t.Fatalf("Initial write: decrypted data doesn't match plaintext mirror")
+	}
+
+	// Report initial I/O statistics
+	reportAndReset(t, tw, storeIo, "After initial write")
+
 	// Test 1: Truncate to remove data from the end
-	err = ctx.Truncate(800)
+	reportAndReset(t, tw, storeIo, "Before truncate shrink")
+
+	err = tw.Truncate(800)
 	if err != nil {
 		t.Fatalf("Truncate failed: %v", err)
 	}
 
-	newSize := ctx.Size()
+	newSize := tw.Size()
 	if newSize != 800 {
 		t.Errorf("After truncate: expected size 800, got %d", newSize)
 	}
 	t.Logf("After truncate: size = %d bytes", newSize)
 
-	// Verify remaining data is intact
-	buf := make([]byte, 800)
-	_, err = ctx.Seek(0, 0)
+	// Verify integrity after truncate shrink
+	match, _, _, err = dw.verifyIntegrity()
 	if err != nil {
-		t.Fatalf("Seek to start failed: %v", err)
+		t.Fatalf("Truncate shrink integrity verification failed: %v", err)
 	}
-	_, err = io.ReadFull(ctx, buf)
-	if err != nil && err != io.ErrUnexpectedEOF {
-		t.Fatalf("Failed to read remaining data: %v", err)
+	if !match {
+		t.Fatalf("Truncate shrink: decrypted data doesn't match plaintext mirror")
 	}
 
-	// Verify data integrity
-	for i := 0; i < 800; i++ {
-		expected := byte(i % 256)
-		if buf[i] != expected {
-			t.Errorf("Data corruption at position %d: expected %d, got %d", i, expected, buf[i])
-			break
-		}
-	}
+	reportAndReset(t, tw, storeIo, "After truncate shrink")
 
 	// Test 2: Expand file with Truncate
-	err = ctx.Truncate(1200)
+	reportAndReset(t, tw, storeIo, "Before truncate expand")
+
+	err = tw.Truncate(1200)
 	if err != nil {
 		t.Fatalf("Truncate to expand failed: %v", err)
 	}
 
-	expandedSize := ctx.Size()
+	expandedSize := tw.Size()
 	if expandedSize != 1200 {
 		t.Errorf("After expand: expected size 1200, got %d", expandedSize)
 	}
 	t.Logf("After expand: size = %d bytes", expandedSize)
 
-	// Verify expanded area is zeros
-	expandedBuf := make([]byte, 400)
-	_, err = ctx.Seek(800, 0)
+	// Verify integrity after truncate expand (expanded area should be zeros)
+	match, _, _, err = dw.verifyIntegrity()
 	if err != nil {
-		t.Fatalf("Seek to 800 failed: %v", err)
+		t.Fatalf("Truncate expand integrity verification failed: %v", err)
 	}
-	_, err = io.ReadFull(ctx, expandedBuf)
-	if err != nil && err != io.ErrUnexpectedEOF {
-		t.Fatalf("Failed to read expanded area: %v", err)
+	if !match {
+		t.Fatalf("Truncate expand: decrypted data doesn't match plaintext mirror")
 	}
 
-	allZeros := true
-	for _, b := range expandedBuf {
-		if b != 0 {
-			allZeros = false
-			break
-		}
-	}
-	if !allZeros {
-		t.Error("Expanded area should be zeros, but found non-zero bytes")
-	}
+	reportAndReset(t, tw, storeIo, "After truncate expand")
 
 	// Test 3: Simulate "delete in middle" by overwriting with zeros
 	// This is not a real delete, but simulates the effect
-	_, err = ctx.Seek(400, 0)
+	reportAndReset(t, tw, storeIo, "Before write zeros")
+
+	_, err = tw.Seek(400, 0)
 	if err != nil {
 		t.Fatalf("Seek to 400 failed: %v", err)
 	}
 
 	zeros := make([]byte, 100)
-	_, err = ctx.Write(zeros)
+	_, err = tw.Write(zeros)
 	if err != nil {
 		t.Fatalf("Write zeros failed: %v", err)
 	}
 	t.Logf("Wrote 100 zeros at position 400")
 
-	// Verify the "deleted" area is zeros
-	_, err = ctx.Seek(400, 0)
+	// Verify integrity after write
+	match, _, _, err = dw.verifyIntegrity()
 	if err != nil {
-		t.Fatalf("Seek to 400 failed: %v", err)
+		t.Fatalf("Write zeros integrity verification failed: %v", err)
+	}
+	if !match {
+		t.Fatalf("Write zeros: decrypted data doesn't match plaintext mirror")
 	}
 
-	deletedBuf := make([]byte, 100)
-	_, err = io.ReadFull(ctx, deletedBuf)
-	if err != nil && err != io.ErrUnexpectedEOF {
-		t.Fatalf("Failed to read deleted area: %v", err)
-	}
-
-	allZeros = true
-	for _, b := range deletedBuf {
-		if b != 0 {
-			allZeros = false
-			break
-		}
-	}
-	if !allZeros {
-		t.Error("Deleted area should be zeros")
-	}
-
-	// Verify data before and after the "deleted" area
-	_, err = ctx.Seek(0, 0)
-	if err != nil {
-		t.Fatalf("Seek to start failed: %v", err)
-	}
-
-	beforeBuf := make([]byte, 400)
-	_, err = io.ReadFull(ctx, beforeBuf)
-	if err != nil && err != io.ErrUnexpectedEOF {
-		t.Fatalf("Failed to read before area: %v", err)
-	}
-
-	for i := 0; i < 400; i++ {
-		expected := byte(i % 256)
-		if beforeBuf[i] != expected {
-			t.Errorf("Data before deleted area corrupted at position %d: expected %d, got %d", i, expected, beforeBuf[i])
-			break
-		}
-	}
+	reportAndReset(t, tw, storeIo, "After write zeros")
 
 	t.Logf("Random delete test passed: all data integrity verified")
 }
@@ -880,7 +1022,7 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 // This is more accurate than hash-based verification because it directly
 // compares the expected plaintext with the decrypted data.
 func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactory) {
-	storeIo := newMockReadWriterSeeker()
+	storeIo := newTrackerMockReadWriter()
 	keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
 	cfg := config.NewMemoryConfig()
 
@@ -890,8 +1032,11 @@ func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactor
 	}
 	defer ctx.Close()
 
+	// Create trackerContext to track user-level operations
+	tw := newTrackerContext(ctx)
+
 	// Create dual writer
-	dw := newDualWriter(ctx)
+	dw := newDualWriter(tw)
 
 	// Create initial data
 	initialSize := 256
@@ -906,11 +1051,18 @@ func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactor
 		t.Fatalf("Failed to write initial data: %v", err)
 	}
 
+	// Report and reset before verifyIntegrity
+	reportAndReset(t, tw, storeIo, "BeforeVerify")
+
 	// Verify integrity after initial write
 	match, decrypted, expected, err := dw.verifyIntegrity()
 	if err != nil {
 		t.Fatalf("Integrity verification failed: %v", err)
 	}
+
+	// Report and reset after verifyIntegrity
+	reportAndReset(t, tw, storeIo, "AfterVerify")
+
 	if !match {
 		t.Fatalf("Initial write: decrypted data doesn't match plaintext mirror\nDecrypted: %v\nExpected:  %v", decrypted[:50], expected[:50])
 	}
@@ -993,10 +1145,17 @@ func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactor
 			}
 
 			// Verify integrity after operation
+			// Report and reset before verifyIntegrity
+			reportAndReset(t, tw, storeIo, "BeforeVerify")
+
 			match, decrypted, expected, err := dw.verifyIntegrity()
 			if err != nil {
 				t.Fatalf("Integrity verification failed: %v", err)
 			}
+
+			// Report and reset after verifyIntegrity
+			reportAndReset(t, tw, storeIo, "AfterVerify")
+
 			if !match {
 				// Find first mismatch for better error message
 				firstDiff := -1
@@ -1028,7 +1187,7 @@ func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactor
 // - Sizes larger than block size: 17, 24, 31, 32, 48 bytes
 // - Cross-block boundary sizes: 15, 17 bytes
 func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
-	storeIo := newTrackerMockReadWriter()
+	storeIo := newTrackerMockReadWriter() // Tracks storage-level operations
 	keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
 	cfg := config.NewMemoryConfig()
 
@@ -1041,6 +1200,10 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 	// Create dual writer for integrity verification
 	dw := newDualWriter(ctx)
 
+	// Wrap with trackerContext to track user-level operations
+	// Business layer operates on IFullDataCryptorContext, unaware of what's underneath
+	tw := newTrackerContext(dw)
+
 	// Create initial data (256 bytes = 16 blocks of 16 bytes each)
 	initialSize := 256
 	initialData := make([]byte, initialSize)
@@ -1049,7 +1212,7 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 	}
 
 	// Write initial data using dualWriter
-	_, err = dw.Write(initialData)
+	_, err = tw.Write(initialData)
 	if err != nil {
 		t.Fatalf("Failed to write initial data: %v", err)
 	}
@@ -1094,7 +1257,7 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				}
 
 				// WriteAt at position using dualWriter
-				n, err := dw.WriteAt(testData, int64(pos))
+				n, err := tw.WriteAt(testData, int64(pos))
 				if err != nil {
 					t.Errorf("WriteAt size=%d pos=%d failed: %v", size, pos, err)
 					continue
@@ -1128,20 +1291,33 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 			}
 		}
 
+		// Report I/O statistics after all fixed position tests
+		reportAndReset(t, tw, storeIo, "After fixed positions tests")
+
 		t.Logf("Fixed positions test passed: all sizes and positions verified")
 	})
 
 	t.Run("RandomStressTest", func(t *testing.T) {
-		rand.Seed(time.Now().UnixNano())
+		// Use fixed seed for reproducibility (set env SEED to override)
+		seed := int64(42)
+		if envSeed := os.Getenv("SEED"); envSeed != "" {
+			if s, err := strconv.ParseInt(envSeed, 10, 64); err == nil {
+				seed = s
+			}
+		}
+		rand.Seed(seed)
+		t.Logf("Using random seed: %d", seed)
 
 		numStressTests := 50 // Reduced for performance
 		maxDataSize := 512   // Reduced max size
+
+		// Create expected tracker to record user-level operations
 
 		// Track current position for Write operations
 		currentPos := 0
 
 		for i := 0; i < numStressTests; i++ {
-			opType := rand.Intn(5) // 0-4: different operation types
+			opType := rand.Intn(7) // 0-6: different operation types
 
 			switch opType {
 			case 0: // WriteAt: random position, random size, random data
@@ -1150,7 +1326,7 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				testData := make([]byte, size)
 				rand.Read(testData)
 
-				n, err := dw.WriteAt(testData, int64(pos))
+				n, err := tw.WriteAt(testData, int64(pos))
 				if err != nil {
 					t.Errorf("Stress test %d: WriteAt size=%d pos=%d failed: %v", i, size, pos, err)
 					continue
@@ -1158,10 +1334,11 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				if n != size {
 					t.Errorf("Stress test %d: WriteAt size=%d pos=%d: wrote %d bytes", i, size, pos, n)
 				}
+				reportAndReset(t, tw, storeIo, fmt.Sprintf("Op %d: WriteAt(size=%d, pos=%d)", i, size, pos))
 
 			case 1: // Seek + Write: random seek, then write random data
 				seekPos := rand.Intn(maxDataSize)
-				_, err := dw.Seek(int64(seekPos), 0)
+				_, err := tw.Seek(int64(seekPos), 0)
 				if err != nil {
 					t.Errorf("Stress test %d: Seek to %d failed: %v", i, seekPos, err)
 					continue
@@ -1171,7 +1348,7 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				testData := make([]byte, size)
 				rand.Read(testData)
 
-				n, err := dw.Write(testData)
+				n, err := tw.Write(testData)
 				if err != nil {
 					t.Errorf("Stress test %d: Write after Seek failed: %v", i, err)
 					continue
@@ -1180,33 +1357,36 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 					t.Errorf("Stress test %d: Write wrote %d bytes, expected %d", i, n, size)
 				}
 				currentPos = seekPos + size
+				reportAndReset(t, tw, storeIo, fmt.Sprintf("Op %d: Seek+Write(seek=%d, size=%d)", i, seekPos, size))
 
 			case 2: // Truncate shrink: random smaller size
-				currentSize := int(dw.Size())
+				currentSize := int(tw.Size())
 				if currentSize <= 0 {
 					continue
 				}
 				newSize := rand.Intn(currentSize)
-				err := dw.Truncate(int64(newSize))
+				err := tw.Truncate(int64(newSize))
 				if err != nil {
 					t.Errorf("Stress test %d: Truncate shrink to %d failed: %v", i, newSize, err)
 				}
+				reportAndReset(t, tw, storeIo, fmt.Sprintf("Op %d: Truncate_shrink(%d -> %d)", i, currentSize, newSize))
 
 			case 3: // Truncate expand: random larger size
-				currentSize := int(dw.Size())
+				currentSize := int(tw.Size())
 				expandBy := rand.Intn(128) + 1 // Smaller expansion
 				newSize := currentSize + expandBy
-				err := dw.Truncate(int64(newSize))
+				err := tw.Truncate(int64(newSize))
 				if err != nil {
 					t.Errorf("Stress test %d: Truncate expand to %d failed: %v", i, newSize, err)
 				}
+				reportAndReset(t, tw, storeIo, fmt.Sprintf("Op %d: Truncate_expand(%d -> %d)", i, currentSize, newSize))
 
 			case 4: // Write at current position
 				size := rand.Intn(64) + 1
 				testData := make([]byte, size)
 				rand.Read(testData)
 
-				n, err := dw.Write(testData)
+				n, err := tw.Write(testData)
 				if err != nil {
 					t.Errorf("Stress test %d: Write failed: %v", i, err)
 					continue
@@ -1215,6 +1395,55 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 					t.Errorf("Stress test %d: Write wrote %d bytes, expected %d", i, n, size)
 				}
 				currentPos += size
+				reportAndReset(t, tw, storeIo, fmt.Sprintf("Op %d: Write(size=%d)", i, size))
+
+			case 5: // Random Read: seek to random position, then read random size
+				currentSize := int(tw.Size())
+				if currentSize <= 0 {
+					continue
+				}
+
+				// Random position
+				pos := rand.Intn(currentSize)
+				_, err := tw.Seek(int64(pos), 0)
+				if err != nil {
+					t.Errorf("Stress test %d: Seek for Read failed: %v", i, err)
+					continue
+				}
+
+				// Random size (1 to min(64, remaining))
+				remaining := currentSize - pos
+				readSize := rand.Intn(min(64, remaining)) + 1
+				buf := make([]byte, readSize)
+
+				_, err = tw.Read(buf)
+				if err != nil && err != io.EOF {
+					t.Errorf("Stress test %d: Read failed: %v", i, err)
+					continue
+				}
+				reportAndReset(t, tw, storeIo, fmt.Sprintf("Op %d: Random_Read(pos=%d, size=%d)", i, pos, readSize))
+
+			case 6: // ReadAt: random position, random size
+				currentSize := int(tw.Size())
+				if currentSize <= 0 {
+					continue
+				}
+
+				// Random position (0 to currentSize-1)
+				pos := rand.Intn(currentSize)
+
+				// Random size (1 to min(64, remaining))
+				remaining := currentSize - pos
+				readSize := rand.Intn(min(64, remaining)) + 1
+				buf := make([]byte, readSize)
+
+				n, err := tw.ReadAt(buf, int64(pos))
+				if err != nil && err != io.EOF {
+					t.Errorf("Stress test %d: ReadAt failed: %v", i, err)
+					continue
+				}
+				_ = n // Don't check exact bytes read, just track the operation
+				reportAndReset(t, tw, storeIo, fmt.Sprintf("Op %d: ReadAt(pos=%d, size=%d)", i, pos, readSize))
 			}
 
 			// Verify integrity every 10 operations (reduce overhead)
@@ -1245,6 +1474,7 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 		// Final integrity verification
 		match, decrypted, expected, err := dw.verifyIntegrity()
 		if err != nil {
+			reportAndReset(t, tw, storeIo, "Before final verify error")
 			t.Fatalf("Final integrity verification failed: %v", err)
 		}
 		if !match {
@@ -1259,28 +1489,14 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 					break
 				}
 			}
+			reportAndReset(t, tw, storeIo, "Before integrity mismatch")
 			t.Fatalf("Final integrity mismatch: size=%d, first diff at position %d", len(decrypted), firstDiff)
 		}
 
-		t.Logf("Random stress test passed: %d operations verified, final size=%d bytes", numStressTests, dw.Size())
+		t.Logf("Random stress test passed: %d operations verified, final size=%d bytes", numStressTests, tw.Size())
 
-		// Print I/O statistics
-		// Note: storeIo tracks actual I/O operations at the storage level
-		// For I/O amplification analysis, we compare:
-		// - User writes N bytes -> storeIo tracks actual bytes written
-		// - Total I/O = Read + Write at storage level
-		stats := storeIo.GetStats()
-
-		t.Logf("=== I/O Statistics (Storage Level) ===")
-		t.Logf("Read:  %d bytes in %d calls (avg %.1f bytes/call)",
-			stats.ReadBytes, stats.ReadCalls, float64(stats.ReadBytes)/float64(max(stats.ReadCalls, 1)))
-		t.Logf("Write: %d bytes in %d calls (avg %.1f bytes/call)",
-			stats.WriteBytes, stats.WriteCalls, float64(stats.WriteBytes)/float64(max(stats.WriteCalls, 1)))
-		t.Logf("Seek: %d calls, Truncate: %d calls",
-			stats.SeekCalls, stats.TruncCalls)
-		t.Logf("Total: %d I/O calls, %d bytes transferred",
-			stats.ReadCalls+stats.WriteCalls+stats.SeekCalls+stats.TruncCalls,
-			stats.ReadBytes+stats.WriteBytes)
+		// Report I/O statistics using reportAndReset
+		reportAndReset(t, tw, storeIo, "After stress test")
 	})
 
 	t.Logf("Block boundary operations test passed: fixed, random, and stress tests verified with dualWriter")
