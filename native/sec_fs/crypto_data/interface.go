@@ -130,6 +130,10 @@ type CryptorCapabilities struct {
 	// RecommendedChunkSize indicates the recommended chunk size for chunked mode.
 	// A value of 0 means no specific recommendation.
 	RecommendedChunkSize int
+
+	// RequireMinKeyLength indicates the minimum required key length in bytes.
+	// This is used by the factory to validate key length before creating context.
+	RequireMinKeyLength int
 }
 
 // ==================== IDataCryptorContext Interface ====================
@@ -164,6 +168,9 @@ type ICryptoDataFactory interface {
 
 	// GetCapabilities returns the capabilities of this cryptor.
 	GetCapabilities() CryptorCapabilities
+
+	// GetRequireMinKeyLength returns the minimum required key length in bytes.
+	GetRequireMinKeyLength() int
 }
 
 // ==================== Compile-time Interface Verification ====================
@@ -206,4 +213,7 @@ func (f *cryptoDataFactoryImpl) NewContext(storeFileIo IFileContext, keyInfo cry
 func (f *cryptoDataFactoryImpl) GetName() string { return "" }
 func (f *cryptoDataFactoryImpl) GetCapabilities() CryptorCapabilities {
 	return CryptorCapabilities{}
+}
+func (f *cryptoDataFactoryImpl) GetRequireMinKeyLength() int {
+	return 0
 }

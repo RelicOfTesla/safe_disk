@@ -79,3 +79,4 @@ native/native
 /docs/task-driver-report
 .backup_*
 /_bak_run.sh
+native/tmp/

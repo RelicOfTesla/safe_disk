@@ -1,35 +1,33 @@
-// Package rc4 provides RC4 stream cipher encryption implementation for data.
-package rc4
+// Package chacha20 provides ChaCha20 stream cipher encryption.
+package chacha20
 
 import (
-	"crypto/rc4"
 	"io"
 
+	"golang.org/x/crypto/chacha20"
 	"safe_disk/native/config"
 	"safe_disk/native/sec_fs/crypto_data"
 	"safe_disk/native/sec_fs/crypto_hkdf"
 )
 
-// Context implements IDataCryptorContext for RC4 encryption.
+// Context implements IDataCryptorContext for ChaCha20 encryption.
 type Context struct {
 	storeFileIo crypto_data.IFileContext
 	key         []byte
-	cipher      *rc4.Cipher
+	nonce       []byte
 	pos         int64
 	size        int64
 }
 
-// NewContext creates a new RC4 encryption context.
+// NewContext creates a new ChaCha20 encryption context.
 func NewContext(storeFileIo crypto_data.IFileContext, keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (*Context, error) {
 	key := keyInfo.GetKey()
-	if len(key) == 0 {
+	if len(key) < 32 {
 		return nil, io.ErrUnexpectedEOF
 	}
 
-	cipher, err := rc4.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
+	// Use zero nonce for simplicity (in production, should derive from keyInfo or config)
+	nonce := make([]byte, 12)
 
 	size, err := storeFileIo.Seek(0, io.SeekEnd)
 	if err != nil {
@@ -43,24 +41,24 @@ func NewContext(storeFileIo crypto_data.IFileContext, keyInfo crypto_hkdf.IKeyIn
 
 	return &Context{
 		storeFileIo: storeFileIo,
-		key:         key,
-		cipher:      cipher,
+		key:         key[:32],
+		nonce:       nonce,
 		pos:         0,
 		size:        size,
 	}, nil
 }
 
-// Read reads and decrypts data from the underlying storage.
+// Read reads and decrypts data.
 func (c *Context) Read(p []byte) (n int, err error) {
 	n, err = c.storeFileIo.Read(p)
 	if n > 0 {
-		c.decryptAt(p[:n], c.pos)
+		c.xorKeystream(p[:n], c.pos)
 		c.pos += int64(n)
 	}
 	return n, err
 }
 
-// Write encrypts and writes data to the underlying storage.
+// Write encrypts and writes data.
 func (c *Context) Write(p []byte) (n int, err error) {
 	if err := c.ensure_append_gap(c.pos); err != nil {
 		return 0, err
@@ -68,10 +66,9 @@ func (c *Context) Write(p []byte) (n int, err error) {
 
 	encrypted := make([]byte, len(p))
 	copy(encrypted, p)
+	c.xorKeystream(encrypted, c.pos)
 
 	c.storeFileIo.Seek(c.pos, io.SeekStart)
-	c.encryptAt(encrypted, c.pos)
-
 	n, err = c.storeFileIo.Write(encrypted)
 	if n > 0 {
 		c.pos += int64(n)
@@ -82,7 +79,7 @@ func (c *Context) Write(p []byte) (n int, err error) {
 	return n, err
 }
 
-// Seek sets the position for the next Read or Write.
+// Seek sets position.
 func (c *Context) Seek(offset int64, whence int) (int64, error) {
 	var newPos int64
 	switch whence {
@@ -95,7 +92,6 @@ func (c *Context) Seek(offset int64, whence int) (int64, error) {
 	default:
 		return 0, io.ErrUnexpectedEOF
 	}
-
 	if newPos < 0 {
 		return 0, io.ErrUnexpectedEOF
 	}
@@ -104,23 +100,21 @@ func (c *Context) Seek(offset int64, whence int) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-
 	c.pos = newPos
 	return c.pos, nil
 }
 
-// Close closes the context and releases resources.
+// Close closes context.
 func (c *Context) Close() error {
-	c.cipher.Reset()
 	return c.storeFileIo.Close()
 }
 
-// Size returns the current size of the decrypted data.
+// Size returns size.
 func (c *Context) Size() int64 {
 	return c.size
 }
 
-// Truncate changes the size of the decrypted data.
+// Truncate changes size.
 func (c *Context) Truncate(size int64) error {
 	if size > c.size {
 		if err := c.ensure_append_gap(size); err != nil {
@@ -133,7 +127,6 @@ func (c *Context) Truncate(size int64) error {
 			}
 		}
 	}
-
 	c.size = size
 	if c.pos > size {
 		c.pos = size
@@ -141,31 +134,37 @@ func (c *Context) Truncate(size int64) error {
 	return nil
 }
 
-// Sync commits the current state to stable storage.
+// Sync syncs.
 func (c *Context) Sync() error {
 	return c.storeFileIo.Sync()
 }
 
-// encryptAt encrypts data at a specific position.
-func (c *Context) encryptAt(data []byte, pos int64) {
-	cipher, err := rc4.NewCipher(c.key)
+// xorKeystream XORs data with keystream at position.
+func (c *Context) xorKeystream(data []byte, pos int64) {
+	cipher, err := chacha20.NewUnauthenticatedCipher(c.key, c.nonce)
 	if err != nil {
 		return
 	}
 
-	if pos > 0 {
-		discard := make([]byte, pos)
+	// ChaCha20 has 64-byte blocks
+	blockSize := int64(64)
+	blockNum := pos / blockSize
+	blockOffset := pos % blockSize
+
+	// Set counter to block number
+	cipher.SetCounter(uint32(blockNum))
+
+	// Discard bytes within block
+	if blockOffset > 0 {
+		discard := make([]byte, blockOffset)
 		cipher.XORKeyStream(discard, discard)
 	}
+
+	// XOR data
 	cipher.XORKeyStream(data, data)
 }
 
-// decryptAt decrypts data at a specific position.
-func (c *Context) decryptAt(data []byte, pos int64) {
-	c.encryptAt(data, pos)
-}
-
-// ensure_append_gap fills the gap between current size and target position with encrypted zeros.
+// ensure_append_gap fills gap with encrypted zeros.
 func (c *Context) ensure_append_gap(targetPos int64) error {
 	if targetPos <= c.size {
 		return nil
@@ -173,8 +172,7 @@ func (c *Context) ensure_append_gap(targetPos int64) error {
 
 	gapSize := targetPos - c.size
 	gapZeros := make([]byte, gapSize)
-
-	c.encryptAt(gapZeros, c.size)
+	c.xorKeystream(gapZeros, c.size)
 
 	_, err := c.storeFileIo.Seek(c.size, io.SeekStart)
 	if err != nil {
@@ -190,7 +188,7 @@ func (c *Context) ensure_append_gap(targetPos int64) error {
 	return nil
 }
 
-// ReadAt reads and decrypts data at a specific offset.
+// ReadAt reads at offset.
 func (c *Context) ReadAt(p []byte, off int64) (n int, err error) {
 	if readerAt, ok := c.storeFileIo.(io.ReaderAt); ok {
 		n, err = readerAt.ReadAt(p, off)
@@ -203,12 +201,12 @@ func (c *Context) ReadAt(p []byte, off int64) (n int, err error) {
 	}
 
 	if n > 0 {
-		c.decryptAt(p[:n], off)
+		c.xorKeystream(p[:n], off)
 	}
 	return n, err
 }
 
-// WriteAt encrypts and writes data at a specific offset.
+// WriteAt writes at offset.
 func (c *Context) WriteAt(p []byte, off int64) (n int, err error) {
 	if err := c.ensure_append_gap(off); err != nil {
 		return 0, err
@@ -216,7 +214,7 @@ func (c *Context) WriteAt(p []byte, off int64) (n int, err error) {
 
 	encrypted := make([]byte, len(p))
 	copy(encrypted, p)
-	c.encryptAt(encrypted, off)
+	c.xorKeystream(encrypted, off)
 
 	if writerAt, ok := c.storeFileIo.(io.WriterAt); ok {
 		n, err = writerAt.WriteAt(encrypted, off)

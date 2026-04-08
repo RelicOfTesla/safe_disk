@@ -39,7 +39,12 @@ func (f *Factory) GetCapabilities() crypto_data.CryptorCapabilities {
 		RandomDeleteComplexity: crypto_data.ON, // O(N): must regenerate keystream after deletion point
 		MaxFileSize:            0,              // Unlimited
 		RecommendedChunkSize:   0,
+		RequireMinKeyLength:   1, // RC4 supports variable key length (1-256 bytes)
 	}
+}
+
+func (f *Factory) GetRequireMinKeyLength() int {
+	return 1 // RC4 supports variable key length (1-256 bytes)
 }
 
 // Compile-time interface verification
