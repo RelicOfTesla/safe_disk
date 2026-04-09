@@ -161,7 +161,7 @@ func (c *Context) xorKeystream(data []byte, pos int64) {
 
 	// Create IV with block number (big-endian counter in last 8 bytes)
 	iv := make([]byte, aes.BlockSize)
-	copy(iv[:8], c.counter[:8]) // nonce (前 8 字节)
+	copy(iv[:8], c.counter[:8])                          // nonce (前 8 字节)
 	binary.BigEndian.PutUint64(iv[8:], uint64(blockNum)) // block number (后 8 字节)
 
 	// Create CTR stream using standard library

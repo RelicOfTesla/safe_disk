@@ -1,8 +1,8 @@
-go 1.21
+go 1.25.0
 
 use (
-	./config
-	./sec_fs
-	./ffi_sec_fs
 	./cli
+	./config
+	./ffi_sec_fs
+	./sec_fs
 )

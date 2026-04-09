@@ -5,14 +5,11 @@ import (
 	"io"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"safe_disk/native/sec_fs/crypto_data"
 )
 
-// ==================== Test: ReadAt Behavior ====================
-// TestReadAtBehavior tests ReadAt behavior consistency with os.File
-//
-// Test scenarios:
-//  1. ReadAt from position 0
 //  2. ReadAt from middle position
 //  3. ReadAt beyond file end (should return 0, io.EOF)
 //  4. ReadAt partial read (should return partial data with EOF)
@@ -28,9 +25,8 @@ func TestReadAtBehavior(t *testing.T) {
 			// Write test data: "Hello, World!" (13 bytes)
 			testData := []byte("Hello, World!")
 			n, err := ctx.Write(testData)
-			if err != nil || n != len(testData) {
-				t.Fatalf("Write failed: n=%d, err=%v", n, err)
-			}
+			require.NoError(t, err, "Write failed")
+			require.EqualValues(t, len(testData), n, "Write length")
 
 			// Test 1: ReadAt from position 0
 			buf := make([]byte, 5)
@@ -38,9 +34,7 @@ func TestReadAtBehavior(t *testing.T) {
 			if err != nil && err != io.EOF {
 				t.Errorf("ReadAt(0) failed: %v", err)
 			}
-			if string(buf[:n]) != "Hello" {
-				t.Errorf("ReadAt(0): expected 'Hello', got %q", buf[:n])
-			}
+			assert.EqualValues(t, "Hello", string(buf[:n]), "ReadAt(0)")
 			t.Logf("Test 1: ReadAt(0, 5) = %q", buf[:n])
 
 			// Test 2: ReadAt from middle position
@@ -49,31 +43,21 @@ func TestReadAtBehavior(t *testing.T) {
 			if err != nil && err != io.EOF {
 				t.Errorf("ReadAt(7) failed: %v", err)
 			}
-			if string(buf[:n]) != "World" {
-				t.Errorf("ReadAt(7): expected 'World', got %q", buf[:n])
-			}
+			assert.EqualValues(t, "World", string(buf[:n]), "ReadAt(7)")
 			t.Logf("Test 2: ReadAt(7, 5) = %q", buf[:n])
 
 			// Test 3: ReadAt beyond file end
 			buf = make([]byte, 5)
 			n, err = ctx.ReadAt(buf, 20)
-			if n != 0 {
-				t.Errorf("ReadAt beyond end: expected n=0, got n=%d", n)
-			}
-			if err != io.EOF {
-				t.Errorf("ReadAt beyond end: expected io.EOF, got %v", err)
-			}
+			assert.EqualValues(t, 0, n, "ReadAt beyond end should return 0")
+			assert.Equal(t, io.EOF, err, "ReadAt beyond end should return EOF")
 			t.Logf("Test 3: ReadAt(20, 5) = n=%d, err=%v", n, err)
 
 			// Test 4: ReadAt partial read
 			buf = make([]byte, 5)
 			n, err = ctx.ReadAt(buf, 10)
-			if n != 3 {
-				t.Errorf("ReadAt partial: expected n=3, got n=%d", n)
-			}
-			if string(buf[:n]) != "ld!" {
-				t.Errorf("ReadAt partial: expected 'ld!', got %q", buf[:n])
-			}
+			assert.EqualValues(t, 3, n, "ReadAt partial length")
+			assert.EqualValues(t, "ld!", string(buf[:n]), "ReadAt partial data")
 			if err != io.EOF && err != io.ErrUnexpectedEOF {
 				t.Errorf("ReadAt partial: expected EOF, got %v", err)
 			}
@@ -81,155 +65,151 @@ func TestReadAtBehavior(t *testing.T) {
 
 			// Test 5: ReadAt should NOT change current seek position
 			pos, err := ctx.Seek(5, io.SeekStart)
-			if err != nil || pos != 5 {
-				t.Fatalf("Seek(5) failed: pos=%d, err=%v", pos, err)
-			}
+			require.NoError(t, err, "Seek(5) failed")
+			require.EqualValues(t, int64(5), pos, "Seek position")
 
 			buf = make([]byte, 5)
 			ctx.ReadAt(buf, 0)
 
 			pos, err = ctx.Seek(0, io.SeekCurrent)
-			if err != nil {
-				t.Errorf("Seek current failed: %v", err)
-			}
-			if pos != 5 {
-				t.Errorf("ReadAt changed seek position: expected 5, got %d", pos)
-			}
+			require.NoError(t, err, "Seek current failed")
+			assert.EqualValues(t, int64(5), pos, "ReadAt should not change seek position")
 			t.Logf("Test 5: ReadAt does not change seek position (still at %d)", pos)
 		})
 	}
 }
 
-// ==================== Test: ReadAt/WriteAt Seek Position Check ====================
-// TestReadAtWriteAtSeekPosition verifies ReadAt/WriteAt do not change seek position
+// ==================== Test: ReadAt/WriteAt Seek Position ====================
+// TestReadAtWriteAtSeekPosition tests that ReadAt/WriteAt do not change seek position
 //
 // Test scenarios:
-//  1. ReadAt should not change seek position
-//  2. WriteAt should not change seek position
-//  3. Multiple ReadAt/WriteAt should preserve seek position
+//  1. ReadAt_SeekCheck: ReadAt should NOT change seek position
+//  2. WriteAt_SeekCheck: WriteAt should NOT change seek position
+//  3. Multiple_ReadAt_WriteAt_SeekCheck: Multiple ReadAt/WriteAt operations
 func TestReadAtWriteAtSeekPosition(t *testing.T) {
 	factories := GetAllFactories()
 
 	for _, ff := range factories {
 		t.Run(ff.Name, func(t *testing.T) {
-			ctx := CreateContext(t, ff.Factory)
-			defer ctx.Close()
-
-			// Write initial data: "Hello, World!" (13 bytes)
-			testData := []byte("Hello, World!")
-			n, err := ctx.Write(testData)
-			if err != nil || n != len(testData) {
-				t.Fatalf("Write failed: n=%d, err=%v", n, err)
-			}
-
-			// Test 1: ReadAt should not change seek position
 			t.Run("ReadAt_SeekCheck", func(t *testing.T) {
-				// Seek to position 5
-				pos, err := ctx.Seek(5, io.SeekStart)
-				if err != nil || pos != 5 {
-					t.Fatalf("Seek(5) failed: pos=%d, err=%v", pos, err)
-				}
-
-				// ReadAt at position 0
-				buf := make([]byte, 5)
-				n, err := ctx.ReadAt(buf, 0)
-				if err != nil && err != io.EOF {
-					t.Errorf("ReadAt failed: %v", err)
-				}
-				if n != 5 {
-					t.Errorf("ReadAt: expected n=5, got n=%d", n)
-				}
-
-				// Verify seek position unchanged (should still be 5)
-				pos, err = ctx.Seek(0, io.SeekCurrent)
-				if err != nil {
-					t.Errorf("Seek current failed: %v", err)
-				}
-				if pos != 5 {
-					t.Errorf("ReadAt changed seek position: expected 5, got %d", pos)
-				}
-				t.Logf("ReadAt(0, 5) -> seek position still at %d", pos)
+				testReadAtSeekPosition(t, ff.Factory)
 			})
 
-			// Test 2: WriteAt should not change seek position
 			t.Run("WriteAt_SeekCheck", func(t *testing.T) {
-				// Seek to position 7
-				pos, err := ctx.Seek(7, io.SeekStart)
-				if err != nil || pos != 7 {
-					t.Fatalf("Seek(7) failed: pos=%d, err=%v", pos, err)
-				}
-
-				// WriteAt at position 0
-				n, err := ctx.WriteAt([]byte("HELLO"), 0)
-				if err != nil {
-					t.Errorf("WriteAt failed: %v", err)
-				}
-				if n != 5 {
-					t.Errorf("WriteAt: expected n=5, got n=%d", n)
-				}
-
-				// Verify seek position unchanged (should still be 7)
-				pos, err = ctx.Seek(0, io.SeekCurrent)
-				if err != nil {
-					t.Errorf("Seek current failed: %v", err)
-				}
-				if pos != 7 {
-					t.Errorf("WriteAt changed seek position: expected 7, got %d", pos)
-				}
-				t.Logf("WriteAt(0, 5) -> seek position still at %d", pos)
+				testWriteAtSeekPosition(t, ff.Factory)
 			})
 
-			// Test 3: Multiple ReadAt/WriteAt should preserve seek position
 			t.Run("Multiple_ReadAt_WriteAt_SeekCheck", func(t *testing.T) {
-				// Seek to position 10
-				pos, err := ctx.Seek(10, io.SeekStart)
-				if err != nil || pos != 10 {
-					t.Fatalf("Seek(10) failed: pos=%d, err=%v", pos, err)
-				}
-
-				// Multiple ReadAt
-				for i := 0; i < 5; i++ {
-					buf := make([]byte, 2)
-					ctx.ReadAt(buf, int64(i*2))
-				}
-
-				// Verify seek position unchanged (should still be 10)
-				pos, err = ctx.Seek(0, io.SeekCurrent)
-				if err != nil {
-					t.Errorf("Seek current failed: %v", err)
-				}
-				if pos != 10 {
-					t.Errorf("Multiple ReadAt changed seek position: expected 10, got %d", pos)
-				}
-
-				// Multiple WriteAt
-				for i := 0; i < 5; i++ {
-					ctx.WriteAt([]byte("XX"), int64(i*3))
-				}
-
-				// Verify seek position unchanged (should still be 10)
-				pos, err = ctx.Seek(0, io.SeekCurrent)
-				if err != nil {
-					t.Errorf("Seek current failed: %v", err)
-				}
-				if pos != 10 {
-					t.Errorf("Multiple WriteAt changed seek position: expected 10, got %d", pos)
-				}
-				t.Logf("Multiple ReadAt/WriteAt -> seek position still at %d", pos)
+				testMultipleReadAtWriteAtSeekPosition(t, ff.Factory)
 			})
 		})
 	}
 }
 
-// ==================== Test: Gap Append Tests ====================
-// TestGapAppend tests the ensure_append_gap() functionality across all algorithms.
-// This verifies that gaps are correctly filled with encrypted zeros (or zeros for mockFile).
+func testReadAtSeekPosition(t *testing.T, factory crypto_data.ICryptoDataFactory) {
+	ctx := CreateContext(t, factory)
+	defer ctx.Close()
+
+	// Write test data
+	testData := []byte("Hello, World!")
+	ctx.Write(testData)
+
+	// Seek to position 5
+	pos, err := ctx.Seek(5, io.SeekStart)
+	require.NoError(t, err, "Seek(5) failed")
+	require.EqualValues(t, int64(5), pos, "Seek position")
+
+	// ReadAt should NOT change seek position
+	buf := make([]byte, 5)
+	n, err := ctx.ReadAt(buf, 0)
+	if err != nil && err != io.EOF {
+		t.Errorf("ReadAt failed: %v", err)
+	}
+	require.EqualValues(t, 5, n, "ReadAt length")
+
+	// Verify seek position unchanged
+	pos, err = ctx.Seek(0, io.SeekCurrent)
+	require.NoError(t, err, "Seek current failed")
+	assert.EqualValues(t, int64(5), pos, "ReadAt should not change seek position")
+	t.Logf("ReadAt preserved seek position at %d", pos)
+}
+
+func testWriteAtSeekPosition(t *testing.T, factory crypto_data.ICryptoDataFactory) {
+	ctx := CreateContext(t, factory)
+	defer ctx.Close()
+
+	// Write test data
+	testData := []byte("Hello, World!")
+	n, err := ctx.Write(testData)
+	require.NoError(t, err, "Write failed")
+	require.EqualValues(t, len(testData), n, "Write length")
+
+	// Record current position (should be 13)
+	posAfterWrite, err := ctx.Seek(0, io.SeekCurrent)
+	require.NoError(t, err, "Seek current failed")
+	require.EqualValues(t, int64(13), posAfterWrite, "After Write position")
+
+	// WriteAt should NOT change seek position
+	n, err = ctx.WriteAt([]byte("World"), 20)
+	if err != nil || n != 5 {
+		t.Errorf("WriteAt failed: n=%d, err=%v", n, err)
+	}
+
+	// Verify seek position unchanged
+	posAfterWriteAt, err := ctx.Seek(0, io.SeekCurrent)
+	require.NoError(t, err, "Seek current failed")
+	assert.EqualValues(t, posAfterWrite, posAfterWriteAt, "WriteAt should not change seek position")
+	t.Logf("WriteAt preserved seek position at %d", posAfterWriteAt)
+
+	// Verify size
+	assert.EqualValues(t, int64(25), ctx.Size(), "Size after WriteAt")
+}
+
+func testMultipleReadAtWriteAtSeekPosition(t *testing.T, factory crypto_data.ICryptoDataFactory) {
+	ctx := CreateContext(t, factory)
+	defer ctx.Close()
+
+	// Write initial data
+	ctx.Write([]byte("Initial"))
+
+	// Seek to position 10
+	ctx.Seek(10, io.SeekStart)
+
+	// Multiple ReadAt operations
+	buf := make([]byte, 5)
+	ctx.ReadAt(buf, 0)
+	assert.EqualValues(t, int64(10), mustSeekCurrent(ctx), "After first ReadAt")
+
+	ctx.ReadAt(buf, 5)
+	assert.EqualValues(t, int64(10), mustSeekCurrent(ctx), "After second ReadAt")
+
+	// Multiple WriteAt operations
+	ctx.WriteAt([]byte("test"), 20)
+	assert.EqualValues(t, int64(10), mustSeekCurrent(ctx), "After first WriteAt")
+
+	ctx.WriteAt([]byte("test"), 30)
+	assert.EqualValues(t, int64(10), mustSeekCurrent(ctx), "After second WriteAt")
+
+	t.Logf("Multiple ReadAt/WriteAt operations preserved seek position at 10")
+}
+
+// Helper to get current seek position
+func mustSeekCurrent(ctx crypto_data.IDataCryptorContext) int64 {
+	pos, err := ctx.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return -1
+	}
+	return pos
+}
+
+// ==================== Test: Gap Append ====================
+// TestGapAppend tests that writing beyond file end fills gap with zeros
 //
 // Test scenarios:
-//  1. WriteAt_GapFill: WriteAt beyond file end should fill gap with zeros
-//  2. SeekWrite_GapFill: Seek beyond end + Write should fill gap
+//  1. WriteAt_GapFill: WriteAt beyond file end fills gap with zeros
+//  2. SeekWrite_GapFill: Seek beyond end + Write fills gap with zeros
 //  3. SeekBeyondEnd_Read: Seek beyond end + Read returns (0, io.EOF)
-//  4. MultipleGaps: Multiple gap-filling operations
+//  4. MultipleGaps: Multiple gaps in file
 //  5. LargeGap: Large gap filling (e.g., 1KB gap)
 //  6. TruncateExpand: Truncate to larger size should fill with zeros
 //  7. GapIntegrity: Verify gap data is correctly encrypted/decrypted
@@ -239,12 +219,12 @@ func TestGapAppend(t *testing.T) {
 
 	for _, ff := range factories {
 		t.Run(ff.Name, func(t *testing.T) {
-			// Test 1: Gap fill with WriteAt
+			// Test 1: WriteAt beyond file end
 			t.Run("WriteAt_GapFill", func(t *testing.T) {
 				testWriteAtGapFill(t, ff.Factory)
 			})
 
-			// Test 2: Gap fill with Seek+Write
+			// Test 2: Seek beyond end + Write
 			t.Run("SeekWrite_GapFill", func(t *testing.T) {
 				testSeekWriteGapFill(t, ff.Factory)
 			})
@@ -264,7 +244,7 @@ func TestGapAppend(t *testing.T) {
 				testLargeGap(t, ff.Factory)
 			})
 
-			// Test 6: Truncate expand (basic)
+			// Test 6: Truncate expand
 			t.Run("TruncateExpand", func(t *testing.T) {
 				testTruncateExpandGap(t, ff.Factory)
 			})
@@ -282,8 +262,6 @@ func TestGapAppend(t *testing.T) {
 	}
 }
 
-// testWriteAtGapFill tests that WriteAt beyond file end fills gap with zeros
-// Also verifies that WriteAt does NOT change seek position
 func testWriteAtGapFill(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	ctx := CreateContext(t, factory)
 	defer ctx.Close()
@@ -291,83 +269,52 @@ func testWriteAtGapFill(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	// Write initial data
 	initialData := []byte("Hello")
 	n, err := ctx.Write(initialData)
-	if err != nil || n != len(initialData) {
-		t.Fatalf("Write failed: n=%d, err=%v", n, err)
-	}
+	require.NoError(t, err, "Write failed")
+	require.EqualValues(t, len(initialData), n, "Write length")
 
 	// Record current position (should be 5)
 	posAfterWrite, err := ctx.Seek(0, io.SeekCurrent)
-	if err != nil {
-		t.Fatalf("Seek current failed: %v", err)
-	}
-	if posAfterWrite != 5 {
-		t.Errorf("After Write, pos should be 5, got %d", posAfterWrite)
-	}
+	require.NoError(t, err, "Seek current failed")
+	require.EqualValues(t, int64(5), posAfterWrite, "After Write position")
 
 	// WriteAt beyond file end (gap of 95 bytes)
 	testData := []byte("World")
 	n, err = ctx.WriteAt(testData, 100)
-	if err != nil || n != len(testData) {
-		t.Fatalf("WriteAt failed: n=%d, err=%v", n, err)
-	}
+	require.NoError(t, err, "WriteAt failed")
+	require.EqualValues(t, len(testData), n, "WriteAt length")
 
 	// CRITICAL: WriteAt should NOT change seek position
 	posAfterWriteAt, err := ctx.Seek(0, io.SeekCurrent)
-	if err != nil {
-		t.Errorf("Seek current failed: %v", err)
-	}
-	if posAfterWriteAt != posAfterWrite {
-		t.Errorf("WriteAt changed seek position: expected %d, got %d", posAfterWrite, posAfterWriteAt)
-	} else {
-		t.Logf("WriteAt preserved seek position at %d", posAfterWriteAt)
-	}
+	require.NoError(t, err, "Seek current failed")
+	assert.EqualValues(t, posAfterWrite, posAfterWriteAt, "WriteAt should not change seek position")
+	t.Logf("WriteAt preserved seek position at %d", posAfterWriteAt)
 
 	// Verify size is 105
-	size := ctx.Size()
-	if size != 105 {
-		t.Errorf("Size mismatch: expected 105, got %d", size)
-	}
+	assert.EqualValues(t, int64(105), ctx.Size(), "Size after WriteAt")
 
 	// Seek to beginning and read all data
 	_, err = ctx.Seek(0, io.SeekStart)
-	if err != nil {
-		t.Fatalf("Seek start failed: %v", err)
-	}
+	require.NoError(t, err, "Seek start failed")
 
 	allData := make([]byte, 105)
 	n, err = io.ReadFull(ctx, allData)
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		t.Fatalf("ReadAll failed: %v", err)
 	}
+	assert.EqualValues(t, 105, n, "ReadAll length")
 
-	// ADDITIONAL VERIFICATION: bytes.Equal for whole data comparison
+	// Verify data with bytes.Equal
 	expected := make([]byte, 105)
 	copy(expected[:5], initialData)
 	copy(expected[100:105], testData)
 
-	if !bytes.Equal(allData, expected) {
-		t.Errorf("Data mismatch:\n  got:      %q\n  expected: %q", allData, expected)
-		for i := 0; i < 105; i++ {
-			if allData[i] != expected[i] {
-				t.Errorf("First diff at position %d: got %d, expected %d", i, allData[i], expected[i])
-				break
-			}
-		}
-	} else {
-		t.Logf("WriteAt test passed: size=%d, data verified with bytes.Equal", size)
-	}
 
-	// ADDITIONAL VERIFICATION: Verify gap is filled with zeros
-	for i := 5; i < 100; i++ {
-		if allData[i] != 0 {
-			t.Errorf("Gap byte %d: expected 0, got %d", i, allData[i])
-			break
-		}
+	// Verify gap is filled with zeros
+	if ok, idx := isZero(allData[5:100]); !ok {
+		t.Errorf("Gap byte %d: expected 0, got %d", 5+idx, allData[5+idx])
 	}
 }
 
-// testSeekWriteGapFill tests that Seek beyond end + Write fills gap with zeros
-// Also verifies that Write DOES change seek position
 func testSeekWriteGapFill(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	ctx := CreateContext(t, factory)
 	defer ctx.Close()
@@ -375,78 +322,51 @@ func testSeekWriteGapFill(t *testing.T, factory crypto_data.ICryptoDataFactory) 
 	// Write initial data
 	initialData := []byte("Hello")
 	n, err := ctx.Write(initialData)
-	if err != nil || n != len(initialData) {
-		t.Fatalf("Write failed: n=%d, err=%v", n, err)
-	}
+	require.NoError(t, err, "Write failed")
+	require.EqualValues(t, len(initialData), n, "Write length")
 
 	// Seek beyond file end
 	pos, err := ctx.Seek(100, io.SeekStart)
-	if err != nil || pos != 100 {
-		t.Fatalf("Seek failed: pos=%d, err=%v", pos, err)
-	}
+	require.NoError(t, err, "Seek failed")
+	require.EqualValues(t, int64(100), pos, "Seek position")
 
 	// Write at gap position
 	testData := []byte("World")
 	n, err = ctx.Write(testData)
-	if err != nil || n != len(testData) {
-		t.Fatalf("Write failed: n=%d, err=%v", n, err)
-	}
+	require.NoError(t, err, "Write failed")
+	require.EqualValues(t, len(testData), n, "Write length")
 
 	// Verify tell() == 105 (Write changes seek position)
 	pos, err = ctx.Seek(0, io.SeekCurrent)
-	if err != nil {
-		t.Fatalf("Seek current failed: %v", err)
-	}
-	if pos != 105 {
-		t.Errorf("Tell position: expected 105, got %d", pos)
-	}
+	require.NoError(t, err, "Seek current failed")
+	assert.EqualValues(t, int64(105), pos, "After SeekWrite position")
 
 	// Verify size is 105
-	size := ctx.Size()
-	if size != 105 {
-		t.Errorf("Size mismatch: expected 105, got %d", size)
-	}
+	assert.EqualValues(t, int64(105), ctx.Size(), "Size after SeekWrite")
 
 	// Seek to beginning and read all data
 	_, err = ctx.Seek(0, io.SeekStart)
-	if err != nil {
-		t.Fatalf("Seek start failed: %v", err)
-	}
+	require.NoError(t, err, "Seek start failed")
 
 	allData := make([]byte, 105)
 	n, err = io.ReadFull(ctx, allData)
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		t.Fatalf("ReadAll failed: %v", err)
 	}
+	assert.EqualValues(t, 105, n, "ReadAll length")
 
-	// ADDITIONAL VERIFICATION: bytes.Equal for whole data comparison
+	// Verify data with bytes.Equal
 	expected := make([]byte, 105)
 	copy(expected[:5], initialData)
 	copy(expected[100:105], testData)
 
-	if !bytes.Equal(allData, expected) {
-		t.Errorf("Data mismatch:\n  got:      %q\n  expected: %q", allData, expected)
-		for i := 0; i < 105; i++ {
-			if allData[i] != expected[i] {
-				t.Errorf("First diff at position %d: got %d, expected %d", i, allData[i], expected[i])
-				break
-			}
-		}
-	} else {
-		t.Logf("SeekWrite test passed: size=%d, data verified with bytes.Equal", size)
-	}
 
-	// ADDITIONAL VERIFICATION: Verify gap is filled with zeros
-	for i := 5; i < 100; i++ {
-		if allData[i] != 0 {
-			t.Errorf("Gap byte %d: expected 0, got %d", i, allData[i])
-			break
-		}
+	// Verify gap is filled with zeros
+	if ok, idx := isZero(allData[5:100]); !ok {
+		t.Errorf("Gap byte %d: expected 0, got %d", 5+idx, allData[5+idx])
 	}
 }
 
-// testSeekBeyondEndRead tests that Seek beyond file end + Read returns (0, io.EOF)
-// This is a unique scenario not covered by other tests
 func testSeekBeyondEndRead(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	ctx := CreateContext(t, factory)
 	defer ctx.Close()
@@ -454,48 +374,33 @@ func testSeekBeyondEndRead(t *testing.T, factory crypto_data.ICryptoDataFactory)
 	// Write test data: "Hello" (5 bytes)
 	testData := []byte("Hello")
 	n, err := ctx.Write(testData)
-	if err != nil || n != len(testData) {
-		t.Fatalf("Write failed: n=%d, err=%v", n, err)
-	}
+	require.NoError(t, err, "Write failed")
+	require.EqualValues(t, len(testData), n, "Write length")
 
 	// Test 1: Seek beyond file end
 	pos, err := ctx.Seek(100, io.SeekStart)
-	if err != nil {
-		t.Errorf("Seek beyond end failed: %v", err)
-	}
-	if pos != 100 {
-		t.Errorf("Seek position: expected 100, got %d", pos)
-	}
+	require.NoError(t, err, "Seek beyond end failed")
+	assert.EqualValues(t, int64(100), pos, "Seek position")
 	t.Logf("Test 1: Seek(100) = %d, err=%v", pos, err)
 
 	// Test 2: Read after Seek beyond end should return 0, io.EOF
 	// This is the UNIQUE test case!
 	buf := make([]byte, 10)
 	n, err = ctx.Read(buf)
-	if n != 0 {
-		t.Errorf("Read after Seek beyond end: expected n=0, got n=%d", n)
-	}
-	if err != io.EOF {
-		t.Errorf("Read after Seek beyond end: expected io.EOF, got %v", err)
-	}
+	assert.EqualValues(t, 0, n, "Read after Seek beyond end should return 0")
+	assert.Equal(t, io.EOF, err, "Read after Seek beyond end should return EOF")
 	t.Logf("Test 2: Read after Seek(100) = n=%d, err=%v", n, err)
 
 	// Test 3: Write after Seek beyond end fills gap with zeros
 	pos, err = ctx.Seek(100, io.SeekStart)
-	if err != nil {
-		t.Fatalf("Seek(100) failed: %v", err)
-	}
+	require.NoError(t, err, "Seek(100) failed")
 
 	n, err = ctx.Write([]byte("World"))
-	if err != nil || n != 5 {
-		t.Fatalf("Write at 100 failed: n=%d, err=%v", n, err)
-	}
+	require.NoError(t, err, "Write at 100 failed")
+	require.EqualValues(t, 5, n, "Write length")
 
-	size := ctx.Size()
-	if size != 105 {
-		t.Errorf("File size: expected 105, got %d", size)
-	}
-	t.Logf("Test 3: Write at 100, file size = %d", size)
+	assert.EqualValues(t, int64(105), ctx.Size(), "Size after Write at 100")
+	t.Logf("Test 3: Write at 100, file size = %d", ctx.Size())
 
 	// Test 4: Verify gap filled with zeros
 	ctx.Seek(0, io.SeekStart)
@@ -504,139 +409,74 @@ func testSeekBeyondEndRead(t *testing.T, factory crypto_data.ICryptoDataFactory)
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		t.Fatalf("ReadAll failed: %v", err)
 	}
+	assert.EqualValues(t, 105, n, "ReadAll length")
 
-	// ADDITIONAL VERIFICATION: bytes.Equal for whole data comparison
+	// Verify data with bytes.Equal
 	expected := make([]byte, 105)
 	copy(expected[:5], testData)
 	copy(expected[100:105], []byte("World"))
 
-	if !bytes.Equal(allData, expected) {
-		t.Errorf("Data mismatch:\n  got:      %q\n  expected: %q", allData, expected)
-		for i := 0; i < 105; i++ {
-			if allData[i] != expected[i] {
-				t.Errorf("First diff at position %d: got %d, expected %d", i, allData[i], expected[i])
-				break
-			}
-		}
-	} else {
-		t.Logf("Test 4: Data verified with bytes.Equal, size=%d", size)
-	}
 
 	// First 5 bytes should be "Hello"
-	if string(allData[:5]) != "Hello" {
-		t.Errorf("First 5 bytes: expected 'Hello', got %q", allData[:5])
-	}
+	assert.EqualValues(t, "Hello", string(allData[:5]), "First 5 bytes")
 
-	// Bytes 5-99 should be zeros
-	for i := 5; i < 100; i++ {
-		if allData[i] != 0 {
-			t.Errorf("Gap byte %d: expected 0, got %d", i, allData[i])
-			break
-		}
+	// Verify gap is filled with zeros
+	if ok, idx := isZero(allData[5:100]); !ok {
+		t.Errorf("Gap byte %d: expected 0, got %d", 5+idx, allData[5+idx])
 	}
-
-	// Bytes 100-104 should be "World"
-	if string(allData[100:105]) != "World" {
-		t.Errorf("Bytes 100-104: expected 'World', got %q", allData[100:105])
-	}
-
-	t.Logf("Test 4: Gap filled with zeros, data = 'Hello' + 95 zeros + 'World'")
 }
 
-// testMultipleGaps tests multiple gap-filling operations
 func testMultipleGaps(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	ctx := CreateContext(t, factory)
 	defer ctx.Close()
 
-	// Write initial data at position 0
-	ctx.Write([]byte("A"))
+	// Write at position 100
+	ctx.WriteAt([]byte("First"), 100)
 
-	// Write at position 50 (gap 1: 49 bytes)
-	ctx.WriteAt([]byte("B"), 50)
+	// Write at position 50 (creates gap 0-50 and 55-100)
+	ctx.WriteAt([]byte("Mid"), 50)
 
-	// Write at position 100 (gap 2: 49 bytes)
-	ctx.WriteAt([]byte("C"), 100)
+	// Write at position 200 (creates gap 105-200)
+	ctx.WriteAt([]byte("Last"), 200)
 
-	// Write at position 200 (gap 3: 99 bytes)
-	ctx.WriteAt([]byte("D"), 200)
+	// Verify size
+	assert.EqualValues(t, int64(204), ctx.Size(), "Multiple gaps size")
 
-	// Verify size is 201
-	size := ctx.Size()
-	if size != 201 {
-		t.Errorf("Size mismatch: expected 201, got %d", size)
-	}
-
-	// Read all and verify gaps
+	// Read all data
 	ctx.Seek(0, io.SeekStart)
-	allData := make([]byte, 201)
+	allData := make([]byte, 204)
 	n, err := io.ReadFull(ctx, allData)
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		t.Fatalf("ReadAll failed: %v", err)
 	}
-	if n != 201 {
-		t.Errorf("ReadAll returned wrong length: expected 201, got %d", n)
+	assert.EqualValues(t, 204, n, "ReadAll length")
+
+	// Verify data with bytes.Equal
+	expected := make([]byte, 204)
+	copy(expected[50:53], []byte("Mid"))
+	copy(expected[100:105], []byte("First"))
+	copy(expected[200:204], []byte("Last"))
+
+
+	// Verify gaps are filled with zeros
+	if ok, idx := isZero(allData[0:50]); !ok {
+		t.Errorf("Gap 0-50 byte %d: expected 0, got %d", 0+idx, allData[0+idx])
+	}
+	if ok, idx := isZero(allData[53:100]); !ok {
+		t.Errorf("Gap 53-100 byte %d: expected 0, got %d", 53+idx, allData[53+idx])
+	}
+	if ok, idx := isZero(allData[105:200]); !ok {
+		t.Errorf("Gap 105-200 byte %d: expected 0, got %d", 105+idx, allData[105+idx])
 	}
 
-	// ADDITIONAL VERIFICATION: bytes.Equal for whole data comparison
-	expected := make([]byte, 201)
-	expected[0] = 'A'
-	expected[50] = 'B'
-	expected[100] = 'C'
-	expected[200] = 'D'
-
-	if !bytes.Equal(allData, expected) {
-		t.Errorf("Data mismatch:\n  got len=%d, expected len=%d", len(allData), len(expected))
-		for i := 0; i < 201; i++ {
-			if allData[i] != expected[i] {
-				t.Errorf("First diff at position %d: got %d, expected %d", i, allData[i], expected[i])
-				break
-			}
-		}
-	} else {
-		t.Logf("Multiple gaps: Data verified with bytes.Equal, size=%d", size)
-	}
-
-	// Verify data at each position
-	if allData[0] != 'A' {
-		t.Errorf("Position 0: expected 'A', got %d", allData[0])
-	}
-	if allData[50] != 'B' {
-		t.Errorf("Position 50: expected 'B', got %d", allData[50])
-	}
-	if allData[100] != 'C' {
-		t.Errorf("Position 100: expected 'C', got %d", allData[100])
-	}
-	if allData[200] != 'D' {
-		t.Errorf("Position 200: expected 'D', got %d", allData[200])
-	}
-
-	// Verify all gaps are filled with zeros
-	gaps := []struct {
-		start, end int
-	}{
-		{1, 50},
-		{51, 100},
-		{101, 200},
-	}
-
-	for _, gap := range gaps {
-		for i := gap.start; i < gap.end; i++ {
-			if allData[i] != 0 {
-				t.Errorf("Gap [%d-%d) byte %d: expected 0, got %d", gap.start, gap.end, i, allData[i])
-				break
-			}
-		}
-	}
-
-	t.Logf("Multiple gaps: 3 gaps filled with zeros, size=%d", size)
+	t.Logf("Multiple gaps test passed: size=%d, all gaps verified", ctx.Size())
 }
 
-// testLargeGap tests large gap filling
 func testLargeGap(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	ctx := CreateContext(t, factory)
 	defer ctx.Close()
 
-	// Write initial data
+	// Write start data
 	ctx.Write([]byte("Start"))
 
 	// WriteAt at 1KB position (large gap)
@@ -644,10 +484,7 @@ func testLargeGap(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	ctx.WriteAt([]byte("End"), largeGapSize)
 
 	// Verify size
-	size := ctx.Size()
-	if size != largeGapSize+3 {
-		t.Errorf("Size mismatch: expected %d, got %d", largeGapSize+3, size)
-	}
+	assert.EqualValues(t, largeGapSize+3, ctx.Size(), "Large gap size")
 
 	// Read all data for comprehensive verification
 	ctx.Seek(0, io.SeekStart)
@@ -656,33 +493,22 @@ func testLargeGap(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		t.Fatalf("ReadAll failed: %v", err)
 	}
-	if int64(n) != largeGapSize+3 {
-		t.Errorf("ReadAll returned wrong length: expected %d, got %d", largeGapSize+3, n)
-	}
+	assert.EqualValues(t, int(largeGapSize+3), n, "ReadAll length")
 
-	// ADDITIONAL VERIFICATION: bytes.Equal for whole data comparison
+	// Verify data with bytes.Equal
 	expected := make([]byte, largeGapSize+3)
 	copy(expected[:5], []byte("Start"))
 	copy(expected[largeGapSize:], []byte("End"))
 
-	if !bytes.Equal(allData, expected) {
-		t.Errorf("Data mismatch:\n  got len=%d, expected len=%d", len(allData), len(expected))
-		// Only show first diff if any
-		for i := range allData {
-			if allData[i] != expected[i] {
-				t.Errorf("First diff at position %d: got %d, expected %d", i, allData[i], expected[i])
-				break
-			}
-		}
-	} else {
-		t.Logf("Large gap: Data verified with bytes.Equal, size=%d", size)
+
+	// Verify gap is filled with zeros
+	if ok, idx := isZero(allData[5:largeGapSize]); !ok {
+		t.Errorf("Gap byte %d: expected 0, got %d", 5+idx, allData[5+idx])
 	}
 
-	// Verify by sampling (not reading all data)
-	// Check a few positions in the gap
+	// Verify by sampling (additional check)
 	buf := make([]byte, 1)
 	samplePositions := []int64{100, 512, 768}
-
 	for _, pos := range samplePositions {
 		n, err := ctx.ReadAt(buf, pos)
 		if err != nil && err != io.EOF {
@@ -695,36 +521,25 @@ func testLargeGap(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 
 	// Verify end data
 	ctx.ReadAt(buf, largeGapSize)
-	if buf[0] != 'E' {
-		t.Errorf("End position %d: expected 'E', got %d", largeGapSize, buf[0])
-	}
-
-	t.Logf("Large gap: 1KB gap filled with zeros, size=%d", size)
+	assert.EqualValues(t, byte('E'), buf[0], "End position should be 'E'")
 }
 
-// testTruncateExpandGap tests Truncate expand fills gap with zeros
 func testTruncateExpandGap(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	ctx := CreateContext(t, factory)
 	defer ctx.Close()
 
 	// Write initial data: "Hello" (5 bytes)
 	n, err := ctx.Write([]byte("Hello"))
-	if err != nil || n != 5 {
-		t.Fatalf("Write failed: n=%d, err=%v", n, err)
-	}
+	require.NoError(t, err, "Write failed")
+	require.EqualValues(t, 5, n, "Write length")
 
 	// Test 1: Truncate to larger size (expand)
 	err = ctx.Truncate(100)
-	if err != nil {
-		t.Fatalf("Truncate(100) failed: %v", err)
-	}
+	require.NoError(t, err, "Truncate(100) failed")
 
 	// Verify size
-	size := ctx.Size()
-	if size != 100 {
-		t.Errorf("Size after Truncate: expected 100, got %d", size)
-	}
-	t.Logf("Test 1: Truncate(100) -> size=%d", size)
+	assert.EqualValues(t, int64(100), ctx.Size(), "After Truncate(100) size")
+	t.Logf("Test 1: Truncate(100) -> size=%d", ctx.Size())
 
 	// Read all and verify zeros
 	ctx.Seek(0, io.SeekStart)
@@ -733,52 +548,30 @@ func testTruncateExpandGap(t *testing.T, factory crypto_data.ICryptoDataFactory)
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		t.Fatalf("ReadAll failed: %v", err)
 	}
-	if n != 100 {
-		t.Errorf("ReadAll returned wrong length: expected 100, got %d", n)
-	}
+	assert.EqualValues(t, 100, n, "ReadAll length")
 
-	// ADDITIONAL VERIFICATION: bytes.Equal for whole data comparison
+	// Verify data with bytes.Equal
 	expected := make([]byte, 100)
 	copy(expected[:5], []byte("Hello"))
 
-	if !bytes.Equal(allData, expected) {
-		t.Errorf("Data mismatch:\n  got len=%d, expected len=%d", len(allData), len(expected))
-		for i := 0; i < 100; i++ {
-			if allData[i] != expected[i] {
-				t.Errorf("First diff at position %d: got %d, expected %d", i, allData[i], expected[i])
-				break
-			}
-		}
-	} else {
-		t.Logf("Test 1: Data verified with bytes.Equal, size=%d", size)
-	}
 
 	// First 5 bytes should be "Hello"
-	if string(allData[:5]) != "Hello" {
-		t.Errorf("First 5 bytes: expected 'Hello', got %q", allData[:5])
-	}
+	assert.EqualValues(t, "Hello", string(allData[:5]), "First 5 bytes")
 
 	// Bytes 5-99 should be zeros
-	for i := 5; i < 100; i++ {
-		if allData[i] != 0 {
-			t.Errorf("Expanded byte %d: expected 0, got %d", i, allData[i])
-			break
-		}
+	if ok, idx := isZero(allData[5:100]); !ok {
+		t.Errorf("Expanded byte %d: expected 0, got %d", 5+idx, allData[5+idx])
 	}
 
 	t.Logf("Test 2: Truncate expand filled with zeros: 'Hello' + 95 zeros")
 }
 
-// testGapIntegrity tests that gap data can be correctly read back after encryption/decryption
 func testGapIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	ctx := CreateContext(t, factory)
 	defer ctx.Close()
 
 	// Write known data
-	knownData := make([]byte, 100)
-	for i := range knownData {
-		knownData[i] = byte(i % 256)
-	}
+	knownData := makeSequentialBytes(100)
 	ctx.Write(knownData)
 
 	// Write at position 500 (gap of 400 bytes)
@@ -786,10 +579,7 @@ func testGapIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	ctx.WriteAt(endData, 500)
 
 	// Verify size
-	size := ctx.Size()
-	if size != 507 {
-		t.Errorf("Size mismatch: expected 507, got %d", size)
-	}
+	assert.EqualValues(t, int64(507), ctx.Size(), "Gap integrity size")
 
 	// Read back and verify
 	ctx.Seek(0, io.SeekStart)
@@ -798,162 +588,89 @@ func testGapIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		t.Fatalf("ReadAll failed: %v", err)
 	}
-	if n != 507 {
-		t.Errorf("ReadAll returned wrong length: expected 507, got %d", n)
-	}
+	assert.EqualValues(t, 507, n, "ReadAll length")
 
-	// ADDITIONAL VERIFICATION: bytes.Equal for whole data comparison
+	// Verify data with bytes.Equal
 	expected := make([]byte, 507)
-	for i := 0; i < 100; i++ {
-		expected[i] = byte(i % 256)
-	}
+	copy(expected[:100], makeSequentialBytes(100))
 	copy(expected[500:], endData)
 
-	if !bytes.Equal(allData, expected) {
-		t.Errorf("Data mismatch:\n  got len=%d, expected len=%d", len(allData), len(expected))
-		for i := 0; i < 507; i++ {
-			if allData[i] != expected[i] {
-				t.Errorf("First diff at position %d: got %d, expected %d", i, allData[i], expected[i])
-				break
-			}
-		}
-	} else {
-		t.Logf("Gap integrity: Data verified with bytes.Equal, size=%d", size)
-	}
 
 	// Verify known data
-	for i := 0; i < 100; i++ {
-		if allData[i] != knownData[i] {
-			t.Errorf("Known data mismatch at %d: expected %d, got %d", i, knownData[i], allData[i])
-			break
-		}
-	}
+	assert.EqualValues(t, knownData, allData[:100], "Known data")
 
-	// Verify gap is zeros
-	gapCorrect := true
-	for i := 100; i < 500; i++ {
-		if allData[i] != 0 {
-			gapCorrect = false
-			t.Errorf("Gap byte %d: expected 0, got %d", i, allData[i])
-			break
-		}
+	// Verify gap is filled with zeros
+	if ok, idx := isZero(allData[100:500]); !ok {
+		t.Errorf("Gap byte %d: expected 0, got %d", 100+idx, allData[100+idx])
 	}
 
 	// Verify end data
-	if string(allData[500:507]) != "EndData" {
-		t.Errorf("End data mismatch: expected 'EndData', got %q", allData[500:507])
-	}
+	assert.EqualValues(t, "EndData", string(allData[500:507]), "End data")
 
-	if gapCorrect {
-		t.Logf("Gap integrity: known data + 400-byte gap + end data verified, size=%d, read=%d", size, n)
-	}
+	t.Logf("Gap integrity: known data + 400-byte gap + end data verified, size=%d", ctx.Size())
 }
 
-// testTruncateExpandSeekCheck tests that Truncate expand does not change seek position
 func testTruncateExpandSeekCheck(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	ctx := CreateContext(t, factory)
 	defer ctx.Close()
 
 	// Write initial data
 	n, err := ctx.Write([]byte("Hello"))
-	if err != nil || n != 5 {
-		t.Fatalf("Write failed: n=%d, err=%v", n, err)
-	}
+	require.NoError(t, err, "Write failed")
+	require.EqualValues(t, 5, n, "Write length")
 
 	// Record current position (should be 5)
 	posAfterWrite, err := ctx.Seek(0, io.SeekCurrent)
-	if err != nil {
-		t.Fatalf("Seek current failed: %v", err)
-	}
-	if posAfterWrite != 5 {
-		t.Errorf("After Write, pos should be 5, got %d", posAfterWrite)
-	}
+	require.NoError(t, err, "Seek current failed")
+	require.EqualValues(t, int64(5), posAfterWrite, "After Write position")
 
 	// Test 1: Truncate to larger size
 	err = ctx.Truncate(100)
-	if err != nil {
-		t.Fatalf("Truncate(100) failed: %v", err)
-	}
+	require.NoError(t, err, "Truncate(100) failed")
 
 	// CRITICAL: Truncate should NOT change seek position
 	posAfterTruncate, err := ctx.Seek(0, io.SeekCurrent)
-	if err != nil {
-		t.Errorf("Seek current failed: %v", err)
-	}
-	if posAfterTruncate != posAfterWrite {
-		t.Errorf("Truncate changed seek position: expected %d, got %d", posAfterWrite, posAfterTruncate)
-	} else {
-		t.Logf("Truncate preserved seek position at %d", posAfterTruncate)
-	}
+	require.NoError(t, err, "Seek current failed")
+	assert.EqualValues(t, posAfterWrite, posAfterTruncate, "Truncate should not change seek position")
+	t.Logf("Truncate preserved seek position at %d", posAfterTruncate)
 
 	// Verify size
-	size := ctx.Size()
-	if size != 100 {
-		t.Errorf("Size after Truncate: expected 100, got %d", size)
-	}
-	t.Logf("Test 1: Truncate(100) -> size=%d", size)
+	assert.EqualValues(t, int64(100), ctx.Size(), "After Truncate(100) size")
+	t.Logf("Test 1: Truncate(100) -> size=%d", ctx.Size())
 
 	// Test 2: Truncate expand again (multiple expands)
 	err = ctx.Truncate(200)
-	if err != nil {
-		t.Fatalf("Truncate(200) failed: %v", err)
-	}
+	require.NoError(t, err, "Truncate(200) failed")
 
 	// Verify seek position still unchanged
 	posAfterTruncate2, err := ctx.Seek(0, io.SeekCurrent)
-	if err != nil {
-		t.Errorf("Seek current failed: %v", err)
-	}
-	if posAfterTruncate2 != posAfterWrite {
-		t.Errorf("Truncate(200) changed seek position: expected %d, got %d", posAfterWrite, posAfterTruncate2)
-	} else {
-		t.Logf("Truncate(200) preserved seek position at %d", posAfterTruncate2)
-	}
+	require.NoError(t, err, "Seek current failed")
+	assert.EqualValues(t, posAfterWrite, posAfterTruncate2, "Truncate(200) should not change seek position")
+	t.Logf("Truncate(200) preserved seek position at %d", posAfterTruncate2)
 
-	size = ctx.Size()
-	if size != 200 {
-		t.Errorf("Size after second Truncate: expected 200, got %d", size)
-	}
-	t.Logf("Test 2: Truncate(200) -> size=%d", size)
+	assert.EqualValues(t, int64(200), ctx.Size(), "After Truncate(200) size")
+	t.Logf("Test 2: Truncate(200) -> size=%d", ctx.Size())
 
-	// ADDITIONAL VERIFICATION: Verify data content after Truncate expand
+	// Test 3: Verify data content after Truncate expand
 	ctx.Seek(0, io.SeekStart)
 	allData := make([]byte, 200)
 	nRead, err := io.ReadFull(ctx, allData)
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		t.Fatalf("ReadAll failed: %v", err)
 	}
-	if nRead != 200 {
-		t.Errorf("ReadAll returned wrong length: expected 200, got %d", nRead)
-	}
+	assert.EqualValues(t, 200, nRead, "ReadAll length")
 
-	// Verify first 5 bytes are "Hello"
-	if string(allData[:5]) != "Hello" {
-		t.Errorf("First 5 bytes: expected 'Hello', got %q", allData[:5])
-	}
-
-	// Verify bytes 5-199 are zeros (expanded by Truncate)
-	for i := 5; i < 200; i++ {
-		if allData[i] != 0 {
-			t.Errorf("Expanded byte %d: expected 0, got %d", i, allData[i])
-			break
-		}
-	}
-
-	// ADDITIONAL VERIFICATION: bytes.Equal for whole data comparison
+	// Verify data with bytes.Equal
 	expected := make([]byte, 200)
 	copy(expected[:5], []byte("Hello"))
 
-	if !bytes.Equal(allData, expected) {
-		t.Errorf("Data mismatch:\n  got len=%d, expected len=%d", len(allData), len(expected))
-		for i := 0; i < 200; i++ {
-			if allData[i] != expected[i] {
-				t.Errorf("First diff at position %d: got %d, expected %d", i, allData[i], expected[i])
-				break
-			}
-		}
-	} else {
-		t.Logf("Test 3: Data verified with bytes.Equal after Truncate expand")
+
+	// First 5 bytes should be "Hello"
+	assert.EqualValues(t, "Hello", string(allData[:5]), "First 5 bytes")
+
+	// Bytes 5-199 should be zeros
+	if ok, idx := isZero(allData[5:200]); !ok {
+		t.Errorf("Expanded byte %d: expected 0, got %d", 5+idx, allData[5+idx])
 	}
 }
 
@@ -980,249 +697,144 @@ func TestSeekSizePlusOffset(t *testing.T) {
 
 			// ==================== Step 1: Initialize with data ====================
 			// Write initial data: 200 bytes
-			initData := make([]byte, 200)
-			for i := range initData {
-				initData[i] = byte(i % 256)
-			}
+			initData := makeSequentialBytes(200)
 			n, err := ctx.Write(initData)
-			if err != nil {
-				t.Fatalf("Step 1: Write failed: %v", err)
-			}
-			if n != len(initData) {
-				t.Fatalf("Step 1: Write returned wrong length: got %d, want %d", n, len(initData))
-			}
+			require.NoError(t, err, "Step 1: Write failed")
+			require.EqualValues(t, len(initData), n, "Step 1: Write length")
 
 			initialSize := ctx.Size()
 			t.Logf("Step 1: Initial write %d bytes, size=%d", len(initData), initialSize)
 
-			if initialSize != int64(len(initData)) {
-				t.Fatalf("Step 1: Initial size mismatch: got %d, want %d", initialSize, len(initData))
-			}
+			require.EqualValues(t, int64(len(initData)), initialSize, "Step 1: Initial size")
 
 			// ==================== Step 2: Seek beyond file end ====================
-			// Seek to FileSize + 100 (beyond end)
-			seekPos := initialSize + 100
+			seekPos := initialSize + 100 // 200 + 100 = 300
 			pos, err := ctx.Seek(seekPos, io.SeekStart)
-			if err != nil {
-				t.Fatalf("Step 2: Seek failed: %v", err)
-			}
-			if pos != seekPos {
-				t.Errorf("Step 2: Seek position: expected %d, got %d", seekPos, pos)
-			}
-			t.Logf("Step 2: Seek to %d (FileSize+100)", pos)
+			require.NoError(t, err, "Step 2: Seek(%d) failed", seekPos)
+			require.EqualValues(t, seekPos, pos, "Step 2: Seek position")
+			t.Logf("Step 2: Seek(%d) -> pos=%d", seekPos, pos)
 
 			// ==================== Step 3: Write at gap position ====================
-			// Write 100 bytes of "test1" data at the gap position
-			test1Data := make([]byte, 100)
-			for i := range test1Data {
-				test1Data[i] = byte('1')
-			}
-
+			// Write 100 bytes at position 300
+			test1Data := bytes.Repeat([]byte{'1'}, 100)
 			n, err = ctx.Write(test1Data)
-			if err != nil {
-				t.Fatalf("Step 3: Write test1 failed: %v", err)
-			}
-			if n != len(test1Data) {
-				t.Fatalf("Step 3: Write test1 returned wrong length: got %d, want %d", n, len(test1Data))
-			}
+			require.NoError(t, err, "Step 3: Write failed")
+			require.EqualValues(t, len(test1Data), n, "Step 3: Write length")
 
-			// ==================== Step 4: Check position and size ====================
-			// tell() should be at the end of what we just wrote
-			expectedPos1 := seekPos + int64(len(test1Data))
-			currentPos, err := ctx.Seek(0, io.SeekCurrent)
-			if err != nil {
-				t.Fatalf("Step 4: tell() failed: %v", err)
-			}
-			if currentPos != expectedPos1 {
-				t.Errorf("Step 4: Position mismatch: got %d, want %d", currentPos, expectedPos1)
-			}
+			// ==================== Step 4: Check tell() and size() ====================
+			pos1 := ctx.Size() // Should be 400 (300 + 100)
+			tell1, err := ctx.Seek(0, io.SeekCurrent)
+			require.NoError(t, err, "Step 4: Tell failed")
 
-			// Size should now be FileSize + 100 (gap) + 100 (written) = FileSize + 200
-			expectedSize1 := initialSize + 200
-			actualSize1 := ctx.Size()
-			if actualSize1 != expectedSize1 {
-				t.Errorf("Step 4: Size mismatch: got %d, want %d", actualSize1, expectedSize1)
-			}
-
-			t.Logf("Step 4: After Write, pos=%d, size=%d (expected pos=%d, size=%d)",
-				currentPos, actualSize1, expectedPos1, expectedSize1)
+			assert.EqualValues(t, int64(400), tell1, "Step 4: Tell position")
+			assert.EqualValues(t, int64(400), pos1, "Step 4: Size")
+			t.Logf("Step 3-4: Write 100 bytes at 300, tell=%d, size=%d", tell1, pos1)
 
 			// ==================== Step 5: Seek to near end ====================
-			// Seek to FileSize(new) - 50
-			seekPos2 := actualSize1 - 50
+			seekPos2 := pos1 - 50 // 400 - 50 = 350
 			pos, err = ctx.Seek(seekPos2, io.SeekStart)
-			if err != nil {
-				t.Fatalf("Step 5: Seek failed: %v", err)
-			}
-			if pos != seekPos2 {
-				t.Errorf("Step 5: Seek position: expected %d, got %d", seekPos2, pos)
-			}
-			t.Logf("Step 5: Seek to %d (FileSize-50)", pos)
+			require.NoError(t, err, "Step 5: Seek(%d) failed", seekPos2)
+			t.Logf("Step 5: Seek(%d) -> pos=%d", seekPos2, pos)
 
 			// ==================== Step 6: WriteAt beyond end ====================
-			// WriteAt at FileSize(new) + 120 (beyond current end)
-			writeAtOffset := actualSize1 + 120
-			test2Data := make([]byte, 80)
-			for i := range test2Data {
-				test2Data[i] = byte('2')
-			}
-
+			// WriteAt at position pos1 + 120 = 520
+			writeAtOffset := pos1 + 120 // 400 + 120 = 520
+			test2Data := bytes.Repeat([]byte{'2'}, 80)
 			n, err = ctx.WriteAt(test2Data, writeAtOffset)
-			if err != nil {
-				t.Fatalf("Step 6: WriteAt failed: %v", err)
-			}
-			if n != len(test2Data) {
-				t.Fatalf("Step 6: WriteAt returned wrong length: got %d, want %d", n, len(test2Data))
-			}
-			t.Logf("Step 6: WriteAt %d bytes at offset %d", len(test2Data), writeAtOffset)
+			require.NoError(t, err, "Step 6: WriteAt(%d) failed", writeAtOffset)
+			require.EqualValues(t, len(test2Data), n, "Step 6: WriteAt length")
 
-			// ==================== Step 7: Check position and size ====================
-			// tell() should NOT have changed (WriteAt doesn't affect position)
-			currentPos2, err := ctx.Seek(0, io.SeekCurrent)
-			if err != nil {
-				t.Fatalf("Step 7: tell() failed: %v", err)
-			}
-			if currentPos2 != seekPos2 {
-				t.Errorf("Step 7: Position changed after WriteAt: got %d, want %d (WriteAt should not change position)",
-					currentPos2, seekPos2)
-			}
+			// ==================== Step 7: Check tell() and size() ====================
+			// WriteAt should NOT change tell position
+			tell2, err := ctx.Seek(0, io.SeekCurrent)
+			require.NoError(t, err, "Step 7: Tell failed")
+			// tell2 should still be 350 (unchanged by WriteAt)
+			assert.EqualValues(t, int64(350), tell2, "Step 7: Tell position (WriteAt should not change tell)")
 
-			// Size should now be writeAtOffset + len(test2Data)
-			expectedSize2 := writeAtOffset + int64(len(test2Data))
-			actualSize2 := ctx.Size()
-			if actualSize2 != expectedSize2 {
-				t.Errorf("Step 7: Size mismatch: got %d, want %d", actualSize2, expectedSize2)
-			}
-
-			t.Logf("Step 7: After WriteAt, pos=%d, size=%d (expected pos=%d, size=%d)",
-				currentPos2, actualSize2, seekPos2, expectedSize2)
+			size2 := ctx.Size()
+			// size2 should be 600 (520 + 80)
+			assert.EqualValues(t, int64(600), size2, "Step 7: Size")
+			t.Logf("Step 6-7: WriteAt 80 bytes at %d, tell=%d, size=%d", writeAtOffset, tell2, size2)
 
 			// ==================== Step 8: Verify data integrity ====================
-			// Seek to start
-			pos, err = ctx.Seek(0, io.SeekStart)
-			if err != nil {
-				t.Fatalf("Step 8: Seek to start failed: %v", err)
+			ctx.Seek(0, io.SeekStart)
+			allData := make([]byte, size2)
+			n, err = io.ReadFull(ctx, allData)
+			if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+				t.Fatalf("Step 8: ReadAll failed: %v", err)
 			}
+			assert.EqualValues(t, int64(n), size2, "Step 8: ReadAll length")
 
-			// Read all data
-			allData := make([]byte, actualSize2)
-			n, err = ctx.Read(allData)
-			if err != nil && err != io.EOF {
-				t.Fatalf("Step 8: Read failed: %v", err)
-			}
-			if int64(n) != actualSize2 {
-				t.Errorf("Step 8: Read returned wrong length: got %d, want %d", n, actualSize2)
-			}
+			// Verify data integrity
+			t.Logf("Step 8: ReadAll %d bytes, verifying data integrity...", n)
 
 			// Verify initial data (0-199)
-			for i := 0; i < 200; i++ {
-				expected := byte(i % 256)
-				if allData[i] != expected {
-					t.Errorf("Step 8: Initial data mismatch at %d: got %d, want %d", i, allData[i], expected)
-					break
-				}
-			}
+			assert.EqualValues(t, makeSequentialBytes(200), allData[:200], "Initial data")
 
 			// Verify test1 data (at initialSize + 100)
 			test1Start := int(initialSize + 100)
-			for i := 0; i < 100; i++ {
-				if allData[test1Start+i] != byte('1') {
-					t.Errorf("Step 8: test1 data mismatch at %d: got %d, want %d", test1Start+i, allData[test1Start+i], byte('1'))
-					break
-				}
-			}
+			assert.EqualValues(t, bytes.Repeat([]byte{'1'}, 100), allData[test1Start:test1Start+100], "test1 data")
 
 			// Verify test2 data (at writeAtOffset)
 			test2Start := int(writeAtOffset)
-			for i := 0; i < 80; i++ {
-				if allData[test2Start+i] != byte('2') {
-					t.Errorf("Step 8: test2 data mismatch at %d: got %d, want %d", test2Start+i, allData[test2Start+i], byte('2'))
-					break
-				}
-			}
+			assert.EqualValues(t, bytes.Repeat([]byte{'2'}, 80), allData[test2Start:test2Start+80], "test2 data")
 
-			t.Logf("Step 8: Data verification complete, total size=%d", actualSize2)
+			t.Logf("Step 8: Data verification complete, total size=%d", size2)
 		})
 	}
 }
 
-// ==================== Test: Truncate Shrink Pos Update ====================
+// ==================== Test: Truncate Shrink Updates Position ====================
 // TestTruncateShrinkUpdatesPos verifies that Truncate shrink correctly updates the position.
 // This is a safety test to prevent a bug where pos is not updated after Truncate shrink,
 // causing subsequent Write operations to write at incorrect positions.
 func TestTruncateShrinkUpdatesPos(t *testing.T) {
-	factories := GetAllFactories()
-
-	for _, ff := range factories {
-		t.Run(ff.Name, func(t *testing.T) {
-			ctx := CreateContext(t, ff.Factory)
+	for _, factory := range GetAllFactories() {
+		t.Run(factory.Name, func(t *testing.T) {
+			ctx := CreateContext(t, factory.Factory)
 			defer ctx.Close()
 
 			// Write 200 bytes
-			data := make([]byte, 200)
-			for i := range data {
-				data[i] = byte(i)
-			}
+			data := makeSequentialBytes(200)
 			n, err := ctx.Write(data)
-			if err != nil || n != 200 {
-				t.Fatalf("Initial write failed: n=%d, err=%v", n, err)
-			}
+			require.NoError(t, err, "Initial write failed")
+			require.EqualValues(t, 200, n, "Initial write length")
 
 			// Now pos should be 200
 			pos, _ := ctx.Seek(0, io.SeekCurrent)
-			if pos != 200 {
-				t.Errorf("After write, pos should be 200, got %d", pos)
-			}
+			assert.EqualValues(t, int64(200), pos, "After write position")
 
 			// Truncate shrink to 50
 			err = ctx.Truncate(50)
-			if err != nil {
-				t.Fatalf("Truncate shrink failed: %v", err)
-			}
+			require.NoError(t, err, "Truncate shrink failed")
 
 			// Verify size is now 50
-			if ctx.Size() != 50 {
-				t.Errorf("After truncate, size should be 50, got %d", ctx.Size())
-			}
+			assert.EqualValues(t, int64(50), ctx.Size(), "After truncate size")
 
 			// Verify pos is updated to 50 (not 200)
 			pos, _ = ctx.Seek(0, io.SeekCurrent)
-			if pos != 50 {
-				t.Errorf("After truncate shrink, pos should be updated to 50, got %d", pos)
-			}
+			assert.EqualValues(t, int64(50), pos, "After truncate shrink position")
 
 			// Now write some data - it should be at position 50
 			newData := []byte("Hello")
 			n, err = ctx.Write(newData)
-			if err != nil || n != 5 {
-				t.Fatalf("Write after truncate failed: n=%d, err=%v", n, err)
-			}
+			require.NoError(t, err, "Write after truncate failed")
+			require.EqualValues(t, 5, n, "Write after truncate length")
 
 			// Verify size is now 55 (50 + 5)
-			if ctx.Size() != 55 {
-				t.Errorf("After write, size should be 55, got %d", ctx.Size())
-			}
+			assert.EqualValues(t, int64(55), ctx.Size(), "After write size")
 
 			// Verify data integrity
 			ctx.Seek(0, io.SeekStart)
 			allData := make([]byte, 55)
 			_, err = io.ReadFull(ctx, allData)
-			if err != nil {
-				t.Fatalf("Read failed: %v", err)
-			}
+			require.NoError(t, err, "Read failed")
 
 			// Verify first 50 bytes are preserved
-			for i := 0; i < 50; i++ {
-				if allData[i] != byte(i) {
-					t.Errorf("Data mismatch at position %d: expected %d, got %d", i, byte(i), allData[i])
-					break
-				}
-			}
+			assert.EqualValues(t, makeSequentialBytes(50), allData[:50], "First 50 bytes")
 
 			// Verify last 5 bytes are "Hello"
-			if string(allData[50:55]) != "Hello" {
-				t.Errorf("Data mismatch at end: expected 'Hello', got %q", allData[50:55])
-			}
+			assert.EqualValues(t, "Hello", string(allData[50:55]), "Last 5 bytes")
 
 			t.Logf("Truncate shrink pos update test passed: size=%d, pos updated correctly", ctx.Size())
 		})

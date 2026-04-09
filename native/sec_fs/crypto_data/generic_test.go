@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"safe_disk/native/config"
 	"safe_disk/native/sec_fs/crypto_data"
 
@@ -25,22 +27,14 @@ import (
 
 func TestListFactories(t *testing.T) {
 	factories := crypto_data.ListFactories()
-	if len(factories) == 0 {
-		t.Error("No cryptor factories registered")
-	}
+	assert.NotEmpty(t, factories, "No cryptor factories registered")
 
 	t.Logf("Registered factories: %v", factories)
 
 	for _, name := range factories {
 		factory := crypto_data.GetFactory(name)
-		if factory == nil {
-			t.Errorf("Factory '%s' returned nil", name)
-			continue
-		}
-
-		if factory.GetName() != name {
-			t.Errorf("Factory name mismatch: expected '%s', got '%s'", name, factory.GetName())
-		}
+		require.NotNil(t, factory, "Factory '%s' returned nil", name)
+		assert.Equal(t, name, factory.GetName(), "Factory name mismatch")
 	}
 }
 
@@ -107,9 +101,7 @@ func TestAllFactories(t *testing.T) {
 
 func testFactoryName(t *testing.T, factory crypto_data.ICryptoDataFactory, expectedName string) {
 	name := factory.GetName()
-	if name != expectedName {
-		t.Errorf("Expected factory name '%s', got '%s'", expectedName, name)
-	}
+	assert.Equal(t, expectedName, name, "Factory name")
 	t.Logf("Factory name: %s", name)
 }
 
@@ -120,22 +112,11 @@ func testCapabilities(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 		caps.Mode, caps.StreamingComplexity, caps.RandomAccessComplexity, caps.ModificationComplexity, caps.RandomDeleteComplexity)
 
 	// Verify mode is valid
-	if caps.Mode < crypto_data.CryptModeNormal || caps.Mode > crypto_data.CryptModeIncremental {
-		t.Errorf("Invalid mode: %v", caps.Mode)
-	}
+	assert.GreaterOrEqual(t, caps.Mode, crypto_data.CryptModeNormal, "Mode should be >= Normal")
+	assert.LessOrEqual(t, caps.Mode, crypto_data.CryptModeIncremental, "Mode should be <= Incremental")
 }
 
 func testCreateContext(t *testing.T, factory crypto_data.ICryptoDataFactory) {
-	/*storeIo := newMockReadWriterSeeker()
-	keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
-	cfg := config.NewMemoryConfig()
-
-	ctx, err := factory.NewContext(storeIo, keyInfo, cfg)
-	if err != nil {
-		t.Fatalf("Failed to create context: %v", err)
-	}
-	defer ctx.Close()
-	*/
 	fp, _, _ := newTestFiles(t, factory)
 	defer fp.Close()
 
@@ -167,17 +148,11 @@ func testEncryptDecrypt(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 
 			// Write (encrypt) using dualWriter
 			n, err := fp.Write(tc.data)
-			if err != nil {
-				t.Fatalf("Failed to write: %v", err)
-			}
-			if n != len(tc.data) {
-				t.Errorf("Expected to write %d bytes, wrote %d", len(tc.data), n)
-			}
+			require.NoError(t, err, "Failed to write")
+			require.Equal(t, len(tc.data), n, "Write length")
 
 			// Verify integrity using dualWriter
-			if verifyAndReport(t, fp, storeIo, _dw, "", fmt.Sprintf("Encrypt/Decrypt verified for %d bytes", len(tc.data))) {
-				// Success
-			}
+			verifyAndReport(t, fp, storeIo, _dw, "", fmt.Sprintf("Encrypt/Decrypt verified for %d bytes", len(tc.data)))
 		})
 	}
 }
@@ -201,17 +176,11 @@ func testMultipleWriteRead(t *testing.T, factory crypto_data.ICryptoDataFactory)
 
 			// Write chunk using dualWriter
 			n, err := fp.Write(chunk)
-			if err != nil {
-				t.Fatalf("Failed to write chunk: %v", err)
-			}
-			if n != len(chunk) {
-				t.Errorf("Expected to write %d bytes, wrote %d", len(chunk), n)
-			}
+			require.NoError(t, err, "Failed to write chunk")
+			require.Equal(t, len(chunk), n, "Write length")
 
 			// Verify integrity using dualWriter
-			if verifyAndReport(t, fp, storeIo, _dw, "", fmt.Sprintf("Chunk %d verified: %d bytes", i+1, len(chunk))) {
-				// Success
-			}
+			verifyAndReport(t, fp, storeIo, _dw, "", fmt.Sprintf("Chunk %d verified: %d bytes", i+1, len(chunk)))
 		})
 	}
 }
@@ -223,53 +192,33 @@ func testSeekOperations(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	// Write test data using dualWriter
 	testData := []byte("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	_, err := fp.Write(testData)
-	if err != nil {
-		t.Fatalf("Failed to write: %v", err)
-	}
+	require.NoError(t, err, "Failed to write")
 
 	// Test SeekStart on dualWriter
 	pos, err := fp.Seek(10, 0)
-	if err != nil {
-		t.Errorf("SeekStart failed: %v", err)
-	}
-	if pos != 10 {
-		t.Errorf("SeekStart: expected pos 10, got %d", pos)
-	}
+	require.NoError(t, err, "SeekStart failed")
+	assert.Equal(t, int64(10), pos, "SeekStart position")
 
 	// Read from position 10
 	buf := make([]byte, 5)
 	n, err := fp.Read(buf)
-	if err != nil {
-		t.Errorf("Read after SeekStart failed: %v", err)
-	}
-	if string(buf[:n]) != "ABCDE" {
-		t.Errorf("Read after SeekStart: expected 'ABCDE', got '%s'", string(buf[:n]))
-	}
+	require.NoError(t, err, "Read after SeekStart failed")
+	assert.Equal(t, "ABCDE", string(buf[:n]), "Read after SeekStart")
 
 	// Test SeekCurrent on dualWriter
 	pos, err = fp.Seek(5, 1)
-	if err != nil {
-		t.Errorf("SeekCurrent failed: %v", err)
-	}
+	require.NoError(t, err, "SeekCurrent failed")
 	// Current pos was 15, +5 = 20
-	if pos != 20 {
-		t.Errorf("SeekCurrent: expected pos 20, got %d", pos)
-	}
+	assert.Equal(t, int64(20), pos, "SeekCurrent position")
 
 	// Test SeekEnd on dualWriter
 	pos, err = fp.Seek(-5, 2)
-	if err != nil {
-		t.Errorf("SeekEnd failed: %v", err)
-	}
+	require.NoError(t, err, "SeekEnd failed")
 	// len(testData) - 5 = 31
-	if pos != 31 {
-		t.Errorf("SeekEnd: expected pos 31, got %d", pos)
-	}
+	assert.Equal(t, int64(31), pos, "SeekEnd position")
 
 	// Verify integrity using dualWriter
-	if verifyAndReport(t, fp, storeIo, _dw, "", "Seek operations verified with full integrity check") {
-		// Success
-	}
+	verifyAndReport(t, fp, storeIo, _dw, "", "Seek operations verified with full integrity check")
 }
 
 func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
@@ -277,16 +226,11 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	defer fp.Close()
 
 	// Create initial data (1000 bytes)
-	initialData := make([]byte, 1000)
-	for i := range initialData {
-		initialData[i] = byte(i % 256)
-	}
+	initialData := makeSequentialBytes(1000)
 
 	// Write initial data
 	_, err := fp.Write(initialData)
-	if err != nil {
-		t.Fatalf("Failed to write initial data: %v", err)
-	}
+	require.NoError(t, err, "Failed to write initial data")
 
 	initialSize := fp.Size()
 	t.Logf("Initial size: %d bytes", initialSize)
@@ -300,14 +244,10 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	t.Log("Before truncate shrink")
 
 	err = fp.Truncate(800)
-	if err != nil {
-		t.Fatalf("Truncate failed: %v", err)
-	}
+	require.NoError(t, err, "Truncate failed")
 
 	newSize := fp.Size()
-	if newSize != 800 {
-		t.Errorf("After truncate: expected size 800, got %d", newSize)
-	}
+	assert.Equal(t, int64(800), newSize, "After truncate size")
 	t.Logf("After truncate: size = %d bytes", newSize)
 
 	// Verify integrity after truncate shrink
@@ -319,45 +259,31 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	t.Log("Before truncate expand")
 
 	err = fp.Truncate(1200)
-	if err != nil {
-		t.Fatalf("Truncate to expand failed: %v", err)
-	}
+	require.NoError(t, err, "Truncate to expand failed")
 
 	expandedSize := fp.Size()
-	if expandedSize != 1200 {
-		t.Errorf("After expand: expected size 1200, got %d", expandedSize)
-	}
+	assert.Equal(t, int64(1200), expandedSize, "After expand size")
 	t.Logf("After expand: size = %d bytes", expandedSize)
-
-	// RC4 deadlock marker removed
 
 	// Verify integrity after truncate expand (expanded area should be zeros)
 	if !verifyAndReport(t, fp, storeIo, _dw, "Truncate expand", "Truncate expand integrity verified") {
 		return
 	}
 
-	// RC4 deadlock marker removed
-
 	// Test 3: Simulate "delete in middle" by overwriting with zeros
 	// This is not a real delete, but simulates the effect
 	t.Log("Before write zeros")
 
 	_, err = fp.Seek(400, 0)
-	if err != nil {
-		t.Fatalf("Seek to 400 failed: %v", err)
-	}
+	require.NoError(t, err, "Seek to 400 failed")
 
 	zeros := make([]byte, 100)
 	_, err = fp.Write(zeros)
-	if err != nil {
-		t.Fatalf("Write zeros failed: %v", err)
-	}
+	require.NoError(t, err, "Write zeros failed")
 	t.Logf("Wrote 100 zeros at position 400")
 
 	// Verify integrity after write
-	if !verifyAndReport(t, fp, storeIo, _dw, "Write zeros", "Write zeros integrity verified") {
-		return
-	}
+	verifyAndReport(t, fp, storeIo, _dw, "Write zeros", "Write zeros integrity verified")
 
 	t.Logf("Random delete test passed: all data integrity verified")
 }
@@ -379,16 +305,11 @@ func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactor
 
 	// Create initial data
 	initialSize := 256
-	initialData := make([]byte, initialSize)
-	for i := range initialData {
-		initialData[i] = byte(i % 256)
-	}
+	initialData := makeSequentialBytes(initialSize)
 
 	// Write initial data
 	_, err := fp.Write(initialData)
-	if err != nil {
-		t.Fatalf("Failed to write initial data: %v", err)
-	}
+	require.NoError(t, err, "Failed to write initial data")
 
 	// Verify integrity after initial write
 	if !verifyAndReport(t, fp, storeIo, _dw, "", fmt.Sprintf("Initial write verified: size=%d bytes", initialSize)) {
@@ -467,14 +388,10 @@ func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactor
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := tc.op()
-			if err != nil {
-				t.Fatalf("Operation failed: %v", err)
-			}
+			require.NoError(t, err, "Operation failed")
 
 			// Verify integrity after operation
-			if !verifyAndReport(t, fp, storeIo, _dw, tc.desc, fmt.Sprintf("%s: integrity verified", tc.desc)) {
-				return
-			}
+			verifyAndReport(t, fp, storeIo, _dw, tc.desc, fmt.Sprintf("%s: integrity verified", tc.desc))
 		})
 	}
 
@@ -489,9 +406,7 @@ func newTestFiles(t *testing.T, factory crypto_data.ICryptoDataFactory) (*tracke
 	cfg := config.NewMemoryConfig()
 
 	ctx, err := factory.NewContext(trackerStore, keyInfo, cfg)
-	if err != nil {
-		t.Fatalf("Failed to create context: %v", err)
-	}
+	require.NoError(t, err, "Failed to create context")
 
 	// Create dual writer for integrity verification
 	dw := newDualWriter(ctx)
@@ -510,16 +425,11 @@ func testFixedPositions(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 
 	// Create initial data (256 bytes = 16 blocks of 16 bytes each)
 	initialSize := 256
-	initialData := make([]byte, initialSize)
-	for i := range initialData {
-		initialData[i] = byte(i % 256)
-	}
+	initialData := makeSequentialBytes(initialSize)
 
 	// Write initial data using dualWriter
 	_, err := tw.Write(initialData)
-	if err != nil {
-		t.Fatalf("Failed to write initial data: %v", err)
-	}
+	require.NoError(t, err, "Failed to write initial data")
 
 	// Verify initial write
 	if !verifyAndReport(t, tw, storeIo, dw, "", fmt.Sprintf("Initial data written and verified: size=%d bytes", initialSize)) {
@@ -555,14 +465,8 @@ func testFixedPositions(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 
 			// WriteAt at position using dualWriter
 			n, err := tw.WriteAt(testData, int64(pos))
-			if err != nil {
-				t.Errorf("WriteAt size=%d pos=%d failed: %v", size, pos, err)
-				continue
-			}
-			if n != size {
-				t.Errorf("WriteAt size=%d pos=%d: expected %d bytes, got %d", size, pos, size, n)
-				continue
-			}
+			require.NoError(t, err, "WriteAt size=%d pos=%d failed", size, pos)
+			require.Equal(t, size, n, "WriteAt size=%d pos=%d: length mismatch", size, pos)
 
 			// Verify integrity using dualWriter
 			if !verifyAndReport(t, tw, storeIo, dw, fmt.Sprintf("size=%d pos=%d", size, pos), "", DISABLE_STEP_REPORT) {
@@ -601,9 +505,7 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 		cfg := config.NewMemoryConfig()
 
 		ctx, err := factory.NewContext(storeIo, keyInfo, cfg)
-		if err != nil {
-			t.Fatalf("Failed to create context: %v", err)
-		}
+		require.NoError(t, err, "Failed to create context")
 		defer ctx.Close()
 
 		// Create dual writer for integrity verification
@@ -616,16 +518,11 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 
 		// Create initial data (256 bytes = 16 blocks of 16 bytes each)
 		initialSize := 256
-		initialData := make([]byte, initialSize)
-		for i := range initialData {
-			initialData[i] = byte(i % 256)
-		}
+				initialData := makeSequentialBytes(initialSize)
 
 		// Write initial data using dualWriter
 		_, err = fp.Write(initialData)
-		if err != nil {
-			t.Fatalf("Failed to write initial data: %v", err)
-		}
+		require.NoError(t, err, "Failed to write initial data")
 
 		// Verify initial write
 		if !verifyAndReport(t, tw, storeIo, dw, "", fmt.Sprintf("Initial data written and verified: size=%d bytes", initialSize)) {
@@ -665,34 +562,21 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				rand.Read(testData)
 
 				n, err := fp.WriteAt(testData, int64(pos))
-				if err != nil {
-					t.Errorf("Stress test %d: WriteAt size=%d pos=%d failed: %v", i, size, pos, err)
-					continue
-				}
-				if n != size {
-					t.Errorf("Stress test %d: WriteAt size=%d pos=%d: wrote %d bytes", i, size, pos, n)
-				}
+				require.NoError(t, err, "Stress test %d: WriteAt size=%d pos=%d failed", i, size, pos)
+				assert.Equal(t, size, n, "Stress test %d: WriteAt size=%d pos=%d: length mismatch", i, size, pos)
 
 			case 1: // Seek + Write: random seek, then write random data
 				seekPos := rand.Intn(maxPos)
 				_, err := fp.Seek(int64(seekPos), 0)
-				if err != nil {
-					t.Errorf("Stress test %d: Seek to %d failed: %v", i, seekPos, err)
-					continue
-				}
+				require.NoError(t, err, "Stress test %d: Seek to %d failed", i, seekPos)
 
 				size := rand.Intn(128) + 1
 				testData := make([]byte, size)
 				rand.Read(testData)
 
 				n, err := fp.Write(testData)
-				if err != nil {
-					t.Errorf("Stress test %d: Write after Seek failed: %v", i, err)
-					continue
-				}
-				if n != size {
-					t.Errorf("Stress test %d: Write wrote %d bytes, expected %d", i, n, size)
-				}
+				require.NoError(t, err, "Stress test %d: Write after Seek failed", i)
+				assert.Equal(t, size, n, "Stress test %d: Write length mismatch", i)
 
 			case 2: // Truncate shrink: random smaller size
 				if currentSize <= 0 {
@@ -700,17 +584,13 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				}
 				newSize := rand.Intn(currentSize)
 				err := fp.Truncate(int64(newSize))
-				if err != nil {
-					t.Errorf("Stress test %d: Truncate shrink to %d failed: %v", i, newSize, err)
-				}
+				require.NoError(t, err, "Stress test %d: Truncate shrink to %d failed", i, newSize)
 
 			case 3: // Truncate expand: random larger size
 				expandBy := rand.Intn(128) + 1 // Smaller expansion
 				newSize := currentSize + expandBy
 				err := fp.Truncate(int64(newSize))
-				if err != nil {
-					t.Errorf("Stress test %d: Truncate expand to %d failed: %v", i, newSize, err)
-				}
+				require.NoError(t, err, "Stress test %d: Truncate expand to %d failed", i, newSize)
 
 			case 4: // Write at current position
 				size := rand.Intn(64) + 1
@@ -718,13 +598,8 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				rand.Read(testData)
 
 				n, err := fp.Write(testData)
-				if err != nil {
-					t.Errorf("Stress test %d: Write failed: %v", i, err)
-					continue
-				}
-				if n != size {
-					t.Errorf("Stress test %d: Write wrote %d bytes, expected %d", i, n, size)
-				}
+				require.NoError(t, err, "Stress test %d: Write failed", i)
+				assert.Equal(t, size, n, "Stress test %d: Write length mismatch", i)
 
 			case 5: // Random Read: seek to random position, then read random size
 				if currentSize <= 0 {
@@ -734,10 +609,7 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 				// Random position
 				pos := rand.Intn(currentSize)
 				_, err := fp.Seek(int64(pos), 0)
-				if err != nil {
-					t.Errorf("Stress test %d: Seek for Read failed: %v", i, err)
-					continue
-				}
+				require.NoError(t, err, "Stress test %d: Seek for Read failed", i)
 
 				// Random size (1 to min(64, remaining))
 				remaining := currentSize - pos

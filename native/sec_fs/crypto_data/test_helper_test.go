@@ -27,6 +27,28 @@ type mockFactory struct {
 	name string
 }
 
+// makeSequentialBytes creates a byte slice with sequential values (0, 1, 2, ..., 255, 0, 1, ...)
+// This is useful for testing data integrity.
+func makeSequentialBytes(size int) []byte {
+	data := make([]byte, size)
+	for i := range data {
+		data[i] = byte(i)
+	}
+	return data
+}
+
+// isZero checks if all bytes in the slice are zero.
+// Returns (true, -1) if all zeros, or (false, firstNonZeroIndex) if not.
+// This is useful for verifying gap fill in tests.
+func isZero(data []byte) (bool, int) {
+	for i, b := range data {
+		if b != 0 {
+			return false, i
+		}
+	}
+	return true, -1
+}
+
 func newMockFactory() *mockFactory {
 	return &mockFactory{name: "mockFile"}
 }
@@ -425,7 +447,7 @@ func makeTestKey(factory crypto_data.ICryptoDataFactory) []byte {
 	if keyLen == 0 {
 		keyLen = 32 // Default to 32 bytes if not specified
 	}
-	return make([]byte, keyLen)
+	return makeSequentialBytes(keyLen)
 }
 
 // CreateContext creates a context for testing
@@ -436,9 +458,6 @@ func CreateContext(t *testing.T, factory crypto_data.ICryptoDataFactory) crypto_
 
 	storeIo := newMockReadWriterSeeker()
 	key := makeTestKey(factory)
-	for i := range key {
-		key[i] = byte(i)
-	}
 	keyInfo := &mockKeyInfo{key: key}
 	cfg := config.NewMemoryConfig()
 
