@@ -218,7 +218,7 @@ func (c *Context) ensure_append_gap(targetPos int64) error {
 	}
 
 	// Use chunked filling to avoid large memory allocation
-	err = crypt_utils.FillGapWithEncryptFunc(c.storeFileIo, c.size, gapSize, func(data []byte, pos int64) error {
+	err = crypt_utils.FillGap(c.storeFileIo, c.size, gapSize, func(data []byte, pos int64) error {
 		c.xorKeystream(data, pos)
 		return nil
 	})

@@ -49,7 +49,7 @@ func (cs *CipherState) EncryptAt(data []byte, pos int64, key []byte) {
 
 	if pos > 0 {
 		// Discard bytes in chunks to reach target position
-		discardBuf := make([]byte, crypt_utils.GapFillBufferSize)
+		discardBuf := make([]byte, crypt_utils.ChunkBufferSize)
 		remaining := pos
 
 		for remaining > 0 {
@@ -250,7 +250,7 @@ func (c *Context) ensure_append_gap(targetPos int64) error {
 	}
 
 	// Use chunked filling to avoid large memory allocation
-	err = crypt_utils.FillGapWithEncryptFunc(c.storeFileIo, c.size, gapSize, func(data []byte, pos int64) error {
+	err = crypt_utils.FillGap(c.storeFileIo, c.size, gapSize, func(data []byte, pos int64) error {
 		c.encryptAt(data, pos)
 		return nil
 	})

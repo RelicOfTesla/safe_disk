@@ -43,6 +43,9 @@ var (
 	// ErrRootClosed indicates that the root is already closed.
 	ErrRootClosed = errors.New("root is closed")
 
+	// ErrRootIsNil is returned when operations are called on a nil root.
+	ErrRootIsNil = errors.New("root is nil")
+
 	// ErrInvalidPassword indicates that the provided password is invalid.
 	ErrInvalidPassword = errors.New("invalid password")
 

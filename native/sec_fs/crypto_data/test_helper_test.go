@@ -846,3 +846,16 @@ func readAllDataFrom(r io.ReadSeeker, size int64) []byte {
 	n, _ := r.Read(data)
 	return data[:n]
 }
+
+// getMockData returns the internal data of a mockReadWriterSeeker.
+// This is used for corruption testing.
+func getMockData(m *mockReadWriterSeeker) []byte {
+	return m.data
+}
+
+// setMockData sets the internal data of a mockReadWriterSeeker.
+// This is used for corruption testing.
+func setMockData(m *mockReadWriterSeeker, data []byte) {
+	m.data = data
+	m.pos = 0
+}

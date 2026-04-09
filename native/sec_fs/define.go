@@ -3,10 +3,10 @@
 package sec_fs
 
 import (
-	"safe_disk/native/config"
 	"io"
 	"io/fs"
 	"os"
+	"safe_disk/native/config"
 )
 
 // ==================== Core Interfaces ====================
@@ -48,6 +48,11 @@ type ISecFilePlus interface {
 
 // ISecRoot defines the interface for a secure root directory.
 type ISecRoot interface {
+	// Open opens the named file. Implements fs.FS interface.
+	// When implementing fs.FS, Open returns a file that can be used for reading.
+	fs.FS
+	fs.ReadDirFS
+
 	// OpenFile opens a file at the given relative view path with the specified mode.
 	OpenFile(path RelativeViewPath, mode int) (ISecFile, error)
 
@@ -89,9 +94,9 @@ type IDirWalker interface {
 	Close() error
 }
 
-
 // DirEntry represents a directory entry (file or subdirectory).
 type DirEntry struct {
+	fs.DirEntry
 	// Name is the base name of the file or directory.
 	Name string
 
@@ -239,3 +244,21 @@ func (p RelativeStorePath) IsEmpty() bool {
 func (p FullStorePath) IsEmpty() bool {
 	return string(p) == ""
 }
+
+// ==================== Ignore Matcher Interface ====================
+
+// IIgnoreMatcher defines the interface for matching file names to ignore.
+// This allows flexible ignore patterns (e.g., gitignore-style patterns).
+type IIgnoreMatcher interface {
+	// ShouldIgnore returns true if the file/directory with the given name should be ignored.
+	// Parameters:
+	//   - name: the file or directory name (not full path)
+	//   - isDir: true if this is a directory
+	// Returns: true if the entry should be ignored
+	ShouldIgnore(name string, isDir bool) bool
+}
+
+// ==================== WalkOptions Ignore Support ====================
+
+// Compile-time interface verification
+var _ fs.FS = (ISecRoot)(nil)

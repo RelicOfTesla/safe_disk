@@ -11,8 +11,33 @@ import (
 	"safe_disk/native/sec_fs/crypto_data"
 )
 
+// ==================== fileContext Implementation ====================
+
+// fileContext wraps *os.File to implement crypto_data.IFileContext.
+// This wrapper adds the Size() method that *os.File is missing.
+type fileContext struct {
+	*os.File
+}
+
+// Size returns the current size of the file.
+func (f *fileContext) Size() int64 {
+	if f.File == nil {
+		return 0
+	}
+	info, err := f.File.Stat()
+	if err != nil {
+		return 0
+	}
+	return info.Size()
+}
+
 // ==================== secFileImpl Implementation ====================
 
+
+// Compile-time interface verification
+var _ crypto_data.IFileContext = (*fileContext)(nil)
+var _ crypto_data.IFullFileContext = (*fileContext)(nil)
+var _ crypto_data.IFullFileContext = (*secFileImpl)(nil)
 // secFileImpl implements ISecFile and ISecFilePlus interfaces.
 // It delegates file operations to an IDataCryptorContext instance.
 type secFileImpl struct {
@@ -233,3 +258,37 @@ func (fi *fileInfoImpl) Mode() fs.FileMode  { return fi.mode }
 func (fi *fileInfoImpl) ModTime() time.Time { return time.Time{} }
 func (fi *fileInfoImpl) IsDir() bool        { return fi.mode.IsDir() }
 func (fi *fileInfoImpl) Sys() any           { return nil }
+
+// ReadAt reads len(p) bytes from the file starting at byte offset off.
+// It returns the number of bytes read and any error encountered.
+func (f *secFileImpl) ReadAt(p []byte, off int64) (n int, err error) {
+	if f == nil || f.impl == nil {
+		return 0, ErrFileNotOpen
+	}
+
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	if f.closed {
+		return 0, ErrFileClosed
+	}
+
+	return f.impl.ReadAt(p, off)
+}
+
+// WriteAt writes len(p) bytes to the file starting at byte offset off.
+// It returns the number of bytes written and any error encountered.
+func (f *secFileImpl) WriteAt(p []byte, off int64) (n int, err error) {
+	if f == nil || f.impl == nil {
+		return 0, ErrFileNotOpen
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.closed {
+		return 0, ErrFileClosed
+	}
+
+	return f.impl.WriteAt(p, off)
+}
