@@ -11,10 +11,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"safe_disk/native/config"
 	"safe_disk/native/sec_fs/crypto_data"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	// Import algorithm implementations to trigger init() registration
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_ctr"
@@ -643,41 +644,42 @@ func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactor
 	t.Logf("Dual-writer integrity test passed: all operations verified")
 }
 
-func newTestFiles(t *testing.T, factory crypto_data.ICryptoDataFactory) (*trackerContext, *trackerContext, *multiWriter) {
+func newTestFiles(t *testing.T, factory crypto_data.ICryptoDataFactory) (*trackerFile, *trackerFile, plaintextWriter) {
 	baseStore := newMockReadWriterSeeker()
-	trackerStore := newTrackerContext(baseStore)
+	storeFile := newTrackerFile(baseStore)
 
 	keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
 	cfg := config.NewMemoryConfig()
 
-	ctx, err := factory.NewContext(trackerStore, keyInfo, cfg)
+	ctx, err := factory.NewContext(storeFile, keyInfo, cfg)
 	require.NoError(t, err, "Failed to create context")
 
 	// Create dual writer for integrity verification
-	dw := newDualWriter(ctx)
+	plaintext := newMockReadWriterSeeker()
+	dw := newMirroFiles(ctx, plaintext)
 
-	// Wrap with trackerContext to track user-level operations
-	trackerUserWriter := newTrackerContext(dw)
+	// Wrap with trackerFile to track user-level operations
+	userFile := newTrackerFile(dw)
 
-	return trackerUserWriter, trackerStore, dw
+	return userFile, storeFile, plaintext
 }
 
 const DISABLE_STEP_REPORT = true
 
 func testFixedPositions(t *testing.T, factory crypto_data.ICryptoDataFactory) {
-	tw, storeIo, dw := newTestFiles(t, factory)
-	defer tw.Close()
+	fp, storeIo, dw := newTestFiles(t, factory)
+	defer fp.Close()
 
 	// Create initial data (256 bytes = 16 blocks of 16 bytes each)
 	initialSize := 256
 	initialData := makeSequentialBytes(initialSize)
 
 	// Write initial data using dualWriter
-	_, err := tw.Write(initialData)
+	_, err := fp.Write(initialData)
 	require.NoError(t, err, "Failed to write initial data")
 
 	// Verify initial write
-	if !verifyAndReport(t, tw, storeIo, dw, "", fmt.Sprintf("Initial data written and verified: size=%d bytes", initialSize)) {
+	if !verifyAndReport(t, fp, storeIo, dw, "", fmt.Sprintf("Initial data written and verified: size=%d bytes", initialSize)) {
 		return
 	}
 
@@ -709,12 +711,12 @@ func testFixedPositions(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 			}
 
 			// WriteAt at position using dualWriter
-			n, err := tw.WriteAt(testData, int64(pos))
+			n, err := fp.WriteAt(testData, int64(pos))
 			require.NoError(t, err, "WriteAt size=%d pos=%d failed", size, pos)
 			require.Equal(t, size, n, "WriteAt size=%d pos=%d: length mismatch", size, pos)
 
 			// Verify integrity using dualWriter
-			if !verifyAndReport(t, tw, storeIo, dw, fmt.Sprintf("size=%d pos=%d", size, pos), "", DISABLE_STEP_REPORT) {
+			if !verifyAndReport(t, fp, storeIo, dw, fmt.Sprintf("size=%d pos=%d", size, pos), "", DISABLE_STEP_REPORT) {
 				continue
 			}
 		}
@@ -740,39 +742,40 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 		runtime.GC() // Force GC before measuring
 		memBefore := GetMemoryStats()
 
-		// Create the chain: storeIo -> totalStoreIo -> baseStore
-		// This allows tracking both per-step and cumulative storage operations
+		// Storage layer tracking: stepStoreFile (reset per step) -> totalStoreFile (cumulative) -> baseStore
 		baseStore := newMockReadWriterSeeker()
-		totalStoreIo := newTrackerContext(baseStore) // Tracks total storage operations (never reset)
-		storeIo := newTrackerContext(totalStoreIo)   // Tracks storage operations (reset per step)
+		totalStoreFile := newTrackerFile(baseStore)        // Cumulative storage operations (never reset)
+		stepStoreFile := newTrackerFile(totalStoreFile) // Per-step storage operations (reset per step)
 
 		keyInfo := &mockKeyInfo{key: makeTestKey(factory)}
 		cfg := config.NewMemoryConfig()
 
-		ctx, err := factory.NewContext(storeIo, keyInfo, cfg)
+		ctx, err := factory.NewContext(stepStoreFile, keyInfo, cfg)
 		require.NoError(t, err, "Failed to create context")
 		defer ctx.Close()
 
 		// Create dual writer for integrity verification
-		dw := newDualWriter(ctx)
+		plaintext := newMockReadWriterSeeker()
+		dw := newMirroFiles(ctx, plaintext)
 
-		// Wrap with trackerContext to track user-level operations
-		tw := newTrackerContext(dw)
+		// User layer tracking: totalUserFile (cumulative) wrapped around dw
+		totalUserFile := newTrackerFile(dw)
 
-		var fp crypto_data.IDataCryptorContext = tw
+		var fp IFullFileContext = totalUserFile
 
 		// Create initial data (256 bytes = 16 blocks of 16 bytes each)
 		initialSize := 256
-				initialData := makeSequentialBytes(initialSize)
+		initialData := makeSequentialBytes(initialSize)
 
 		// Write initial data using dualWriter
 		_, err = fp.Write(initialData)
 		require.NoError(t, err, "Failed to write initial data")
 
 		// Verify initial write
-		if !verifyAndReport(t, tw, storeIo, dw, "", fmt.Sprintf("Initial data written and verified: size=%d bytes", initialSize)) {
+		if !verifyAndReport(t, totalUserFile, stepStoreFile, plaintext, "", fmt.Sprintf("Initial data written and verified: size=%d bytes", initialSize)) {
 			return
 		}
+		totalStoreFile.ResetTracker()
 
 		// Use fixed seed for reproducibility (set env SEED to override)
 		seed := int64(42)
@@ -788,12 +791,17 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 		maxDataSize := 128 * 1024 // 128KB max size
 
 		// Create cumulative tracker for the stress test
-		// runFile tracks cumulative user operations (never reset)
-		// totalStoreIo is created in testBlockBoundaryOperations (never reset)
+		// stepUserFile tracks per-step user operations (reset per step)
+		// totalUserFile tracks cumulative user operations (never reset)
+		// stepStoreFile tracks per-step storage operations (reset per step)
+		// totalStoreFile tracks cumulative storage operations (never reset)
 
 		for i := 0; i < numStressTests; i++ {
-			var runFileTw *trackerContext = newTrackerContext(tw)
-			fp = runFileTw
+			var stepUserFile *trackerFile = newTrackerFile(totalUserFile)
+			// Sync position with underlying tracker
+			currentPos, _ := totalUserFile.Seek(0, io.SeekCurrent)
+			stepUserFile.Seek(currentPos, io.SeekStart)
+			fp = stepUserFile
 
 			opType := rand.Intn(7) // 0-6: different operation types
 			currentSize := int(fp.Size())
@@ -890,15 +898,15 @@ func testBlockBoundaryOperations(t *testing.T, factory crypto_data.ICryptoDataFa
 			}
 
 			// Verify integrity after each operation (per-step statistics)
-			// runFileTw and storeIo are reset after each verification
-			if !verifyAndReport(t, runFileTw, storeIo, dw, fmt.Sprintf("Step %d (opType=%d)", i, opType), "", DISABLE_STEP_REPORT) {
+			// stepUserFile and stepStoreFile are reset after each verification
+			if !verifyAndReport(t, stepUserFile, stepStoreFile, plaintext, fmt.Sprintf("Step %d (opType=%d)", i, opType), "", DISABLE_STEP_REPORT) {
 				break // Stop on first error
 			}
 		}
 
 		// Final cumulative statistics (never reset)
-		// tw and totalStoreIo track total operations across all iterations
-		if !verifyAndReport(t, tw, totalStoreIo, dw, "Total", fmt.Sprintf("Random stress test passed: %d operations verified, final size=%d bytes",
+		// totalUserFile and totalStoreFile track total operations across all iterations
+		if !verifyAndReport(t, totalUserFile, totalStoreFile, plaintext, "Total", fmt.Sprintf("Random stress test passed: %d operations verified, final size=%d bytes",
 			numStressTests, fp.Size())) {
 			return
 		}

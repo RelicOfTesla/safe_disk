@@ -33,6 +33,12 @@ type IFileContext interface {
 	Sync() error
 }
 
+type IFullFileContext interface {
+	IFileContext
+	io.WriterAt
+	io.ReaderAt
+}
+
 // ==================== CryptMode Type ====================
 
 // CryptMode defines the encryption mode for the cryptor.
@@ -86,10 +92,10 @@ const (
 	ON ComplexityScore = 4
 
 	// ONLogN indicates linearithmic time complexity - slower.
-	ONLogN ComplexityScore = 5
+	// ONLogN ComplexityScore = 5
 
 	// ON2 indicates quadratic time complexity - slow, avoid for large data.
-	ON2 ComplexityScore = 6
+	// ON2 ComplexityScore = 6
 
 	// Unsupported indicates the operation is not implemented.
 	Unsupported ComplexityScore = 127
@@ -123,6 +129,12 @@ type CryptorCapabilities struct {
 	// ON = must re-encrypt entire file
 	RandomDeleteComplexity ComplexityScore
 
+	// MemoryOverhead indicates the memory overhead for encryption/decryption operations.
+	// O1 = constant memory (independent of file size, best for large files)
+	// ON = memory proportional to file size (may be problematic for large files)
+	// Example: AES-CTR is O1 (constant memory), RC4 random access is ON (needs to generate key stream)
+	MemoryOverhead ComplexityScore
+
 	// MaxFileSize indicates the maximum file size supported by this cryptor.
 	// A value of 0 means unlimited.
 	MaxFileSize int64
@@ -144,9 +156,7 @@ type IBaseDataCryptorContext interface {
 }
 
 type IFullDataCryptorContext interface {
-	IBaseDataCryptorContext
-	io.WriterAt
-	io.ReaderAt
+	IFullFileContext
 }
 
 type IDataCryptorContext = IFullDataCryptorContext

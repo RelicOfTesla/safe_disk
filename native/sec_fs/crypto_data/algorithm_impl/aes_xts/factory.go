@@ -25,7 +25,8 @@ func (f *factory) GetCapabilities() crypto_data.CryptorCapabilities {
 		RandomAccessComplexity: crypto_data.O1,
 		ModificationComplexity: crypto_data.O1,
 		RandomDeleteComplexity: crypto_data.O1,
-		RequireMinKeyLength:   64, // AES-XTS requires two 256-bit keys
+		MemoryOverhead:         crypto_data.O1, // AES-XTS uses constant memory for block-based operations
+		RequireMinKeyLength:   64,             // AES-XTS requires two 256-bit keys
 	}
 }
 

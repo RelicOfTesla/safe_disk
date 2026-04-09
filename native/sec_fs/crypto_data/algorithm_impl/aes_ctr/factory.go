@@ -25,7 +25,8 @@ func (f *factory) GetCapabilities() crypto_data.CryptorCapabilities {
 		RandomAccessComplexity: crypto_data.O1,
 		ModificationComplexity: crypto_data.O1,
 		RandomDeleteComplexity: crypto_data.O1,
-		RequireMinKeyLength:   32, // AES-256 requires 256-bit key
+		MemoryOverhead:         crypto_data.O1, // AES-CTR uses constant memory for random access
+		RequireMinKeyLength:   32,             // AES-256 requires 256-bit key
 	}
 }
 
