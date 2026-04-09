@@ -383,8 +383,17 @@ func (t *trackerContext) Read(p []byte) (n int, err error) {
 }
 
 func (t *trackerContext) Write(p []byte) (n int, err error) {
+	// Record size before write to track actual bytes written (including gap)
+	sizeBefore := t.ctx.Size()
+
 	n, err = t.ctx.Write(p)
-	t.stats.WriteBytes += int64(n)
+	if err != nil {
+		return
+	}
+
+	// Calculate actual bytes written (including gap)
+	actualWritten := t.ctx.Size() - sizeBefore
+	t.stats.WriteBytes += actualWritten
 	t.stats.WriteCalls++
 	return
 }
@@ -421,8 +430,17 @@ func (t *trackerContext) ReadAt(p []byte, off int64) (n int, err error) {
 }
 
 func (t *trackerContext) WriteAt(p []byte, off int64) (n int, err error) {
+	// Record size before write to track actual bytes written (including gap)
+	sizeBefore := t.ctx.Size()
+
 	n, err = t.ctx.WriteAt(p, off)
-	t.stats.WriteBytes += int64(n)
+	if err != nil {
+		return
+	}
+
+	// Calculate actual bytes written (including gap)
+	actualWritten := t.ctx.Size() - sizeBefore
+	t.stats.WriteBytes += actualWritten
 	t.stats.WriteCalls++
 	return
 }
@@ -466,6 +484,28 @@ func CreateContext(t *testing.T, factory crypto_data.ICryptoDataFactory) crypto_
 		t.Fatalf("Failed to create context: %v", err)
 	}
 	return ctx
+}
+
+// checkFilePosAndSize verifies that the current file position and size match expected values.
+// This should be called after each operation to verify position and size are correctly tracked.
+func checkFilePosAndSize(t *testing.T, fp crypto_data.IDataCryptorContext, expectedPos int64, expectedSize int64) {
+	t.Helper()
+	
+	// Check current position
+	pos, err := fp.Seek(0, io.SeekCurrent)
+	if err != nil {
+		t.Errorf("checkFilePosAndSize: failed to get current position: %v", err)
+		return
+	}
+	if pos != expectedPos {
+		t.Errorf("checkFilePosAndSize: position mismatch: got %d, want %d", pos, expectedPos)
+	}
+	
+	// Check current size
+	size := fp.Size()
+	if size != expectedSize {
+		t.Errorf("checkFilePosAndSize: size mismatch: got %d, want %d", size, expectedSize)
+	}
 }
 
 // findFirstDiff finds the first position where two byte slices differ.

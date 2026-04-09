@@ -2,6 +2,7 @@
 package crypto_data_test
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"math/rand"
@@ -84,14 +85,29 @@ func TestAllFactories(t *testing.T) {
 				testRandomDelete(t, factory)
 			})
 
-			// Test 8: Block boundary operations (neighbor block corruption test)
-			t.Run("BlockBoundaryOperations", func(t *testing.T) {
-				testBlockBoundaryOperations(t, factory)
-			})
-
-			// Test 9: Dual-writer integrity (MultiWriter-like verification)
+			// Test 8: Dual-writer integrity (MultiWriter-like verification)
 			t.Run("DualWriterIntegrity", func(t *testing.T) {
 				testDualWriterIntegrity(t, factory)
+			})
+
+			// Test 9: Gap integrity with data verification (verify gap fill data correctness)
+			t.Run("GapIntegrityWithDataVerification", func(t *testing.T) {
+				testGapIntegrityWithDataVerification(t, factory)
+			})
+
+			// Test 10: Seek/Write/WriteAt operations with data verification
+			t.Run("SeekSizePlusOffsetWithDataVerification", func(t *testing.T) {
+				testSeekSizePlusOffsetWithDataVerification(t, factory)
+			})
+
+			// Test 11: Truncate shrink with position update and data verification
+			t.Run("TruncateShrinkWithDataVerification", func(t *testing.T) {
+				testTruncateShrinkWithDataVerification(t, factory)
+			})
+
+			// Test 12: Block boundary operations (neighbor block corruption test, includes RandomStressTest)
+			t.Run("BlockBoundaryOperations", func(t *testing.T) {
+				testBlockBoundaryOperations(t, factory)
 			})
 		})
 	}
@@ -299,6 +315,235 @@ func testRandomDelete(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 //
 // This is more accurate than hash-based verification because it directly
 // compares the expected plaintext with the decrypted data.
+// testGapIntegrityWithDataVerification tests that gap fill data is correctly encrypted/decrypted.
+// This verifies that when writing beyond file end, the gap is filled with zeros
+// and the data integrity is preserved after encryption/decryption.
+func testGapIntegrityWithDataVerification(t *testing.T, factory crypto_data.ICryptoDataFactory) {
+	fp, storeIo, _dw := newTestFiles(t, factory)
+	defer fp.Close()
+
+	// Write known data
+	knownData := makeSequentialBytes(100)
+	n, err := fp.Write(knownData)
+	require.NoError(t, err, "Failed to write known data")
+	require.Equal(t, 100, n, "Write length")
+
+	// Verify initial write integrity
+	if !verifyAndReport(t, fp, storeIo, _dw, "Initial write", "Initial write verified") {
+		return
+	}
+
+	// Write at position 500 (gap of 400 bytes)
+	endData := []byte("EndData")
+	n, err = fp.WriteAt(endData, 500)
+	require.NoError(t, err, "Failed to write end data")
+	require.Equal(t, len(endData), n, "WriteAt length")
+
+	// Verify size
+	assert.Equal(t, int64(507), fp.Size(), "Gap integrity size")
+
+	// Verify gap fill integrity using dualWriter
+	if !verifyAndReport(t, fp, storeIo, _dw, "Gap fill", "Gap fill data verified") {
+		return
+	}
+
+	// Read back and verify specific content
+	allData := make([]byte, 507)
+	_, err = fp.Seek(0, 0)
+	require.NoError(t, err, "Seek failed")
+	n, err = io.ReadFull(fp, allData)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		t.Fatalf("ReadAll failed: %v", err)
+	}
+	assert.Equal(t, 507, n, "ReadAll length")
+
+	// Verify known data
+	assert.Equal(t, knownData, allData[:100], "Known data")
+
+	// Verify gap is filled with zeros
+	if ok, idx := isZero(allData[100:500]); !ok {
+		t.Errorf("Gap byte %d: expected 0, got %d", 100+idx, allData[100+idx])
+	}
+
+	// Verify end data
+	assert.Equal(t, "EndData", string(allData[500:507]), "End data")
+
+	t.Logf("Gap integrity test passed: known data + 400-byte gap + end data verified, size=%d", fp.Size())
+}
+
+// testSeekSizePlusOffsetWithDataVerification tests Seek, Write, WriteAt operations at various positions
+// and verifies that position, size, and data integrity are correctly tracked.
+// This is a comprehensive test that validates:
+// 1. Initial data write and verification
+// 2. Seek beyond file end
+// 3. Write at gap position
+// 4. WriteAt beyond end
+// 5. Data integrity after all operations
+func testSeekSizePlusOffsetWithDataVerification(t *testing.T, factory crypto_data.ICryptoDataFactory) {
+	fp, storeIo, _dw := newTestFiles(t, factory)
+	defer fp.Close()
+
+	// ==================== Step 1: Initialize with data ====================
+	// Write initial data: 200 bytes
+	initData := makeSequentialBytes(200)
+	n, err := fp.Write(initData)
+	require.NoError(t, err, "Step 1: Write failed")
+	require.Equal(t, len(initData), n, "Step 1: Write length")
+
+	initialSize := fp.Size()
+	t.Logf("Step 1: Initial write %d bytes, size=%d", len(initData), initialSize)
+	require.Equal(t, int64(len(initData)), initialSize, "Step 1: Initial size")
+
+	// Verify initial write integrity
+	if !verifyAndReport(t, fp, storeIo, _dw, "Initial write", "Initial write verified") {
+		return
+	}
+
+	// ==================== Step 2: Seek beyond file end ====================
+	seekPos := initialSize + 100 // 200 + 100 = 300
+	pos, err := fp.Seek(seekPos, 0)
+	require.NoError(t, err, "Step 2: Seek(%d) failed", seekPos)
+	require.Equal(t, seekPos, pos, "Step 2: Seek position")
+	t.Logf("Step 2: Seek(%d) -> pos=%d", seekPos, pos)
+
+	// ==================== Step 3: Write at gap position ====================
+	// Write 100 bytes at position 300
+	test1Data := bytes.Repeat([]byte{'1'}, 100)
+	n, err = fp.Write(test1Data)
+	require.NoError(t, err, "Step 3: Write failed")
+	require.Equal(t, len(test1Data), n, "Step 3: Write length")
+
+	// ==================== Step 4: Check tell() and size() ====================
+	pos1 := fp.Size() // Should be 400 (300 + 100)
+	tell1, err := fp.Seek(0, 1)
+	require.NoError(t, err, "Step 4: Tell failed")
+
+	assert.Equal(t, int64(400), tell1, "Step 4: Tell position")
+	assert.Equal(t, int64(400), pos1, "Step 4: Size")
+	t.Logf("Step 3-4: Write 100 bytes at 300, tell=%d, size=%d", tell1, pos1)
+
+	// ==================== Step 5: Seek to near end ====================
+	seekPos2 := pos1 - 50 // 400 - 50 = 350
+	pos, err = fp.Seek(seekPos2, 0)
+	require.NoError(t, err, "Step 5: Seek(%d) failed", seekPos2)
+	t.Logf("Step 5: Seek(%d) -> pos=%d", seekPos2, pos)
+
+	// ==================== Step 6: WriteAt beyond end ====================
+	// WriteAt at position pos1 + 120 = 520
+	writeAtOffset := pos1 + 120 // 400 + 120 = 520
+	test2Data := bytes.Repeat([]byte{'2'}, 80)
+	n, err = fp.WriteAt(test2Data, writeAtOffset)
+	require.NoError(t, err, "Step 6: WriteAt(%d) failed", writeAtOffset)
+	require.Equal(t, len(test2Data), n, "Step 6: WriteAt length")
+
+	// ==================== Step 7: Check tell() and size() ====================
+	// WriteAt should NOT change tell position
+	tell2, err := fp.Seek(0, 1)
+	require.NoError(t, err, "Step 7: Tell failed")
+	// tell2 should still be 350 (unchanged by WriteAt)
+	assert.Equal(t, int64(350), tell2, "Step 7: Tell position (WriteAt should not change tell)")
+
+	size2 := fp.Size()
+	// size2 should be 600 (520 + 80)
+	assert.Equal(t, int64(600), size2, "Step 7: Size")
+	t.Logf("Step 6-7: WriteAt 80 bytes at %d, tell=%d, size=%d", writeAtOffset, tell2, size2)
+
+	// ==================== Step 8: Verify data integrity using dualWriter ====================
+	if !verifyAndReport(t, fp, storeIo, _dw, "Step 8: Verify", "Data integrity verified after Seek/Write/WriteAt operations") {
+		return
+	}
+
+	// ==================== Step 9: Read back and verify specific content ====================
+	_, err = fp.Seek(0, 0)
+	require.NoError(t, err, "Seek failed")
+	allData := make([]byte, size2)
+	n, err = io.ReadFull(fp, allData)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		t.Fatalf("Step 9: ReadAll failed: %v", err)
+	}
+	assert.Equal(t, int(size2), n, "Step 9: ReadAll length")
+
+	// Verify initial data (0-199)
+	assert.Equal(t, initData, allData[:200], "Step 9: Initial data")
+
+	// Verify test1 data (at initialSize + 100)
+	test1Start := int(initialSize + 100)
+	test1Expected := bytes.Repeat([]byte{'1'}, 100)
+	assert.Equal(t, test1Expected, allData[test1Start:test1Start+100], "Step 9: test1 data")
+
+	// Verify test2 data (at writeAtOffset)
+	test2Start := int(writeAtOffset)
+	test2Expected := bytes.Repeat([]byte{'2'}, 80)
+	assert.Equal(t, test2Expected, allData[test2Start:test2Start+80], "Step 9: test2 data")
+
+	t.Logf("Step 9: Data verification complete, total size=%d", size2)
+}
+
+// testTruncateShrinkWithDataVerification tests that Truncate shrink correctly updates the position
+// and verifies data integrity after Truncate.
+// This is a safety test to prevent a bug where pos is not updated after Truncate shrink,
+// causing subsequent Write operations to write at incorrect positions.
+func testTruncateShrinkWithDataVerification(t *testing.T, factory crypto_data.ICryptoDataFactory) {
+	fp, storeIo, _dw := newTestFiles(t, factory)
+	defer fp.Close()
+
+	// Write 200 bytes
+	data := makeSequentialBytes(200)
+	n, err := fp.Write(data)
+	require.NoError(t, err, "Initial write failed")
+	require.Equal(t, 200, n, "Initial write length")
+
+	// Verify initial write integrity
+	if !verifyAndReport(t, fp, storeIo, _dw, "Initial write", "Initial write verified") {
+		return
+	}
+
+	// Now pos should be 200
+	pos, _ := fp.Seek(0, 1)
+	assert.Equal(t, int64(200), pos, "After write position")
+
+	// Truncate shrink to 50
+	err = fp.Truncate(50)
+	require.NoError(t, err, "Truncate shrink failed")
+
+	// Verify size is now 50
+	assert.Equal(t, int64(50), fp.Size(), "After truncate size")
+
+	// Verify pos is updated to 50 (not 200)
+	pos, _ = fp.Seek(0, 1)
+	assert.Equal(t, int64(50), pos, "After truncate shrink position")
+
+	// Now write some data - it should be at position 50
+	newData := []byte("Hello")
+	n, err = fp.Write(newData)
+	require.NoError(t, err, "Write after truncate failed")
+	require.Equal(t, 5, n, "Write after truncate length")
+
+	// Verify size is now 55 (50 + 5)
+	assert.Equal(t, int64(55), fp.Size(), "After write size")
+
+	// Verify data integrity using dualWriter
+	if !verifyAndReport(t, fp, storeIo, _dw, "Truncate shrink", "Truncate shrink data verified") {
+		return
+	}
+
+	// Verify data integrity by reading back
+	_, err = fp.Seek(0, 0)
+	require.NoError(t, err, "Seek failed")
+	allData := make([]byte, 55)
+	_, err = io.ReadFull(fp, allData)
+	require.NoError(t, err, "Read failed")
+
+	// Verify first 50 bytes are preserved
+	expected := makeSequentialBytes(50)
+	assert.Equal(t, expected, allData[:50], "First 50 bytes")
+
+	// Verify last 5 bytes are "Hello"
+	assert.Equal(t, "Hello", string(allData[50:55]), "Last 5 bytes")
+
+	t.Logf("Truncate shrink pos update test passed: size=%d, pos updated correctly", fp.Size())
+}
+
 func testDualWriterIntegrity(t *testing.T, factory crypto_data.ICryptoDataFactory) {
 	fp, storeIo, _dw := newTestFiles(t, factory)
 	defer fp.Close()
