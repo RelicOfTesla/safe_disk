@@ -50,7 +50,7 @@ var importCmd = &cobra.Command{
 		}
 
 		// Open or create the encrypted root directory
-		root, err := sec_fs.OpenOrCreateRootQuick(sec_fs.FullStorePath(importRootPath), importPassword)
+		root, err := sec_fs.OpenOrCreateRoot(sec_fs.FullStorePath(importRootPath), importPassword)
 		if err != nil {
 			fmt.Printf("Error: failed to open root: %v\n", err)
 			os.Exit(1)

@@ -114,13 +114,29 @@ func OpenRoot_FFI(rootPath string, password string, configJSON string) string {
 		return errorResponse(err)
 	}
 
-	// Derive key from password
-	deriverNames := crypto_hkdf.ListKeyDerivers()
-	if len(deriverNames) == 0 {
-		return errorResponseStr("no key deriver registered")
+	// Get all factories from config using GetSuitFromConfig
+	_, _, deriverFactory, err := sec_fs.GetSuitFromConfig(cfg)
+	if err != nil {
+		return errorResponse(err)
 	}
-	keyDeriver := crypto_hkdf.GetKeyDeriver(deriverNames[0])
 
+	// Create deriver from factory
+	var keyDeriver crypto_hkdf.IKeyDeriver
+	if deriverFactory != nil {
+		keyDeriver, err = deriverFactory.NewDeriver(cfg)
+		if err != nil {
+			return errorResponse(err)
+		}
+	} else {
+		// Fallback: use global registry
+		deriverNames := crypto_hkdf.ListKeyDerivers()
+		if len(deriverNames) == 0 {
+			return errorResponseStr("no key deriver registered")
+		}
+		keyDeriver = crypto_hkdf.GetKeyDeriver(deriverNames[0])
+	}
+
+	// Derive key from password
 	keyInfo, err := keyDeriver.LoadKey(password, cfg)
 	if err != nil {
 		return errorResponse(err)
@@ -336,18 +352,24 @@ func ReadDir_FFI(rootID int64, path string) string {
 	// Read all entries
 	var entries []DirEntryResult
 	for walker.HasNext() {
-		entry, err := walker.Next()
+		dirEntry, err := walker.Next()
 		if err != nil {
 			break // No more entries or error
 		}
 
+		// Get file info from the entry
+		info, err := dirEntry.Info()
+		if err != nil {
+			continue // Skip entries with errors
+		}
+
 		entries = append(entries, DirEntryResult{
-			Name:    entry.Name,
-			IsDir:   entry.IsDir,
-			Size:    entry.Size,
-			ModTime: entry.ModTime,
-			Mode:    uint32(entry.Mode),
-			Path:    entry.RelativePath.String(),
+			Name:    dirEntry.Name(),
+			IsDir:   dirEntry.IsDir(),
+			Size:    info.Size(),
+			ModTime: info.ModTime().UnixNano(),
+			Mode:    uint32(info.Mode()),
+			Path:    string(dirEntry.GetRelativeViewPath()),
 		})
 	}
 
@@ -461,9 +483,6 @@ func QuickWriteFile_FFI(rootID int64, path string, data []byte) string {
 	return successResponse(map[string]int{"bytes_written": n})
 }
 
-// ==================== JSON Config Parsing Helper ====================
-// parseConfig is now defined at the top of the file (returns config.SharedConfig).
-
 // ==================== Transfer Operations (Async) ====================
 
 // ExportDirectoryAsync_FFI exports an encrypted directory to a plaintext directory asynchronously.
@@ -474,9 +493,9 @@ func ExportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 		return errorResponseStr("root not found")
 	}
 
-	// Start export - task is created internally by TransferService
+	// Use transfer service from sec_transfer package
 	svc := sec_transfer.NewTransferService()
-	taskInfo, err := svc.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(srcPath), sec_transfer.FullStorePath(destPath), nil, nil)
+	taskInfo, err := svc.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(srcPath), sec_fs.FullStorePath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -492,9 +511,9 @@ func ImportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 		return errorResponseStr("root not found")
 	}
 
-	// Start import - task is created internally by TransferService
+	// Use transfer service from sec_transfer package
 	svc := sec_transfer.NewTransferService()
-	taskInfo, err := svc.ImportDirectoryAsync(sec_transfer.FullStorePath(srcPath), root, sec_fs.RelativeViewPath(destPath), nil, nil)
+	taskInfo, err := svc.ImportDirectoryAsync(sec_fs.FullStorePath(srcPath), root, sec_fs.RelativeViewPath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -510,9 +529,9 @@ func ExportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 		return errorResponseStr("root not found")
 	}
 
-	// Start export - task is created internally by TransferService
+	// Use transfer service from sec_transfer package
 	svc := sec_transfer.NewTransferService()
-	taskInfo, err := svc.ExportFileAsync(root, sec_fs.RelativeViewPath(srcPath), sec_transfer.FullStorePath(destPath), nil, nil)
+	taskInfo, err := svc.ExportFileAsync(root, sec_fs.RelativeViewPath(srcPath), sec_fs.FullStorePath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -528,9 +547,9 @@ func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 		return errorResponseStr("root not found")
 	}
 
-	// Start import - task is created internally by TransferService
+	// Use transfer service from sec_transfer package
 	svc := sec_transfer.NewTransferService()
-	taskInfo, err := svc.ImportFileAsync(sec_transfer.FullStorePath(srcPath), root, sec_fs.RelativeViewPath(destPath), nil, nil)
+	taskInfo, err := svc.ImportFileAsync(sec_fs.FullStorePath(srcPath), root, sec_fs.RelativeViewPath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -540,7 +559,8 @@ func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 
 // GetTransferProgress_FFI gets the progress of a transfer job.
 func GetTransferProgress_FFI(taskID string) string {
-	job, err := sec_transfer.NewTransferService().GetTaskProgress(taskID)
+	svc := sec_transfer.NewTransferService()
+	job, err := svc.GetTaskProgress(taskID)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -550,14 +570,15 @@ func GetTransferProgress_FFI(taskID string) string {
 
 // RollbackTransfer_FFI cancels a transfer job.
 func RollbackTransfer_FFI(taskID string) string {
-	err := sec_transfer.NewTransferService().RollbackTask(taskID)
+	svc := sec_transfer.NewTransferService()
+	err := svc.RollbackTask(taskID)
 	if err != nil {
 		return errorResponse(err)
 	}
 	return successResponse(map[string]string{"status": "cancelled"})
 }
 
-// ==================== Async Directory Transfer Operations (from ffi_sec_transfer) ====================
+// ==================== Helper Functions ====================
 
 // getRoot retrieves an ISecRoot instance by its ID from ffi_stores.
 func getRoot(rootID int64) (sec_fs.ISecRoot, bool) {
@@ -567,7 +588,3 @@ func getRoot(rootID int64) (sec_fs.ISecRoot, bool) {
 	}
 	return entry.Root, true
 }
-
-// ExportDirectoryAsync_FFI exports an encrypted directory to a plaintext directory asynchronously.
-// callback parameter is used to notify Flutter about progress.
-

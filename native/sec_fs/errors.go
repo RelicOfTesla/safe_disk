@@ -84,6 +84,12 @@ var (
 
 	// ErrNoMoreEntries indicates that there are no more entries to read.
 	ErrNoMoreEntries = errors.New("no more entries")
+
+	// ErrNotConfigFile indicates that the config file is missing or invalid.
+	ErrNotConfigFile = errors.New("config file not found or invalid")
+
+	// ErrNotEncrypted indicates that the file or directory is not encrypted.
+	ErrNotEncrypted = errors.New("not an encrypted file or directory")
 )
 
 // PathError represents an error related to a specific path operation.

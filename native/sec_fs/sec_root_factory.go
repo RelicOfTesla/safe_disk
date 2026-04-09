@@ -3,6 +3,7 @@
 package sec_fs
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -18,207 +19,536 @@ import (
 // ConfigFileName is the name of the configuration file in the root directory.
 const ConfigFileName = "_cryption.json"
 
-// ==================== Helper Functions ====================
+// ==================== CreateRootOptions ====================
 
-// createNameCryptorFromConfig creates a name cryptor from config or uses default.
-// If a factory name is specified in config, it uses that factory.
-// Otherwise, it uses the first available factory.
-func createNameCryptorFromConfig(keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (crypto_name.INameCryptorContext, error) {
-	var nameCryptor crypto_name.INameCryptorContext
-	
-	// Try to use factory from config
-	nameFactoryName, err := cfg.GetStr("sec_name_factory")
-	if err == nil && nameFactoryName != "" {
-		nameFactory := crypto_name.GetNameFactory(nameFactoryName)
-		if nameFactory != nil {
-			nameCryptor, err = nameFactory.NewContext(keyInfo, cfg)
+// CreateRootOptions holds configuration options for creating a new secure root.
+type CreateRootOptions struct {
+	// DataFactoryName specifies the data encryption factory to use.
+	DataFactoryName string
+
+	// NameFactoryName specifies the name encryption factory to use.
+	NameFactoryName string
+
+	// DeriverFactoryName specifies the key deriver factory to use.
+	DeriverFactoryName string
+
+	// KeyStrengthMs specifies the target key derivation time in milliseconds.
+	// Higher values mean stronger security but slower performance.
+	// Default: 100ms if not specified.
+	KeyStrengthMs int
+
+	// ConfigFileName specifies the name of the configuration file.
+	// Default: "_cryption.json" if not specified.
+	ConfigFileName string
+}
+
+// CreateRootOption is a functional option for configuring CreateRootConfig.
+type CreateRootOption func(*CreateRootOptions)
+
+// WithDataFactory sets the data encryption factory by name.
+func WithDataFactory(name string) CreateRootOption {
+	return func(o *CreateRootOptions) {
+		o.DataFactoryName = name
+	}
+}
+
+// WithNameFactory sets the name encryption factory by name.
+func WithNameFactory(name string) CreateRootOption {
+	return func(o *CreateRootOptions) {
+		o.NameFactoryName = name
+	}
+}
+
+// WithDeriverFactory sets the key deriver factory by name.
+func WithDeriverFactory(name string) CreateRootOption {
+	return func(o *CreateRootOptions) {
+		o.DeriverFactoryName = name
+	}
+}
+
+// WithKeyStrengthMs sets the target key derivation time in milliseconds.
+// Higher values mean stronger security but slower performance.
+func WithKeyStrengthMs(ms int) CreateRootOption {
+	return func(o *CreateRootOptions) {
+		o.KeyStrengthMs = ms
+	}
+}
+
+// WithConfigFileName sets the configuration file name.
+// Default: "_cryption.json" if not specified.
+func WithConfigFileName(name string) CreateRootOption {
+	return func(o *CreateRootOptions) {
+		o.ConfigFileName = name
+	}
+}
+
+// applyCreateOptions applies the given options to CreateRootOptions and returns the result.
+func applyCreateOptions(options ...CreateRootOption) *CreateRootOptions {
+	opts := &CreateRootOptions{
+		KeyStrengthMs:  100, // Default: 100ms
+		ConfigFileName: ConfigFileName, // Default: "_cryption.json"
+	}
+	for _, option := range options {
+		option(opts)
+	}
+	return opts
+}
+
+// ==================== Error Helpers ====================
+
+// IsNoEncryptionErr returns true if the error indicates the path is not encrypted.
+// This can be used to detect when a new root needs to be created.
+//
+// Example:
+//
+//	root, err := sec_fs.OpenRootQuick("/path/to/root", "password")
+//	if sec_fs.IsNoEncryptionErr(err) {
+//	    // Need to create new root
+//	    cfg, err := sec_fs.CreateRootConfigQuick("/path/to/root", "password")
+//	    root, err = sec_fs.OpenRootQuick("/path/to/root", "password")
+//	}
+func IsNoEncryptionErr(err error) bool {
+	return errors.Is(err, ErrNotConfigFile) || errors.Is(err, ErrNotEncrypted)
+}
+
+// ==================== Default Ignore Matcher ====================
+
+// defaultIgnoreMatcher is the default ignore matcher that ignores config files.
+type defaultIgnoreMatcher struct {
+	configFileName string
+}
+
+// ShouldIgnore returns true if the file should be ignored.
+// It ignores the config file (default: "_cryption.json").
+func (d *defaultIgnoreMatcher) ShouldIgnore(name string, isDir bool) bool {
+	if isDir {
+		return false
+	}
+	return name == d.configFileName
+}
+
+// newDefaultIgnoreMatcher creates a new default ignore matcher with the given config file name.
+func newDefaultIgnoreMatcher(configFileName string) IIgnoreMatcher {
+	if configFileName == "" {
+		configFileName = ConfigFileName
+	}
+	return &defaultIgnoreMatcher{configFileName: configFileName}
+}
+
+// ==================== OpenOptions ====================
+
+// OpenOptions holds configuration options for opening a secure root.
+type OpenOptions struct {
+	// IgnoreMatcher is used to skip certain files/directories during operations.
+	ignoreMatcher IIgnoreMatcher
+
+	// ConfigFileName specifies the name of the configuration file.
+	// Default: "_cryption.json" if not specified.
+	configFileName string
+}
+
+// OpenOption is a functional option for configuring OpenRoot operations.
+type OpenOption func(*OpenOptions)
+
+// WithIgnoreMatcher sets the ignore matcher for the root.
+// The ignore matcher is used to skip certain files/directories during operations.
+func WithIgnoreMatcher(matcher IIgnoreMatcher) OpenOption {
+	return func(o *OpenOptions) {
+		o.ignoreMatcher = matcher
+	}
+}
+
+// WithOpenConfigFileName sets the configuration file name for opening.
+// Default: "_cryption.json" if not specified.
+func WithOpenConfigFileName(name string) OpenOption {
+	return func(o *OpenOptions) {
+		o.configFileName = name
+	}
+}
+
+// applyOpenOptions applies the given options to OpenOptions and returns the result.
+func applyOpenOptions(options ...OpenOption) *OpenOptions {
+	opts := &OpenOptions{
+		configFileName: ConfigFileName, // Default: "_cryption.json"
+	}
+	for _, option := range options {
+		option(opts)
+	}
+	return opts
+}
+
+// ==================== FindRootConfig ====================
+
+// FindRootConfig searches for a configuration file starting from the given path,
+// walking up the directory tree until a config file is found or root is reached.
+// This is similar to how Git finds the .git directory.
+//
+// Parameters:
+//   - startPath: the path to start searching from (can be a file or directory)
+//   - options: functional options for configuring the search (optional)
+//
+// Returns:
+//   - config.SharedConfig: the loaded configuration
+//   - FullStorePath: the path where the config file was found (the root path)
+//   - error: any error that occurred (ErrNotConfigFile if not found)
+//
+// Available options:
+//   - WithOpenConfigFileName(name): custom config file name
+//
+// Example:
+//
+//	cfg, rootPath, err := sec_fs.FindRootConfig("/path/to/subdir/file.txt")
+//	if err == nil {
+//	    fmt.Printf("Found config at: %s\n", rootPath)
+//	}
+func FindRootConfig(startPath FullStorePath, options ...OpenOption) (config.SharedConfig, FullStorePath, error) {
+	// Apply options
+	opts := applyOpenOptions(options...)
+
+	// Get absolute path
+	absPath, err := filepath.Abs(string(startPath))
+	if err != nil {
+		return nil, "", NewPathError("abs", string(startPath), err)
+	}
+
+	// If startPath is a file, start from its directory
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return nil, "", NewPathError("stat", absPath, err)
+	}
+	if !info.IsDir() {
+		absPath = filepath.Dir(absPath)
+	}
+
+	// Walk up the directory tree
+	currentPath := absPath
+	for {
+		// Check if config file exists in current directory
+		cfgPath := filepath.Join(currentPath, opts.configFileName)
+		if _, err := os.Stat(cfgPath); err == nil {
+			// Found! Load the config
+			cfg, err := config.NewFileConfig(cfgPath)
 			if err != nil {
-				return nil, NewConfigError("sec_name_factory", "failed to create name cryptor", err)
+				return nil, "", NewConfigError("config", "failed to load config file: "+cfgPath, err)
 			}
+			return cfg, FullStorePath(currentPath), nil
 		}
-	}
-	
-	// If no nameCryptor created, try to use default (first available)
-	if nameCryptor == nil {
-		nameFactoryNames := crypto_name.ListNameFactories()
-		if len(nameFactoryNames) > 0 {
-			nameFactory := crypto_name.GetNameFactory(nameFactoryNames[0])
-			if nameFactory != nil {
-				nameCryptor, err = nameFactory.NewContext(keyInfo, cfg)
-				if err != nil {
-					return nil, NewConfigError("sec_name_factory", "failed to create default name cryptor", err)
-				}
-			}
+
+		// Move to parent directory
+		parentPath := filepath.Dir(currentPath)
+		if parentPath == currentPath {
+			// Reached root directory, config not found
+			return nil, "", ErrNotConfigFile
 		}
+		currentPath = parentPath
 	}
-	
-	return nameCryptor, nil
 }
 
-// getFactoryFromConfig gets a crypto data factory from config or uses default.
-// If a factory name is specified in config, it uses that factory.
-// Otherwise, it uses the first available factory.
-func getFactoryFromConfig(cfg config.SharedConfig) (crypto_data.ICryptoDataFactory, error) {
-	factoryName, err := cfg.GetStr("sec_fs_factory")
-	if err == nil && factoryName != "" {
-		factory := crypto_data.GetFactory(factoryName)
-		if factory == nil {
-			return nil, NewConfigError("sec_fs_factory", "factory not found in registry", nil)
-		}
-		return factory, nil
-	}
-	
-	// Use default factory (first available)
-	names := crypto_data.ListFactories()
-	if len(names) == 0 {
-		return nil, NewConfigError("Factory", "no cryptor factory registered", nil)
-	}
-	return crypto_data.GetFactory(names[0]), nil
-}
+// ==================== createRootConfig (internal) ====================
 
-// ==================== OpenRoot Factory Function ====================
-
-// OpenRoot opens a secure root directory with the given configuration.
-// It returns an ISecRoot interface for managing encrypted files.
+// createRootConfig creates a new configuration for a secure root.
+// This is an internal function that requires keyInfo to be pre-derived.
+// For most use cases, use CreateRootConfig instead.
 //
 // Parameters:
 //   - rootPath: the full storage path of the root directory
-//   - keyInfo: key information for encryption/decryption (created by caller using crypto_key package)
-//   - cfg: configuration for the secure root (can be nil to auto-load from <rootPath>/_cryption.json)
+//   - keyInfo: key information for encryption/decryption (must be created by caller)
+//   - options: functional options for configuring the root (optional)
 //
-// The config parameter should be a SharedConfig with appropriate key prefixes:
-//   - "sec_fs_factory": factory name for data encryption (string, optional - uses default if not set)
-//   - "sec_name_factory": factory name for name encryption (string, optional - uses default if not set)
-//   - Other module-specific configs (crypto_data_, crypto_key_, etc.)
+// Returns:
+//   - config.SharedConfig: the created configuration
+//   - error: any error that occurred
 //
-// If cfg is nil, it will automatically load configuration from <rootPath>/_cryption.json.
-// If the config file doesn't exist, it returns an error.
+// Available options:
+//   - WithDataFactory(name): set data encryption factory
+//   - WithNameFactory(name): set name encryption factory
+//   - WithDeriverFactory(name): set key deriver factory
+//   - WithKeyStrengthMs(ms): set key derivation strength
 //
-// Note: Key derivation must be done by the caller before calling OpenRoot.
-// The caller should use crypto_key package to derive the key from password.
-func OpenRoot(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (ISecRoot, error) {
-	// Auto-load config from file if cfg is nil
-	if cfg == nil {
-		cfgPath := filepath.Join(string(rootPath), ConfigFileName)
-		if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-			return nil, NewConfigError("config", "config file not found: "+cfgPath, err)
+// Example:
+//
+//	cfg, err := createRootConfig("/path/to/root", keyInfo,
+//	    WithDataFactory("aes-ctr"),
+//	    WithNameFactory("aes-gcm-name"),
+//	    WithKeyStrengthMs(200),
+//	)
+func createRootConfig(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, options ...CreateRootOption) (config.SharedConfig, error) {
+	// Apply options
+	opts := applyCreateOptions(options...)
+
+	// Validate parameters
+	if rootPath == "" {
+		return nil, ErrInvalidPath
+	}
+	if keyInfo == nil {
+		return nil, NewConfigError("keyInfo", "keyInfo is required", nil)
+	}
+
+	// Ensure root directory exists
+	if err := os.MkdirAll(string(rootPath), 0755); err != nil {
+		return nil, NewPathError("mkdir", string(rootPath), err)
+	}
+
+	// Create config file path
+	cfgPath := filepath.Join(string(rootPath), opts.ConfigFileName)
+
+	// Create file config
+	cfg, err := config.NewFileConfig(cfgPath)
+	if err != nil {
+		return nil, NewConfigError("config", "failed to create config file", err)
+	}
+
+	// Get factories (respecting option overrides)
+	dataFactory, nameFactory, deriverFactory, err := getCreateFactories(cfg, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store factory names in config
+	if opts.DataFactoryName != "" || dataFactory != nil {
+		factoryName := opts.DataFactoryName
+		if factoryName == "" && dataFactory != nil {
+			factoryName = dataFactory.GetName()
 		}
-		fileCfg, err := config.NewFileConfig(cfgPath)
+		if factoryName != "" {
+			cfg.SetStr("sec_fs_factory", factoryName)
+		}
+	}
+
+	if opts.NameFactoryName != "" || nameFactory != nil {
+		factoryName := opts.NameFactoryName
+		if factoryName == "" && nameFactory != nil {
+			factoryName = nameFactory.GetName()
+		}
+		if factoryName != "" {
+			cfg.SetStr("sec_name_factory", factoryName)
+		}
+	}
+
+	if opts.DeriverFactoryName != "" || deriverFactory != nil {
+		factoryName := opts.DeriverFactoryName
+		if factoryName == "" && deriverFactory != nil {
+			factoryName = deriverFactory.GetName()
+		}
+		if factoryName != "" {
+			cfg.SetStr("sec_deriver_factory", factoryName)
+		}
+	}
+
+	// Save deriver parameters to config if available
+	if deriverFactory != nil {
+		deriver, err := deriverFactory.NewDeriver(cfg)
+		if err == nil {
+			// Create a new key to generate and save parameters
+			_, err = deriver.NewKey(&crypto_hkdf.MakeKeyParams{
+				Password:      "", // Empty password for parameter generation
+				StaticSalt:    true,
+				KeyStrengthMs: opts.KeyStrengthMs,
+			}, cfg)
+			if err != nil {
+				// Non-fatal: parameters may already exist
+			}
+		}
+	}
+
+	// Create nameCryptor and save its parameters if available
+	if nameFactory != nil {
+		_, err = nameFactory.NewContext(keyInfo, cfg)
 		if err != nil {
-			return nil, NewConfigError("config", "failed to load config file", err)
+			// Non-fatal: name encryption may work with defaults
 		}
-		cfg = fileCfg
 	}
 
-	// Get factory from config
-	factory, err := getFactoryFromConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create nameCryptor from config
-	nameCryptor, err := createNameCryptorFromConfig(keyInfo, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create root using NewRoot
-	return NewRoot(rootPath, keyInfo, nameCryptor, factory, cfg)
+	return cfg, nil
 }
 
-// ==================== OpenOrCreateRoot Factory Function ====================
-
-// OpenOrCreateRoot opens an existing secure root or creates a new one if it doesn't exist.
-// It returns an ISecRoot interface for managing encrypted files.
+// CreateRootConfigQuick creates a new configuration for a secure root with password.
+// This function handles key derivation automatically using the provided password.
 //
 // Parameters:
 //   - rootPath: the full storage path of the root directory
-//   - keyInfo: key information for encryption/decryption (created by caller using crypto_key package)
-//   - cfg: configuration for the secure root (can be nil to auto-load/create)
+//   - password: the password for encryption/decryption
+//   - options: functional options for configuring the root (optional)
 //
-// If the root directory doesn't exist, it creates the directory and initializes a new config file.
-// If the root directory exists but has no config file, it initializes a new config file.
-// If the root directory exists and has a config file, it opens the existing root.
+// Returns:
+//   - config.SharedConfig: the created configuration
+//   - FullStorePath: the root path where config was created
+//   - error: any error that occurred
 //
-// If cfg is nil, it will:
-//   - For existing roots: load configuration from <rootPath>/_cryption.json
-//   - For new roots: create a default configuration
+// Available options:
+//   - WithDataFactory(name): set data encryption factory
+//   - WithNameFactory(name): set name encryption factory
+//   - WithDeriverFactory(name): set key deriver factory
 //
-// Note: Key derivation must be done by the caller before calling OpenOrCreateRoot.
-// The caller should use crypto_key package to derive the key from password.
-func OpenOrCreateRoot(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (ISecRoot, error) {
-	// Check if config file exists
-	cfgPath := filepath.Join(string(rootPath), ConfigFileName)
-	configExists := false
-	if _, err := os.Stat(cfgPath); err == nil {
-		configExists = true
+// Example:
+//
+//	cfg, rootPath, err := sec_fs.CreateRootConfigQuick("/path/to/root", "my-password",
+//	    sec_fs.WithDataFactory("aes-ctr"),
+//	)
+func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...CreateRootOption) (config.SharedConfig, FullStorePath, error) {
+	// Apply options
+	opts := applyCreateOptions(options...)
+
+	// Validate parameters
+	if rootPath == "" {
+		return nil, "", ErrInvalidPath
 	}
 
-	// Handle config
-	if cfg == nil {
-		if configExists {
-			// Load existing config
-			fileCfg, err := config.NewFileConfig(cfgPath)
-			if err != nil {
-				return nil, NewConfigError("config", "failed to load config file", err)
-			}
-			cfg = fileCfg
-		} else {
-			// Create default config
-			fileCfg, err := config.NewFileConfig(cfgPath)
-			if err != nil {
-				return nil, NewConfigError("config", "failed to create config file", err)
-			}
-			cfg = fileCfg
-			// TODO: Set default config values
+	// Ensure root directory exists
+	if err := os.MkdirAll(string(rootPath), 0755); err != nil {
+		return nil, "", NewPathError("mkdir", string(rootPath), err)
+	}
+
+	// Create config file path
+	cfgPath := filepath.Join(string(rootPath), opts.ConfigFileName)
+
+	// Create file config
+	cfg, err := config.NewFileConfig(cfgPath)
+	if err != nil {
+		return nil, "", NewConfigError("config", "failed to create config file", err)
+	}
+
+	// Get factories (respecting option overrides)
+	dataFactory, nameFactory, deriverFactory, err := getCreateFactories(cfg, opts)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Store factory names in config
+	if opts.DataFactoryName != "" || dataFactory != nil {
+		factoryName := opts.DataFactoryName
+		if factoryName == "" && dataFactory != nil {
+			factoryName = dataFactory.GetName()
+		}
+		if factoryName != "" {
+			cfg.SetStr("sec_fs_factory", factoryName)
 		}
 	}
 
-	// Get factory from config
-	factory, err := getFactoryFromConfig(cfg)
-	if err != nil {
-		return nil, err
+	if opts.NameFactoryName != "" || nameFactory != nil {
+		factoryName := opts.NameFactoryName
+		if factoryName == "" && nameFactory != nil {
+			factoryName = nameFactory.GetName()
+		}
+		if factoryName != "" {
+			cfg.SetStr("sec_name_factory", factoryName)
+		}
 	}
 
-	// Create nameCryptor from config
-	nameCryptor, err := createNameCryptorFromConfig(keyInfo, cfg)
-	if err != nil {
-		return nil, err
+	if opts.DeriverFactoryName != "" || deriverFactory != nil {
+		factoryName := opts.DeriverFactoryName
+		if factoryName == "" && deriverFactory != nil {
+			factoryName = deriverFactory.GetName()
+		}
+		if factoryName != "" {
+			cfg.SetStr("sec_deriver_factory", factoryName)
+		}
 	}
 
-	// Create root using NewRoot
-	return NewRoot(rootPath, keyInfo, nameCryptor, factory, cfg)
+	// Create deriver and key
+	var keyInfo crypto_hkdf.IKeyInfo
+	if deriverFactory != nil {
+		deriver, err := deriverFactory.NewDeriver(cfg)
+		if err != nil {
+			return nil, "", NewConfigError("sec_deriver_factory", "failed to create deriver", err)
+		}
+
+		// Create new key with password
+		keyInfo, err = deriver.NewKey(&crypto_hkdf.MakeKeyParams{
+			Password:      password,
+			StaticSalt:    true,
+			KeyStrengthMs: opts.KeyStrengthMs,
+		}, cfg)
+		if err != nil {
+			return nil, "", NewConfigError("key_derivation", "failed to create key", err)
+		}
+	} else {
+		// Fallback: use global registry
+		deriverNames := crypto_hkdf.ListKeyDerivers()
+		if len(deriverNames) == 0 {
+			return nil, "", NewConfigError("key_deriver", "no key deriver registered", nil)
+		}
+		keyDeriver := crypto_hkdf.GetKeyDeriver(deriverNames[0])
+
+		// Create new key with password
+		keyInfo, err = keyDeriver.NewKey(&crypto_hkdf.MakeKeyParams{
+			Password:      password,
+			StaticSalt:    true,
+			KeyStrengthMs: opts.KeyStrengthMs,
+		}, cfg)
+		if err != nil {
+			return nil, "", NewConfigError("key_derivation", "failed to create key", err)
+		}
+	}
+
+	// Create nameCryptor and save its parameters if available
+	if nameFactory != nil && keyInfo != nil {
+		_, err = nameFactory.NewContext(keyInfo, cfg)
+		if err != nil {
+			// Non-fatal: name encryption may work with defaults
+		}
+	}
+
+	return cfg, rootPath, nil
 }
 
 // ==================== Quick Functions ====================
 
 // OpenRootQuick opens an existing secure root with password.
 // This is a convenience function that handles key derivation automatically.
-// It uses the default key deriver to derive keyInfo from password.
+// It uses the configured key deriver to derive keyInfo from password.
 //
 // Parameters:
 //   - rootPath: the full storage path of the root directory
 //   - inputPassword: the password for encryption/decryption
+//   - options: functional options for configuring the root (optional)
 //
 // Returns:
-//   - ISecRoot: the secure root interface
+//   - ISecRoot: the opened secure root
 //   - error: any error that occurred
 //
-// Note: This function loads the config from <rootPath>/_cryption.json.
-// The config must contain key derivation parameters.
-func OpenRootQuick(rootPath FullStorePath, inputPassword string) (ISecRoot, error) {
-	// Get default key deriver
-	deriverNames := crypto_hkdf.ListKeyDerivers()
-	if len(deriverNames) == 0 {
-		return nil, NewConfigError("key_deriver", "no key deriver registered", nil)
-	}
-	keyDeriver := crypto_hkdf.GetKeyDeriver(deriverNames[0])
+// Available options:
+//   - WithIgnoreMatcher(matcher): set ignore matcher for skipping files
+//   - WithOpenConfigFileName(name): custom config file name
+//
+// Example:
+//
+//	root, err := sec_fs.OpenRootQuick("/path/to/root", "my-password")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer root.Close()
+func OpenRootQuick(rootPath FullStorePath, inputPassword string, options ...OpenOption) (ISecRoot, error) {
+	// Apply options
+	opts := applyOpenOptions(options...)
 
 	// Load config to get key derivation parameters
-	cfgPath := filepath.Join(string(rootPath), "_cryption.json")
+	cfgPath := filepath.Join(string(rootPath), opts.configFileName)
 	cfg, err := config.NewFileConfig(cfgPath)
 	if err != nil {
 		return nil, NewConfigError("config", "failed to load config", err)
+	}
+
+	// Get deriver factory
+	_, _, deriverFactory, err := getOpenFactories(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create deriver from factory
+	var keyDeriver crypto_hkdf.IKeyDeriver
+	if deriverFactory != nil {
+		keyDeriver, err = deriverFactory.NewDeriver(cfg)
+		if err != nil {
+			return nil, NewConfigError("sec_deriver_factory", "failed to create deriver", err)
+		}
+	} else {
+		// Fallback: use global registry
+		deriverNames := crypto_hkdf.ListKeyDerivers()
+		if len(deriverNames) == 0 {
+			return nil, NewConfigError("key_deriver", "no key deriver registered", nil)
+		}
+		keyDeriver = crypto_hkdf.GetKeyDeriver(deriverNames[0])
 	}
 
 	// Derive key from password
@@ -228,99 +558,56 @@ func OpenRootQuick(rootPath FullStorePath, inputPassword string) (ISecRoot, erro
 	}
 
 	// Open root with derived keyInfo
-	return OpenRoot(rootPath, keyInfo, cfg)
+	return openRoot(rootPath, keyInfo, cfg, options...)
 }
 
-// OpenOrCreateRootQuick opens an existing secure root or creates a new one with password.
-// This is a convenience function that handles key derivation automatically.
-// It uses the default key deriver to derive keyInfo from password.
-//
-// Parameters:
-//   - rootPath: the full storage path of the root directory
-//   - inputPassword: the password for encryption/decryption
-//
-// Returns:
-//   - ISecRoot: the secure root interface
-//   - error: any error that occurred
-//
-// For existing roots:
-//   - Loads config from <rootPath>/_cryption.json
-//   - Uses existing key derivation parameters
-//
-// For new roots:
-//   - Creates default config
-//   - Uses static salt for deterministic key derivation
-func OpenOrCreateRootQuick(rootPath FullStorePath, inputPassword string) (ISecRoot, error) {
-	// Get default key deriver
-	deriverNames := crypto_hkdf.ListKeyDerivers()
-	if len(deriverNames) == 0 {
-		return nil, NewConfigError("key_deriver", "no key deriver registered", nil)
+// openRoot opens a secure root with pre-derived keyInfo.
+// This is an internal function that requires keyInfo to be pre-derived.
+func openRoot(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig, options ...OpenOption) (ISecRoot, error) {
+	// Apply options
+	opts := applyOpenOptions(options...)
+
+	// Auto-load config from file if cfg is nil
+	if cfg == nil {
+		cfgPath := filepath.Join(string(rootPath), opts.configFileName)
+		if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+			return nil, ErrNotConfigFile
+		}
+		fileCfg, err := config.NewFileConfig(cfgPath)
+		if err != nil {
+			return nil, NewConfigError("config", "failed to load config file", err)
+		}
+		cfg = fileCfg
 	}
-	keyDeriver := crypto_hkdf.GetKeyDeriver(deriverNames[0])
 
-	// Check if root exists
-	cfgPath := filepath.Join(string(rootPath), "_cryption.json")
-	var cfg config.SharedConfig
-	var keyInfo crypto_hkdf.IKeyInfo
-	var err error
+	// Get factories from config
+	dataFactory, nameFactory, _, err := getOpenFactories(cfg)
+	if err != nil {
+		return nil, err
+	}
 
-	if _, err = os.Stat(cfgPath); os.IsNotExist(err) {
-		// New root - create config with default settings
-		cfg = config.NewMemoryConfig()
-
-		// Create new key with static salt for deterministic derivation
-		keyInfo, err = keyDeriver.NewKey(&crypto_hkdf.MakeKeyParams{
-			Password:      inputPassword,
-			StaticSalt:    true, // Use static salt for deterministic derivation
-			KeyStrengthMs: 100,  // Default key strength
-		}, cfg)
+	// Create nameCryptor from factory
+	var nameCryptor crypto_name.INameCryptorContext
+	if nameFactory != nil {
+		nameCryptor, err = nameFactory.NewContext(keyInfo, cfg)
 		if err != nil {
-			return nil, NewConfigError("key_derivation", "failed to create key", err)
-		}
-	} else {
-		// Existing root - load config
-		cfg, err = config.NewFileConfig(cfgPath)
-		if err != nil {
-			return nil, NewConfigError("config", "failed to load config", err)
-		}
-
-		// Load key from password
-		keyInfo, err = keyDeriver.LoadKey(inputPassword, cfg)
-		if err != nil {
-			return nil, NewConfigError("key_derivation", "failed to derive key", err)
+			return nil, NewConfigError("sec_name_factory", "failed to create name cryptor", err)
 		}
 	}
 
-	// Open or create root with derived keyInfo
-	return OpenOrCreateRoot(rootPath, keyInfo, cfg)
+	// Create root using newRoot
+	return newRoot(rootPath, keyInfo, nameCryptor, dataFactory, cfg, opts.ignoreMatcher)
 }
 
-// ==================== Low-level Constructor ====================
-
-// NewRoot creates a new ISecRoot with explicitly provided components.
-// This is a low-level constructor that gives full control over all dependencies.
-// It does not read from config or create any components automatically.
-//
-// Parameters:
-//   - rootPath: the full storage path of the root directory
-//   - keyInfo: the key information for encryption/decryption
-//   - nameCryptor: the name encryptor for filename encryption (can be nil)
-//   - factory: the crypto data factory for file content encryption
-//   - cfg: the shared configuration
-//
-// Returns:
-//   - ISecRoot: the secure root interface
-//   - error: any error that occurred
-//
-// Use this function when you need full control over all components,
-// such as in testing or when using custom implementations.
-// For normal usage, prefer OpenRootQuick or OpenOrCreateRootQuick.
-func NewRoot(
+// newRoot creates a new ISecRoot with explicitly provided components.
+// This is an internal constructor that gives full control over all dependencies.
+func newRoot(
 	rootPath FullStorePath,
 	keyInfo crypto_hkdf.IKeyInfo,
 	nameCryptor crypto_name.INameCryptorContext,
 	factory crypto_data.ICryptoDataFactory,
 	cfg config.SharedConfig,
+	ignoreMatcher IIgnoreMatcher,
 ) (ISecRoot, error) {
 	// Validate parameters
 	if rootPath == "" {
@@ -336,6 +623,11 @@ func NewRoot(
 		return nil, NewConfigError("cfg", "cfg is required", nil)
 	}
 
+	// Set default ignore matcher if not provided
+	if ignoreMatcher == nil {
+		ignoreMatcher = newDefaultIgnoreMatcher(ConfigFileName)
+	}
+
 	// Ensure root directory exists
 	if err := os.MkdirAll(string(rootPath), 0755); err != nil {
 		return nil, NewPathError("mkdir", string(rootPath), err)
@@ -344,56 +636,121 @@ func NewRoot(
 	// Create and return the root
 	root := &secRootImpl{
 		fileDataFactory: factory,
-		rootPath:      rootPath,
-		keyInfo:       keyInfo,
-		cfg:           cfg,
-		closed:        false,
-		mu:            sync.RWMutex{},
-		nameCryptor:   nameCryptor,
-		ignoreMatcher: nil, // Can be set later if needed
+		rootPath:        rootPath,
+		keyInfo:         keyInfo,
+		cfg:             cfg,
+		closed:          false,
+		mu:              sync.RWMutex{},
+		nameCryptor:     nameCryptor,
+		ignoreMatcher:   ignoreMatcher,
 	}
 
 	return root, nil
 }
 
-// ==================== GetSuitFromConfig ====================
+// ==================== Factory Helper Functions ====================
 
-// GetSuitFromConfig retrieves all encryption component factories from config.
-// This is a convenience function that returns factories for all components needed
-// to work with encrypted data.
-//
-// Parameters:
-//   - cfg: configuration containing factory names
-//
-// Returns:
-//   - ICryptoDataFactory: factory for file content encryption
-//   - ICryptoNameFactory: factory for filename encryption
-//   - IDeriverFactory: factory for key derivation
-//   - error: any error that occurred
-//
-// If a factory name is not specified in config, the default (first available) is used.
-// If no factories are registered, an error is returned.
-func GetSuitFromConfig(cfg config.SharedConfig) (
+// getCreateFactories retrieves factories for creating a new root.
+func getCreateFactories(cfg config.SharedConfig, opts *CreateRootOptions) (
 	crypto_data.ICryptoDataFactory,
 	crypto_name.ICryptoNameFactory,
 	crypto_hkdf.IDeriverFactory,
 	error,
 ) {
-	// Get file data factory
-	dataFactory, err := getFactoryFromConfig(cfg)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	// Get name factory
-	nameFactoryName, err := cfg.GetStr("sec_name_factory")
-	var nameFactory crypto_name.ICryptoNameFactory
-	if err == nil && nameFactoryName != "" {
-		nameFactory = crypto_name.GetNameFactory(nameFactoryName)
-		if nameFactory == nil {
-			return nil, nil, nil, NewConfigError("sec_name_factory", "name factory not found in registry", nil)
+	// Get file data factory (option overrides config)
+	var dataFactory crypto_data.ICryptoDataFactory
+	if opts.DataFactoryName != "" {
+		dataFactory = crypto_data.GetFactory(opts.DataFactoryName)
+		if dataFactory == nil {
+			return nil, nil, nil, NewConfigError("sec_fs_factory", "data factory not found: "+opts.DataFactoryName, nil)
 		}
 	} else {
+		factoryName, err := cfg.GetStr("sec_fs_factory")
+		if err == nil && factoryName != "" {
+			dataFactory = crypto_data.GetFactory(factoryName)
+		}
+		if dataFactory == nil {
+			// Use default (first available)
+			factoryNames := crypto_data.ListFactories()
+			if len(factoryNames) > 0 {
+				dataFactory = crypto_data.GetFactory(factoryNames[0])
+			}
+		}
+	}
+
+	// Get name factory (option overrides config)
+	var nameFactory crypto_name.ICryptoNameFactory
+	if opts.NameFactoryName != "" {
+		nameFactory = crypto_name.GetNameFactory(opts.NameFactoryName)
+		if nameFactory == nil {
+			return nil, nil, nil, NewConfigError("sec_name_factory", "name factory not found: "+opts.NameFactoryName, nil)
+		}
+	} else {
+		factoryName, err := cfg.GetStr("sec_name_factory")
+		if err == nil && factoryName != "" {
+			nameFactory = crypto_name.GetNameFactory(factoryName)
+		}
+		if nameFactory == nil {
+			// Use default (first available)
+			factoryNames := crypto_name.ListNameFactories()
+			if len(factoryNames) > 0 {
+				nameFactory = crypto_name.GetNameFactory(factoryNames[0])
+			}
+		}
+	}
+
+	// Get deriver factory (option overrides config)
+	var deriverFactory crypto_hkdf.IDeriverFactory
+	if opts.DeriverFactoryName != "" {
+		deriverFactory = crypto_hkdf.GetDeriverFactory(opts.DeriverFactoryName)
+		if deriverFactory == nil {
+			return nil, nil, nil, NewConfigError("sec_deriver_factory", "deriver factory not found: "+opts.DeriverFactoryName, nil)
+		}
+	} else {
+		factoryName, err := cfg.GetStr("sec_deriver_factory")
+		if err == nil && factoryName != "" {
+			deriverFactory = crypto_hkdf.GetDeriverFactory(factoryName)
+		}
+		if deriverFactory == nil {
+			// Use default (first available)
+			factoryNames := crypto_hkdf.ListDeriverFactories()
+			if len(factoryNames) > 0 {
+				deriverFactory = crypto_hkdf.GetDeriverFactory(factoryNames[0])
+			}
+		}
+	}
+
+	return dataFactory, nameFactory, deriverFactory, nil
+}
+
+// getOpenFactories retrieves factories from config for opening an existing root.
+func getOpenFactories(cfg config.SharedConfig) (
+	crypto_data.ICryptoDataFactory,
+	crypto_name.ICryptoNameFactory,
+	crypto_hkdf.IDeriverFactory,
+	error,
+) {
+	// Get file data factory from config
+	var dataFactory crypto_data.ICryptoDataFactory
+	factoryName, err := cfg.GetStr("sec_fs_factory")
+	if err == nil && factoryName != "" {
+		dataFactory = crypto_data.GetFactory(factoryName)
+	}
+	if dataFactory == nil {
+		// Use default (first available)
+		factoryNames := crypto_data.ListFactories()
+		if len(factoryNames) > 0 {
+			dataFactory = crypto_data.GetFactory(factoryNames[0])
+		}
+	}
+
+	// Get name factory from config
+	var nameFactory crypto_name.ICryptoNameFactory
+	nameFactoryName, err := cfg.GetStr("sec_name_factory")
+	if err == nil && nameFactoryName != "" {
+		nameFactory = crypto_name.GetNameFactory(nameFactoryName)
+	}
+	if nameFactory == nil {
 		// Use default (first available)
 		nameFactoryNames := crypto_name.ListNameFactories()
 		if len(nameFactoryNames) > 0 {
@@ -401,15 +758,13 @@ func GetSuitFromConfig(cfg config.SharedConfig) (
 		}
 	}
 
-	// Get deriver factory
-	deriverFactoryName, err := cfg.GetStr("sec_deriver_factory")
+	// Get deriver factory from config
 	var deriverFactory crypto_hkdf.IDeriverFactory
+	deriverFactoryName, err := cfg.GetStr("sec_deriver_factory")
 	if err == nil && deriverFactoryName != "" {
 		deriverFactory = crypto_hkdf.GetDeriverFactory(deriverFactoryName)
-		if deriverFactory == nil {
-			return nil, nil, nil, NewConfigError("sec_deriver_factory", "deriver factory not found in registry", nil)
-		}
-	} else {
+	}
+	if deriverFactory == nil {
 		// Use default (first available)
 		deriverFactoryNames := crypto_hkdf.ListDeriverFactories()
 		if len(deriverFactoryNames) > 0 {
