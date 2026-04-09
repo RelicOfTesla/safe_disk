@@ -7,6 +7,7 @@ import (
 	"golang.org/x/crypto/chacha20"
 	"safe_disk/native/config"
 	"safe_disk/native/sec_fs/crypto_data"
+	"safe_disk/native/sec_fs/crypto_data/crypt_utils"
 	"safe_disk/native/sec_fs/crypto_hkdf"
 )
 
@@ -59,17 +60,14 @@ func (c *Context) Read(p []byte) (n int, err error) {
 }
 
 // Write encrypts and writes data.
+// Uses chunked processing to avoid allocating large buffers.
 func (c *Context) Write(p []byte) (n int, err error) {
 	if err := c.ensure_append_gap(c.pos); err != nil {
 		return 0, err
 	}
 
-	encrypted := make([]byte, len(p))
-	copy(encrypted, p)
-	c.xorKeystream(encrypted, c.pos)
-
 	c.storeFileIo.Seek(c.pos, io.SeekStart)
-	n, err = c.storeFileIo.Write(encrypted)
+	n, err = crypt_utils.EncryptAndWriteInChunks(c.storeFileIo, p, c.pos, c.xorKeystream)
 	if n > 0 {
 		c.pos += int64(n)
 		if c.pos > c.size {
@@ -165,21 +163,24 @@ func (c *Context) xorKeystream(data []byte, pos int64) {
 }
 
 // ensure_append_gap fills gap with encrypted zeros.
+// Uses chunked writing to avoid allocating the entire gap size at once.
 func (c *Context) ensure_append_gap(targetPos int64) error {
 	if targetPos <= c.size {
 		return nil
 	}
 
 	gapSize := targetPos - c.size
-	gapZeros := make([]byte, gapSize)
-	c.xorKeystream(gapZeros, c.size)
 
 	_, err := c.storeFileIo.Seek(c.size, io.SeekStart)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.storeFileIo.Write(gapZeros)
+	// Use chunked filling to avoid large memory allocation
+	err = crypt_utils.FillGapWithEncryptFunc(c.storeFileIo, c.size, gapSize, func(data []byte, pos int64) error {
+		c.xorKeystream(data, pos)
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -207,23 +208,20 @@ func (c *Context) ReadAt(p []byte, off int64) (n int, err error) {
 }
 
 // WriteAt writes at offset.
+// Uses chunked processing to avoid allocating large buffers.
 func (c *Context) WriteAt(p []byte, off int64) (n int, err error) {
 	if err := c.ensure_append_gap(off); err != nil {
 		return 0, err
 	}
 
-	encrypted := make([]byte, len(p))
-	copy(encrypted, p)
-	c.xorKeystream(encrypted, off)
-
 	if writerAt, ok := c.storeFileIo.(io.WriterAt); ok {
-		n, err = writerAt.WriteAt(encrypted, off)
+		n, err = crypt_utils.EncryptAndWriteAtInChunks(writerAt, p, off, c.xorKeystream)
 	} else {
 		_, err = c.storeFileIo.Seek(off, io.SeekStart)
 		if err != nil {
 			return 0, err
 		}
-		n, err = c.storeFileIo.Write(encrypted)
+		n, err = crypt_utils.EncryptAndWriteInChunks(c.storeFileIo, p, off, c.xorKeystream)
 	}
 
 	if n > 0 {

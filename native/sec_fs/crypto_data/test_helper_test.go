@@ -11,10 +11,9 @@ import (
 	"safe_disk/native/config"
 	"safe_disk/native/sec_fs/crypto_data"
 	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_ctr"
-	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_gcm"
 	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_xts"
 	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/chacha20"
-	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/random_access_adapter"
+	"safe_disk/native/sec_fs/crypto_data/crypt_utils/random_access_adapter"
 	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/rc4"
 	"safe_disk/native/sec_fs/crypto_hkdf"
 )
@@ -93,7 +92,6 @@ func GetAllFactories() []ContextFactory {
 	_ = random_access_adapter.NewFactory
 	_ = rc4.NewFactory
 	_ = aes_ctr.NewFactory
-	_ = aes_gcm.NewFactory
 	_ = aes_xts.NewFactory
 	_ = chacha20.NewFactory
 	return []ContextFactory{
@@ -102,8 +100,6 @@ func GetAllFactories() []ContextFactory {
 		//{Name: "rc4+random-access", Factory: random_access_adapter.NewFactory(rc4.NewFactory(), 4096)},
 		{Name: "aes-ctr", Factory: aes_ctr.NewFactory()},
 		//{Name: "aes-ctr+random-access", Factory: random_access_adapter.NewFactory(aes_ctr.NewFactory(), 4096)},
-		{Name: "aes-gcm", Factory: aes_gcm.NewFactory()},
-		//{Name: "aes-gcm+random-access", Factory: random_access_adapter.NewFactory(aes_gcm.NewFactory(), 4096)},
 		{Name: "aes-xts", Factory: aes_xts.NewFactory()},
 		{Name: "chacha20", Factory: chacha20.NewFactory()},
 		//{Name: "chacha20+random-access", Factory: random_access_adapter.NewFactory(chacha20.NewFactory(), 4096)},

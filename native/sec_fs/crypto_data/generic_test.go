@@ -19,7 +19,6 @@ import (
 
 	// Import algorithm implementations to trigger init() registration
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_ctr"
-	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_gcm"
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_xts"
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/chacha20"
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/rc4"

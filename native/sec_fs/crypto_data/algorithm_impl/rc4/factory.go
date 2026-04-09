@@ -36,8 +36,8 @@ func (f *Factory) GetCapabilities() crypto_data.CryptorCapabilities {
 		StreamingComplexity:    crypto_data.O1,  // RC4 supports streaming efficiently
 		RandomAccessComplexity: crypto_data.ON, // O(N): must generate keystream from position 0 to target
 		ModificationComplexity: crypto_data.ON, // O(N): must regenerate keystream after modification point
-		RandomDeleteComplexity: crypto_data.ON, // O(N): must regenerate keystream after deletion point
-		MemoryOverhead:         crypto_data.ON, // O(N): must allocate memory for keystream generation up to target position
+		RandomDeleteComplexity: crypto_data.O1, // O(1): truncate directly without re-encryption
+		MemoryOverhead:         crypto_data.O1, // O(1): fixed-size buffer (64KB) for chunked processing
 		MaxFileSize:            0,              // Unlimited
 		RecommendedChunkSize:   0,
 		RequireMinKeyLength:   1, // RC4 supports variable key length (1-256 bytes)
