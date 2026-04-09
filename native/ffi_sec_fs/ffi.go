@@ -8,9 +8,8 @@ import (
 	"os"
 
 	"safe_disk/native/config"
-	
-	
 	"safe_disk/native/sec_fs"
+	"safe_disk/native/sec_fs/crypto_hkdf"
 	"safe_disk/native/sec_fs/sec_transfer"
 )
 
@@ -115,7 +114,19 @@ func OpenRoot_FFI(rootPath string, password string, configJSON string) string {
 		return errorResponse(err)
 	}
 
-	root, err := sec_fs.OpenRoot(sec_fs.FullStorePath(rootPath), password, cfg)
+	// Derive key from password
+	deriverNames := crypto_hkdf.ListKeyDerivers()
+	if len(deriverNames) == 0 {
+		return errorResponseStr("no key deriver registered")
+	}
+	keyDeriver := crypto_hkdf.GetKeyDeriver(deriverNames[0])
+
+	keyInfo, err := keyDeriver.LoadKey(password, cfg)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	root, err := sec_fs.OpenRoot(sec_fs.FullStorePath(rootPath), keyInfo, cfg)
 	if err != nil {
 		return errorResponse(err)
 	}

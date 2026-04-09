@@ -6,6 +6,9 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
+	"time"
+
 	"safe_disk/native/config"
 )
 
@@ -82,10 +85,10 @@ type ISecRoot interface {
 type IDirWalker interface {
 	// Next returns the next directory entry.
 	// Returns ErrNoMoreEntries when there are no more entries.
-	Next() (DirEntry, error)
+	Next() (IDirEntry, error)
 
 	// NextBatch returns the next batch of directory entries.
-	NextBatch(batchSize int) ([]DirEntry, error)
+	NextBatch(batchSize int) ([]IDirEntry, error)
 
 	// HasNext returns true if there are more entries to read.
 	HasNext() bool
@@ -95,31 +98,79 @@ type IDirWalker interface {
 }
 
 // DirEntry represents a directory entry (file or subdirectory).
-type DirEntry struct {
+type IDirEntry interface {
 	fs.DirEntry
-	// Name is the base name of the file or directory.
-	Name string
-
-	// IsDir reports whether the entry is a directory.
-	IsDir bool
-
-	// Size is the size in bytes for files; 0 for directories.
-	Size int64
-
-	// ModTime is the modification time.
-	ModTime int64 // Unix timestamp in nanoseconds
-
-	// Mode is the file mode (permissions).
-	Mode os.FileMode
 
 	// RelativePath is the relative view path from the root.
-	RelativePath RelativeViewPath
+	GetRelativeViewPath() RelativeViewPath
+	GetRelativeStorePath() RelativeStorePath
+
+	// StoreName returns the encrypted file name as stored on disk.
+	// This is the encrypted version of the file name, useful for debugging
+	// and low-level operations.
+	StoreName() string
 }
 
 // WalkOption is a functional option for configuring directory walking.
 type WalkOption func(*WalkOptions)
 
-// WalkOptions holds configuration options for directory walking.
+// secDirEntry implements IDirEntry interface
+type secDirEntry struct {
+	name              string
+	isDir             bool
+	size              int64
+	modTime           int64
+	mode              os.FileMode
+	relativeViewPath  RelativeViewPath
+	relativeStorePath RelativeStorePath
+}
+
+// fs.DirEntry interface methods
+func (e *secDirEntry) Name() string      { return e.name }
+func (e *secDirEntry) IsDir() bool       { return e.isDir }
+func (e *secDirEntry) Type() fs.FileMode { return e.mode.Type() }
+func (e *secDirEntry) Info() (fs.FileInfo, error) {
+	return &secFileInfo{
+		name:    e.name,
+		size:    e.size,
+		modTime: time.Unix(0, e.modTime),
+		mode:    e.mode,
+	}, nil
+}
+
+// IDirEntry interface methods
+func (e *secDirEntry) GetRelativeViewPath() RelativeViewPath  { return e.relativeViewPath }
+func (e *secDirEntry) GetRelativeStorePath() RelativeStorePath { return e.relativeStorePath }
+
+// StoreName returns the encrypted file name as stored on disk.
+// Extracts the base name from the relative store path.
+func (e *secDirEntry) StoreName() string {
+	if e.relativeStorePath == "" {
+		return ""
+	}
+	return filepath.Base(string(e.relativeStorePath))
+}
+
+// secFileInfo implements fs.FileInfo interface
+type secFileInfo struct {
+	name    string
+	size    int64
+	modTime time.Time
+	mode    os.FileMode
+}
+
+func (f *secFileInfo) Name() string       { return f.name }
+func (f *secFileInfo) Size() int64        { return f.size }
+func (f *secFileInfo) Mode() fs.FileMode  { return f.mode }
+func (f *secFileInfo) ModTime() time.Time { return f.modTime }
+func (f *secFileInfo) IsDir() bool        { return f.mode.IsDir() }
+func (f *secFileInfo) Sys() interface{}   { return nil }
+
+// Compile-time interface verification
+var _ IDirEntry = (*secDirEntry)(nil)
+var _ fs.FileInfo = (*secFileInfo)(nil)
+
+
 type WalkOptions struct {
 	// Recursive indicates whether to walk subdirectories recursively.
 	Recursive bool

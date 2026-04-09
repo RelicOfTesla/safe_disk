@@ -65,22 +65,22 @@ func newSecDirWalker(rootPath FullStorePath, relativePath RelativeViewPath, name
 
 // Next returns the next directory entry.
 // It implements streaming reading by loading entries in batches.
-func (w *secDirWalker) Next() (DirEntry, error) {
+func (w *secDirWalker) Next() (IDirEntry, error) {
 	if w == nil {
-		return DirEntry{}, ErrWalkerClosed
+		return &secDirEntry{}, ErrWalkerClosed
 	}
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	if w.closed {
-		return DirEntry{}, ErrWalkerClosed
+		return &secDirEntry{}, ErrWalkerClosed
 	}
 
 	// Initialize on first call
 	if !w.initialized {
 		if err := w.init(); err != nil {
-			return DirEntry{}, err
+			return &secDirEntry{}, err
 		}
 	}
 
@@ -90,11 +90,11 @@ func (w *secDirWalker) Next() (DirEntry, error) {
 		if w.rawIndex >= len(w.rawEntries) {
 			// Try to load next batch
 			if err := w.loadNextBatch(); err != nil {
-				return DirEntry{}, err
+				return &secDirEntry{}, err
 			}
 			// If no more entries after loading
 			if len(w.rawEntries) == 0 {
-				return DirEntry{}, ErrNoMoreEntries
+				return &secDirEntry{}, ErrNoMoreEntries
 			}
 		}
 
@@ -162,51 +162,51 @@ func (w *secDirWalker) loadNextBatch() error {
 }
 
 // processEntry converts a raw directory entry to DirEntry with decryption and filtering.
-func (w *secDirWalker) processEntry(entry fs.DirEntry) (DirEntry, bool, error) {
+func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) {
 	name := entry.Name()
 
 	// Decrypt name if nameCryptor is available
 	if w.nameCryptor != nil {
 		decryptedName, err := w.nameCryptor.DecryptName(name)
 		if err != nil {
-			return DirEntry{}, true, nil // Skip files that cannot be decrypted
+			return &secDirEntry{}, true, nil // Skip files that cannot be decrypted
 		}
 		name = decryptedName
 	}
 
 	// Skip hidden files if not included
 	if !w.options.IncludeHidden && len(name) > 0 && name[0] == '.' {
-		return DirEntry{}, true, nil
+		return &secDirEntry{}, true, nil
 	}
 
 	isDir := entry.IsDir()
 
 	// Check ignore matcher
 	if w.ignoreMatcher != nil && w.ignoreMatcher.ShouldIgnore(name, isDir) {
-		return DirEntry{}, true, nil
+		return &secDirEntry{}, true, nil
 	}
 
 	// Apply skip filters
 	if w.options.SkipFiles && !isDir {
-		return DirEntry{}, true, nil
+		return &secDirEntry{}, true, nil
 	}
 	if w.options.SkipDirs && isDir {
-		return DirEntry{}, true, nil
+		return &secDirEntry{}, true, nil
 	}
 
 	// Get file info
 	info, err := entry.Info()
 	if err != nil {
-		return DirEntry{}, true, nil
+		return &secDirEntry{}, true, nil
 	}
 
-	dirEntry := DirEntry{
-		Name:         name,
-		IsDir:        isDir,
-		Size:         info.Size(),
-		ModTime:      info.ModTime().UnixNano(),
-		Mode:         info.Mode(),
-		RelativePath: RelativeViewPath(filepath.Join(string(w.relativePath), name)),
+	dirEntry := &secDirEntry{
+		name:         name,
+		isDir:        isDir,
+		size:         info.Size(),
+		modTime:      info.ModTime().UnixNano(),
+		mode:         info.Mode(),
+		relativeViewPath: RelativeViewPath(filepath.Join(string(w.relativePath), name)),
 	}
 
 	return dirEntry, false, nil
@@ -235,7 +235,7 @@ func (w *secDirWalker) Close() error {
 }
 
 // NextBatch returns the next batch of directory entries.
-func (w *secDirWalker) NextBatch(batchSize int) ([]DirEntry, error) {
+func (w *secDirWalker) NextBatch(batchSize int) ([]IDirEntry, error) {
 	if w == nil {
 		return nil, ErrWalkerClosed
 	}
@@ -254,8 +254,13 @@ func (w *secDirWalker) NextBatch(batchSize int) ([]DirEntry, error) {
 		}
 	}
 
+	// Handle invalid batch size
+	if batchSize <= 0 {
+		return []IDirEntry{}, nil
+	}
+
 	// Collect entries
-	batch := make([]DirEntry, 0, batchSize)
+	batch := make([]IDirEntry, 0, batchSize)
 	for len(batch) < batchSize {
 		// Check if we need to load more entries
 		if w.rawIndex >= len(w.rawEntries) {

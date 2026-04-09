@@ -3,7 +3,6 @@
 package sec_fs
 
 import (
-	"time"
 	"io"
 	"io/fs"
 	"os"
@@ -18,8 +17,8 @@ import (
 // secRootImpl implements ISecRoot interface.
 // It manages the root directory for encrypted file storage.
 type secRootImpl struct {
-	// factory is the cryptographic data factory used to create cryptor contexts.
-	factory crypto_data.ICryptoDataFactory
+	// fileDataFactory is the cryptographic data factory used to create cryptor contexts.
+	fileDataFactory crypto_data.ICryptoDataFactory
 	// rootPath is the full storage path of the root directory.
 	rootPath FullStorePath
 	// keyInfo provides key information for encryption/decryption.
@@ -89,7 +88,7 @@ func (r *secRootImpl) OpenFile(path RelativeViewPath, mode int) (ISecFile, error
 		return nil, NewPathError("open", fullPath, err)
 	}
 	// Create a cryptographic context for the file
-	cryptorContext, err := r.factory.NewContext(&fileContext{File: file}, r.keyInfo, r.cfg)
+	cryptorContext, err := r.fileDataFactory.NewContext(&fileContext{File: file}, r.keyInfo, r.cfg)
 	if err != nil {
 		file.Close()
 		return nil, NewCryptoError("new_context", "failed to create cryptor context", err)
@@ -212,54 +211,13 @@ func (r *secRootImpl) ReadDir(name string) ([]fs.DirEntry, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Create fs.DirEntry adapter
-		entries = append(entries, &dirEntryAdapter{
-			name:    entry.Name,
-			isDir:   entry.IsDir,
-			size:    entry.Size,
-			modTime: time.Unix(0, entry.ModTime),
-			mode:    entry.Mode,
-		})
+		// IDirEntry already implements fs.DirEntry, so we can directly append
+		entries = append(entries, entry)
 	}
 
 	return entries, nil
 }
 
-// dirEntryAdapter implements fs.DirEntry interface
-type dirEntryAdapter struct {
-	name    string
-	isDir   bool
-	size    int64
-	modTime time.Time
-	mode    os.FileMode
-}
-
-func (d *dirEntryAdapter) Name() string      { return d.name }
-func (d *dirEntryAdapter) IsDir() bool       { return d.isDir }
-func (d *dirEntryAdapter) Type() fs.FileMode { return d.mode.Type() }
-func (d *dirEntryAdapter) Info() (fs.FileInfo, error) {
-	return &fileInfoAdapter{
-		name:    d.name,
-		size:    d.size,
-		modTime: d.modTime,
-		mode:    d.mode,
-	}, nil
-}
-
-// fileInfoAdapter implements fs.FileInfo interface
-type fileInfoAdapter struct {
-	name    string
-	size    int64
-	modTime time.Time
-	mode    os.FileMode
-}
-
-func (f *fileInfoAdapter) Name() string       { return f.name }
-func (f *fileInfoAdapter) Size() int64        { return f.size }
-func (f *fileInfoAdapter) Mode() fs.FileMode  { return f.mode }
-func (f *fileInfoAdapter) ModTime() time.Time { return f.modTime }
-func (f *fileInfoAdapter) IsDir() bool        { return f.mode.IsDir() }
-func (f *fileInfoAdapter) Sys() interface{}   { return nil }
 func (r *secRootImpl) GetRootPath() FullStorePath {
 	if r == nil {
 		return ""

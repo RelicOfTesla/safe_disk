@@ -62,6 +62,20 @@ type IKeyDeriver interface {
 	GetName() string
 }
 
+// ==================== IDeriverFactory Interface ====================
+
+// IDeriverFactory defines the interface for creating key derivers.
+// It follows the same factory pattern as crypto_data.ICryptoDataFactory
+// and crypto_name.ICryptoNameFactory.
+type IDeriverFactory interface {
+	// NewDeriver creates a new IKeyDeriver instance.
+	// cfg provides algorithm-specific configuration.
+	NewDeriver(cfg config.SharedConfig) (IKeyDeriver, error)
+
+	// GetName returns the unique name of this deriver factory.
+	GetName() string
+}
+
 // ==================== Compile-time Interface Verification ====================
 
 // These declarations ensure that implementation types satisfy the interfaces.

@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"safe_disk/native/sec_fs/sec_transfer"
 	"fmt"
 	"os"
 	"sync"
 
 	"safe_disk/native/sec_fs"
+	"safe_disk/native/sec_fs/sec_transfer"
 
 	"github.com/spf13/cobra"
 )
@@ -50,7 +50,7 @@ var exportCmd = &cobra.Command{
 		}
 
 		// Open the encrypted root directory
-		root, err := sec_fs.OpenRoot(sec_fs.FullStorePath(exportRootPath), exportPassword, nil)
+		root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(exportRootPath), exportPassword)
 		if err != nil {
 			fmt.Printf("Error: failed to open root: %v\n", err)
 			os.Exit(1)
