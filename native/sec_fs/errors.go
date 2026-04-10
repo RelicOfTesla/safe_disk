@@ -46,6 +46,11 @@ var (
 	// ErrRootIsNil is returned when operations are called on a nil root.
 	ErrRootIsNil = errors.New("root is nil")
 
+	// ErrPathTraversal is returned when a path attempts to escape the root directory.
+	// This can happen when the path contains ".." components that would navigate
+	// above the root, or when the path is absolute and points outside the root.
+	ErrPathTraversal = errors.New("path traversal attempt detected")
+
 	// ErrInvalidPassword indicates that the provided password is invalid.
 	ErrInvalidPassword = errors.New("invalid password")
 

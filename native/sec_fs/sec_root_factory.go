@@ -12,6 +12,7 @@ import (
 	"safe_disk/native/sec_fs/crypto_data"
 	"safe_disk/native/sec_fs/crypto_hkdf"
 	"safe_disk/native/sec_fs/crypto_name"
+	"safe_disk/native/sec_fs/sec_utils"
 )
 
 // ==================== Constants ====================
@@ -633,6 +634,12 @@ func newRoot(
 		return nil, NewPathError("mkdir", string(rootPath), err)
 	}
 
+	// Parse root path
+	rootPathInfo, err := sec_utils.ParsePathInfo(string(rootPath))
+	if err != nil {
+		return nil, NewPathError("parse_path", string(rootPath), err)
+	}
+
 	// Create and return the root
 	root := &secRootImpl{
 		fileDataFactory: factory,
@@ -643,6 +650,7 @@ func newRoot(
 		mu:              sync.RWMutex{},
 		nameCryptor:     nameCryptor,
 		ignoreMatcher:   ignoreMatcher,
+		rootPathInfo:    rootPathInfo,
 	}
 
 	return root, nil

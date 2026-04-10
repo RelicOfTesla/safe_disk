@@ -86,8 +86,8 @@ func TestNameEncryption_ViewPathToStorePath(t *testing.T) {
 			// For non-empty paths, verify encryption happened
 			if tt.viewPath != "" && tt.viewPath != "." && tt.viewPath != ".." {
 				// Check that path components are encrypted (start with "enc_")
-				parts := sec_utils.SplitPath(string(storePath))
-				viewParts := sec_utils.SplitPath(string(tt.viewPath))
+				parts := sec_utils.ParsePathInfoMust(string(storePath)).Parts()
+				viewParts := sec_utils.ParsePathInfoMust(string(tt.viewPath)).Parts()
 				
 				for i, part := range parts {
 					if i < len(viewParts) && viewParts[i] != "" && viewParts[i] != "." && viewParts[i] != ".." {

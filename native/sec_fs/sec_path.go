@@ -95,10 +95,13 @@ func ViewPathToStorePath(viewPath RelativeViewPath, nameCryptor crypto_name.INam
 	}
 
 	// Parse path using ParsePathInfo (cleans the path automatically)
-	info := sec_utils.ParsePathInfo(string(viewPath))
+	info, err := sec_utils.ParsePathInfo(string(viewPath))
+	if err != nil {
+		return "", err
+	}
 
-	encryptedParts := make([]string, 0, len(info.Parts))
-	for _, part := range info.Parts {
+	encryptedParts := make([]string, 0, len(info.Parts()))
+	for _, part := range info.Parts() {
 		// Skip empty parts, current directory, and parent directory
 		if part == "" || part == "." || part == ".." {
 			encryptedParts = append(encryptedParts, part)
@@ -142,10 +145,13 @@ func StorePathToViewPath(storePath RelativeStorePath, nameCryptor crypto_name.IN
 	}
 
 	// Parse path using ParsePathInfo (cleans the path automatically)
-	info := sec_utils.ParsePathInfo(string(storePath))
+	info, err := sec_utils.ParsePathInfo(string(storePath))
+	if err != nil {
+		return "", err
+	}
 
-	decryptedParts := make([]string, 0, len(info.Parts))
-	for _, part := range info.Parts {
+	decryptedParts := make([]string, 0, len(info.Parts()))
+	for _, part := range info.Parts() {
 		// Skip empty parts, current directory, and parent directory
 		if part == "" || part == "." || part == ".." {
 			decryptedParts = append(decryptedParts, part)
