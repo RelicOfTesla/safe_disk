@@ -80,3 +80,10 @@ native/native
 .backup_*
 /_bak_run.sh
 native/tmp/
+/.backups
+/.backups*
+/_archieved*
+
+*.go.backup*
+*.go.bak*
+

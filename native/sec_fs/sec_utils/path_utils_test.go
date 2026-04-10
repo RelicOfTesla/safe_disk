@@ -5,6 +5,9 @@ package sec_utils
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestPathParsing_Clean tests that paths are correctly cleaned.
@@ -92,7 +95,6 @@ func TestPathParsing_Clean(t *testing.T) {
 
 		// Windows paths with backslash
 		{"Windows path with subdirs", `C:\Documents\file.txt`, `C:\Documents\file.txt`},
-		{"UNC path extended", `\\server\share\file.txt`, `\\server\share\file.txt`},
 		{"Relative Windows path", `a\b\c\file.txt`, `a\b\c\file.txt`},
 
 		// ========== Extended test cases from original TestPathParsing_SplitJoin ==========
@@ -101,7 +103,6 @@ func TestPathParsing_Clean(t *testing.T) {
 		{"Short path", "a/b", "a/b"},
 		{"Medium path", "a/b/c/d/e", "a/b/c/d/e"},
 		{"Long path", "a/b/c/d/e/f/g/h", "a/b/c/d/e/f/g/h"},
-		{"Windows short path", `C:\a\b`, `C:\a\b`},
 		{"Windows medium path", `C:\a\b\c\d\e`, `C:\a\b\c\d\e`},
 	}
 
@@ -117,172 +118,164 @@ func TestPathParsing_Clean(t *testing.T) {
 
 // TestPathParsing_ParsePathInfo tests that paths are correctly parsed into PathInfo.
 func TestPathParsing_ParsePathInfo(t *testing.T) {
+	const _fileEmptyScheme = ""
+	const _fileEmptyLocalhost = ""
 	tests := []struct {
 		name       string
 		path       string
-		wantPrefix string
-		wantPath   string
+		wantScheme string
+		wantHost   string
+		wantEncode string
 		wantSep    rune
 		wantParts  []string
-		wantIsAbs  bool
+		wantType   PathType
+		wantErr    bool
 	}{
 		// Empty path
-		{"Empty path", "", "", "", filepath.Separator, nil, false},
+		{"Empty path", "", "", "", "", filepath.Separator, nil, PathTypeUnknown, false},
 
 		// Unix paths
-		{"Unix absolute", "/a/b/c", "", "/a/b/c", '/', []string{"", "a", "b", "c"}, true},
-		{"Unix relative", "a/b/c", "", "a/b/c", '/', []string{"a", "b", "c"}, false},
-		{"Unix root", "/", "", "/", '/', []string{"", ""}, true},
+		{"Unix absolute", "/a/b/c", _fileEmptyScheme, _fileEmptyLocalhost, "/a/b/c", '/', []string{"a", "b", "c"}, PathTypeLocalAbsolute, false},
+		{"Unix relative", "a/b/c", _fileEmptyScheme, _fileEmptyLocalhost, "a/b/c", '/', []string{"a", "b", "c"}, PathTypeLocalRelative, false},
+		{"Unix root", "/", _fileEmptyScheme, _fileEmptyLocalhost, "/", '/', []string{""}, PathTypeLocalAbsolute, false},
 
 		// Windows paths
-		{"Windows drive", `C:\a\b`, "C:", `\a\b`, '\\', []string{"", "a", "b"}, true},
-		{"Windows drive relative", `d:a\b`, "d:", `a\b`, '\\', []string{"a", "b"}, false},
+		{"Windows drive", `C:\a\b`, _fileEmptyScheme, "C:", `C:\a\b`, '\\', []string{"a", "b"}, PathTypeLocalAbsolute, false},
+		{"Windows UNC local file", `\\?\C:\a\b`, _fileEmptyScheme, "C:", `C:\a\b`, '\\', []string{"a", "b"}, PathTypeLocalAbsolute, false},
 
-		// URI paths
-		{"file:// URI", "file:///a/b/c", "file:///", "a/b/c", '/', []string{"a", "b", "c"}, false},
-		{"file:// relative", "file://a/b/c", "file://", "a/b/c", '/', []string{"a", "b", "c"}, false},
-		{"files:// URI", "files:///a/b/c", "files:///", "a/b/c", '/', []string{"a", "b", "c"}, false},
-		{"custom:// URI", "custom://host/path", "custom://", "host/path", '/', []string{"host", "path"}, false},
+		// windows not support drive relative path like "d:a\b". but linux support it.
+		{"Windows error path", `d:\a:\b`, "", "", ``, '\\', []string{}, PathTypeUnknown, true},
+		{"Windows drive relative", `d:a\b`, "", "", ``, '\\', []string{}, PathTypeUnknown, true},
+		{"linux", `/home/d:a/b`, _fileEmptyScheme, _fileEmptyLocalhost, `/home/d:a/b`, '/', []string{"home", "d:a", "b"}, PathTypeLocalAbsolute, false},
+		{"linux", `home/d:a/b`, _fileEmptyScheme, _fileEmptyLocalhost, `home/d:a/b`, '/', []string{"home", "d:a", "b"}, PathTypeLocalRelative, false},
 
-		// UNC paths
-		{"UNC path", `\\server\share\path`, `\\server`, `\share\path`, '\\', []string{"", "share", "path"}, true},
-
-		// Mixed separators (cleaned to use '/')
-		{"Mixed separators", `a/b\c/d`, "", "a/b/c/d", '/', []string{"a", "b", "c", "d"}, false},
-
-		// ========== Extended test cases from TestPathEncryption_AllPathFormats ==========
-
-		// UNC paths with variations
-		{"UNC path with IP", `\\192.168.1.2\share\documents\report.pdf`, `\\192.168.1.2`, `\share\documents\report.pdf`, '\\', []string{"", "share", "documents", "report.pdf"}, true},
-		{"UNC path with hostname", `\\server\share\folder\file.txt`, `\\server`, `\share\folder\file.txt`, '\\', []string{"", "share", "folder", "file.txt"}, true},
-
-		// files:// URI variations
-		{"files:// nested", "files:///a/b/c/d/file.txt", "files:///", "a/b/c/d/file.txt", '/', []string{"a", "b", "c", "d", "file.txt"}, false},
-		// Note: files:// with backslash is a mixed separator case, behavior may vary by OS
-		// {"files:// with backslash", `files:///documents\report.pdf`, "files:///", "documents/report.pdf", '/', []string{"documents", "report.pdf"}, false},
-
-		// file:// URI variations
-		{"file:// with host", "file://server/share/file.txt", "file://", "server/share/file.txt", '/', []string{"server", "share", "file.txt"}, false},
-
-		// Arbitrary URI schemes
-		{"custom:/// URI", "custom:///path/to/file.txt", "custom:///", "path/to/file.txt", '/', []string{"path", "to", "file.txt"}, false},
-		// Note: custom:// with backslash is a mixed separator case, behavior may vary by OS
-		// {"custom:// with backslash", `custom://host\path\file.txt`, "custom://", "host/path/file.txt", '/', []string{"host", "path", "file.txt"}, false},
-		// {"custom:/// with backslash", `custom:///path\to\file.txt`, "custom:///", "path/to/file.txt", '/', []string{"path", "to", "file.txt"}, false},
-		{"myscheme:// URI", "myscheme://server/share/data.json", "myscheme://", "server/share/data.json", '/', []string{"server", "share", "data.json"}, false},
-		{"test-scheme:/// URI", "test-scheme:///a/b/c/file.dat", "test-scheme:///", "a/b/c/file.dat", '/', []string{"a", "b", "c", "file.dat"}, false},
-		{"abc123:// URI", "abc123://host/path", "abc123://", "host/path", '/', []string{"host", "path"}, false},
-		{"x.y-z:/// URI", "x.y-z:///data/file.txt", "x.y-z:///", "data/file.txt", '/', []string{"data", "file.txt"}, false},
+		// Mixed separators (以第一个\u002f或\u005c为准，URI/UNC协议的除外)
+		{"Mixed separators", `a/b\c/d`, _fileEmptyScheme, _fileEmptyLocalhost, "a/b/c/d", '/', []string{"a", "b", "c", "d"}, PathTypeLocalRelative, false},
+		{"Mixed separators", `a\b/c/d`, _fileEmptyScheme, _fileEmptyLocalhost, `a\b\c\d`, '\\', []string{"a", "b", "c", "d"}, PathTypeLocalRelative, false},
 
 		// Windows drive variations
-		{"Windows drive D", `d:\data\files\config.json`, "d:", `\data\files\config.json`, '\\', []string{"", "data", "files", "config.json"}, true},
-		{"Windows drive lowercase", `e:\test\file.txt`, "e:", `\test\file.txt`, '\\', []string{"", "test", "file.txt"}, true},
+		{"Windows drive D", `d:\data\files\config.json`, _fileEmptyScheme, "d:", `d:\data\files\config.json`, '\\', []string{"data", "files", "config.json"}, PathTypeLocalAbsolute, false},
+		{"Windows drive lowercase", `e:\test\file.txt`, _fileEmptyScheme, "e:", `e:\test\file.txt`, '\\', []string{"test", "file.txt"}, PathTypeLocalAbsolute, false},
 
 		// Relative paths
-		{"Relative nested", "a/b/c/d/file.txt", "", "a/b/c/d/file.txt", '/', []string{"a", "b", "c", "d", "file.txt"}, false},
+		{"Relative nested", "a/b/c/d/file.txt", _fileEmptyScheme, _fileEmptyLocalhost, "a/b/c/d/file.txt", '/', []string{"a", "b", "c", "d", "file.txt"}, PathTypeLocalRelative, false},
 
 		// Paths with . and .. (cleaned)
-		{"Path with .", `d:\data\.\config.json`, "d:", `\data\config.json`, '\\', []string{"", "data", "config.json"}, true},
-		{"Path with ..", `d:\data\..\config.json`, "d:", `\config.json`, '\\', []string{"", "config.json"}, true},
-		{"Path with multiple ..", `d:\a\b\..\..\c\file.txt`, "d:", `\c\file.txt`, '\\', []string{"", "c", "file.txt"}, true},
-		{"Relative path with .", "documents/./report.pdf", "", "documents/report.pdf", '/', []string{"documents", "report.pdf"}, false},
-		{"Relative path with ..", "documents/../config.json", "", "config.json", '/', []string{"config.json"}, false},
+		{"Path with .", `d:\data\.\config.json`, _fileEmptyScheme, "d:", `d:\data\config.json`, '\\', []string{"data", "config.json"}, PathTypeLocalAbsolute, false},
+		{"Path with ..", `d:\data\..\config.json`, _fileEmptyScheme, "d:", `d:\config.json`, '\\', []string{"config.json"}, PathTypeLocalAbsolute, false},
+		{"Path with multiple ..", `d:\a\b\..\..\c\file.txt`, _fileEmptyScheme, "d:", `d:\c\file.txt`, '\\', []string{"c", "file.txt"}, PathTypeLocalAbsolute, false},
+		{"Relative path with .", "documents/./report.pdf", _fileEmptyScheme, _fileEmptyLocalhost, "documents/report.pdf", '/', []string{"documents", "report.pdf"}, PathTypeLocalRelative, false},
+		{"Relative path with ..", "documents/../config.json", _fileEmptyScheme, _fileEmptyLocalhost, "config.json", '/', []string{"config.json"}, PathTypeLocalRelative, false},
 
 		// Complex paths (cleaned)
-		{"Complex path 1", `d:\data\.\files\..\config.json`, "d:", `\data\config.json`, '\\', []string{"", "data", "config.json"}, true},
-		{"Complex path 3", "/a/b/../c/./d/file.txt", "", "/a/c/d/file.txt", '/', []string{"", "a", "c", "d", "file.txt"}, true},
-
-		// URI + Windows drive combinations
-		// Note: These are complex cases with mixed OS-specific behavior
-		// {"file:// + Windows drive", `file://d:\data\file.txt`, "file://", "d:/data/file.txt", '/', []string{"d:", "data", "file.txt"}, false},
-		// {"files:// + Windows drive", `files://d:\data\file.txt`, "files://", "d:/data/file.txt", '/', []string{"d:", "data", "file.txt"}, false},
-		// {"file:/// + Windows drive", `file:///d:\data\file.txt`, "file:///", "d/data/file.txt", '/', []string{"d", "data", "file.txt"}, false},
-		// {"files:/// + Windows drive", `files:///d:\data\file.txt`, "files:///", "d/data/file.txt", '/', []string{"d", "data", "file.txt"}, false},
+		{"Complex path 1", `d:\data\.\files\..\config.json`, _fileEmptyScheme, "d:", `d:\data\config.json`, '\\', []string{"data", "config.json"}, PathTypeLocalAbsolute, false},
+		{"Complex path 3", "/a/b/../c/./d/file.txt", _fileEmptyScheme, _fileEmptyLocalhost, "/a/c/d/file.txt", '/', []string{"a", "c", "d", "file.txt"}, PathTypeLocalAbsolute, false},
 
 		// Unix path with colons (not URI)
-		{"Unix path with colon", "/xx/xxx:xx/xxx:/xxxx", "", "/xx/xxx:xx/xxx:/xxxx", '/', []string{"", "xx", "xxx:xx", "xxx:", "xxxx"}, true},
-		{"Unix path with multiple colons", "/a/b:c/d:e/f:g", "", "/a/b:c/d:e/f:g", '/', []string{"", "a", "b:c", "d:e", "f:g"}, true},
-		{"Unix path with colon at end", "/path/to/file:attribute", "", "/path/to/file:attribute", '/', []string{"", "path", "to", "file:attribute"}, true},
-
-		// ========== Extended test cases from original TestPathParsing_Prefix ==========
-
-		// Additional URI schemes
-		{"files:// URI extended", "files:///documents/report.pdf", "files:///", "documents/report.pdf", '/', []string{"documents", "report.pdf"}, false},
-		{"custom:/// URI extended", "custom:///path/to/file", "custom:///", "path/to/file", '/', []string{"path", "to", "file"}, false},
-
-		// Additional UNC paths
-		{"UNC path with IP extended", `\\192.168.1.2\share\file.txt`, `\\192.168.1.2`, `\share\file.txt`, '\\', []string{"", "share", "file.txt"}, true},
-		{"UNC path with hostname extended", `\\server\share\file.txt`, `\\server`, `\share\file.txt`, '\\', []string{"", "share", "file.txt"}, true},
-
-		// Additional Windows drives
-		{"Windows drive D extended", `d:\data\file.txt`, "d:", `\data\file.txt`, '\\', []string{"", "data", "file.txt"}, true},
-		{"Windows drive lowercase extended", `e:\test\file.txt`, "e:", `\test\file.txt`, '\\', []string{"", "test", "file.txt"}, true},
-
-		// ========== Extended test cases from original TestPathParsing_Separator ==========
-
-		// Unix paths with various separators
-		{"Unix path with subdirs", "/a/b/c/file.txt", "", "/a/b/c/file.txt", '/', []string{"", "a", "b", "c", "file.txt"}, true},
-		{"Relative Unix path extended", "a/b/c/file.txt", "", "a/b/c/file.txt", '/', []string{"a", "b", "c", "file.txt"}, false},
-
-		// Windows paths with backslash
-		{"Windows path with subdirs", `C:\Documents\file.txt`, "C:", `\Documents\file.txt`, '\\', []string{"", "Documents", "file.txt"}, true},
-		{"UNC path extended", `\\server\share\file.txt`, `\\server`, `\share\file.txt`, '\\', []string{"", "share", "file.txt"}, true},
-		{"Relative Windows path extended", `a\b\c\file.txt`, "", `a\b\c\file.txt`, '\\', []string{"a", "b", "c", "file.txt"}, false},
-
-		// ========== Extended test cases from original TestPathParsing_SplitJoin ==========
+		{"Unix path with colon", "/xx/xxx:xx/xxx:/xxxx", _fileEmptyScheme, _fileEmptyLocalhost, "/xx/xxx:xx/xxx:/xxxx", '/', []string{"xx", "xxx:xx", "xxx:", "xxxx"}, PathTypeLocalAbsolute, false},
+		{"Unix path with multiple colons", "/a/b:c/d:e/f:g", _fileEmptyScheme, _fileEmptyLocalhost, "/a/b:c/d:e/f:g", '/', []string{"a", "b:c", "d:e", "f:g"}, PathTypeLocalAbsolute, false},
+		{"Unix path with colon at end", "/path/to/file:attribute", _fileEmptyScheme, _fileEmptyLocalhost, "/path/to/file:attribute", '/', []string{"path", "to", "file:attribute"}, PathTypeLocalAbsolute, false},
 
 		// Various path lengths
-		{"Short path", "a/b", "", "a/b", '/', []string{"a", "b"}, false},
-		{"Medium path", "a/b/c/d/e", "", "a/b/c/d/e", '/', []string{"a", "b", "c", "d", "e"}, false},
-		{"Long path", "a/b/c/d/e/f/g/h", "", "a/b/c/d/e/f/g/h", '/', []string{"a", "b", "c", "d", "e", "f", "g", "h"}, false},
-		{"Windows short path", `C:\a\b`, "C:", `\a\b`, '\\', []string{"", "a", "b"}, true},
-		{"Windows medium path", `C:\a\b\c\d\e`, "C:", `\a\b\c\d\e`, '\\', []string{"", "a", "b", "c", "d", "e"}, true},
+		{"Short path", "a/b", _fileEmptyScheme, _fileEmptyLocalhost, "a/b", '/', []string{"a", "b"}, PathTypeLocalRelative, false},
+		{"Medium path", "a/b/c/d/e", _fileEmptyScheme, _fileEmptyLocalhost, "a/b/c/d/e", '/', []string{"a", "b", "c", "d", "e"}, PathTypeLocalRelative, false},
+		{"Long path", "a/b/c/d/e/f/g/h", _fileEmptyScheme, _fileEmptyLocalhost, "a/b/c/d/e/f/g/h", '/', []string{"a", "b", "c", "d", "e", "f", "g", "h"}, PathTypeLocalRelative, false},
 
-		// ========== New test cases for user-requested path formats ==========
+		{"Windows medium path", `C:\a\b\c\d\e`, _fileEmptyScheme, "C:", `C:\a\b\c\d\e`, '\\', []string{"a", "b", "c", "d", "e"}, PathTypeLocalAbsolute, false},
+		// Additional Windows drives
+		{"Windows drive D extended", `d:\data\file.txt`, _fileEmptyScheme, "d:", `d:\data\file.txt`, '\\', []string{"data", "file.txt"}, PathTypeLocalAbsolute, false},
 
-		// file:// + Windows drive combinations
-		{"file:// + Windows drive (forward slash)", "file://d:/xxx/xxx/xxx", "file://", "d:/xxx/xxx/xxx", '/', []string{"d:", "xxx", "xxx", "xxx"}, false},
-		{"file:// + Windows drive (backslash)", `file://d:\xxx\xxx/xxx`, "file://", "d:/xxx/xxx/xxx", '/', []string{"d:", "xxx", "xxx", "xxx"}, false},
-		{"file:/// + Windows drive", `file:///d:\xxx\xxx/xxx`, "file:///", "d:/xxx/xxx/xxx", '/', []string{"d", "xxx", "xxx", "xxx"}, false},
-		{"file:// multiple slashes", `file://////////d:\xxx\xxx/xxx`, "file:///", "d:/xxx/xxx/xxx", '/', []string{"d", "xxx", "xxx", "xxx"}, false},
+		// Unix paths with various separators
+		{"Unix path with subdirs", "/a/b/c/file.txt", _fileEmptyScheme, _fileEmptyLocalhost, "/a/b/c/file.txt", '/', []string{"a", "b", "c", "file.txt"}, PathTypeLocalAbsolute, false},
+		{"Relative Unix path extended", "a/b/c/file.txt", _fileEmptyScheme, _fileEmptyLocalhost, "a/b/c/file.txt", '/', []string{"a", "b", "c", "file.txt"}, PathTypeLocalRelative, false},
+		//
+		{"Relative Windows path extended", `a\b\c\file.txt`, _fileEmptyScheme, _fileEmptyLocalhost, `a\b\c\file.txt`, '\\', []string{"a", "b", "c", "file.txt"}, PathTypeLocalRelative, false},
 
-		// files:// + complex paths
-		{"files:// + complex path", `files:///d:\xxx\xxx/xxx\.\\../.\xxx`, "files:///", "d:/xxx/xxx/xxx", '/', []string{"d", "xxx", "xxx", "xxx"}, false},
-		{"files:// multiple slashes", "files://////d:/xxx/xxx", "files:///", "d:/xxx/xxx", '/', []string{"d", "xxx", "xxx"}, false},
-		{"files:// + backslash separator", `files:\\\d:\xxx\xxx\xxx`, "files:///", "d:/xxx/xxx/xxx", '/', []string{"d", "xxx", "xxx", "xxx"}, false},
+		// Windows paths with backslash
+		{"Windows path with subdirs", `C:\Documents\file.txt`, _fileEmptyScheme, "C:", `C:\Documents\file.txt`, '\\', []string{"Documents", "file.txt"}, PathTypeLocalAbsolute, false},
+		// ====================
 
-		// file:// + mixed slashes
-		{"file:// + mixed slashes", `file://xxx\xxx/\/\/\/\/\/\/\xxx`, "file://", "xxx/xxx/xxx", '/', []string{"xxx", "xxx", "xxx"}, false},
+		// URI paths
+		// TODO: RFC 8089 format: file:
+		// file://[可选主机]/<路径>
+
+		// URI files:
+		{"", `file:///d:\data\file.txt`, "file://", "d:", "file:///d:/data/file.txt", '/', []string{"data", "file.txt"}, PathTypeFileUriLocal, false},
+		{"", `file:///d:\aaa\bbb/ccc`, "file://", "d:", "file:///d:/aaa/bbb/ccc", '/', []string{"aaa", "bbb", "ccc"}, PathTypeFileUriLocal, false},
+		{"files:/// URI", "files:///a/b/c", "files://", _fileEmptyLocalhost, "files:///a/b/c", '/', []string{"a", "b", "c"}, PathTypeFileUriLocal, false},
+		{"files:/// nested", "files:///a/b/c/d/file.txt", "files://", _fileEmptyLocalhost, "files:///a/b/c/d/file.txt", '/', []string{"a", "b", "c", "d", "file.txt"}, PathTypeFileUriLocal, false},
+		{"files:/// + backslash separator", `files:\\\d:\a\b\c`, "files://", "d:", "files:///d:/a/b/c", '/', []string{"a", "b", "c"}, PathTypeFileUriLocal, false},
+		{"", `files:///d:\data\file.txt`, "files://", "d:", "files:///d:/data/file.txt", '/', []string{"data", "file.txt"}, PathTypeFileUriLocal, false},
+		{"files:/// URI extended", "files:///documents/report.pdf", "files://", _fileEmptyLocalhost, "files:///documents/report.pdf", '/', []string{"documents", "report.pdf"}, PathTypeFileUriLocal, false},
+		{"files:/// + complex path", `files:///d:\aaa\bbb/ccc\.\\../.\xxx`, "files://", "d:", "files:///d:/aaa/bbb/xxx", '/', []string{"aaa", "bbb", "xxx"}, PathTypeFileUriLocal, false},
+		//
+		{"file:// with host", "file://server/share/file.txt", "file://", "server", "file://server/share/file.txt", '/', []string{"share", "file.txt"}, PathTypeFileUriRemote, false},
+		{"file:// URI", "file://a/b/c", "file://", "a", "file://a/b/c", '/', []string{"b", "c"}, PathTypeFileUriRemote, false},
+		{"file:// + mixed slashes", `file://aaa\bbb/\/\/\/\/\/\/\ccc`, "file://", "aaa", "file://aaa/bbb/ccc", '/', []string{"bbb", "ccc"}, PathTypeFileUriRemote, false},
+
+		// RFC 8089: file:/path is equivalent to file:///path (minimal representation)
+		{"file:/ minimal (RFC 8089)", "file:/path/to/file", "file://", "", "file:///path/to/file", '/', []string{"path", "to", "file"}, PathTypeFileUriLocal, false},
+
+		// RFC 8089: file://localhost/path is local file
+		{"file://localhost (RFC 8089)", "file://localhost/path/to/file", "file://", "localhost", "file://localhost/path/to/file", '/', []string{"path", "to", "file"}, PathTypeFileUriLocal, false},
+
+		// RFC 8089: file://127.0.0.1/path is local file (loopback)
+		{"file://127.0.0.1 (RFC 8089)", "file://127.0.0.1/path/to/file", "file://", "127.0.0.1", "file://127.0.0.1/path/to/file", '/', []string{"path", "to", "file"}, PathTypeFileUriLocal, false},
+
+		// RFC 8089: file://[::1]/path is local file (IPv6 loopback)
+		{"file://[::1] (RFC 8089)", "file://[::1]/path/to/file", "file://", "[::1]", "file://[::1]/path/to/file", '/', []string{"path", "to", "file"}, PathTypeFileUriLocal, false},
+
+		{"file+unc", "files:////aaa/bbb/ccc", "files://", "aaa", "files:////aaa/bbb/ccc", '/', []string{"bbb", "ccc"}, PathTypeFileUriUnc, false},
+		//
+		{"files:/// with backslash", `files:///documents\report.pdf`, "files://", _fileEmptyLocalhost, `files:///documents/report.pdf`, '/', []string{"documents", "report.pdf"}, PathTypeFileUriLocal, false},
+
+		// URI: file://x:/ 非标准的兼容语法.windows下自动补/
+		{"win fix file://x:/ => file:///x:/", `file://d:\data\file.txt`, "file://", "d:", "file:///d:/data/file.txt", '/', []string{"data", "file.txt"}, PathTypeFileUriLocal, false},
+		{"", "file://d:/xxx/xxx/xxx", "file://", "d:", "file:///d:/xxx/xxx/xxx", '/', []string{"xxx", "xxx", "xxx"}, PathTypeFileUriLocal, false},
+		{"", `file://d:\xxx\xxx/xxx`, "file://", "d:", "file:///d:/xxx/xxx/xxx", '/', []string{"xxx", "xxx", "xxx"}, PathTypeFileUriLocal, false},
+		{"file:// multiple slashes", `file://////////d:\xxx\xxx/xxx`, "file://", "d:", "file:///d:/xxx/xxx/xxx", '/', []string{"xxx", "xxx", "xxx"}, PathTypeFileUriLocal, false},
+		{"", `files://d:\data\file.txt`, "files://", "d:", "files:///d:/data/file.txt", '/', []string{"data", "file.txt"}, PathTypeFileUriLocal, false},
+		// {"file:/// multiple slashes", "file://////d:/xxx/xxx", "files://", "d:/xxx/xxx", '/', []string{"d:", "xxx", "xxx"}, PathTypeFileUriLocal, false},
+
+		// custom URI
+		{"custom:// URI", "http://host/path", "http://", "host", "http://host/path", '/', []string{"path"}, PathTypeCustomUri, false},
+		{"custom:// URI", "custom://host/path", "custom://", "host", "custom://host/path", '/', []string{"path"}, PathTypeCustomUri, false},
+		{"custom:// with backslash", `custom://host\path\file.txt`, "custom://", "host", "custom://host/path/file.txt", '/', []string{"path", "file.txt"}, PathTypeCustomUri, false},
+		{"myscheme:// URI", "myscheme://server/share/data.json", "myscheme://", "server", "myscheme://server/share/data.json", '/', []string{"share", "data.json"}, PathTypeCustomUri, false},
+		{"abc123:// URI", "abc123://host/path", "abc123://", "host", "abc123://host/path", '/', []string{"path"}, PathTypeCustomUri, false},
+		///
+		{"custom:/// URI", "custom:///path/to/file.txt", "custom://", _fileEmptyLocalhost, "custom:///path/to/file.txt", '/', []string{"path", "to", "file.txt"}, PathTypeCustomUri, false},
+		{"custom:/// with backslash", `custom:///path\to\file.txt`, "custom://", _fileEmptyLocalhost, `custom:///path/to/file.txt`, '/', []string{"path", "to", "file.txt"}, PathTypeCustomUri, false},
+		{"custom:/// with backslash", `custom:///path\to/file.txt`, "custom://", _fileEmptyLocalhost, `custom:///path/to/file.txt`, '/', []string{"path", "to", "file.txt"}, PathTypeCustomUri, false},
+		{"test-scheme:/// URI", "test-scheme:///a/b/c/file.dat", "test-scheme://", _fileEmptyLocalhost, "test-scheme:///a/b/c/file.dat", '/', []string{"a", "b", "c", "file.dat"}, PathTypeCustomUri, false},
+		{"x.y-z:/// URI", "x.y-z:///data/file.txt", "x.y-z://", _fileEmptyLocalhost, "x.y-z:///data/file.txt", '/', []string{"data", "file.txt"}, PathTypeCustomUri, false},
+		{"custom:/// URI extended", "custom:///path/to/file", "custom://", _fileEmptyLocalhost, "custom:///path/to/file", '/', []string{"path", "to", "file"}, PathTypeCustomUri, false},
+
+		// ===========
+
+		// UNC paths
+		{"UNC path", `\\server\share\path`, `\\`, "server", `\\server\share\path`, '\\', []string{"share", "path"}, PathTypeUncWindows, false},
+		{"UNC path with IP", `\\192.168.1.2\share\documents\report.pdf`, `\\`, `192.168.1.2`, `\\192.168.1.2\share\documents\report.pdf`, '\\', []string{"share", "documents", "report.pdf"}, PathTypeUncWindows, false},
+		{"UNC path with hostname", `\\server\share\folder\file.txt`, `\\`, `server`, `\\server\share\folder\file.txt`, '\\', []string{"share", "folder", "file.txt"}, PathTypeUncWindows, false},
+		{"UNC path with IP extended", `\\192.168.1.2\share\file.txt`, `\\`, `192.168.1.2`, `\\192.168.1.2\share\file.txt`, '\\', []string{"share", "file.txt"}, PathTypeUncWindows, false},
+		{"UNC path with hostname extended", `\\server\share\file.txt`, `\\`, `server`, `\\server\share\file.txt`, '\\', []string{"share", "file.txt"}, PathTypeUncWindows, false},
+		{"UNC ", `\\?\\server\share\path`, `\\`, "server", `\\server\share\path`, '\\', []string{"share", "path"}, PathTypeUncWindows, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			info := ParsePathInfoMust(tt.path)
-
-			// RawPath now returns Original() (cleaned path) since rawPath field was removed
-			if info.RawPath() != info.Original() {
-				t.Errorf("RawPath = %q, want %q", info.RawPath(), info.Original())
+			info, err := ParsePathInfo(tt.path)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
 			}
-			// Original should be the cleaned full path (Prefix + Path)
-			wantOriginal := tt.wantPrefix + tt.wantPath
-			if info.Original() != wantOriginal {
-				t.Errorf("Original = %q, want %q", info.Original(), wantOriginal)
-			}
-			if info.Prefix() != tt.wantPrefix {
-				t.Errorf("Prefix = %q, want %q", info.Prefix(), tt.wantPrefix)
-			}
-			if info.Path() != tt.wantPath {
-				t.Errorf("Path = %q, want %q", info.Path(), tt.wantPath)
-			}
-			if info.Separator() != tt.wantSep {
-				t.Errorf("Separator = %q, want %q", info.Separator(), tt.wantSep)
-			}
-			if len(info.Parts()) != len(tt.wantParts) {
-				t.Errorf("Parts = %v, want %v", info.Parts(), tt.wantParts)
-			}
-			if info.IsAbs() != tt.wantIsAbs {
-				t.Errorf("IsAbs = %v, want %v", info.IsAbs(), tt.wantIsAbs)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantScheme, info.Scheme())
+			assert.Equal(t, tt.wantHost, info.Host())
+			assert.Equal(t, tt.wantSep, info.Separator())
+			assert.EqualValues(t, tt.wantParts, info.Parts())
+			assert.Equal(t, tt.wantType, info.Type())
+			assert.Equal(t, tt.wantEncode, info.Encode())
 		})
 	}
 }
@@ -293,35 +286,25 @@ func TestPathInfo_Methods(t *testing.T) {
 		info := ParsePathInfoMust("/a/b")
 		newInfo := info.Join("c", "d")
 
-		if newInfo.Path() != "/a/b/c/d" {
-			t.Errorf("Join failed: got %q, want %q", newInfo.Path(), "/a/b/c/d")
-		}
+		assert.Equal(t, "/a/b/c/d", newInfo.Encode())
 		// Original info should not be modified
-		if info.Path() != "/a/b" {
-			t.Errorf("Original info was modified: got %q, want %q", info.Path(), "/a/b")
-		}
+		assert.Equal(t, "/a/b", info.Encode())
 	})
 
 	t.Run("Encode", func(t *testing.T) {
 		info := ParsePathInfoMust("file:///a/b/c")
 		encoded := info.Encode()
 
-		if encoded != "file:///a/b/c" {
-			t.Errorf("Encode failed: got %q, want %q", encoded, "file:///a/b/c")
-		}
+		assert.Equal(t, "file:///a/b/c", encoded)
 	})
 
 	t.Run("ReplaceParts", func(t *testing.T) {
 		info := ParsePathInfoMust("/a/b/c")
-		newInfo := info.ReplaceParts([]string{"", "x", "y", "z"})
+		newInfo := info.ReplaceParts([]string{"x", "y", "z"})
 
-		if newInfo.Path() != "/x/y/z" {
-			t.Errorf("ReplaceParts failed: got %q, want %q", newInfo.Path(), "/x/y/z")
-		}
+		assert.Equal(t, "/x/y/z", newInfo.Encode())
 		// Original info should not be modified
-		if info.Path() != "/a/b/c" {
-			t.Errorf("Original info was modified: got %q, want %q", info.Path(), "/a/b/c")
-		}
+		assert.Equal(t, "/a/b/c", info.Encode())
 	})
 }
 
@@ -388,7 +371,7 @@ func TestPathInfo_ContainsPath(t *testing.T) {
 
 			// Test with *PathInfo input
 			otherInfo := ParsePathInfoMust(tt.otherPath)
-			got = baseInfo.ContainsPath(otherInfo)
+			got = baseInfo.ContainsPathInfo(otherInfo)
 			if got != tt.want {
 				t.Errorf("ContainsPath(*PathInfo) = %v, want %v", got, tt.want)
 			}
