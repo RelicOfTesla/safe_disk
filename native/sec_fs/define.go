@@ -239,68 +239,6 @@ var (
 	_ IDirWalker   = (*secDirWalker)(nil)
 )
 
-// ==================== Path Types ====================
-
-// RelativeViewPath represents a relative path from the user's perspective within RootDir.
-// This is the path that users interact with when navigating the encrypted file system.
-// Example: "documents/report.pdf"
-type RelativeViewPath string
-
-// FullViewPath represents a complete absolute path from the user's perspective.
-// This includes the full path to a file or directory within the view layer.
-// Example: "/data/safe_disk_root/documents/report.pdf"
-type FullViewPath string
-
-// RelativeStorePath represents a relative path from the storage perspective.
-// This path reflects the actual stored file name, which may be encrypted or in plain text.
-// Example: "a1b2c3d4e5f6..." (encrypted file name)
-type RelativeStorePath string
-
-// FullStorePath represents a complete absolute path from the storage perspective.
-// This is the actual path on disk where the encrypted or unencrypted data is stored.
-// Example: "/data/safe_disk_root/a1b2c3d4e5f6..."
-type FullStorePath string
-
-// String returns the string representation of RelativeViewPath.
-func (p RelativeViewPath) String() string {
-	return string(p)
-}
-
-// String returns the string representation of FullViewPath.
-func (p FullViewPath) String() string {
-	return string(p)
-}
-
-// String returns the string representation of RelativeStorePath.
-func (p RelativeStorePath) String() string {
-	return string(p)
-}
-
-// String returns the string representation of FullStorePath.
-func (p FullStorePath) String() string {
-	return string(p)
-}
-
-// IsEmpty returns true if the RelativeViewPath is empty.
-func (p RelativeViewPath) IsEmpty() bool {
-	return string(p) == ""
-}
-
-// IsEmpty returns true if the FullViewPath is empty.
-func (p FullViewPath) IsEmpty() bool {
-	return string(p) == ""
-}
-
-// IsEmpty returns true if the RelativeStorePath is empty.
-func (p RelativeStorePath) IsEmpty() bool {
-	return string(p) == ""
-}
-
-// IsEmpty returns true if the FullStorePath is empty.
-func (p FullStorePath) IsEmpty() bool {
-	return string(p) == ""
-}
-
 // ==================== Ignore Matcher Interface ====================
 
 // IIgnoreMatcher defines the interface for matching file names to ignore.
