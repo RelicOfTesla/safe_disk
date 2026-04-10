@@ -32,6 +32,16 @@ func sec_root_close(rootID C.int64_t) *C.char {
 	return C.CString(result)
 }
 
+//export sec_create_root_config
+func sec_create_root_config(rootPath *C.char, password *C.char, optionsJSON *C.char) *C.char {
+	goRootPath := C.GoString(rootPath)
+	goPassword := C.GoString(password)
+	goOptionsJSON := C.GoString(optionsJSON)
+
+	result := CreateRootConfig_FFI(goRootPath, goPassword, goOptionsJSON)
+	return C.CString(result)
+}
+
 // ==================== File Operations ====================
 
 //export sec_file_open

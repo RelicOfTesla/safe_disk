@@ -74,6 +74,11 @@ type ISecRoot interface {
 	// WalkDir returns a directory walker for the given path.
 	WalkDir(path RelativeViewPath, opts ...WalkOption) (IDirWalker, error)
 
+	// Rename renames a file or directory from oldPath to newPath.
+	// Both paths are relative view paths (encrypted names).
+	// This operation handles encrypted file names internally.
+	Rename(oldPath RelativeViewPath, newPath RelativeViewPath) error
+
 	// GetRootPath returns the full store path of the root directory.
 	GetRootPath() FullStorePath
 

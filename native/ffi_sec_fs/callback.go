@@ -141,7 +141,7 @@ func CProgressCallbackToGo(cCallback C.CProgressCallback) (sec_transfer.Progress
 	id := globalCallbackRegistry.register(cCallback)
 
 	// Create a Go callback wrapper
-	goCallback := func(status sec_transfer.ProgressStatus) {
+	goCallback := func(status sec_transfer.TransferProgress) {
 		// Retrieve the C callback from registry
 		wrapper, exists := globalCallbackRegistry.get(id)
 		if !exists || wrapper.cCallback == nil {

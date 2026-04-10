@@ -4,12 +4,9 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
-	"safe_disk/native/config"
 	"safe_disk/native/sec_fs"
-	"safe_disk/native/sec_fs/crypto_hkdf"
 	"safe_disk/native/sec_fs/sec_transfer"
 )
 
@@ -76,79 +73,116 @@ type ReadDirResult struct {
 
 // ==================== Config Helper Functions ====================
 
-// parseConfig parses a JSON string into a config.SharedConfig.
-// Returns a MemoryConfig populated with the JSON data.
-func parseConfig(configJSON string) (config.SharedConfig, error) {
-	cfg := config.NewMemoryConfig()
-	
-	if configJSON == "" {
-		return cfg, nil
+// parseOpenOptions parses a JSON string into OpenOption slice.
+// If the JSON string is empty, returns an empty slice.
+//
+// Supported options:
+//   - configFileName: custom config file name (string)
+//   - ignoreMatcher: ignore matcher configuration (TODO: not implemented yet)
+func parseOpenOptions(optionsJSON string) []sec_fs.OpenOption {
+	if optionsJSON == "" {
+		return nil
 	}
-	
-	var data map[string]interface{}
-	if err := json.Unmarshal([]byte(configJSON), &data); err != nil {
-		return nil, fmt.Errorf("invalid config JSON: %w", err)
+
+	// Parse JSON into a map
+	var optsMap map[string]interface{}
+	if err := json.Unmarshal([]byte(optionsJSON), &optsMap); err != nil {
+		// If parsing fails, return empty options
+		return nil
 	}
-	
-	for key, value := range data {
-		switch v := value.(type) {
-		case string:
-			cfg.SetStr(key, v)
-		case float64:
-			cfg.SetInt(key, int(v))
-		case bool:
-			cfg.SetBool(key, v)
-		}
+
+	var options []sec_fs.OpenOption
+
+	// Parse configFileName
+	if configFileName, ok := optsMap["configFileName"].(string); ok && configFileName != "" {
+		options = append(options, sec_fs.WithOpenConfigFileName(configFileName))
 	}
-	
-	return cfg, nil
+
+	// TODO: Parse ignoreMatcher if needed in the future
+
+	return options
+}
+
+// parseCreateRootOptions parses a JSON string into CreateRootOption slice.
+// If the JSON string is empty, returns an empty slice.
+//
+// Supported options:
+//   - dataFactory: data encryption factory name (string)
+//   - nameFactory: name encryption factory name (string)
+//   - deriverFactory: key deriver factory name (string)
+//   - keyStrengthMs: key strength in milliseconds (int)
+//   - configFileName: custom config file name (string)
+func parseCreateRootOptions(optionsJSON string) []sec_fs.CreateRootOption {
+	if optionsJSON == "" {
+		return nil
+	}
+
+	// Parse JSON into a map
+	var optsMap map[string]interface{}
+	if err := json.Unmarshal([]byte(optionsJSON), &optsMap); err != nil {
+		// If parsing fails, return empty options
+		return nil
+	}
+
+	var options []sec_fs.CreateRootOption
+
+	// Parse dataFactory
+	if dataFactory, ok := optsMap["dataFactory"].(string); ok && dataFactory != "" {
+		options = append(options, sec_fs.WithDataFactory(dataFactory))
+	}
+
+	// Parse nameFactory
+	if nameFactory, ok := optsMap["nameFactory"].(string); ok && nameFactory != "" {
+		options = append(options, sec_fs.WithNameFactory(nameFactory))
+	}
+
+	// Parse deriverFactory
+	if deriverFactory, ok := optsMap["deriverFactory"].(string); ok && deriverFactory != "" {
+		options = append(options, sec_fs.WithDeriverFactory(deriverFactory))
+	}
+
+	// Parse keyStrengthMs
+	if keyStrengthMs, ok := optsMap["keyStrengthMs"].(float64); ok && keyStrengthMs > 0 {
+		options = append(options, sec_fs.WithKeyStrengthMs(int(keyStrengthMs)))
+	}
+
+	// Parse configFileName
+	if configFileName, ok := optsMap["configFileName"].(string); ok && configFileName != "" {
+		options = append(options, sec_fs.WithConfigFileName(configFileName))
+	}
+
+	return options
 }
 
 // ==================== Root Operations ====================
 
 // OpenRoot_FFI opens a secure root directory with the given parameters.
 // Returns a JSON string with root_id on success, or an error message on failure.
-func OpenRoot_FFI(rootPath string, password string, configJSON string) string {
-	cfg, err := parseConfig(configJSON)
-	if err != nil {
-		return errorResponse(err)
-	}
+//
+// Parameters:
+//   - rootPath: the full storage path of the root directory
+//   - password: the password for encryption/decryption
+//   - optionsJSON: JSON string containing OpenOptions (optional, can be empty)
+//
+// OpenOptions format:
+//   {
+//     "dataFactory": "aes-ctr",
+//     "nameFactory": "aes-gcm-name",
+//     "deriverFactory": "pbkdf2",
+//     "ignoreMatcher": { ... }
+//   }
+func OpenRoot_FFI(rootPath string, password string, optionsJSON string) string {
+	// Parse open options
+	opts := parseOpenOptions(optionsJSON)
 
-	// Get all factories from config using GetSuitFromConfig
-	_, _, deriverFactory, err := sec_fs.GetSuitFromConfig(cfg)
-	if err != nil {
-		return errorResponse(err)
-	}
-
-	// Create deriver from factory
-	var keyDeriver crypto_hkdf.IKeyDeriver
-	if deriverFactory != nil {
-		keyDeriver, err = deriverFactory.NewDeriver(cfg)
-		if err != nil {
-			return errorResponse(err)
-		}
-	} else {
-		// Fallback: use global registry
-		deriverNames := crypto_hkdf.ListKeyDerivers()
-		if len(deriverNames) == 0 {
-			return errorResponseStr("no key deriver registered")
-		}
-		keyDeriver = crypto_hkdf.GetKeyDeriver(deriverNames[0])
-	}
-
-	// Derive key from password
-	keyInfo, err := keyDeriver.LoadKey(password, cfg)
-	if err != nil {
-		return errorResponse(err)
-	}
-
-	root, err := sec_fs.OpenRoot(sec_fs.FullStorePath(rootPath), keyInfo, cfg)
+	// Open root using OpenRootQuick
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(rootPath), password, opts...)
 	if err != nil {
 		return errorResponse(err)
 	}
 
 	// Store the root instance and get its ID
-	rootID := RootStore.Add(RootEntry{Root: root, RootPath: rootPath, Cfg: cfg})
+	rootID := RootStore.Add(RootEntry{Root: root, RootPath: rootPath})
 
 	return successResponse(RootOpenResult{RootID: rootID})
 }
@@ -169,6 +203,35 @@ func CloseRoot_FFI(rootID int64) string {
 
 	// Remove from store
 	RootStore.Remove(rootID)
+
+	return Success()
+}
+
+// CreateRootConfig_FFI creates a new configuration for a secure root.
+// Returns a JSON string indicating success or failure.
+//
+// Parameters:
+//   - rootPath: the full storage path of the root directory
+//   - password: the password for encryption/decryption
+//   - optionsJSON: JSON string containing CreateRootOptions (optional, can be empty)
+//
+// CreateRootOptions format:
+//   {
+//     "dataFactory": "aes-ctr",
+//     "nameFactory": "aes-gcm-name",
+//     "deriverFactory": "pbkdf2",
+//     "keyStrengthMs": 100,
+//     "configFileName": "_cryption.json"
+//   }
+func CreateRootConfig_FFI(rootPath string, password string, optionsJSON string) string {
+	// Parse create options
+	opts := parseCreateRootOptions(optionsJSON)
+
+	// Create config using CreateRootConfigQuick
+	_, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(rootPath), password, opts...)
+	if err != nil {
+		return errorResponse(err)
+	}
 
 	return Success()
 }
@@ -494,7 +557,7 @@ func ExportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 	}
 
 	// Use transfer service from sec_transfer package
-	svc := sec_transfer.NewTransferService()
+	svc := sec_transfer.GetDefaultTransferManager()
 	taskInfo, err := svc.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(srcPath), sec_fs.FullStorePath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
@@ -512,7 +575,7 @@ func ImportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 	}
 
 	// Use transfer service from sec_transfer package
-	svc := sec_transfer.NewTransferService()
+	svc := sec_transfer.GetDefaultTransferManager()
 	taskInfo, err := svc.ImportDirectoryAsync(sec_fs.FullStorePath(srcPath), root, sec_fs.RelativeViewPath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
@@ -530,7 +593,7 @@ func ExportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 	}
 
 	// Use transfer service from sec_transfer package
-	svc := sec_transfer.NewTransferService()
+	svc := sec_transfer.GetDefaultTransferManager()
 	taskInfo, err := svc.ExportFileAsync(root, sec_fs.RelativeViewPath(srcPath), sec_fs.FullStorePath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
@@ -548,7 +611,7 @@ func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 	}
 
 	// Use transfer service from sec_transfer package
-	svc := sec_transfer.NewTransferService()
+	svc := sec_transfer.GetDefaultTransferManager()
 	taskInfo, err := svc.ImportFileAsync(sec_fs.FullStorePath(srcPath), root, sec_fs.RelativeViewPath(destPath), nil, nil)
 	if err != nil {
 		return errorResponse(err)
@@ -559,7 +622,7 @@ func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 
 // GetTransferProgress_FFI gets the progress of a transfer job.
 func GetTransferProgress_FFI(taskID string) string {
-	svc := sec_transfer.NewTransferService()
+	svc := sec_transfer.GetDefaultTransferManager()
 	job, err := svc.GetTaskProgress(taskID)
 	if err != nil {
 		return errorResponse(err)
@@ -570,7 +633,7 @@ func GetTransferProgress_FFI(taskID string) string {
 
 // RollbackTransfer_FFI cancels a transfer job.
 func RollbackTransfer_FFI(taskID string) string {
-	svc := sec_transfer.NewTransferService()
+	svc := sec_transfer.GetDefaultTransferManager()
 	err := svc.RollbackTask(taskID)
 	if err != nil {
 		return errorResponse(err)

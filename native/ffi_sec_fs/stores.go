@@ -3,7 +3,6 @@
 package main
 
 import (
-	"safe_disk/native/config"
 	"safe_disk/native/sec_fs"
 )
 
@@ -11,7 +10,6 @@ import (
 type RootEntry struct {
 	Root     sec_fs.ISecRoot
 	RootPath string
-	Cfg      config.SharedConfig
 }
 
 // Global stores for root and file instances.

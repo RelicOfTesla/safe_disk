@@ -18,7 +18,6 @@ import (
 type secDirWalker struct {
 	rootPath     FullStorePath
 	relativePath RelativeViewPath
-	fullPath     string
 	options      *WalkOptions
 
 	// Streaming fields
@@ -42,9 +41,6 @@ const defaultBatchSize = 100
 // newSecDirWalker creates a new secDirWalker instance.
 // This is an internal factory function used by WalkDir.
 func newSecDirWalker(rootPath FullStorePath, relativePath RelativeViewPath, nameCryptor crypto_name.INameCryptorContext, ignoreMatcher IIgnoreMatcher, opts ...WalkOption) *secDirWalker {
-	// Build full path
-	fullPath := filepath.Join(string(rootPath), string(relativePath))
-
 	// Apply default options
 	options := &WalkOptions{}
 	for _, opt := range opts {
@@ -54,12 +50,18 @@ func newSecDirWalker(rootPath FullStorePath, relativePath RelativeViewPath, name
 	return &secDirWalker{
 		rootPath:      rootPath,
 		relativePath:  relativePath,
-		fullPath:      fullPath,
 		options:       options,
 		nameCryptor:   nameCryptor,
 		ignoreMatcher: ignoreMatcher,
 		batchSize:     defaultBatchSize,
 	}
+}
+
+// viewPathToStorePath converts a view path (plain text) to a store path (encrypted).
+// Each path component is encrypted separately using nameCryptor.
+// If nameCryptor is nil, the path is returned as-is (no encryption).
+func (w *secDirWalker) viewPathToStorePath(viewPath RelativeViewPath) (RelativeStorePath, error) {
+	return ViewPathToStorePath(viewPath, w.nameCryptor)
 }
 
 
@@ -120,13 +122,22 @@ func (w *secDirWalker) init() error {
 	w.initialized = true
 	w.batchSize = defaultBatchSize
 
+	// Convert relativePath (view path, plain text) to store path (encrypted)
+	storePath, err := w.viewPathToStorePath(w.relativePath)
+	if err != nil {
+		return NewPathError("encrypt_path", string(w.relativePath), err)
+	}
+
+	// Build full path from rootPath and encrypted store path
+	fullPath := filepath.Join(string(w.rootPath), string(storePath))
+
 	// Open the directory file
-	dirFile, err := os.Open(w.fullPath)
+	dirFile, err := os.Open(fullPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return ErrDirectoryNotFound
 		}
-		return NewPathError("opendir", w.fullPath, err)
+		return NewPathError("opendir", fullPath, err)
 	}
 
 	w.dirFile = dirFile
@@ -146,7 +157,7 @@ func (w *secDirWalker) loadNextBatch() error {
 			w.rawEntries = nil
 			return ErrNoMoreEntries
 		}
-		return NewPathError("readdir", w.fullPath, err)
+		return NewPathError("readdir", string(w.relativePath), err)
 	}
 
 	// No more entries
@@ -339,7 +350,7 @@ func (w *secDirWalker) Reset() error {
 	if w.dirFile != nil {
 		_, err := w.dirFile.Seek(0, 0)
 		if err != nil {
-			return NewPathError("seekdir", w.fullPath, err)
+			return NewPathError("seekdir", string(w.relativePath), err)
 		}
 	}
 

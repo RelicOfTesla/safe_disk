@@ -73,8 +73,16 @@ func (r *secRootImpl) OpenFile(path RelativeViewPath, mode int) (ISecFile, error
 	if r.closed {
 		return nil, ErrRootClosed
 	}
+
+	// Convert view path to store path (encrypt file names)
+	storePath, err := r.viewPathToStorePath(path)
+	if err != nil {
+		return nil, err
+	}
+
 	// Build the full storage path
-	fullPath := filepath.Join(string(r.rootPath), string(path))
+	fullPath := filepath.Join(string(r.rootPath), string(storePath))
+
 	// Ensure parent directory exists for write operations
 	if mode&os.O_WRONLY != 0 || mode&os.O_RDWR != 0 || mode&os.O_CREATE != 0 {
 		parentDir := filepath.Dir(fullPath)
@@ -82,22 +90,24 @@ func (r *secRootImpl) OpenFile(path RelativeViewPath, mode int) (ISecFile, error
 			return nil, NewPathError("mkdir", parentDir, err)
 		}
 	}
+
 	// Open or create the underlying file
 	file, err := os.OpenFile(fullPath, mode, 0644)
 	if err != nil {
 		return nil, NewPathError("open", fullPath, err)
 	}
+
 	// Create a cryptographic context for the file
 	cryptorContext, err := r.fileDataFactory.NewContext(&fileContext{File: file}, r.keyInfo, r.cfg)
 	if err != nil {
 		file.Close()
 		return nil, NewCryptoError("new_context", "failed to create cryptor context", err)
 	}
+
 	// Create and return the secFileImpl
 	secFile := &secFileImpl{
 		impl:             cryptorContext,
 		relativeViewPath: path,
-		
 	}
 	return secFile, nil
 }
@@ -116,6 +126,13 @@ func (r *secRootImpl) Close() error {
 	return nil
 }
 // DeleteFile deletes a file at the given relative view path.
+
+// viewPathToStorePath converts a view path (plain text) to a store path (encrypted).
+// Each path component is encrypted separately using nameCryptor.
+// If nameCryptor is nil, the path is returned as-is (no encryption).
+func (r *secRootImpl) viewPathToStorePath(viewPath RelativeViewPath) (RelativeStorePath, error) {
+	return ViewPathToStorePath(viewPath, r.nameCryptor)
+}
 // It returns an error if the file does not exist or cannot be deleted.
 func (r *secRootImpl) DeleteFile(path RelativeViewPath) error {
 	if r == nil {
@@ -126,8 +143,15 @@ func (r *secRootImpl) DeleteFile(path RelativeViewPath) error {
 	if r.closed {
 		return ErrRootClosed
 	}
-	fullPath := filepath.Join(string(r.rootPath), string(path))
-	err := os.Remove(fullPath)
+
+	// Convert view path to store path (encrypt file names)
+	storePath, err := r.viewPathToStorePath(path)
+	if err != nil {
+		return err
+	}
+
+	fullPath := filepath.Join(string(r.rootPath), string(storePath))
+	err = os.Remove(fullPath)
 	if err != nil {
 		return NewPathError("remove", fullPath, err)
 	}
@@ -143,8 +167,15 @@ func (r *secRootImpl) FileExists(path RelativeViewPath) bool {
 	if r.closed {
 		return false
 	}
-	fullPath := filepath.Join(string(r.rootPath), string(path))
-	_, err := os.Stat(fullPath)
+
+	// Convert view path to store path (encrypt file names)
+	storePath, err := r.viewPathToStorePath(path)
+	if err != nil {
+		return false
+	}
+
+	fullPath := filepath.Join(string(r.rootPath), string(storePath))
+	_, err = os.Stat(fullPath)
 	return err == nil
 }
 // MkdirAll creates a directory named path, along with any necessary parents.
@@ -157,9 +188,51 @@ func (r *secRootImpl) MkdirAll(path RelativeViewPath) error {
 	if r.closed {
 		return ErrRootClosed
 	}
-	fullPath := filepath.Join(string(r.rootPath), string(path))
+
+	// Convert view path to store path (encrypt file names)
+	storePath, err := r.viewPathToStorePath(path)
+	if err != nil {
+		return err
+	}
+
+	fullPath := filepath.Join(string(r.rootPath), string(storePath))
 	return os.MkdirAll(fullPath, 0755)
 }
+
+// Rename renames a file or directory from oldPath to newPath.
+// Both paths are relative view paths (plain text, will be encrypted).
+// This operation is atomic at the file system level.
+func (r *secRootImpl) Rename(oldPath RelativeViewPath, newPath RelativeViewPath) error {
+	if r == nil {
+		return ErrRootClosed
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.closed {
+		return ErrRootClosed
+	}
+
+	// Convert view paths to store paths (encrypt file names)
+	oldStorePath, err := r.viewPathToStorePath(oldPath)
+	if err != nil {
+		return err
+	}
+
+	newStorePath, err := r.viewPathToStorePath(newPath)
+	if err != nil {
+		return err
+	}
+
+	oldFullPath := filepath.Join(string(r.rootPath), string(oldStorePath))
+	newFullPath := filepath.Join(string(r.rootPath), string(newStorePath))
+
+	err = os.Rename(oldFullPath, newFullPath)
+	if err != nil {
+		return NewPathError("rename", oldFullPath, err)
+	}
+	return nil
+}
+
 // WalkDir returns a directory walker for the given path.
 func (r *secRootImpl) WalkDir(path RelativeViewPath, opts ...WalkOption) (IDirWalker, error) {
 	if r == nil {
