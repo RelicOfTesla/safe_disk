@@ -50,8 +50,11 @@ app.*.map.json
 native/*.test
 native/*.out
 native/*.h
+native/sec_fs/*.test
+native/sec_fs/sec_utils/*.test
 
 # Coverage files
+/coverage
 **/coverage*.out
 *.cover
 *.coverprofile
@@ -86,4 +89,18 @@ native/tmp/
 
 *.go.backup*
 *.go.bak*
+
+native/sec_fs/sec_utils/*.txt
+/native/sec_fs/sec_utils/*.prof
+/native/sec_fs/sec_utils/*.md
+/native/sec_fs/sec_utils/*.py
+
+/native/sec_fs/sec_utils/_archived
+/native/sec_fs/sec_utils/testdata
+
+# Archived directories
+lib/_archived_native/
+docs/task-driver-doc/
+docs/_archived/
+**/_archived*.md
 

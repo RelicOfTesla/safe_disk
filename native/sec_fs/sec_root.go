@@ -15,13 +15,14 @@ import (
 	"safe_disk/native/sec_fs/crypto_name"
 	"safe_disk/native/sec_fs/sec_utils"
 )
+
 // secRootImpl implements ISecRoot interface.
 // It manages the root directory for encrypted file storage.
 type secRootImpl struct {
 	// fileDataFactory is the cryptographic data factory used to create cryptor contexts.
 	fileDataFactory crypto_data.ICryptoDataFactory
-	// rootPath is the full storage path of the root directory.
-	rootPath FullStorePath
+	// rootPathInfo is the full storage path of the root directory.
+	rootPathInfo sec_utils.PathInfo
 	// keyInfo provides key information for encryption/decryption.
 	keyInfo crypto_hkdf.IKeyInfo
 	// cfg provides algorithm-specific configuration.
@@ -34,31 +35,34 @@ type secRootImpl struct {
 	nameCryptor crypto_name.INameCryptorContext
 	// ignoreMatcher provides ignore logic for file names.
 	ignoreMatcher IIgnoreMatcher
-	// rootPathInfo caches the parsed PathInfo for rootPath to avoid repeated parsing.
-	rootPathInfo sec_utils.PathInfo
 }
 
-// validateFullPath validates that the given full path is within the root path.
-// It checks:
-//   - The path does not contain path traversal that would escape the root (e.g., "../..")
-//   - The path is within the root directory
-//
-// Returns an error if validation fails.
-func (r *secRootImpl) validateFullPath(fullPath string) error {
-	// Clean the full path to resolve any ".." or "."
-	cleanedFullPath := sec_utils.PathClean(fullPath)
-	
-	// Verify the cleaned full path is within the root directory
-	cleanedInfo, err := sec_utils.ParsePathInfo(cleanedFullPath)
+// viewPathToStorePathCheck converts a view path (plain text) to a store path (encrypted).
+// Each path component is encrypted separately using nameCryptor.
+// If nameCryptor is nil, the path is returned as-is (no encryption).
+// If allowUnsafe is false, it validates that the resulting path is within the root directory.
+// Returns the encrypted store path, the full storage path, and an error if validation fails.
+func viewPathToStorePathCheck(rootInfo sec_utils.PathInfo, viewPath RelativeViewPath, nameCryptor crypto_name.INameCryptorContext, allowUnsafe bool) (RelativeStorePath, FullStorePath, error) {
+	// Convert view path to store path (encrypt file names)
+	storePath, err := ViewPathToStorePath(viewPath, nameCryptor)
 	if err != nil {
-		return NewPathError("validate", fullPath, err)
+		return "", "", err
 	}
-	if !r.rootPathInfo.ContainsPath(cleanedInfo) {
-		return NewPathError("validate", fullPath, ErrPathTraversal)
+
+	// Build the full storage path
+	fullPathInfo := rootInfo.Join(string(storePath))
+	fullPath := FullStorePath(fullPathInfo.Encode())
+
+	// Validate the full path is within the root directory (unless allowUnsafe is true)
+	if !allowUnsafe {
+		if !rootInfo.ContainsPathInfo(fullPathInfo) {
+			return "", "", NewPairPathError("validate", viewPath, fullPath, ErrPathTraversal)
+		}
 	}
-	
-	return nil
+
+	return storePath, fullPath, nil
 }
+
 // ==================== ISecRoot Interface Methods ====================
 // OpenFile opens a file at the given relative view path with the specified mode.
 
@@ -99,32 +103,24 @@ func (r *secRootImpl) OpenFile(path RelativeViewPath, mode int) (ISecFile, error
 		return nil, ErrRootClosed
 	}
 
-	// Convert view path to store path (encrypt file names)
-	storePath, err := r.viewPathToStorePath(path)
+	// Convert view path to store path (encrypt file names) and validate
+	_, fullPath, err := viewPathToStorePathCheck(r.rootPathInfo, path, r.nameCryptor, false)
 	if err != nil {
-		return nil, err
-	}
-
-	// Build the full storage path
-	fullPath := filepath.Join(string(r.rootPath), string(storePath))
-	
-	// Validate the full path is within the root directory
-	if err := r.validateFullPath(fullPath); err != nil {
 		return nil, err
 	}
 
 	// Ensure parent directory exists for write operations
 	if mode&os.O_WRONLY != 0 || mode&os.O_RDWR != 0 || mode&os.O_CREATE != 0 {
-		parentDir := filepath.Dir(fullPath)
+		parentDir := filepath.Dir(string(fullPath))
 		if err := os.MkdirAll(parentDir, 0755); err != nil {
-			return nil, NewPathError("mkdir", parentDir, err)
+			return nil, NewFullStorePathError("mkdir", FullStorePath(parentDir), err)
 		}
 	}
 
 	// Open or create the underlying file
-	file, err := os.OpenFile(fullPath, mode, 0644)
+	file, err := os.OpenFile(string(fullPath), mode, 0644)
 	if err != nil {
-		return nil, NewPathError("open", fullPath, err)
+		return nil, NewPairPathError("open", path, fullPath, err)
 	}
 
 	// Create a cryptographic context for the file
@@ -141,6 +137,7 @@ func (r *secRootImpl) OpenFile(path RelativeViewPath, mode int) (ISecFile, error
 	}
 	return secFile, nil
 }
+
 // Close closes the root and releases all resources.
 // After calling Close, all operations on the root will return ErrRootClosed.
 func (r *secRootImpl) Close() error {
@@ -155,14 +152,8 @@ func (r *secRootImpl) Close() error {
 	r.closed = true
 	return nil
 }
-// DeleteFile deletes a file at the given relative view path.
 
-// viewPathToStorePath converts a view path (plain text) to a store path (encrypted).
-// Each path component is encrypted separately using nameCryptor.
-// If nameCryptor is nil, the path is returned as-is (no encryption).
-func (r *secRootImpl) viewPathToStorePath(viewPath RelativeViewPath) (RelativeStorePath, error) {
-	return ViewPathToStorePath(viewPath, r.nameCryptor)
-}
+// DeleteFile deletes a file at the given relative view path.
 // It returns an error if the file does not exist or cannot be deleted.
 func (r *secRootImpl) DeleteFile(path RelativeViewPath) error {
 	if r == nil {
@@ -174,25 +165,19 @@ func (r *secRootImpl) DeleteFile(path RelativeViewPath) error {
 		return ErrRootClosed
 	}
 
-	// Convert view path to store path (encrypt file names)
-	storePath, err := r.viewPathToStorePath(path)
+	// Convert view path to store path (encrypt file names) and validate
+	_, fullPath, err := viewPathToStorePathCheck(r.rootPathInfo, path, r.nameCryptor, false)
 	if err != nil {
 		return err
 	}
 
-	fullPath := filepath.Join(string(r.rootPath), string(storePath))
-	
-	// Validate the full path is within the root directory
-	if err := r.validateFullPath(fullPath); err != nil {
-		return err
-	}
-	
-	err = os.Remove(fullPath)
+	err = os.Remove(string(fullPath))
 	if err != nil {
-		return NewPathError("remove", fullPath, err)
+		return NewPairPathError("remove", path, fullPath, err)
 	}
 	return nil
 }
+
 // FileExists checks if a file exists at the given relative view path.
 func (r *secRootImpl) FileExists(path RelativeViewPath) bool {
 	if r == nil {
@@ -204,22 +189,16 @@ func (r *secRootImpl) FileExists(path RelativeViewPath) bool {
 		return false
 	}
 
-	// Convert view path to store path (encrypt file names)
-	storePath, err := r.viewPathToStorePath(path)
+	// Convert view path to store path (encrypt file names) and validate
+	_, fullPath, err := viewPathToStorePathCheck(r.rootPathInfo, path, r.nameCryptor, false)
 	if err != nil {
 		return false
 	}
 
-	fullPath := filepath.Join(string(r.rootPath), string(storePath))
-	
-	// Validate the full path is within the root directory
-	if err := r.validateFullPath(fullPath); err != nil {
-		return false
-	}
-	
-	_, err = os.Stat(fullPath)
+	_, err = os.Stat(string(fullPath))
 	return err == nil
 }
+
 // MkdirAll creates a directory named path, along with any necessary parents.
 func (r *secRootImpl) MkdirAll(path RelativeViewPath) error {
 	if r == nil {
@@ -231,20 +210,13 @@ func (r *secRootImpl) MkdirAll(path RelativeViewPath) error {
 		return ErrRootClosed
 	}
 
-	// Convert view path to store path (encrypt file names)
-	storePath, err := r.viewPathToStorePath(path)
+	// Convert view path to store path (encrypt file names) and validate
+	_, fullPath, err := viewPathToStorePathCheck(r.rootPathInfo, path, r.nameCryptor, false)
 	if err != nil {
 		return err
 	}
 
-	fullPath := filepath.Join(string(r.rootPath), string(storePath))
-	
-	// Validate the full path is within the root directory
-	if err := r.validateFullPath(fullPath); err != nil {
-		return err
-	}
-	
-	return os.MkdirAll(fullPath, 0755)
+	return os.MkdirAll(string(fullPath), 0755)
 }
 
 // Rename renames a file or directory from oldPath to newPath.
@@ -260,31 +232,20 @@ func (r *secRootImpl) Rename(oldPath RelativeViewPath, newPath RelativeViewPath)
 		return ErrRootClosed
 	}
 
-	// Convert view paths to store paths (encrypt file names)
-	oldStorePath, err := r.viewPathToStorePath(oldPath)
+	// Convert view paths to store paths (encrypt file names) and validate
+	_, oldFullPath, err := viewPathToStorePathCheck(r.rootPathInfo, oldPath, r.nameCryptor, false)
 	if err != nil {
 		return err
 	}
 
-	newStorePath, err := r.viewPathToStorePath(newPath)
+	_, newFullPath, err := viewPathToStorePathCheck(r.rootPathInfo, newPath, r.nameCryptor, false)
 	if err != nil {
 		return err
 	}
 
-	oldFullPath := filepath.Join(string(r.rootPath), string(oldStorePath))
-	newFullPath := filepath.Join(string(r.rootPath), string(newStorePath))
-	
-	// Validate both paths are within the root directory
-	if err := r.validateFullPath(oldFullPath); err != nil {
-		return err
-	}
-	if err := r.validateFullPath(newFullPath); err != nil {
-		return err
-	}
-
-	err = os.Rename(oldFullPath, newFullPath)
+	err = os.Rename(string(oldFullPath), string(newFullPath))
 	if err != nil {
-		return NewPathError("rename", oldFullPath, err)
+		return NewPairPathError("rename", oldPath, oldFullPath, err)
 	}
 	return nil
 }
@@ -300,26 +261,21 @@ func (r *secRootImpl) WalkDir(path RelativeViewPath, opts ...WalkOption) (IDirWa
 		return nil, ErrRootClosed
 	}
 
-	// Convert view path to store path (encrypt file names)
-	storePath, err := r.viewPathToStorePath(path)
+	// Convert view path to store path (encrypt file names) and validate
+	_, _, err := viewPathToStorePathCheck(r.rootPathInfo, path, r.nameCryptor, false)
 	if err != nil {
-		return nil, err
-	}
-	
-	// Build and validate the full path
-	fullPath := filepath.Join(string(r.rootPath), string(storePath))
-	if err := r.validateFullPath(fullPath); err != nil {
 		return nil, err
 	}
 
 	// Create walker using factory function
-	walker := newSecDirWalker(r.rootPath, path, r.nameCryptor, r.ignoreMatcher, opts...)
+	walker := newSecDirWalker(r.rootPathInfo, path, r.nameCryptor, r.ignoreMatcher, opts...)
 
 	if err := walker.init(); err != nil {
 		return nil, err
 	}
 	return walker, nil
 }
+
 // GetRootPath returns the root path of the secure storage.
 
 // ReadDir reads the named directory and returns a list of directory entries.
@@ -336,21 +292,15 @@ func (r *secRootImpl) ReadDir(name string) ([]fs.DirEntry, error) {
 
 	// Convert name to RelativeViewPath
 	path := RelativeViewPath(name)
-	
-	// Convert view path to store path (encrypt file names)
-	storePath, err := r.viewPathToStorePath(path)
+
+	// Convert view path to store path (encrypt file names) and validate
+	_, _, err := viewPathToStorePathCheck(r.rootPathInfo, path, r.nameCryptor, false)
 	if err != nil {
-		return nil, err
-	}
-	
-	// Build and validate the full path
-	fullPath := filepath.Join(string(r.rootPath), string(storePath))
-	if err := r.validateFullPath(fullPath); err != nil {
 		return nil, err
 	}
 
 	// Create walker using factory function
-	walker := newSecDirWalker(r.rootPath, path, r.nameCryptor, r.ignoreMatcher)
+	walker := newSecDirWalker(r.rootPathInfo, path, r.nameCryptor, r.ignoreMatcher)
 
 	if err := walker.init(); err != nil {
 		return nil, err
@@ -378,8 +328,9 @@ func (r *secRootImpl) GetRootPath() FullStorePath {
 	if r == nil {
 		return ""
 	}
-	return r.rootPath
+	return FullStorePath(r.rootPathInfo.Encode())
 }
+
 // GetConfig returns the shared configuration.
 func (r *secRootImpl) GetConfig() config.SharedConfig {
 	if r == nil {

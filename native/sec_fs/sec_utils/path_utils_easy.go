@@ -6,18 +6,121 @@ package sec_utils
 import (
 	"errors"
 	"strings"
+	"sync"
 )
 
-// ==================== Helper Functions ====================
+// ==================== Scheme Behavior Configuration ====================
 
-// isWindowsDriveLetter checks if the position points to a Windows drive letter pattern (e.g., "C:").
-// Returns true if path[pos] and path[pos+1] form a drive letter (X: where X is A-Z or a-z).
-func isWindowsDriveLetter(path string, pos int) bool {
-	if pos+1 >= len(path) {
-		return false
-	}
-	return path[pos+1] == ':' && isEnglishLetter(path[pos])
+// SchemeBehavior defines how a URI scheme should be parsed.
+// This controls whether the scheme follows RFC 3986 authority semantics.
+type SchemeBehavior struct {
+	// MustFollowRFC3986Authority indicates whether the scheme must follow
+	// RFC 3986 authority semantics (scheme://host/path).
+	// When true, scheme:///path means empty host + absolute path.
+	// When false, the interpretation is scheme-specific.
+	MustFollowRFC3986Authority bool
 }
+
+// DefaultSchemeBehavior is the default behavior for unknown schemes.
+var DefaultSchemeBehavior = SchemeBehavior{
+	MustFollowRFC3986Authority: false, // Default: do not force RFC 3986 authority
+}
+
+// Standard schemes that follow RFC 3986 authority semantics
+var standardRFC3986Schemes = map[string]struct{}{
+	"http":    {},
+	"https":   {},
+	"file":    {},
+	"files":   {},
+	"ftp":     {},
+	"sftp":    {},
+	"ssh":     {},
+	"ws":      {},
+	"wss":     {},
+	"git":     {},
+	"svn":     {},
+	"svn+ssh": {},
+	"dav":     {},
+	"davs":    {},
+}
+
+// schemeRegistry holds registered scheme behaviors.
+// Schemes are stored in lowercase for case-insensitive lookup.
+var schemeRegistry = struct {
+	sync.RWMutex
+	behaviors map[string]SchemeBehavior
+}{
+	behaviors: make(map[string]SchemeBehavior),
+}
+
+// RegisterScheme registers a scheme with its behavior.
+// The scheme name is case-insensitive (stored as lowercase).
+func RegisterScheme(scheme string, behavior SchemeBehavior) {
+	schemeRegistry.Lock()
+	defer schemeRegistry.Unlock()
+	schemeRegistry.behaviors[strings.ToLower(scheme)] = behavior
+}
+
+// GetSchemeBehavior returns the behavior for a scheme.
+// If the scheme is not registered, it checks standard RFC 3986 schemes first,
+// then returns DefaultSchemeBehavior.
+func GetSchemeBehavior(scheme string) SchemeBehavior {
+	schemeLower := strings.ToLower(scheme)
+
+	// Check if registered
+	schemeRegistry.RLock()
+	if behavior, ok := schemeRegistry.behaviors[schemeLower]; ok {
+		schemeRegistry.RUnlock()
+		return behavior
+	}
+	schemeRegistry.RUnlock()
+
+	// Check standard RFC 3986 schemes
+	if _, ok := standardRFC3986Schemes[schemeLower]; ok {
+		return SchemeBehavior{MustFollowRFC3986Authority: true}
+	}
+
+	// Return default behavior
+	return DefaultSchemeBehavior
+}
+
+// SetDefaultSchemeBehavior sets the default behavior for unknown schemes.
+func SetDefaultSchemeBehavior(behavior SchemeBehavior) {
+	DefaultSchemeBehavior = behavior
+}
+
+// ==================== Parse Options ====================
+
+// ParseOptions holds options for path parsing.
+type ParseOptions struct {
+	// OverrideSchemeBehavior forces a specific behavior for all schemes,
+	// ignoring registered behaviors. Use nil to use default behavior.
+	OverrideSchemeBehavior *SchemeBehavior
+}
+
+// DefaultParseOptions is the default parse options.
+var DefaultParseOptions = ParseOptions{}
+
+// ParseOption is a functional option for configuring ParseOptions.
+type ParseOption func(*ParseOptions)
+
+// WithSchemeBehaviorOverride sets a behavior override for all schemes.
+func WithSchemeBehaviorOverride(behavior SchemeBehavior) ParseOption {
+	return func(opts *ParseOptions) {
+		opts.OverrideSchemeBehavior = &behavior
+	}
+}
+
+// applyParseOptions applies functional options to ParseOptions.
+func applyParseOptions(options ...ParseOption) ParseOptions {
+	opts := DefaultParseOptions
+	for _, option := range options {
+		option(&opts)
+	}
+	return opts
+}
+
+// ==================== Helper Functions ====================
 
 // isWindowsDriveString checks if a string is a Windows drive letter (e.g., "C:").
 func isWindowsDriveString(s string) bool {
@@ -68,19 +171,6 @@ func (info *pathInfoImpl) Path() string {
 		info.path = &actualPath
 	}
 	return *info.path
-}
-
-// isAbsolutePath returns true if the path is an absolute path.
-func (info *pathInfoImpl) isAbsolutePath() bool {
-	if info == nil {
-		return false
-	}
-	switch info.pathType {
-	case PathTypeLocalAbsolute, PathTypeFileUriLocal, PathTypeFileUriRemote, PathTypeFileUriUnc, PathTypeUncWindows:
-		return true
-	default:
-		return false
-	}
 }
 
 // Scheme returns the path scheme (URI scheme, UNC prefix, etc.).
@@ -353,7 +443,8 @@ func (info *pathInfoImpl) ContainsPathInfo(otherInfo PathInfo) bool {
 // ReplaceParts creates a new PathInfo with replaced path parts.
 func (info *pathInfoImpl) ReplaceParts(newParts []string) PathInfo {
 	// For absolute paths, ensure leading empty string is present
-	if info.isAbsolutePath() && (len(newParts) == 0 || newParts[0] != "") {
+	// Check if original parts has leading empty string (absolute path indicator)
+	if len(info.parts) > 0 && info.parts[0] == "" && (len(newParts) == 0 || newParts[0] != "") {
 		newParts = append([]string{""}, newParts...)
 	}
 
@@ -368,7 +459,7 @@ func (info *pathInfoImpl) ReplaceParts(newParts []string) PathInfo {
 
 // ==================== ParsePathInfoEasy ====================
 
-// ParsePathInfoEasy parses a path and returns all information in one call.
+// ParsePathInfoWithOptions parses a path with custom options and returns all information in one call.
 // This function is optimized to parse the path in a single pass, combining:
 //   - Scheme detection (URI, UNC, drive letter)
 //   - Host detection (for URI/UNC; drive letter for Windows)
@@ -379,11 +470,14 @@ func (info *pathInfoImpl) ReplaceParts(newParts []string) PathInfo {
 //
 // Parameters:
 //   - path: The path to parse
+//   - options: Functional options for customizing parsing behavior
 //
 // Returns:
 //   - PathInfo: Parsed path information (nil if path is empty)
-//   - error: Always returns nil for now, reserved for future error handling
-func ParsePathInfoEasy(path string) (PathInfo, error) {
+//   - error: Returns error for invalid paths
+func ParsePathInfoWithOptions(path string, options ...ParseOption) (PathInfo, error) {
+	opts := applyParseOptions(options...)
+
 	if path == "" {
 		return &pathInfoImpl{
 			separator: DefaultSystemSeparator,
@@ -391,7 +485,7 @@ func ParsePathInfoEasy(path string) (PathInfo, error) {
 	}
 
 	// Single-pass parsing: extract scheme, host, detect separator, split and clean path
-	scheme, host, separator, parts, pathType := parsePathOnce(path)
+	scheme, host, separator, parts, pathType := parsePathOnce(path, opts)
 
 	// Validate: check for invalid drive letter in the middle of path
 	// Example: d:\a:\b is invalid because a: appears in the middle
@@ -417,6 +511,19 @@ func ParsePathInfoEasy(path string) (PathInfo, error) {
 	}, nil
 }
 
+// ParsePathInfoEasy parses a path and returns all information in one call.
+// This is a convenience wrapper around ParsePathInfoWithOptions with default options.
+//
+// Parameters:
+//   - path: The path to parse
+//
+// Returns:
+//   - PathInfo: Parsed path information (nil if path is empty)
+//   - error: Returns error for invalid paths
+func ParsePathInfoEasy(path string) (PathInfo, error) {
+	return ParsePathInfoWithOptions(path)
+}
+
 // ParsePathInfoEasyMust is like ParsePathInfoEasy but panics if an error occurs.
 // This is useful for cases where the path is guaranteed to be valid,
 // such as hardcoded paths or paths that have been validated elsewhere.
@@ -431,13 +538,13 @@ func ParsePathInfoEasyMust(path string) PathInfo {
 // parsePathOnce performs single-pass path parsing.
 // It extracts scheme, host, detects separator, splits and cleans the path in one traversal.
 // Optimized to avoid unnecessary string allocations.
-func parsePathOnce(path string) (scheme string, host string, separator rune, parts []string, pathType PathType) {
+func parsePathOnce(path string, opts ParseOptions) (scheme string, host string, separator rune, parts []string, pathType PathType) {
 	// Default separator
 	separator = DefaultSystemSeparator
 
 	// Step 1: Extract scheme and host (URI, UNC, drive letter)
 	var pathEnd int
-	scheme, host, pathEnd, pathType = extractSchemeAndHost(path)
+	scheme, host, pathEnd, pathType = extractSchemeAndHost(path, opts)
 
 	// Step 2: Handle empty path after scheme
 	if pathEnd >= len(path) {
@@ -525,11 +632,21 @@ func parsePathOnce(path string) (scheme string, host string, separator rune, par
 	return scheme, host, separator, parts, pathType
 }
 
+// getEffectiveSchemeBehavior returns the effective scheme behavior considering overrides.
+// If opts.OverrideSchemeBehavior is set, it returns that override.
+// Otherwise, it returns the behavior from GetSchemeBehavior.
+func getEffectiveSchemeBehavior(scheme string, opts ParseOptions) SchemeBehavior {
+	if opts.OverrideSchemeBehavior != nil {
+		return *opts.OverrideSchemeBehavior
+	}
+	return GetSchemeBehavior(scheme)
+}
+
 // ==================== URI Scheme Extraction ====================
 
 // extractURIScheme extracts URI scheme from path.
 // Handles: scheme://host/path, scheme:///path, scheme:/path, scheme:
-func extractURIScheme(path string) (scheme string, host string, pathEnd int, pathType PathType) {
+func extractURIScheme(path string, opts ParseOptions) (scheme string, host string, pathEnd int, pathType PathType) {
 	schemeEnd := findURISchemeEnd(path)
 	if schemeEnd <= 0 || len(path) <= schemeEnd || path[schemeEnd] != ':' {
 		return "", "", 0, PathTypeUnknown
@@ -539,25 +656,25 @@ func extractURIScheme(path string) (scheme string, host string, pathEnd int, pat
 	if len(path) > schemeEnd+2 {
 		// Try :// pattern
 		if path[schemeEnd+1] == '/' && path[schemeEnd+2] == '/' {
-			return extractURISchemeWithSlashes(path, schemeEnd, '/')
+			return extractURISchemeWithSlashes(path, schemeEnd, '/', opts)
 		}
 		// Try :\\ pattern (backslash variant)
 		if path[schemeEnd+1] == '\\' && path[schemeEnd+2] == '\\' {
-			return extractURISchemeWithSlashes(path, schemeEnd, '\\')
+			return extractURISchemeWithSlashes(path, schemeEnd, '\\', opts)
 		}
 	}
 
 	// Check for :/ (single slash)
 	if len(path) > schemeEnd+1 && path[schemeEnd+1] == '/' {
-		return extractURISchemeWithSingleSlash(path, schemeEnd)
+		return extractURISchemeWithSingleSlash(path, schemeEnd, opts)
 	}
 
 	// scheme: without slashes
-	return extractURISchemeWithoutSlashes(path, schemeEnd)
+	return extractURISchemeWithoutSlashes(path, schemeEnd, opts)
 }
 
 // extractURISchemeWithSlashes handles scheme:// or scheme:\\ patterns.
-func extractURISchemeWithSlashes(path string, schemeEnd int, sep byte) (scheme string, host string, pathEnd int, pathType PathType) {
+func extractURISchemeWithSlashes(path string, schemeEnd int, sep byte, opts ParseOptions) (scheme string, host string, pathEnd int, pathType PathType) {
 	// Count consecutive slashes after :// or :\\
 	slashCount := 2
 	for i := schemeEnd + 3; i < len(path) && (path[i] == '/' || path[i] == '\\'); i++ {
@@ -574,16 +691,23 @@ func extractURISchemeWithSlashes(path string, schemeEnd int, sep byte) (scheme s
 	// Determine if this is a file scheme
 	isFileScheme := scheme == "file://" || scheme == "files://"
 
-	// Determine path type based on slash count
+	// Get scheme behavior
+	schemePrefix := strings.TrimSuffix(scheme, "://")
+	behavior := getEffectiveSchemeBehavior(schemePrefix, opts)
+
+	// Determine path type based on slash count and scheme behavior
 	if slashCount >= 3 {
 		// file:/// or files:/// is local file URI
 		if isFileScheme {
 			pathType = PathTypeFileUriLocal
+		} else if behavior.MustFollowRFC3986Authority {
+			// For RFC 3986 schemes with 3+ slashes, it's a local path (empty host)
+			pathType = PathTypeCustomUri
 		} else {
 			pathType = PathTypeCustomUri
 		}
 		// Check for UNC format (files:////server/share/path) or Windows drive
-		if host, pathEnd, pathType = extractHostForMultiSlashURI(path, pathEnd, slashCount, isFileScheme); host != "" {
+		if host, pathEnd, pathType = extractHostForMultiSlashURI(path, pathEnd, slashCount, isFileScheme, behavior); host != "" {
 			return scheme, host, pathEnd, pathType
 		}
 	} else {
@@ -594,7 +718,7 @@ func extractURISchemeWithSlashes(path string, schemeEnd int, sep byte) (scheme s
 			pathType = PathTypeCustomUri
 		}
 		// Extract host for 2-slash URI
-		if host, pathEnd, pathType = extractHostForTwoSlashURI(path, pathEnd, isFileScheme); host != "" {
+		if host, pathEnd, pathType = extractHostForTwoSlashURI(path, pathEnd, isFileScheme, behavior); host != "" {
 			return scheme, host, pathEnd, pathType
 		}
 	}
@@ -603,7 +727,18 @@ func extractURISchemeWithSlashes(path string, schemeEnd int, sep byte) (scheme s
 }
 
 // extractHostForTwoSlashURI extracts host from URI with 2 slashes (scheme://host/path).
-func extractHostForTwoSlashURI(path string, pathEnd int, isFileScheme bool) (host string, newPathEnd int, pathType PathType) {
+func extractHostForTwoSlashURI(path string, pathEnd int, isFileScheme bool, behavior SchemeBehavior) (host string, newPathEnd int, pathType PathType) {
+	// If not following RFC 3986 authority semantics, do not extract host
+	// All content after scheme:// is treated as path
+	if !behavior.MustFollowRFC3986Authority {
+		// Skip leading slashes after scheme
+		pathStart := pathEnd
+		for pathStart < len(path) && (path[pathStart] == '/' || path[pathStart] == '\\') {
+			pathStart++
+		}
+		return "", pathStart, PathTypeCustomUri
+	}
+
 	// Skip leading slashes after scheme
 	hostStart := pathEnd
 	for hostStart < len(path) && (path[hostStart] == '/' || path[hostStart] == '\\') {
@@ -648,7 +783,7 @@ func extractHostForTwoSlashURI(path string, pathEnd int, isFileScheme bool) (hos
 }
 
 // extractHostForMultiSlashURI extracts host from URI with 3+ slashes.
-func extractHostForMultiSlashURI(path string, pathEnd int, slashCount int, isFileScheme bool) (host string, newPathEnd int, pathType PathType) {
+func extractHostForMultiSlashURI(path string, pathEnd int, slashCount int, isFileScheme bool, behavior SchemeBehavior) (host string, newPathEnd int, pathType PathType) {
 	// Skip leading slashes
 	hostStart := pathEnd
 	for hostStart < len(path) && (path[hostStart] == '/' || path[hostStart] == '\\') {
@@ -681,7 +816,7 @@ func extractHostForMultiSlashURI(path string, pathEnd int, slashCount int, isFil
 }
 
 // extractURISchemeWithSingleSlash handles scheme:/path pattern.
-func extractURISchemeWithSingleSlash(path string, schemeEnd int) (scheme string, host string, pathEnd int, pathType PathType) {
+func extractURISchemeWithSingleSlash(path string, schemeEnd int, opts ParseOptions) (scheme string, host string, pathEnd int, pathType PathType) {
 	schemePrefix := path[:schemeEnd]
 
 	// RFC 8089: file:/path is equivalent to file:///path
@@ -694,7 +829,7 @@ func extractURISchemeWithSingleSlash(path string, schemeEnd int) (scheme string,
 }
 
 // extractURISchemeWithoutSlashes handles scheme: pattern.
-func extractURISchemeWithoutSlashes(path string, schemeEnd int) (scheme string, host string, pathEnd int, pathType PathType) {
+func extractURISchemeWithoutSlashes(path string, schemeEnd int, opts ParseOptions) (scheme string, host string, pathEnd int, pathType PathType) {
 	schemePrefix := path[:schemeEnd]
 
 	// RFC 8089: file: and files: should be normalized to file:/// and files:///
@@ -814,7 +949,7 @@ func extractWindowsDrive(path string) (scheme string, host string, pathEnd int, 
 //   - file: -> file:///
 //   - file:/path -> file:///path
 //   - file://localhost/path -> file:///path (localhost is recognized)
-func extractSchemeAndHost(path string) (scheme string, host string, pathEnd int, pathType PathType) {
+func extractSchemeAndHost(path string, opts ParseOptions) (scheme string, host string, pathEnd int, pathType PathType) {
 	if len(path) == 0 {
 		return "", "", 0, PathTypeUnknown
 	}
@@ -822,7 +957,7 @@ func extractSchemeAndHost(path string) (scheme string, host string, pathEnd int,
 	// Try each path type in order of specificity
 
 	// 1. URI scheme (scheme://, scheme:/, scheme:///)
-	if scheme, host, pathEnd, pathType := extractURIScheme(path); pathType != PathTypeUnknown {
+	if scheme, host, pathEnd, pathType := extractURIScheme(path, opts); pathType != PathTypeUnknown {
 		return scheme, host, pathEnd, pathType
 	}
 

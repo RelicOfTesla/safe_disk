@@ -49,9 +49,9 @@ func TestNameEncryption_ViewPathToStorePath(t *testing.T) {
 
 	// Create a minimal secRootImpl for testing viewPathToStorePath
 	root := &secRootImpl{
-		rootPath:    "/test/root",
-		nameCryptor: nameCryptor,
-		cfg:         config.NewMemoryConfig(),
+		rootPathInfo: sec_utils.ParsePathInfoMust("/test/root"),
+		nameCryptor:  nameCryptor,
+		cfg:          config.NewMemoryConfig(),
 	}
 
 	// Test cases
@@ -68,7 +68,7 @@ func TestNameEncryption_ViewPathToStorePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storePath, err := root.viewPathToStorePath(tt.viewPath)
+			storePath, _, err := viewPathToStorePathCheck(root.rootPathInfo, tt.viewPath, root.nameCryptor, true)
 
 			if tt.wantError {
 				if err == nil {
@@ -88,7 +88,7 @@ func TestNameEncryption_ViewPathToStorePath(t *testing.T) {
 				// Check that path components are encrypted (start with "enc_")
 				parts := sec_utils.ParsePathInfoMust(string(storePath)).Parts()
 				viewParts := sec_utils.ParsePathInfoMust(string(tt.viewPath)).Parts()
-				
+
 				for i, part := range parts {
 					if i < len(viewParts) && viewParts[i] != "" && viewParts[i] != "." && viewParts[i] != ".." {
 						if part == viewParts[i] {
@@ -105,13 +105,13 @@ func TestNameEncryption_ViewPathToStorePath(t *testing.T) {
 func TestNameEncryption_NoNameCryptor(t *testing.T) {
 	// Create a secRootImpl without name cryptor
 	root := &secRootImpl{
-		rootPath:    "/test/root",
-		nameCryptor: nil,
-		cfg:         config.NewMemoryConfig(),
+		rootPathInfo: sec_utils.ParsePathInfoMust("/test/root"),
+		nameCryptor:  nil,
+		cfg:          config.NewMemoryConfig(),
 	}
 
 	viewPath := RelativeViewPath("documents/report.pdf")
-	storePath, err := root.viewPathToStorePath(viewPath)
+	storePath, _, err := viewPathToStorePathCheck(root.rootPathInfo, viewPath, root.nameCryptor, true)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -127,7 +127,7 @@ func TestNameEncryption_NoNameCryptor(t *testing.T) {
 func TestNameEncryption_RoundTripWithMock(t *testing.T) {
 	// Create a mock name cryptor that actually encrypts
 	key := []byte("test-key-32-bytes-long-enough!!!")
-	
+
 	encryptFunc := func(plaintext string) (string, error) {
 		if plaintext == "" {
 			return "", nil
@@ -138,7 +138,7 @@ func TestNameEncryption_RoundTripWithMock(t *testing.T) {
 		}
 		return "enc_" + string(result), nil
 	}
-	
+
 	decryptFunc := func(encrypted string) (string, error) {
 		if encrypted == "" {
 			return "", nil
@@ -193,7 +193,7 @@ func TestNameEncryption_RoundTripWithMock(t *testing.T) {
 
 			// Verify round trip
 			if decrypted != originalName {
-				t.Errorf("round trip failed: original=%q, encrypted=%q, decrypted=%q", 
+				t.Errorf("round trip failed: original=%q, encrypted=%q, decrypted=%q",
 					originalName, encrypted, decrypted)
 			}
 
@@ -206,7 +206,7 @@ func TestNameEncryption_RoundTripWithMock(t *testing.T) {
 func TestNameEncryption_PathTraversal(t *testing.T) {
 	// Create a mock name cryptor
 	key := []byte("test-key-32-bytes-long-enough!!!")
-	
+
 	encryptFunc := func(plaintext string) (string, error) {
 		if plaintext == "" || plaintext == "." || plaintext == ".." {
 			return plaintext, nil
@@ -217,7 +217,7 @@ func TestNameEncryption_PathTraversal(t *testing.T) {
 		}
 		return "enc_" + string(result), nil
 	}
-	
+
 	decryptFunc := func(encrypted string) (string, error) {
 		if encrypted == "" || encrypted == "." || encrypted == ".." {
 			return encrypted, nil
@@ -239,9 +239,9 @@ func TestNameEncryption_PathTraversal(t *testing.T) {
 	}
 
 	root := &secRootImpl{
-		rootPath:    "/test/root",
-		nameCryptor: nameCryptor,
-		cfg:         config.NewMemoryConfig(),
+		rootPathInfo: sec_utils.ParsePathInfoMust("/test/root"),
+		nameCryptor:  nameCryptor,
+		cfg:          config.NewMemoryConfig(),
 	}
 
 	tests := []struct {
@@ -255,7 +255,7 @@ func TestNameEncryption_PathTraversal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storePath, err := root.viewPathToStorePath(tt.viewPath)
+			storePath, _, err := viewPathToStorePathCheck(root.rootPathInfo, tt.viewPath, root.nameCryptor, true)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -274,7 +274,7 @@ func TestNameEncryption_PathTraversal(t *testing.T) {
 func TestNameEncryption_URIPrefix(t *testing.T) {
 	// Create a mock name cryptor
 	key := []byte("test-key-32-bytes-long-enough!!!")
-	
+
 	encryptFunc := func(plaintext string) (string, error) {
 		if plaintext == "" || plaintext == "." || plaintext == ".." {
 			return plaintext, nil
@@ -285,7 +285,7 @@ func TestNameEncryption_URIPrefix(t *testing.T) {
 		}
 		return "enc_" + string(result), nil
 	}
-	
+
 	decryptFunc := func(encrypted string) (string, error) {
 		if encrypted == "" || encrypted == "." || encrypted == ".." {
 			return encrypted, nil
@@ -307,9 +307,9 @@ func TestNameEncryption_URIPrefix(t *testing.T) {
 	}
 
 	root := &secRootImpl{
-		rootPath:    "/test/root",
-		nameCryptor: nameCryptor,
-		cfg:         config.NewMemoryConfig(),
+		rootPathInfo: sec_utils.ParsePathInfoMust("/test/root"),
+		nameCryptor:  nameCryptor,
+		cfg:          config.NewMemoryConfig(),
 	}
 
 	tests := []struct {
@@ -326,7 +326,7 @@ func TestNameEncryption_URIPrefix(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Encrypt
-			storePath, err := root.viewPathToStorePath(tt.viewPath)
+			storePath, _, err := viewPathToStorePathCheck(root.rootPathInfo, tt.viewPath, root.nameCryptor, true)
 			if tt.wantError {
 				if err == nil {
 					t.Error("expected error, got nil")
@@ -396,7 +396,7 @@ func TestNameEncryption_Integration(t *testing.T) {
 
 	// Create a mock name cryptor that encrypts names
 	key := []byte("test-key-32-bytes-long-enough!!!")
-	
+
 	encryptFunc := func(plaintext string) (string, error) {
 		if plaintext == "" || plaintext == "." || plaintext == ".." {
 			return plaintext, nil
@@ -407,7 +407,7 @@ func TestNameEncryption_Integration(t *testing.T) {
 		}
 		return "enc_" + string(result), nil
 	}
-	
+
 	decryptFunc := func(encrypted string) (string, error) {
 		if encrypted == "" || encrypted == "." || encrypted == ".." {
 			return encrypted, nil
@@ -429,7 +429,7 @@ func TestNameEncryption_Integration(t *testing.T) {
 	}
 
 	// Create walker with name cryptor
-	walker := newSecDirWalker(FullStorePath(tempDir), "", nameCryptor, nil)
+	walker := newSecDirWalker(sec_utils.ParsePathInfoMust(tempDir), "", nameCryptor, nil)
 	defer walker.Close()
 
 	// Read entries and verify they are decrypted

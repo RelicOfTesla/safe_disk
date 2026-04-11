@@ -244,12 +244,25 @@ var (
 // IIgnoreMatcher defines the interface for matching file names to ignore.
 // This allows flexible ignore patterns (e.g., gitignore-style patterns).
 type IIgnoreMatcher interface {
-	// ShouldIgnore returns true if the file/directory with the given name should be ignored.
+	// ShouldIgnore1 returns true if the file/directory should be ignored BEFORE name decryption.
 	// Parameters:
-	//   - name: the file or directory name (not full path)
+	//   - encryptedName: the encrypted file or directory name (store name)
 	//   - isDir: true if this is a directory
 	// Returns: true if the entry should be ignored
-	ShouldIgnore(name string, isDir bool) bool
+	//
+	// This is called before name decryption, allowing filtering based on encrypted name patterns.
+	// Use this to skip files with specific encrypted name formats (e.g., config files with special prefixes).
+	ShouldIgnore1(encryptedName string, isDir bool) bool
+
+	// ShouldIgnore2 returns true if the file/directory should be ignored AFTER name decryption.
+	// Parameters:
+	//   - decryptedName: the decrypted file or directory name (view name)
+	//   - isDir: true if this is a directory
+	// Returns: true if the entry should be ignored
+	//
+	// This is called after name decryption, allowing filtering based on decrypted name patterns.
+	// Use this to skip files with specific patterns (e.g., hidden files, temporary files).
+	ShouldIgnore2(decryptedName string, isDir bool) bool
 }
 
 // ==================== WalkOptions Ignore Support ====================

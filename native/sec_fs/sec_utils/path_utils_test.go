@@ -57,7 +57,7 @@ func TestPathParsing_Clean(t *testing.T) {
 		{"file:// with dot", "file:///a/./b", "file:///a/b"},
 		{"file:// with double dot", "file:///a/b/../c", "file:///a/c"},
 		{"files:// URI", "files:///a/b/c", "files:///a/b/c"},
-		{"custom:// URI", "custom://host/path", "custom://host/path"},
+		{"custom:// URI", "custom://host/path", "custom:///host/path"},
 
 		// UNC paths
 		{"UNC path", `\\server\share\path`, `\\server\share\path`},
@@ -104,6 +104,39 @@ func TestPathParsing_Clean(t *testing.T) {
 		{"Medium path", "a/b/c/d/e", "a/b/c/d/e"},
 		{"Long path", "a/b/c/d/e/f/g/h", "a/b/c/d/e/f/g/h"},
 		{"Windows medium path", `C:\a\b\c\d\e`, `C:\a\b\c\d\e`},
+
+		// ========== Pure special characters (., \, /) combinations ==========
+
+		// Single character
+		{"Single dot", ".", ""},
+		{"Single backslash", `\`, ""}, // Treated as relative path separator
+		{"Single slash", "/", "/"},
+
+		// Double characters
+		{"Double dot", "..", ".."},
+		{"Double backslash", `\\`, `\\`}, // UNC path prefix
+		{"Double slash", "//", "/"},
+		{"Dot slash", "./", ""},
+		{"Dot backslash", `.\`, ""},
+		{"Slash dot", "/.", "/"},
+		{"Backslash dot", `\.`, ""}, // Treated as relative path separator
+
+		// Triple characters
+		{"Dot dot slash", "../", ".."},
+		{"Dot dot backslash", "..\\", ".."},
+		{"Slash dot dot", "/..", "/.."},
+		{"Backslash dot dot", `\..`, ".."}, // Treated as relative path
+		{"Dot dot dot", "...", "..."},
+		{"Slash slash slash", "///", "/"},
+		{"Backslash backslash backslash", `\\\`, `\\\`}, // UNC path prefix
+
+		// Mixed combinations
+		{"Dot slash dot", "./.", ""},
+		{"Dot backslash dot", ".\\.", ""},
+		{"Slash dot slash", "/./", "/"},
+		{"Backslash dot backslash", `\.\`, ""}, // Treated as relative path separator
+		{"Dot dot slash dot", "../.", ".."},
+		{"Dot dot backslash dot", `..\.`, ".."},
 	}
 
 	for _, tt := range tests {
@@ -114,6 +147,166 @@ func TestPathParsing_Clean(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSchemeBehavior tests scheme behavior configuration.
+func TestSchemeBehavior(t *testing.T) {
+	// Save and restore default behavior
+	originalDefault := DefaultSchemeBehavior
+	defer func() {
+		DefaultSchemeBehavior = originalDefault
+		schemeRegistry.Lock()
+		schemeRegistry.behaviors = make(map[string]SchemeBehavior)
+		schemeRegistry.Unlock()
+	}()
+
+	t.Run("StandardScheme_HTTP_FollowRFC3986", func(t *testing.T) {
+		// Standard schemes (http, https) must follow RFC 3986
+		// http://host/path -> host + path
+		info, err := ParsePathInfoWithOptions("http://example.com/path/to/file")
+		require.NoError(t, err)
+		assert.Equal(t, "http://", info.Scheme())
+		assert.Equal(t, "example.com", info.Host())
+		assert.Equal(t, []string{"path", "to", "file"}, info.Parts())
+		assert.Equal(t, PathTypeCustomUri, info.Type())
+
+		// http:///path -> empty host + absolute path (RFC 3986)
+		info2, err := ParsePathInfoWithOptions("http:///path/to/file")
+		require.NoError(t, err)
+		assert.Equal(t, "http://", info2.Scheme())
+		assert.Equal(t, "", info2.Host())
+		assert.Equal(t, []string{"path", "to", "file"}, info2.Parts())
+		assert.Equal(t, PathTypeCustomUri, info2.Type())
+	})
+
+	t.Run("StandardScheme_HTTPS_FollowRFC3986", func(t *testing.T) {
+		// https://host/path -> host + path
+		info, err := ParsePathInfoWithOptions("https://example.com/path")
+		require.NoError(t, err)
+		assert.Equal(t, "https://", info.Scheme())
+		assert.Equal(t, "example.com", info.Host())
+		assert.Equal(t, []string{"path"}, info.Parts())
+
+		// https:///path -> empty host + absolute path
+		info2, err := ParsePathInfoWithOptions("https:///path/to/file")
+		require.NoError(t, err)
+		assert.Equal(t, "https://", info2.Scheme())
+		assert.Equal(t, "", info2.Host())
+		assert.Equal(t, []string{"path", "to", "file"}, info2.Parts())
+	})
+
+	t.Run("CustomScheme_DefaultBehavior", func(t *testing.T) {
+		// Reset registry
+		schemeRegistry.Lock()
+		schemeRegistry.behaviors = make(map[string]SchemeBehavior)
+		schemeRegistry.Unlock()
+
+		// Default behavior: MustFollowRFC3986Authority = false
+		DefaultSchemeBehavior = SchemeBehavior{MustFollowRFC3986Authority: false}
+
+		// custom://host/path -> with default behavior (MustFollowRFC3986Authority=false),
+		// host should NOT be extracted; all content after scheme:// is treated as path
+		info, err := ParsePathInfoWithOptions("mycustom://host/path")
+		require.NoError(t, err)
+		assert.Equal(t, "mycustom://", info.Scheme())
+		assert.Equal(t, "", info.Host(), "Host should be empty when MustFollowRFC3986Authority=false")
+		assert.Equal(t, []string{"host", "path"}, info.Parts(), "All content after scheme:// should be path")
+
+		// custom:///path -> empty host (same as RFC 3986 for 3+ slashes)
+		info2, err := ParsePathInfoWithOptions("mycustom:///path/to/file")
+		require.NoError(t, err)
+		assert.Equal(t, "mycustom://", info2.Scheme())
+		assert.Equal(t, "", info2.Host())
+		assert.Equal(t, []string{"path", "to", "file"}, info2.Parts())
+	})
+
+	t.Run("CustomScheme_Registered_FollowRFC3986", func(t *testing.T) {
+		// Register a custom scheme to follow RFC 3986
+		RegisterScheme("myrfc", SchemeBehavior{MustFollowRFC3986Authority: true})
+
+		// myrfc://host/path -> host + path
+		info, err := ParsePathInfoWithOptions("myrfc://server/path/to/file")
+		require.NoError(t, err)
+		assert.Equal(t, "myrfc://", info.Scheme())
+		assert.Equal(t, "server", info.Host())
+		assert.Equal(t, []string{"path", "to", "file"}, info.Parts())
+
+		// myrfc:///path -> empty host + absolute path
+		info2, err := ParsePathInfoWithOptions("myrfc:///path/to/file")
+		require.NoError(t, err)
+		assert.Equal(t, "myrfc://", info2.Scheme())
+		assert.Equal(t, "", info2.Host())
+		assert.Equal(t, []string{"path", "to", "file"}, info2.Parts())
+	})
+
+	t.Run("OverrideSchemeBehavior_ForceRFC3986", func(t *testing.T) {
+		// Reset registry
+		schemeRegistry.Lock()
+		schemeRegistry.behaviors = make(map[string]SchemeBehavior)
+		schemeRegistry.Unlock()
+
+		// Set default behavior to NOT follow RFC 3986
+		DefaultSchemeBehavior = SchemeBehavior{MustFollowRFC3986Authority: false}
+
+		// Use WithSchemeBehaviorOverride to force RFC 3986 behavior
+		opt := WithSchemeBehaviorOverride(SchemeBehavior{MustFollowRFC3986Authority: true})
+
+		// custom://host/path with override -> should follow RFC 3986
+		info, err := ParsePathInfoWithOptions("customscheme://host/path", opt)
+		require.NoError(t, err)
+		assert.Equal(t, "customscheme://", info.Scheme())
+		assert.Equal(t, "host", info.Host())
+		assert.Equal(t, []string{"path"}, info.Parts())
+
+		// custom:///path with override -> empty host + absolute path
+		info2, err := ParsePathInfoWithOptions("customscheme:///path/to/file", opt)
+		require.NoError(t, err)
+		assert.Equal(t, "customscheme://", info2.Scheme())
+		assert.Equal(t, "", info2.Host())
+		assert.Equal(t, []string{"path", "to", "file"}, info2.Parts())
+	})
+
+	t.Run("OverrideSchemeBehavior_DisableRFC3986", func(t *testing.T) {
+		// Use WithSchemeBehaviorOverride to disable RFC 3986 behavior for standard scheme
+		opt := WithSchemeBehaviorOverride(SchemeBehavior{MustFollowRFC3986Authority: false})
+
+		// http://host/path with override (MustFollowRFC3986Authority=false) ->
+		// host should NOT be extracted; all content after scheme:// is treated as path
+		info, err := ParsePathInfoWithOptions("http://example.com/path", opt)
+		require.NoError(t, err)
+		assert.Equal(t, "http://", info.Scheme())
+		assert.Equal(t, "", info.Host(), "Host should be empty when MustFollowRFC3986Authority=false")
+		assert.Equal(t, []string{"example.com", "path"}, info.Parts(), "All content after scheme:// should be path")
+
+		// http:///path with override -> empty host (3+ slashes always mean empty host)
+		info2, err := ParsePathInfoWithOptions("http:///path/to/file", opt)
+		require.NoError(t, err)
+		assert.Equal(t, "http://", info2.Scheme())
+		assert.Equal(t, "", info2.Host())
+		assert.Equal(t, []string{"path", "to", "file"}, info2.Parts())
+	})
+
+	t.Run("BackwardCompatibility_ParsePathInfoEasy", func(t *testing.T) {
+		// Reset registry
+		schemeRegistry.Lock()
+		schemeRegistry.behaviors = make(map[string]SchemeBehavior)
+		schemeRegistry.Unlock()
+		DefaultSchemeBehavior = SchemeBehavior{MustFollowRFC3986Authority: false}
+
+		// ParsePathInfoEasy should behave with the fixed behavior
+		info, err := ParsePathInfoEasy("custom://host/path")
+		require.NoError(t, err)
+		assert.Equal(t, "custom://", info.Scheme())
+		assert.Equal(t, "", info.Host(), "Host should be empty when MustFollowRFC3986Authority=false")
+		assert.Equal(t, []string{"host", "path"}, info.Parts(), "All content after scheme:// should be path")
+
+		// Standard scheme should still follow RFC 3986
+		info2, err := ParsePathInfoEasy("http://example.com/path")
+		require.NoError(t, err)
+		assert.Equal(t, "http://", info2.Scheme())
+		assert.Equal(t, "example.com", info2.Host())
+		assert.Equal(t, []string{"path"}, info2.Parts())
+	})
 }
 
 // TestPathParsing_ParsePathInfo tests that paths are correctly parsed into PathInfo.
@@ -237,12 +430,13 @@ func TestPathParsing_ParsePathInfo(t *testing.T) {
 		{"", `files://d:\data\file.txt`, "files://", "d:", "files:///d:/data/file.txt", '/', []string{"data", "file.txt"}, PathTypeFileUriLocal, false},
 		// {"file:/// multiple slashes", "file://////d:/xxx/xxx", "files://", "d:/xxx/xxx", '/', []string{"d:", "xxx", "xxx"}, PathTypeFileUriLocal, false},
 
-		// custom URI
+		// custom URI - unregistered schemes with MustFollowRFC3986Authority=false (default)
+		// When MustFollowRFC3986Authority=false, scheme://a/b/c should NOT extract host
 		{"custom:// URI", "http://host/path", "http://", "host", "http://host/path", '/', []string{"path"}, PathTypeCustomUri, false},
-		{"custom:// URI", "custom://host/path", "custom://", "host", "custom://host/path", '/', []string{"path"}, PathTypeCustomUri, false},
-		{"custom:// with backslash", `custom://host\path\file.txt`, "custom://", "host", "custom://host/path/file.txt", '/', []string{"path", "file.txt"}, PathTypeCustomUri, false},
-		{"myscheme:// URI", "myscheme://server/share/data.json", "myscheme://", "server", "myscheme://server/share/data.json", '/', []string{"share", "data.json"}, PathTypeCustomUri, false},
-		{"abc123:// URI", "abc123://host/path", "abc123://", "host", "abc123://host/path", '/', []string{"path"}, PathTypeCustomUri, false},
+		{"custom:// URI", "custom://host/path", "custom://", "", "custom:///host/path", '/', []string{"host", "path"}, PathTypeCustomUri, false},
+		{"custom:// with backslash", `custom://host\path\file.txt`, "custom://", "", "custom:///host/path/file.txt", '/', []string{"host", "path", "file.txt"}, PathTypeCustomUri, false},
+		{"myscheme:// URI", "myscheme://server/share/data.json", "myscheme://", "", "myscheme:///server/share/data.json", '/', []string{"server", "share", "data.json"}, PathTypeCustomUri, false},
+		{"abc123:// URI", "abc123://host/path", "abc123://", "", "abc123:///host/path", '/', []string{"host", "path"}, PathTypeCustomUri, false},
 		///
 		{"custom:/// URI", "custom:///path/to/file.txt", "custom://", _fileEmptyLocalhost, "custom:///path/to/file.txt", '/', []string{"path", "to", "file.txt"}, PathTypeCustomUri, false},
 		{"custom:/// with backslash", `custom:///path\to\file.txt`, "custom://", _fileEmptyLocalhost, `custom:///path/to/file.txt`, '/', []string{"path", "to", "file.txt"}, PathTypeCustomUri, false},
@@ -260,6 +454,40 @@ func TestPathParsing_ParsePathInfo(t *testing.T) {
 		{"UNC path with IP extended", `\\192.168.1.2\share\file.txt`, `\\`, `192.168.1.2`, `\\192.168.1.2\share\file.txt`, '\\', []string{"share", "file.txt"}, PathTypeUncWindows, false},
 		{"UNC path with hostname extended", `\\server\share\file.txt`, `\\`, `server`, `\\server\share\file.txt`, '\\', []string{"share", "file.txt"}, PathTypeUncWindows, false},
 		{"UNC ", `\\?\\server\share\path`, `\\`, "server", `\\server\share\path`, '\\', []string{"share", "path"}, PathTypeUncWindows, false},
+
+		// ========== Pure special characters (., \, /) combinations ==========
+
+		// Single character
+		{"Single dot", ".", _fileEmptyScheme, _fileEmptyLocalhost, "", DefaultSystemSeparator, []string{}, PathTypeLocalRelative, false},
+		{"Single backslash", `\`, _fileEmptyScheme, _fileEmptyLocalhost, "", '\\', []string{}, PathTypeLocalRelative, false},
+		{"Single slash", "/", _fileEmptyScheme, _fileEmptyLocalhost, "/", '/', []string{""}, PathTypeLocalAbsolute, false},
+
+		// Double characters
+		{"Double dot", "..", _fileEmptyScheme, _fileEmptyLocalhost, "..", DefaultSystemSeparator, []string{".."}, PathTypeLocalRelative, false},
+		{"Double backslash", `\\`, `\\`, _fileEmptyLocalhost, `\\`, '\\', nil, PathTypeUncWindows, false},
+		{"Double slash", "//", _fileEmptyScheme, _fileEmptyLocalhost, "/", '/', []string{""}, PathTypeLocalAbsolute, false},
+		{"Dot slash", "./", _fileEmptyScheme, _fileEmptyLocalhost, "", '/', []string{}, PathTypeLocalRelative, false},
+		{"Dot backslash", `.\`, _fileEmptyScheme, _fileEmptyLocalhost, "", '\\', []string{}, PathTypeLocalRelative, false},
+		{"Slash dot", "/.", _fileEmptyScheme, _fileEmptyLocalhost, "/", '/', []string{""}, PathTypeLocalAbsolute, false},
+		{"Backslash dot", `\.`, _fileEmptyScheme, _fileEmptyLocalhost, "", '\\', []string{}, PathTypeLocalRelative, false},
+
+		// Triple characters
+		{"Dot dot slash", "../", _fileEmptyScheme, _fileEmptyLocalhost, "..", '/', []string{".."}, PathTypeLocalRelative, false},
+		{"Dot dot backslash", `..\`, _fileEmptyScheme, _fileEmptyLocalhost, "..", '\\', []string{".."}, PathTypeLocalRelative, false},
+		{"Slash dot dot", "/..", _fileEmptyScheme, _fileEmptyLocalhost, "/..", '/', []string{".."}, PathTypeLocalAbsolute, false},
+		{"Backslash dot dot", `\..`, _fileEmptyScheme, _fileEmptyLocalhost, "..", '\\', []string{".."}, PathTypeLocalRelative, false},
+		{"Dot dot dot", "...", _fileEmptyScheme, _fileEmptyLocalhost, "...", DefaultSystemSeparator, []string{"..."}, PathTypeLocalRelative, false},
+		{"Slash slash slash", "///", _fileEmptyScheme, _fileEmptyLocalhost, "/", '/', []string{""}, PathTypeLocalAbsolute, false},
+		{"Backslash backslash backslash", `\\\`, `\\`, _fileEmptyLocalhost, `\\\`, '\\', []string{""}, PathTypeUncWindows, false},
+
+		// Mixed combinations
+		{"Dot slash dot", "./.", _fileEmptyScheme, _fileEmptyLocalhost, "", '/', []string{}, PathTypeLocalRelative, false},
+		{"Dot backslash dot", `.\.`, _fileEmptyScheme, _fileEmptyLocalhost, "", '\\', []string{}, PathTypeLocalRelative, false},
+		{"Slash dot slash", "/./", _fileEmptyScheme, _fileEmptyLocalhost, "/", '/', []string{""}, PathTypeLocalAbsolute, false},
+		{"Backslash dot backslash", `\.\`, _fileEmptyScheme, _fileEmptyLocalhost, "", '\\', []string{}, PathTypeLocalRelative, false},
+		{"Dot dot slash dot", "../.", _fileEmptyScheme, _fileEmptyLocalhost, "..", '/', []string{".."}, PathTypeLocalRelative, false},
+		{"Dot dot backslash dot", `..\.`, _fileEmptyScheme, _fileEmptyLocalhost, "..", '\\', []string{".."}, PathTypeLocalRelative, false},
+		{"Dot dot backslash dot", `..\.`, _fileEmptyScheme, _fileEmptyLocalhost, "..", '\\', []string{".."}, PathTypeLocalRelative, false},
 	}
 
 	for _, tt := range tests {
@@ -272,7 +500,17 @@ func TestPathParsing_ParsePathInfo(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantScheme, info.Scheme())
 			assert.Equal(t, tt.wantHost, info.Host())
-			assert.Equal(t, tt.wantSep, info.Separator())
+			
+			// For UNC Windows paths, adjust expected separator based on platform
+			// Only for pure UNC prefix "\\" (without server/share)
+			expectedSep := tt.wantSep
+			if tt.wantType == PathTypeUncWindows && tt.wantSep == '\\' && len(tt.path) == 2 {
+				// On Linux, UNC Windows prefix "\\" uses '/' as separator
+				// On Windows, it uses '\\' as separator
+				expectedSep = filepath.Separator
+			}
+			assert.Equal(t, expectedSep, info.Separator())
+			
 			assert.EqualValues(t, tt.wantParts, info.Parts())
 			assert.Equal(t, tt.wantType, info.Type())
 			assert.Equal(t, tt.wantEncode, info.Encode())
@@ -305,6 +543,43 @@ func TestPathInfo_Methods(t *testing.T) {
 		assert.Equal(t, "/x/y/z", newInfo.Encode())
 		// Original info should not be modified
 		assert.Equal(t, "/a/b/c", info.Encode())
+	})
+
+	// ========== Pure special characters (., \, /) combinations ==========
+
+	t.Run("SpecialChars: single dot", func(t *testing.T) {
+		info := ParsePathInfoMust(".")
+		assert.Equal(t, "", info.Encode())
+		assert.Equal(t, []string{}, info.Parts())
+	})
+
+	t.Run("SpecialChars: single slash", func(t *testing.T) {
+		info := ParsePathInfoMust("/")
+		assert.Equal(t, "/", info.Encode())
+		assert.Equal(t, []string{""}, info.Parts())
+	})
+
+	t.Run("SpecialChars: single backslash", func(t *testing.T) {
+		info := ParsePathInfoMust(`\`)
+		assert.Equal(t, "", info.Encode())
+		assert.Equal(t, []string{}, info.Parts())
+	})
+
+	t.Run("SpecialChars: double dot", func(t *testing.T) {
+		info := ParsePathInfoMust("..")
+		assert.Equal(t, "..", info.Encode())
+		assert.Equal(t, []string{".."}, info.Parts())
+	})
+
+	t.Run("SpecialChars: double slash", func(t *testing.T) {
+		info := ParsePathInfoMust("//")
+		assert.Equal(t, "/", info.Encode())
+	})
+
+	t.Run("SpecialChars: double backslash (UNC)", func(t *testing.T) {
+		info := ParsePathInfoMust(`\\`)
+		assert.Equal(t, `\\`, info.Encode())
+		assert.Equal(t, `\\`, info.Scheme())
 	})
 }
 
@@ -357,6 +632,23 @@ func TestPathInfo_ContainsPath(t *testing.T) {
 		{"Root contains path", `/`, `/a`, true},
 		{"Root contains deep path", `/`, `/a/b/c/d`, true},
 		{"Root contains root", `/`, `/`, true},
+
+		// ========== Pure special characters (., \, /) combinations ==========
+
+		// Same paths
+		{"Same path: .", `.`, `.`, true},
+		{"Same path: ..", `..`, `..`, true},
+		{"Same path: /", `/`, `/`, true},
+		{"Same path: \\\\", `\\`, `\\`, true},
+
+		// Different paths
+		{"Different: . vs ..", `.`, `..`, false},        // . and .. are different paths
+		{"Different: / vs .", `/`, `.`, false},          // Absolute vs relative
+		{"Different: / vs backslash", `/`, `\\`, false}, // Unix root vs UNC prefix
+
+		// Sub-path relationships
+		{"Sub-path: / contains /a", `/`, `/a`, true},
+		{"Sub-path: / contains /..", `/`, `/..`, true},
 	}
 
 	for _, tt := range tests {

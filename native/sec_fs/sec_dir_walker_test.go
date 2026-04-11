@@ -1,6 +1,12 @@
 package sec_fs
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -10,7 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"safe_disk/native/config"
+	"safe_disk/native/sec_fs/crypto_hkdf"
 	"safe_disk/native/sec_fs/crypto_name"
+	"safe_disk/native/sec_fs/sec_utils"
 )
 
 // TestSecDirWalker_Next tests the Next() method
@@ -21,7 +29,7 @@ func TestSecDirWalker_Next(t *testing.T) {
 		_ = testDir // Use testDir to avoid unused variable error
 
 		// Create walker
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 
 		// Initialize and get first entry
 		err := walker.init()
@@ -41,7 +49,7 @@ func TestSecDirWalker_Next(t *testing.T) {
 		require.NoError(t, err, "Failed to create test file")
 
 		// Create walker
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err = walker.init()
 		require.NoError(t, err, "Failed to initialize walker")
 		defer walker.Close()
@@ -67,7 +75,7 @@ func TestSecDirWalker_Next(t *testing.T) {
 		}
 
 		// Create walker
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err, "Failed to initialize walker")
 		defer walker.Close()
@@ -100,7 +108,7 @@ func TestSecDirWalker_Next(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create walker
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err = walker.init()
 		require.NoError(t, err, "Failed to initialize walker")
 		defer walker.Close()
@@ -126,7 +134,7 @@ func TestSecDirWalker_Next(t *testing.T) {
 
 	t.Run("ClosedWalker", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 
@@ -150,7 +158,7 @@ func TestSecDirWalker_Next(t *testing.T) {
 func TestSecDirWalker_NextBatch(t *testing.T) {
 	t.Run("EmptyDirectory", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -170,7 +178,7 @@ func TestSecDirWalker_NextBatch(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -204,7 +212,7 @@ func TestSecDirWalker_NextBatch(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -217,7 +225,7 @@ func TestSecDirWalker_NextBatch(t *testing.T) {
 
 	t.Run("ZeroBatchSize", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -230,7 +238,7 @@ func TestSecDirWalker_NextBatch(t *testing.T) {
 
 	t.Run("NegativeBatchSize", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -246,7 +254,7 @@ func TestSecDirWalker_NextBatch(t *testing.T) {
 func TestSecDirWalker_HasNext(t *testing.T) {
 	t.Run("EmptyDirectory", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -259,7 +267,7 @@ func TestSecDirWalker_HasNext(t *testing.T) {
 		err := os.WriteFile(filepath.Join(testDir, "file.txt"), []byte("content"), 0644)
 		require.NoError(t, err)
 
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err = walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -273,7 +281,7 @@ func TestSecDirWalker_HasNext(t *testing.T) {
 
 	t.Run("NotInitialized", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		defer walker.Close()
 
 		// Note: Current implementation returns true when not initialized
@@ -286,7 +294,7 @@ func TestSecDirWalker_HasNext(t *testing.T) {
 
 	t.Run("ClosedWalker", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 		err = walker.Close()
@@ -300,7 +308,7 @@ func TestSecDirWalker_HasNext(t *testing.T) {
 func TestSecDirWalker_Close(t *testing.T) {
 	t.Run("SingleClose", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 
@@ -312,7 +320,7 @@ func TestSecDirWalker_Close(t *testing.T) {
 
 	t.Run("DoubleClose", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 
@@ -327,7 +335,7 @@ func TestSecDirWalker_Close(t *testing.T) {
 
 	t.Run("CloseWithoutInit", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 
 		// Close without init should still work
 		err := walker.Close()
@@ -352,7 +360,7 @@ func TestSecDirWalker_Reset(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 
@@ -375,7 +383,7 @@ func TestSecDirWalker_Reset(t *testing.T) {
 
 	t.Run("ResetOnClosedWalker", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 		err = walker.Close()
@@ -388,20 +396,295 @@ func TestSecDirWalker_Reset(t *testing.T) {
 }
 
 // TestSecDirWalker_WithEncryption tests walker with encrypted file names
+// This test suite provides (medium-depth) testing for the encryption/decryption behavior.
 func TestSecDirWalker_WithEncryption(t *testing.T) {
-	t.Run("WithMockCryptor", func(t *testing.T) {
-		// Create test directory
+	t.Run("DecryptFileNameCorrectly", func(t *testing.T) {
+		// Use real AES-GCM encryptor to test the complete encryption/decryption flow
+		cryptor := newTestAESGCMCryptor(t)
+
 		testDir := t.TempDir()
 
-		// Create encrypted file name (mock)
+		// Define test cases with expected behavior
+		testCases := []struct {
+			plainName string
+			desc      string
+		}{
+			{"test.txt", "simple filename"},
+			{"my_document.pdf", "filename with underscore"},
+			{"readme", "filename without extension"},
+		}
+
+		// Create encrypted files
+		expectedNames := make(map[string]bool)
+		for _, tc := range testCases {
+			encryptedName, err := cryptor.EncryptName(tc.plainName)
+			require.NoError(t, err, "Failed to encrypt name: %s", tc.plainName)
+			require.NotEqual(t, tc.plainName, encryptedName, "Encrypted name should differ from plain name")
+
+			err = os.WriteFile(filepath.Join(testDir, encryptedName), []byte("content"), 0644)
+			require.NoError(t, err, "Failed to create encrypted file: %s", tc.plainName)
+
+			expectedNames[tc.plainName] = true
+		}
+
+		// Create walker with cryptor
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", cryptor, nil)
+		err := walker.init()
+		require.NoError(t, err)
+		defer walker.Close()
+
+		// Read all entries and verify names are correctly decrypted
+		foundNames := make(map[string]bool)
+		for {
+			entry, err := walker.Next()
+			if err == ErrNoMoreEntries {
+				break
+			}
+			require.NoError(t, err, "Failed to get entry")
+			require.NotNil(t, entry, "Entry should not be nil")
+			foundNames[entry.Name()] = true
+		}
+
+		// Verify all expected names were found
+		assert.Equal(t, len(expectedNames), len(foundNames), "Should find all expected files")
+		for name := range expectedNames {
+			assert.True(t, foundNames[name], "Should find decrypted name: %s", name)
+		}
+	})
+
+	t.Run("EmptyDirectory", func(t *testing.T) {
+		cryptor := newTestAESGCMCryptor(t)
+
+		testDir := t.TempDir()
+		// Don't create any files - directory is empty
+
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", cryptor, nil)
+		err := walker.init()
+		require.NoError(t, err)
+		defer walker.Close()
+
+		// Should return ErrNoMoreEntries for empty directory
+		_, err = walker.Next()
+		assert.ErrorIs(t, err, ErrNoMoreEntries, "Should return ErrNoMoreEntries for empty directory")
+	})
+
+	t.Run("MultipleFiles", func(t *testing.T) {
+		cryptor := newTestAESGCMCryptor(t)
+
+		testDir := t.TempDir()
+
+		// Create multiple files with encrypted names
+		fileCount := 10
+		expectedNames := make(map[string]bool)
+		for i := 0; i < fileCount; i++ {
+			plainName := "file_" + string(rune('0'+i%10)) + ".txt"
+			encryptedName, err := cryptor.EncryptName(plainName)
+			require.NoError(t, err)
+
+			err = os.WriteFile(filepath.Join(testDir, encryptedName), []byte("content"), 0644)
+			require.NoError(t, err)
+
+			expectedNames[plainName] = true
+		}
+
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", cryptor, nil)
+		err := walker.init()
+		require.NoError(t, err)
+		defer walker.Close()
+
+		// Read all entries
+		foundCount := 0
+		for {
+			entry, err := walker.Next()
+			if err == ErrNoMoreEntries {
+				break
+			}
+			require.NoError(t, err)
+			require.NotNil(t, entry)
+
+			// Verify the decrypted name is in expected set
+			assert.True(t, expectedNames[entry.Name()], "Found unexpected name: %s", entry.Name())
+			foundCount++
+		}
+
+		assert.Equal(t, fileCount, foundCount, "Should find all %d files", fileCount)
+	})
+
+	t.Run("NestedDirectory", func(t *testing.T) {
+		cryptor := newTestAESGCMCryptor(t)
+
+		testDir := t.TempDir()
+
+		// Create encrypted subdirectory name
+		encryptedSubdir, err := cryptor.EncryptName("my_folder")
+		require.NoError(t, err)
+
+		err = os.Mkdir(filepath.Join(testDir, encryptedSubdir), 0755)
+		require.NoError(t, err)
+
+		// Create file inside subdirectory
+		encryptedFileName, err := cryptor.EncryptName("nested_file.txt")
+		require.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(testDir, encryptedSubdir, encryptedFileName), []byte("content"), 0644)
+		require.NoError(t, err)
+
+		// Walk root directory - should see the encrypted subdirectory with decrypted name
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", cryptor, nil)
+		err = walker.init()
+		require.NoError(t, err)
+		defer walker.Close()
+
+		entry, err := walker.Next()
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+
+		// Verify the directory name is decrypted
+		assert.Equal(t, "my_folder", entry.Name(), "Directory name should be decrypted")
+		assert.True(t, entry.IsDir(), "Should be recognized as directory")
+
+		// Walk the subdirectory
+		walker2 := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), RelativeViewPath("my_folder"), cryptor, nil)
+		// Note: This requires proper path conversion, which may need store path
+		// For now, we test with relative path
+		_ = walker2
+	})
+
+	t.Run("SpecialCharacters", func(t *testing.T) {
+		cryptor := newTestAESGCMCryptor(t)
+
+		testDir := t.TempDir()
+
+		// Define test cases with special characters
+		testCases := []struct {
+			plainName string
+			desc      string
+		}{
+			{"file with spaces.txt", "filename with spaces"},
+			{"文件.txt", "Chinese characters"},
+			{"файл.txt", "Cyrillic characters"},
+			{"file-with-dash.txt", "filename with dash"},
+			{"file_with_underscore.txt", "filename with underscore"},
+		}
+
+		expectedNames := make(map[string]bool)
+		for _, tc := range testCases {
+			encryptedName, err := cryptor.EncryptName(tc.plainName)
+			require.NoError(t, err, "Failed to encrypt: %s", tc.desc)
+
+			err = os.WriteFile(filepath.Join(testDir, encryptedName), []byte("content"), 0644)
+			require.NoError(t, err, "Failed to create file: %s", tc.desc)
+
+			expectedNames[tc.plainName] = true
+		}
+
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", cryptor, nil)
+		err := walker.init()
+		require.NoError(t, err)
+		defer walker.Close()
+
+		// Read all entries and verify special character names are correctly decrypted
+		foundNames := make(map[string]bool)
+		for {
+			entry, err := walker.Next()
+			if err == ErrNoMoreEntries {
+				break
+			}
+			require.NoError(t, err)
+			foundNames[entry.Name()] = true
+		}
+
+		// Verify all expected names were found
+		assert.Equal(t, len(expectedNames), len(foundNames), "Should find all files with special characters")
+		for name := range expectedNames {
+			assert.True(t, foundNames[name], "Should find decrypted name: %s", name)
+		}
+	})
+
+	t.Run("DecryptError", func(t *testing.T) {
+		// Test behavior when decryption fails
+		testDir := t.TempDir()
+
+		// Create a file with invalid encrypted name (cannot be decrypted)
+		invalidEncryptedName := "invalid_encrypted_name_not_base64"
+		err := os.WriteFile(filepath.Join(testDir, invalidEncryptedName), []byte("content"), 0644)
+		require.NoError(t, err)
+
+		// Create another file with valid encrypted name
+		cryptor := newTestAESGCMCryptor(t)
+		validEncryptedName, err := cryptor.EncryptName("valid_file.txt")
+		require.NoError(t, err)
+
+		err = os.WriteFile(filepath.Join(testDir, validEncryptedName), []byte("content"), 0644)
+		require.NoError(t, err)
+
+		// Create walker - should skip the invalid file and only return the valid one
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", cryptor, nil)
+		err = walker.init()
+		require.NoError(t, err)
+		defer walker.Close()
+
+		// Should only get the valid file
+		entry, err := walker.Next()
+		require.NoError(t, err)
+		require.NotNil(t, entry)
+		assert.Equal(t, "valid_file.txt", entry.Name(), "Should get the valid decrypted file")
+
+		// No more entries (invalid file was skipped)
+		_, err = walker.Next()
+		assert.ErrorIs(t, err, ErrNoMoreEntries, "Should skip invalid encrypted files")
+	})
+
+	t.Run("MixedEncryptedAndPlain", func(t *testing.T) {
+		// Test behavior when directory has both encrypted and plain files
+		cryptor := newTestAESGCMCryptor(t)
+
+		testDir := t.TempDir()
+
+		// Create encrypted file
+		encryptedName, err := cryptor.EncryptName("encrypted.txt")
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(testDir, encryptedName), []byte("content"), 0644)
+		require.NoError(t, err)
+
+		// Create plain file (not encrypted)
+		err = os.WriteFile(filepath.Join(testDir, "plain.txt"), []byte("content"), 0644)
+		require.NoError(t, err)
+
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", cryptor, nil)
+		err = walker.init()
+		require.NoError(t, err)
+		defer walker.Close()
+
+		// Read all entries - the plain file cannot be decrypted and should be skipped
+		foundNames := make(map[string]bool)
+		for {
+			entry, err := walker.Next()
+			if err == ErrNoMoreEntries {
+				break
+			}
+			require.NoError(t, err)
+			foundNames[entry.Name()] = true
+		}
+
+		// Only the encrypted file should be found (plain file is skipped due to decryption error)
+		assert.True(t, foundNames["encrypted.txt"], "Should find the encrypted file")
+		assert.False(t, foundNames["plain.txt"], "Plain file should be skipped (decryption failed)")
+		assert.Len(t, foundNames, 1, "Should only find one file (the encrypted one)")
+	})
+
+	t.Run("WithMockCryptor", func(t *testing.T) {
+		// Original test with mock cryptor - now with proper assertions
+		testDir := t.TempDir()
+
+		// Create file with a name that will be reversed by mock cryptor
 		encryptedName := "encrypted_file_name.txt"
 		err := os.WriteFile(filepath.Join(testDir, encryptedName), []byte("content"), 0644)
 		require.NoError(t, err)
 
-		// Create mock name cryptor
+		// Create mock name cryptor that reverses the name
 		mockCryptor := &mockNameCryptor{
 			decryptFunc: func(encrypted string) (string, error) {
-				// Simple mock: reverse the name
 				runes := []rune(encrypted)
 				for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
 					runes[i], runes[j] = runes[j], runes[i]
@@ -410,20 +693,18 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 			},
 		}
 
-		// Create walker with cryptor
-		walker := newSecDirWalker(FullStorePath(testDir), "", mockCryptor, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", mockCryptor, nil)
 		err = walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
 
-		// Read entry
 		entry, err := walker.Next()
 		require.NoError(t, err, "Should get entry with encrypted name")
-		assert.NotNil(t, entry, "Entry should not be nil")
+		require.NotNil(t, entry, "Entry should not be nil")
 
-		// Entry name should be decrypted
-		// Note: actual behavior depends on cryptor implementation
-		t.Logf("Entry name: %s", entry.Name())
+		// Verify the name is reversed as expected
+		expectedName := "txt.eman_elif_detpyrcne"
+		assert.Equal(t, expectedName, entry.Name(), "Entry name should be reversed by mock cryptor")
 	})
 }
 
@@ -443,13 +724,13 @@ func TestSecDirWalker_WithIgnoreMatcher(t *testing.T) {
 
 		// Create ignore matcher that skips hidden files and temp files
 		mockMatcher := &mockIgnoreMatcher{
-			shouldIgnoreFunc: func(name string, isDir bool) bool {
-				return name[0] == '.' || filepath.Ext(name) == ".tmp"
+			shouldIgnoreFunc2: func(decryptedName string, isDir bool) bool {
+				return decryptedName[0] == '.' || filepath.Ext(decryptedName) == ".tmp"
 			},
 		}
 
 		// Create walker with ignore matcher
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, mockMatcher)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, mockMatcher)
 		err = walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -469,7 +750,7 @@ func TestSecDirWalker_WithIgnoreMatcher(t *testing.T) {
 func TestSecDirWalker_Interface(t *testing.T) {
 	t.Run("IDirWalkerInterface", func(t *testing.T) {
 		testDir := t.TempDir()
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 
 		// Compile-time interface check
 		var _ IDirWalker = walker
@@ -486,7 +767,7 @@ func TestSecDirWalker_EntryProperties(t *testing.T) {
 		err := os.WriteFile(filepath.Join(testDir, "testfile.txt"), testContent, 0644)
 		require.NoError(t, err)
 
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err = walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -519,7 +800,7 @@ func TestSecDirWalker_EntryProperties(t *testing.T) {
 		err := os.Mkdir(filepath.Join(testDir, "testdir"), 0755)
 		require.NoError(t, err)
 
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err = walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -545,7 +826,7 @@ func TestSecDirWalker_EntryProperties(t *testing.T) {
 // TestSecDirWalker_ErrorHandling tests error handling scenarios
 func TestSecDirWalker_ErrorHandling(t *testing.T) {
 	t.Run("NonExistentDirectory", func(t *testing.T) {
-		walker := newSecDirWalker("/non/existent/directory", "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust("/non/existent/directory"), "", nil, nil)
 		err := walker.init()
 		assert.Error(t, err, "Should fail for non-existent directory")
 	})
@@ -557,7 +838,7 @@ func TestSecDirWalker_ErrorHandling(t *testing.T) {
 		require.NoError(t, err)
 
 		// Try to walk a file path as directory
-		walker := newSecDirWalker(FullStorePath(testFile), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testFile), "", nil, nil)
 		err = walker.init()
 		// Note: The current implementation may not check if path is a file
 		// So this test may pass even if path is a file
@@ -578,7 +859,7 @@ func TestSecDirWalker_ConcurrentAccess(t *testing.T) {
 			_ = os.WriteFile(testFile, []byte("content"), 0644)
 		}
 
-		walker := newSecDirWalker(FullStorePath(testDir), "", nil, nil)
+		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", nil, nil)
 		err := walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
@@ -619,12 +900,22 @@ func (m *mockNameCryptor) DecryptName(encrypted string) (string, error) {
 
 // mockIgnoreMatcher implements IIgnoreMatcher for testing
 type mockIgnoreMatcher struct {
-	shouldIgnoreFunc func(name string, isDir bool) bool
+	shouldIgnoreFunc1 func(encryptedName string, isDir bool) bool
+	shouldIgnoreFunc2 func(decryptedName string, isDir bool) bool
 }
 
-func (m *mockIgnoreMatcher) ShouldIgnore(name string, isDir bool) bool {
-	if m.shouldIgnoreFunc != nil {
-		return m.shouldIgnoreFunc(name, isDir)
+// ShouldIgnore1 checks if the file should be ignored BEFORE name decryption.
+func (m *mockIgnoreMatcher) ShouldIgnore1(encryptedName string, isDir bool) bool {
+	if m.shouldIgnoreFunc1 != nil {
+		return m.shouldIgnoreFunc1(encryptedName, isDir)
+	}
+	return false
+}
+
+// ShouldIgnore2 checks if the file should be ignored AFTER name decryption.
+func (m *mockIgnoreMatcher) ShouldIgnore2(decryptedName string, isDir bool) bool {
+	if m.shouldIgnoreFunc2 != nil {
+		return m.shouldIgnoreFunc2(decryptedName, isDir)
 	}
 	return false
 }
@@ -632,6 +923,104 @@ func (m *mockIgnoreMatcher) ShouldIgnore(name string, isDir bool) bool {
 // Compile-time interface verification
 var _ crypto_name.INameCryptorContext = (*mockNameCryptor)(nil)
 var _ IIgnoreMatcher = (*mockIgnoreMatcher)(nil)
+
+// testKeyInfo implements crypto_hkdf.IKeyInfo for testing purposes.
+// It provides a simple wrapper around a key byte slice.
+type testKeyInfo struct {
+	key []byte
+}
+
+func (k *testKeyInfo) GetKey() []byte {
+	return k.key
+}
+
+// Compile-time interface verification for testKeyInfo
+var _ crypto_hkdf.IKeyInfo = (*testKeyInfo)(nil)
+
+// testAESGCMCryptor implements crypto_name.INameCryptorContext using AES-256-GCM.
+// This is a simplified version for testing that avoids import cycles.
+type testAESGCMCryptor struct {
+	gcm cipher.AEAD
+}
+
+// newTestAESGCMCryptor creates a new AES-256-GCM cryptor for testing.
+// It requires a 32-byte key for AES-256.
+func newTestAESGCMCryptor(t *testing.T) crypto_name.INameCryptorContext {
+	t.Helper()
+	// Use a fixed 32-byte test key (AES-256 requires 32 bytes)
+	testKey := []byte("0123456789abcdef0123456789abcdef") // exactly 32 bytes
+	require.Len(t, testKey, 32, "Test key must be exactly 32 bytes")
+
+	block, err := aes.NewCipher(testKey)
+	require.NoError(t, err, "Failed to create AES cipher")
+
+	gcm, err := cipher.NewGCM(block)
+	require.NoError(t, err, "Failed to create GCM")
+
+	return &testAESGCMCryptor{gcm: gcm}
+}
+
+// EncryptName encrypts a file or directory name using AES-GCM.
+// Returns the encrypted name (base64 encoded) or an error.
+func (c *testAESGCMCryptor) EncryptName(name string) (string, error) {
+	if name == "" {
+		return "", nil
+	}
+
+	plaintext := []byte(name)
+
+	// Generate random IV
+	iv := make([]byte, c.gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return "", err
+	}
+
+	// Encrypt: IV + ciphertext + tag
+	ciphertext := c.gcm.Seal(iv, iv, plaintext, nil)
+
+	// Encode to base64 for safe filename
+	encoded := base64.RawURLEncoding.EncodeToString(ciphertext)
+
+	return encoded, nil
+}
+
+// DecryptName decrypts an encrypted file or directory name.
+// Returns the original name or an error.
+func (c *testAESGCMCryptor) DecryptName(encrypted string) (string, error) {
+	if encrypted == "" {
+		return "", nil
+	}
+
+	// Decode from base64
+	ciphertext, err := base64.RawURLEncoding.DecodeString(encrypted)
+	if err != nil {
+		return "", err
+	}
+
+	if len(ciphertext) < 28 { // IV(12) + Tag(16) minimum
+		return "", errors.New("encrypted name too short")
+	}
+
+	ivSize := c.gcm.NonceSize()
+	if len(ciphertext) < ivSize {
+		return "", errors.New("encrypted name shorter than IV size")
+	}
+
+	// Extract IV and ciphertext
+	iv := ciphertext[:ivSize]
+	ciphertextWithTag := ciphertext[ivSize:]
+
+	// Decrypt
+	plaintext, err := c.gcm.Open(nil, iv, ciphertextWithTag, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return string(plaintext), nil
+}
+
+// Compile-time interface verification for testAESGCMCryptor
+var _ crypto_name.INameCryptorContext = (*testAESGCMCryptor)(nil)
 
 // Helper function to create test configuration
 func createTestConfig(t *testing.T) config.SharedConfig {

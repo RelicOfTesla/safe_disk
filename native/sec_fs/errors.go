@@ -97,30 +97,62 @@ var (
 	ErrNotEncrypted = errors.New("not an encrypted file or directory")
 )
 
-// PathError represents an error related to a specific path operation.
-type PathError struct {
-	Op   string      // The operation that caused the error
-	Path string      // The path involved in the error
-	Err  error       // The underlying error
+// SimplePathError represents an error related to a specific path operation.
+type SimplePathError[T ~string] struct {
+	Op   string // The operation that caused the error
+	Path T      // The path involved in the error
+	Err  error  // The underlying error
 }
 
 // Error implements the error interface for PathError.
-func (e *PathError) Error() string {
+func (e *SimplePathError[T]) Error() string {
 	return fmt.Sprintf("%s %s: %v", e.Op, e.Path, e.Err)
 }
 
 // Unwrap returns the underlying error for PathError.
-func (e *PathError) Unwrap() error {
+func (e *SimplePathError[T]) Unwrap() error {
 	return e.Err
 }
 
-// NewPathError creates a new PathError with the given operation, path, and underlying error.
-func NewPathError(op string, path string, err error) *PathError {
-	return &PathError{
+// newPathError creates a new PathError with the given operation, path, and underlying error.
+func newPathError[T ~string](op string, path T, err error) *SimplePathError[T] {
+	return &SimplePathError[T]{
 		Op:   op,
 		Path: path,
 		Err:  err,
 	}
+}
+func NewRelativeViewPathError(op string, path RelativeViewPath, err error) *SimplePathError[RelativeViewPath] {
+	return newPathError(op, path, err)
+}
+func NewFullStorePathError(op string, path FullStorePath, err error) *SimplePathError[FullStorePath] {
+	return newPathError(op, path, err)
+}
+
+type PairPathError struct {
+	SimplePathError[RelativeViewPath]
+	StorePath FullStorePath
+}
+
+func NewPairPathError(op string, path RelativeViewPath, storePath FullStorePath, err error) *PairPathError {
+	return &PairPathError{
+		SimplePathError: SimplePathError[RelativeViewPath]{
+			Op:   op,
+			Path: path,
+			Err:  err,
+		},
+		StorePath: storePath,
+	}
+}
+
+// Error implements the error interface for PairPathError.
+func (e *PairPathError) Error() string {
+	return fmt.Sprintf("%s %s -> %s: %v", e.Op, e.Path, e.StorePath, e.Err)
+}
+
+// Unwrap returns the underlying error for PairPathError.
+func (e *PairPathError) Unwrap() error {
+	return e.Err
 }
 
 // ConfigError represents an error related to configuration.

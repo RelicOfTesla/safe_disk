@@ -86,7 +86,7 @@ func WithConfigFileName(name string) CreateRootOption {
 // applyCreateOptions applies the given options to CreateRootOptions and returns the result.
 func applyCreateOptions(options ...CreateRootOption) *CreateRootOptions {
 	opts := &CreateRootOptions{
-		KeyStrengthMs:  100, // Default: 100ms
+		KeyStrengthMs:  100,            // Default: 100ms
 		ConfigFileName: ConfigFileName, // Default: "_cryption.json"
 	}
 	for _, option := range options {
@@ -119,13 +119,25 @@ type defaultIgnoreMatcher struct {
 	configFileName string
 }
 
-// ShouldIgnore returns true if the file should be ignored.
-// It ignores the config file (default: "_cryption.json").
-func (d *defaultIgnoreMatcher) ShouldIgnore(name string, isDir bool) bool {
+// ShouldIgnore1 checks if the file should be ignored BEFORE name decryption.
+// For the default ignore matcher, this checks the encrypted/store name.
+// Since config files are not encrypted, we check the raw name here.
+func (d *defaultIgnoreMatcher) ShouldIgnore1(encryptedName string, isDir bool) bool {
 	if isDir {
 		return false
 	}
-	return name == d.configFileName
+	return encryptedName == d.configFileName
+}
+
+// ShouldIgnore2 checks if the file should be ignored AFTER name decryption.
+// For the default ignore matcher, this checks the decrypted/view name.
+// Since config files are not encrypted, this is typically not needed,
+// but we keep it for consistency with the interface.
+func (d *defaultIgnoreMatcher) ShouldIgnore2(decryptedName string, isDir bool) bool {
+	if isDir {
+		return false
+	}
+	return decryptedName == d.configFileName
 }
 
 // newDefaultIgnoreMatcher creates a new default ignore matcher with the given config file name.
@@ -209,13 +221,13 @@ func FindRootConfig(startPath FullStorePath, options ...OpenOption) (config.Shar
 	// Get absolute path
 	absPath, err := filepath.Abs(string(startPath))
 	if err != nil {
-		return nil, "", NewPathError("abs", string(startPath), err)
+		return nil, "", NewFullStorePathError("abs", FullStorePath(startPath), err)
 	}
 
 	// If startPath is a file, start from its directory
 	info, err := os.Stat(absPath)
 	if err != nil {
-		return nil, "", NewPathError("stat", absPath, err)
+		return nil, "", NewFullStorePathError("stat", FullStorePath(absPath), err)
 	}
 	if !info.IsDir() {
 		absPath = filepath.Dir(absPath)
@@ -287,7 +299,7 @@ func createRootConfig(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, opti
 
 	// Ensure root directory exists
 	if err := os.MkdirAll(string(rootPath), 0755); err != nil {
-		return nil, NewPathError("mkdir", string(rootPath), err)
+		return nil, NewFullStorePathError("mkdir", rootPath, err)
 	}
 
 	// Create config file path
@@ -397,7 +409,7 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 
 	// Ensure root directory exists
 	if err := os.MkdirAll(string(rootPath), 0755); err != nil {
-		return nil, "", NewPathError("mkdir", string(rootPath), err)
+		return nil, "", NewFullStorePathError("mkdir", rootPath, err)
 	}
 
 	// Create config file path
@@ -629,28 +641,25 @@ func newRoot(
 		ignoreMatcher = newDefaultIgnoreMatcher(ConfigFileName)
 	}
 
-	// Ensure root directory exists
-	if err := os.MkdirAll(string(rootPath), 0755); err != nil {
-		return nil, NewPathError("mkdir", string(rootPath), err)
-	}
-
-	// Parse root path
-	rootPathInfo, err := sec_utils.ParsePathInfo(string(rootPath))
-	if err != nil {
-		return nil, NewPathError("parse_path", string(rootPath), err)
-	}
-
 	// Create and return the root
 	root := &secRootImpl{
 		fileDataFactory: factory,
-		rootPath:        rootPath,
 		keyInfo:         keyInfo,
 		cfg:             cfg,
 		closed:          false,
 		mu:              sync.RWMutex{},
 		nameCryptor:     nameCryptor,
 		ignoreMatcher:   ignoreMatcher,
-		rootPathInfo:    rootPathInfo,
+	}
+	var err error
+	root.rootPathInfo, err = sec_utils.ParsePathInfo(string(rootPath))
+	if err != nil {
+		return nil, NewFullStorePathError("parse path info", rootPath, err)
+	}
+
+	// Ensure root directory exists
+	if err := os.MkdirAll(string(rootPath), 0755); err != nil {
+		return nil, NewFullStorePathError("mkdir", rootPath, err)
 	}
 
 	return root, nil

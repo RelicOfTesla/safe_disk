@@ -3,12 +3,15 @@
 package sec_fs
 
 import (
+	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"safe_disk/native/sec_fs/crypto_name"
+	"safe_disk/native/sec_fs/sec_utils"
 )
 
 // ==================== secDirWalker Implementation ====================
@@ -16,15 +19,15 @@ import (
 // secDirWalker implements IDirWalker interface.
 // It iterates over directory entries in a secure root with streaming support.
 type secDirWalker struct {
-	rootPath     FullStorePath
+	rootPathInfo sec_utils.PathInfo
 	relativePath RelativeViewPath
 	options      *WalkOptions
 
 	// Streaming fields
-	dirFile     *os.File        // Opened directory file handle
-	rawEntries  []fs.DirEntry   // Current batch of raw directory entries
-	rawIndex    int             // Current index in rawEntries
-	batchSize   int             // Number of entries to read per batch
+	dirFile     *os.File      // Opened directory file handle
+	rawEntries  []fs.DirEntry // Current batch of raw directory entries
+	rawIndex    int           // Current index in rawEntries
+	batchSize   int           // Number of entries to read per batch
 	initialized bool
 	closed      bool
 	mu          sync.RWMutex
@@ -40,7 +43,7 @@ const defaultBatchSize = 100
 
 // newSecDirWalker creates a new secDirWalker instance.
 // This is an internal factory function used by WalkDir.
-func newSecDirWalker(rootPath FullStorePath, relativePath RelativeViewPath, nameCryptor crypto_name.INameCryptorContext, ignoreMatcher IIgnoreMatcher, opts ...WalkOption) *secDirWalker {
+func newSecDirWalker(rootPathInfo sec_utils.PathInfo, relativePath RelativeViewPath, nameCryptor crypto_name.INameCryptorContext, ignoreMatcher IIgnoreMatcher, opts ...WalkOption) *secDirWalker {
 	// Apply default options
 	options := &WalkOptions{}
 	for _, opt := range opts {
@@ -48,7 +51,7 @@ func newSecDirWalker(rootPath FullStorePath, relativePath RelativeViewPath, name
 	}
 
 	return &secDirWalker{
-		rootPath:      rootPath,
+		rootPathInfo:  rootPathInfo,
 		relativePath:  relativePath,
 		options:       options,
 		nameCryptor:   nameCryptor,
@@ -60,10 +63,11 @@ func newSecDirWalker(rootPath FullStorePath, relativePath RelativeViewPath, name
 // viewPathToStorePath converts a view path (plain text) to a store path (encrypted).
 // Each path component is encrypted separately using nameCryptor.
 // If nameCryptor is nil, the path is returned as-is (no encryption).
-func (w *secDirWalker) viewPathToStorePath(viewPath RelativeViewPath) (RelativeStorePath, error) {
-	return ViewPathToStorePath(viewPath, w.nameCryptor)
+// It also validates that the resulting path is within the root directory.
+func (w *secDirWalker) viewPathToStorePath(viewPath RelativeViewPath) (RelativeStorePath, FullStorePath, error) {
+	storePath, fullPath, err := viewPathToStorePathCheck(w.rootPathInfo, viewPath, w.nameCryptor, false)
+	return storePath, fullPath, err
 }
-
 
 // Next returns the next directory entry.
 // It implements streaming reading by loading entries in batches.
@@ -123,21 +127,18 @@ func (w *secDirWalker) init() error {
 	w.batchSize = defaultBatchSize
 
 	// Convert relativePath (view path, plain text) to store path (encrypted)
-	storePath, err := w.viewPathToStorePath(w.relativePath)
+	_, fullPath, err := w.viewPathToStorePath(w.relativePath)
 	if err != nil {
-		return NewPathError("encrypt_path", string(w.relativePath), err)
+		return NewPairPathError("encrypt_path", w.relativePath, fullPath, err)
 	}
 
-	// Build full path from rootPath and encrypted store path
-	fullPath := filepath.Join(string(w.rootPath), string(storePath))
-
 	// Open the directory file
-	dirFile, err := os.Open(fullPath)
+	dirFile, err := os.Open(string(fullPath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return ErrDirectoryNotFound
 		}
-		return NewPathError("opendir", fullPath, err)
+		return NewPairPathError("opendir", w.relativePath, fullPath, err)
 	}
 
 	w.dirFile = dirFile
@@ -153,11 +154,11 @@ func (w *secDirWalker) loadNextBatch() error {
 	entries, err := w.dirFile.ReadDir(w.batchSize)
 	if err != nil {
 		// EOF is expected when no more entries
-		if err.Error() == "EOF" {
+		if err.Error() == "EOF" || errors.Is(err, io.EOF) {
 			w.rawEntries = nil
 			return ErrNoMoreEntries
 		}
-		return NewPathError("readdir", string(w.relativePath), err)
+		return NewRelativeViewPathError("readdir", w.relativePath, err)
 	}
 
 	// No more entries
@@ -176,6 +177,13 @@ func (w *secDirWalker) loadNextBatch() error {
 func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) {
 	name := entry.Name()
 
+	isDir := entry.IsDir()
+
+	// Check ignore matcher BEFORE name decryption (using encrypted name)
+	if w.ignoreMatcher != nil && w.ignoreMatcher.ShouldIgnore1(name, isDir) {
+		return &secDirEntry{}, true, nil
+	}
+
 	// Decrypt name if nameCryptor is available
 	if w.nameCryptor != nil {
 		decryptedName, err := w.nameCryptor.DecryptName(name)
@@ -190,10 +198,8 @@ func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) 
 		return &secDirEntry{}, true, nil
 	}
 
-	isDir := entry.IsDir()
-
-	// Check ignore matcher
-	if w.ignoreMatcher != nil && w.ignoreMatcher.ShouldIgnore(name, isDir) {
+	// Check ignore matcher AFTER name decryption (using decrypted name)
+	if w.ignoreMatcher != nil && w.ignoreMatcher.ShouldIgnore2(name, isDir) {
 		return &secDirEntry{}, true, nil
 	}
 
@@ -212,11 +218,11 @@ func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) 
 	}
 
 	dirEntry := &secDirEntry{
-		name:         name,
-		isDir:        isDir,
-		size:         info.Size(),
-		modTime:      info.ModTime().UnixNano(),
-		mode:         info.Mode(),
+		name:             name,
+		isDir:            isDir,
+		size:             info.Size(),
+		modTime:          info.ModTime().UnixNano(),
+		mode:             info.Mode(),
 		relativeViewPath: RelativeViewPath(filepath.Join(string(w.relativePath), name)),
 	}
 
@@ -350,7 +356,7 @@ func (w *secDirWalker) Reset() error {
 	if w.dirFile != nil {
 		_, err := w.dirFile.Seek(0, 0)
 		if err != nil {
-			return NewPathError("seekdir", string(w.relativePath), err)
+			return NewRelativeViewPathError("seekdir", w.relativePath, err)
 		}
 	}
 
