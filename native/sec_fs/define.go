@@ -84,6 +84,9 @@ type ISecRoot interface {
 
 	// GetConfig returns the current configuration.
 	GetConfig() config.SharedConfig
+	// Stat returns a FileInfo describing the named file.
+	// Implements fs.StatFS interface.
+	Stat(name RelativeViewPath) (fs.FileInfo, error)
 }
 
 // IDirWalker defines the interface for iterating over directory entries.
@@ -121,7 +124,7 @@ type WalkOption func(*WalkOptions)
 
 // secDirEntry implements IDirEntry interface
 type secDirEntry struct {
-	name              string
+	viewName          string
 	isDir             bool
 	size              int64
 	modTime           int64
@@ -131,12 +134,12 @@ type secDirEntry struct {
 }
 
 // fs.DirEntry interface methods
-func (e *secDirEntry) Name() string      { return e.name }
+func (e *secDirEntry) Name() string      { return e.viewName }
 func (e *secDirEntry) IsDir() bool       { return e.isDir }
 func (e *secDirEntry) Type() fs.FileMode { return e.mode.Type() }
 func (e *secDirEntry) Info() (fs.FileInfo, error) {
 	return &secFileInfo{
-		name:    e.name,
+		name:    e.viewName,
 		size:    e.size,
 		modTime: time.Unix(0, e.modTime),
 		mode:    e.mode,
@@ -144,7 +147,7 @@ func (e *secDirEntry) Info() (fs.FileInfo, error) {
 }
 
 // IDirEntry interface methods
-func (e *secDirEntry) GetRelativeViewPath() RelativeViewPath  { return e.relativeViewPath }
+func (e *secDirEntry) GetRelativeViewPath() RelativeViewPath   { return e.relativeViewPath }
 func (e *secDirEntry) GetRelativeStorePath() RelativeStorePath { return e.relativeStorePath }
 
 // StoreName returns the encrypted file name as stored on disk.
@@ -174,7 +177,6 @@ func (f *secFileInfo) Sys() interface{}   { return nil }
 // Compile-time interface verification
 var _ IDirEntry = (*secDirEntry)(nil)
 var _ fs.FileInfo = (*secFileInfo)(nil)
-
 
 type WalkOptions struct {
 	// Recursive indicates whether to walk subdirectories recursively.

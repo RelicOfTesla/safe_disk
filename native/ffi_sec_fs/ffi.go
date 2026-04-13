@@ -57,12 +57,12 @@ type FileInfoResult struct {
 
 // DirEntryResult represents a directory entry for ReadDir_FFI.
 type DirEntryResult struct {
-	Name     string `json:"name"`
-	IsDir    bool   `json:"is_dir"`
-	Size     int64  `json:"size"`
-	ModTime  int64  `json:"mod_time"`
-	Mode     uint32 `json:"mode"`
-	Path     string `json:"path"`
+	Name    string `json:"name"`
+	IsDir   bool   `json:"is_dir"`
+	Size    int64  `json:"size"`
+	ModTime int64  `json:"mod_time"`
+	Mode    uint32 `json:"mode"`
+	Path    string `json:"path"`
 }
 
 // ReadDirResult represents the result of ReadDir_FFI.
@@ -165,12 +165,13 @@ func parseCreateRootOptions(optionsJSON string) []sec_fs.CreateRootOption {
 //   - optionsJSON: JSON string containing OpenOptions (optional, can be empty)
 //
 // OpenOptions format:
-//   {
-//     "dataFactory": "aes-ctr",
-//     "nameFactory": "aes-gcm-name",
-//     "deriverFactory": "pbkdf2",
-//     "ignoreMatcher": { ... }
-//   }
+//
+//	{
+//	  "dataFactory": "aes-ctr",
+//	  "nameFactory": "aes-gcm-name",
+//	  "deriverFactory": "pbkdf2",
+//	  "ignoreMatcher": { ... }
+//	}
 func OpenRoot_FFI(rootPath string, password string, optionsJSON string) string {
 	// Parse open options
 	opts := parseOpenOptions(optionsJSON)
@@ -216,13 +217,14 @@ func CloseRoot_FFI(rootID int64) string {
 //   - optionsJSON: JSON string containing CreateRootOptions (optional, can be empty)
 //
 // CreateRootOptions format:
-//   {
-//     "dataFactory": "aes-ctr",
-//     "nameFactory": "aes-gcm-name",
-//     "deriverFactory": "pbkdf2",
-//     "keyStrengthMs": 100,
-//     "configFileName": "_cryption.json"
-//   }
+//
+//	{
+//	  "dataFactory": "aes-ctr",
+//	  "nameFactory": "aes-gcm-name",
+//	  "deriverFactory": "pbkdf2",
+//	  "keyStrengthMs": 100,
+//	  "configFileName": "_cryption.json"
+//	}
 func CreateRootConfig_FFI(rootPath string, password string, optionsJSON string) string {
 	// Parse create options
 	opts := parseCreateRootOptions(optionsJSON)
@@ -563,7 +565,7 @@ func ExportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"task_id": taskInfo.TaskID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskInfo.GetTaskID(), "status": "started"})
 }
 
 // ImportDirectoryAsync_FFI imports a plaintext directory into an encrypted directory asynchronously.
@@ -581,7 +583,7 @@ func ImportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"task_id": taskInfo.TaskID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskInfo.GetTaskID(), "status": "started"})
 }
 
 // ExportFileAsync_FFI exports an encrypted file to a plaintext file asynchronously.
@@ -599,7 +601,7 @@ func ExportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"task_id": taskInfo.TaskID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskInfo.GetTaskID(), "status": "started"})
 }
 
 // ImportFileAsync_FFI imports a plaintext file into an encrypted file asynchronously.
@@ -617,37 +619,30 @@ func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 		return errorResponse(err)
 	}
 
-	return successResponse(map[string]string{"task_id": taskInfo.TaskID, "status": "started"})
+	return successResponse(map[string]string{"task_id": taskInfo.GetTaskID(), "status": "started"})
 }
 
 // GetTransferProgress_FFI gets the progress of a transfer job.
 func GetTransferProgress_FFI(taskID string) string {
-	svc := sec_transfer.GetDefaultTransferManager()
-	job, err := svc.GetTaskProgress(taskID)
-	if err != nil {
-		return errorResponse(err)
+	task, ok := TaskStore.Get(taskID)
+	if !ok {
+		return errorResponseStr("task not found")
 	}
 
-	return successResponse(job)
+	curr, max := task.GetTotalProgress()
+	return successResponse(map[string]int{"total": max, "current": curr})
 }
 
 // RollbackTransfer_FFI cancels a transfer job.
 func RollbackTransfer_FFI(taskID string) string {
-	svc := sec_transfer.GetDefaultTransferManager()
-	err := svc.RollbackTask(taskID)
+	task, ok := TaskStore.Get(taskID)
+	if !ok {
+		return errorResponseStr("task not found")
+	}
+
+	err := task.AsyncRollback()
 	if err != nil {
 		return errorResponse(err)
 	}
 	return successResponse(map[string]string{"status": "cancelled"})
-}
-
-// ==================== Helper Functions ====================
-
-// getRoot retrieves an ISecRoot instance by its ID from ffi_stores.
-func getRoot(rootID int64) (sec_fs.ISecRoot, bool) {
-	entry, ok := RootStore.Get(rootID)
-	if !ok {
-		return nil, false
-	}
-	return entry.Root, true
 }

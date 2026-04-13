@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 
 	"safe_disk/native/config"
@@ -210,24 +211,24 @@ func applyOpenOptions(options ...OpenOption) *OpenOptions {
 //
 // Example:
 //
-//	cfg, rootPath, err := sec_fs.FindRootConfig("/path/to/subdir/file.txt")
+//	cfg, rootPath, relativePath, err := sec_fs.FindRootConfig("/path/to/subdir/file.txt")
 //	if err == nil {
 //	    fmt.Printf("Found config at: %s\n", rootPath)
 //	}
-func FindRootConfig(startPath FullStorePath, options ...OpenOption) (config.SharedConfig, FullStorePath, error) {
+func FindRootConfig(startPath string, options ...OpenOption) (config.SharedConfig, FullStorePath, RelativeViewPath, error) {
 	// Apply options
 	opts := applyOpenOptions(options...)
 
 	// Get absolute path
 	absPath, err := filepath.Abs(string(startPath))
 	if err != nil {
-		return nil, "", NewFullStorePathError("abs", FullStorePath(startPath), err)
+		return nil, "", "", NewFullStorePathError("abs", FullStorePath(startPath), err)
 	}
 
 	// If startPath is a file, start from its directory
 	info, err := os.Stat(absPath)
 	if err != nil {
-		return nil, "", NewFullStorePathError("stat", FullStorePath(absPath), err)
+		return nil, "", "", NewFullStorePathError("stat", FullStorePath(absPath), err)
 	}
 	if !info.IsDir() {
 		absPath = filepath.Dir(absPath)
@@ -235,6 +236,7 @@ func FindRootConfig(startPath FullStorePath, options ...OpenOption) (config.Shar
 
 	// Walk up the directory tree
 	currentPath := absPath
+	relativeList := []string{}
 	for {
 		// Check if config file exists in current directory
 		cfgPath := filepath.Join(currentPath, opts.configFileName)
@@ -242,16 +244,19 @@ func FindRootConfig(startPath FullStorePath, options ...OpenOption) (config.Shar
 			// Found! Load the config
 			cfg, err := config.NewFileConfig(cfgPath)
 			if err != nil {
-				return nil, "", NewConfigError("config", "failed to load config file: "+cfgPath, err)
+				return nil, "", "", NewConfigError("config", "failed to load config file: "+cfgPath, err)
 			}
-			return cfg, FullStorePath(currentPath), nil
+			slices.Reverse(relativeList)
+			relativePath := filepath.Join(relativeList...)
+			return cfg, FullStorePath(currentPath), RelativeViewPath(relativePath), nil
 		}
 
-		// Move to parent directory
+		// Move to parent
+		relativeList = append(relativeList, filepath.Base(currentPath))
 		parentPath := filepath.Dir(currentPath)
 		if parentPath == currentPath {
 			// Reached root directory, config not found
-			return nil, "", ErrNotConfigFile
+			return nil, "", "", ErrNotConfigFile
 		}
 		currentPath = parentPath
 	}

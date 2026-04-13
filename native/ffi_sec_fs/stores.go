@@ -4,6 +4,7 @@ package main
 
 import (
 	"safe_disk/native/sec_fs"
+	"safe_disk/native/sec_fs/sec_transfer"
 )
 
 // RootEntry stores both the root and its path.
@@ -19,10 +20,7 @@ var (
 
 	// FileStore manages ISecFile instances with int64 IDs.
 	FileStore = NewIDStore[sec_fs.ISecFile]()
-)
 
-// ClearStores clears all items from all stores.
-func ClearStores() {
-	RootStore.Clear()
-	FileStore.Clear()
-}
+	// TaskStore manages ITask instances with string IDs.
+	TaskStore = NewKeyValueMap[string, sec_transfer.ITask]()
+)

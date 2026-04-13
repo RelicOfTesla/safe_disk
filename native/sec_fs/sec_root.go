@@ -260,13 +260,6 @@ func (r *secRootImpl) WalkDir(path RelativeViewPath, opts ...WalkOption) (IDirWa
 	if r.closed {
 		return nil, ErrRootClosed
 	}
-
-	// Convert view path to store path (encrypt file names) and validate
-	_, _, err := viewPathToStorePathCheck(r.rootPathInfo, path, r.nameCryptor, false)
-	if err != nil {
-		return nil, err
-	}
-
 	// Create walker using factory function
 	walker := newSecDirWalker(r.rootPathInfo, path, r.nameCryptor, r.ignoreMatcher, opts...)
 
@@ -337,4 +330,40 @@ func (r *secRootImpl) GetConfig() config.SharedConfig {
 		return nil
 	}
 	return r.cfg
+}
+
+// Stat returns a FileInfo describing the named file.
+// Implements fs.StatFS interface.
+// The name parameter should be a relative view path (plain text path).
+func (r *secRootImpl) Stat(path RelativeViewPath) (fs.FileInfo, error) {
+	if r == nil {
+		return nil, ErrRootIsNil
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if r.closed {
+		return nil, ErrRootClosed
+	}
+
+	// Convert view path (plain text) to store path (encrypted)
+	_, fullPath, err := viewPathToStorePathCheck(r.rootPathInfo, path, r.nameCryptor, false)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get file info from OS
+	info, err := os.Stat(string(fullPath))
+	if err != nil {
+		return nil, err
+	}
+
+	// Return FileInfo with the original (plain text) name
+	return &secFileInfo{
+		name:    filepath.Base(string(path)),
+		size:    info.Size(),
+		modTime: info.ModTime(),
+		mode:    info.Mode(),
+	}, nil
 }

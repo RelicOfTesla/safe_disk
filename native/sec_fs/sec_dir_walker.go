@@ -18,6 +18,12 @@ import (
 
 // secDirWalker implements IDirWalker interface.
 // It iterates over directory entries in a secure root with streaming support.
+
+// dirStackItem represents a directory in the traversal stack.
+type dirStackItem struct {
+	relativePath RelativeViewPath
+	dirFile      *os.File
+}
 type secDirWalker struct {
 	rootPathInfo sec_utils.PathInfo
 	relativePath RelativeViewPath
@@ -36,6 +42,10 @@ type secDirWalker struct {
 	nameCryptor crypto_name.INameCryptorContext
 	// ignoreMatcher provides ignore logic for file names.
 	ignoreMatcher IIgnoreMatcher
+
+	// Recursive traversal fields
+	dirStack     []dirStackItem // Stack of directories to traverse
+	currentDepth int            // Current recursion depth
 }
 
 // Default batch size for streaming directory reading.
@@ -155,16 +165,14 @@ func (w *secDirWalker) loadNextBatch() error {
 	if err != nil {
 		// EOF is expected when no more entries
 		if err.Error() == "EOF" || errors.Is(err, io.EOF) {
-			w.rawEntries = nil
-			return ErrNoMoreEntries
+			return w.loadNextDirectory()
 		}
 		return NewRelativeViewPathError("readdir", w.relativePath, err)
 	}
 
 	// No more entries
 	if len(entries) == 0 {
-		w.rawEntries = nil
-		return ErrNoMoreEntries
+		return w.loadNextDirectory()
 	}
 
 	w.rawEntries = entries
@@ -173,10 +181,67 @@ func (w *secDirWalker) loadNextBatch() error {
 	return nil
 }
 
+// loadNextDirectory loads the next directory from the stack for recursive traversal.
+// Returns ErrNoMoreEntries if there are no more directories to traverse.
+func (w *secDirWalker) loadNextDirectory() error {
+	// Check if there are directories in the stack for recursive traversal
+	if !w.options.Recursive || len(w.dirStack) == 0 {
+		w.rawEntries = nil
+		return ErrNoMoreEntries
+	}
+
+	// Pop the next directory from the stack
+	item := w.dirStack[len(w.dirStack)-1]
+	w.dirStack = w.dirStack[:len(w.dirStack)-1]
+
+	// Close current directory
+	if w.dirFile != nil {
+		w.dirFile.Close()
+	}
+
+	// Convert view path to store path
+	_, fullPath, err := w.viewPathToStorePath(item.relativePath)
+	if err != nil {
+		return err
+	}
+
+	// Open the new directory
+	dirFile, err := os.Open(string(fullPath))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ErrDirectoryNotFound
+		}
+		return NewPairPathError("opendir", item.relativePath, fullPath, err)
+	}
+
+	// Update walker state
+	w.relativePath = item.relativePath
+	w.dirFile = dirFile
+	w.currentDepth++
+	w.rawEntries = nil
+	w.rawIndex = 0
+
+	// Load from the new directory
+	entries, err := w.dirFile.ReadDir(w.batchSize)
+	if err != nil {
+		if err.Error() == "EOF" || errors.Is(err, io.EOF) {
+			return w.loadNextDirectory() // Try next directory
+		}
+		return NewRelativeViewPathError("readdir", w.relativePath, err)
+	}
+
+	if len(entries) == 0 {
+		return w.loadNextDirectory() // Try next directory
+	}
+
+	w.rawEntries = entries
+	w.rawIndex = 0
+	return nil
+}
+
 // processEntry converts a raw directory entry to DirEntry with decryption and filtering.
 func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) {
 	name := entry.Name()
-
 	isDir := entry.IsDir()
 
 	// Check ignore matcher BEFORE name decryption (using encrypted name)
@@ -203,6 +268,17 @@ func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) 
 		return &secDirEntry{}, true, nil
 	}
 
+	// For directories with recursive traversal, push to stack BEFORE SkipDirs check
+	if isDir && w.options.Recursive {
+		// Check max depth (0 = unlimited)
+		if w.options.MaxDepth == 0 || w.currentDepth < w.options.MaxDepth {
+			subDirPath := RelativeViewPath(filepath.Join(string(w.relativePath), name))
+			w.dirStack = append(w.dirStack, dirStackItem{
+				relativePath: subDirPath,
+			})
+		}
+	}
+
 	// Apply skip filters
 	if w.options.SkipFiles && !isDir {
 		return &secDirEntry{}, true, nil
@@ -218,7 +294,7 @@ func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) 
 	}
 
 	dirEntry := &secDirEntry{
-		name:             name,
+		viewName:         name,
 		isDir:            isDir,
 		size:             info.Size(),
 		modTime:          info.ModTime().UnixNano(),

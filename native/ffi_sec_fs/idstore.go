@@ -9,8 +9,8 @@ import (
 
 // IDStore is a thread-safe generic container that manages items with unique int64 IDs.
 type IDStore[T any] struct {
-	mu    sync.RWMutex
-	items map[int64]T
+	mu     sync.RWMutex
+	items  map[int64]T
 	nextID atomic.Int64
 }
 
@@ -49,35 +49,30 @@ func (s *IDStore[T]) Remove(id int64) bool {
 	return false
 }
 
-// Contains checks if an item with the given ID exists.
-func (s *IDStore[T]) Contains(id int64) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	_, ok := s.items[id]
-	return ok
+////
+
+type KeyValueMap[K comparable, V any] struct {
+	items map[K]V
+	mu    sync.RWMutex
 }
 
-// Clear removes all items from the store.
-func (s *IDStore[T]) Clear() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.items = make(map[int64]T)
+func NewKeyValueMap[K comparable, V any]() *KeyValueMap[K, V] {
+	return &KeyValueMap[K, V]{items: make(map[K]V)}
 }
 
-// Count returns the number of items in the store.
-func (s *IDStore[T]) Count() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return len(s.items)
+func (m *KeyValueMap[K, V]) Get(key K) (V, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	value, ok := m.items[key]
+	return value, ok
 }
-
-// List returns a slice of all items in the store.
-func (s *IDStore[T]) List() []T {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	result := make([]T, 0, len(s.items))
-	for _, item := range s.items {
-		result = append(result, item)
-	}
-	return result
+func (m *KeyValueMap[K, V]) Set(key K, value V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.items[key] = value
+}
+func (m *KeyValueMap[K, V]) Remove(key K) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.items, key)
 }
