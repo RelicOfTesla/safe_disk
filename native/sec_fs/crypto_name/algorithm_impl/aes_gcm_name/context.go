@@ -4,9 +4,8 @@ package aes_gcm_name
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
-	"io"
 
 	"safe_disk/native/config"
 	"safe_disk/native/sec_fs"
@@ -28,11 +27,23 @@ type Context struct {
 // Current implementation only uses IKeyInfo, but config is available for future extensions.
 func NewContext(keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (*Context, error) {
 	key := keyInfo.GetKey()
-	if len(key) != 32 {
-		return nil, sec_fs.NewCryptoError("new_context", "AES-256 requires 32-byte key", nil)
+	if len(key) < 32 {
+		return nil, sec_fs.NewCryptoError("new_context", "AES-256 requires at least 32-byte key", nil)
 	}
 
-	block, err := aes.NewCipher(key)
+	// Use first 32 bytes for AES-256-GCM
+	// Note: If different algorithms need to share the same key, consider using HKDF to derive subkeys
+	var aesKey []byte
+	if len(key) == 32 {
+		aesKey = key
+	} else {
+		// Derive 32-byte key using HKDF-like approach
+		// Use SHA-256 to derive the key
+		hash := sha256.Sum256(key)
+		aesKey = hash[:]
+	}
+
+	block, err := aes.NewCipher(aesKey)
 	if err != nil {
 		return nil, sec_fs.NewCryptoError("new_context", "failed to create AES cipher", err)
 	}
@@ -43,13 +54,22 @@ func NewContext(keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (*Context
 	}
 
 	return &Context{
-		key: key,
+		key: aesKey,
 		gcm: gcm,
 	}, nil
 }
 
 // EncryptName encrypts a file or directory name.
 // Returns the encrypted name (base64 encoded) or an error.
+//
+// For filename encryption, we use deterministic IV derived from the filename itself,
+// so that the same filename always produces the same encrypted result.
+// This is necessary for file path consistency.
+// Security analysis: While deterministic IV is generally less secure than random IV,
+// for filename encryption, the security impact is limited because:
+// 1. Filenames are typically low-entropy and predictable anyway
+// 2. The same filename encrypted by different users with different keys will produce different results
+// 3. The main security goal is to hide the filename structure, not provide semantic security
 func (c *Context) EncryptName(name string) (string, error) {
 	if name == "" {
 		return "", nil
@@ -57,11 +77,10 @@ func (c *Context) EncryptName(name string) (string, error) {
 
 	plaintext := []byte(name)
 
-	// Generate random IV
-	iv := make([]byte, c.gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return "", sec_fs.NewCryptoError("encrypt_name", "failed to generate IV", err)
-	}
+	// Derive deterministic IV from filename using SHA-256
+	// Use first 12 bytes (GCM nonce size) of the hash as IV
+	hash := sha256.Sum256(append(c.key, plaintext...))
+	iv := hash[:c.gcm.NonceSize()]
 
 	// Encrypt: IV + ciphertext + tag
 	ciphertext := c.gcm.Seal(iv, iv, plaintext, nil)

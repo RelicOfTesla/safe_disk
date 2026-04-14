@@ -3,6 +3,7 @@
 package sec_fs
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -436,7 +437,7 @@ func TestNameEncryption_Integration(t *testing.T) {
 	entryCount := 0
 	for {
 		entry, err := walker.Next()
-		if err == ErrNoMoreEntries {
+		if err == io.EOF {
 			break
 		}
 		if err != nil {

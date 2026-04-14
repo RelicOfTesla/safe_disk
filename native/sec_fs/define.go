@@ -79,6 +79,15 @@ type ISecRoot interface {
 	// This operation handles encrypted file names internally.
 	Rename(oldPath RelativeViewPath, newPath RelativeViewPath) error
 
+	// RenameByStorePath renames a file using store paths directly.
+	// This is useful for atomic operations where the store path is known.
+	// Both paths are relative store paths (encrypted names as stored on disk).
+	RenameByStorePath(oldPath RelativeStorePath, newPath RelativeStorePath) error
+
+	// GetStorePath returns the store path for a given view path.
+	// This is useful for atomic operations where the store path is needed.
+	GetStorePath(viewPath RelativeViewPath) (RelativeStorePath, error)
+
 	// GetRootPath returns the full store path of the root directory.
 	GetRootPath() FullStorePath
 
@@ -92,7 +101,7 @@ type ISecRoot interface {
 // IDirWalker defines the interface for iterating over directory entries.
 type IDirWalker interface {
 	// Next returns the next directory entry.
-	// Returns ErrNoMoreEntries when there are no more entries.
+	// Returns io.EOF when there are no more entries.
 	Next() (IDirEntry, error)
 
 	// NextBatch returns the next batch of directory entries.

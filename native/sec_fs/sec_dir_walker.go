@@ -110,7 +110,7 @@ func (w *secDirWalker) Next() (IDirEntry, error) {
 			}
 			// If no more entries after loading
 			if len(w.rawEntries) == 0 {
-				return &secDirEntry{}, ErrNoMoreEntries
+				return &secDirEntry{}, io.EOF
 			}
 		}
 
@@ -182,12 +182,12 @@ func (w *secDirWalker) loadNextBatch() error {
 }
 
 // loadNextDirectory loads the next directory from the stack for recursive traversal.
-// Returns ErrNoMoreEntries if there are no more directories to traverse.
+// Returns io.EOF if there are no more directories to traverse.
 func (w *secDirWalker) loadNextDirectory() error {
 	// Check if there are directories in the stack for recursive traversal
 	if !w.options.Recursive || len(w.dirStack) == 0 {
 		w.rawEntries = nil
-		return ErrNoMoreEntries
+		return io.EOF
 	}
 
 	// Pop the next directory from the stack
@@ -387,7 +387,7 @@ func (w *secDirWalker) NextBatch(batchSize int) ([]IDirEntry, error) {
 	}
 
 	if len(batch) == 0 {
-		return nil, ErrNoMoreEntries
+		return nil, io.EOF
 	}
 
 	return batch, nil
@@ -399,16 +399,33 @@ func (w *secDirWalker) HasNext() bool {
 		return false
 	}
 
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	// If not initialized, assume there are entries
+	if w.closed {
+		return false
+	}
+
+	// Historical behavior: an uninitialized walker is treated as potentially
+	// having entries. Next() remains responsible for initialization and EOF.
 	if !w.initialized {
 		return true
 	}
 
-	// Check if we have entries in current batch or can load more
-	return w.rawIndex < len(w.rawEntries)
+	// If we have entries in current batch, return true
+	if w.rawIndex < len(w.rawEntries) {
+		return true
+	}
+
+	// Try to load next batch to check if there are more entries
+	// This is needed because init() doesn't load the first batch
+	err := w.loadNextBatch()
+	if err != nil {
+		return false
+	}
+
+	// Check if we got any entries
+	return len(w.rawEntries) > 0
 }
 
 // Reset resets the walker to the beginning of the directory.

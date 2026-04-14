@@ -1,6 +1,8 @@
 # Safe Disk TODO List
 
 > 本文档记录所有待办任务和已完成任务，按优先级分类
+>
+> 注意：这里包含历史完成记录，不等于当前活跃代码状态。请以 [CODE_AUDIT_STATUS.md](CODE_AUDIT_STATUS.md) 为准，尤其是 Flutter UI 和 FFI 相关条目。
 
 **相关文档**：
 - [FEATURES.md](FEATURES.md) - 功能规划
@@ -18,6 +20,43 @@
 ---
 
 ## 🔴 P0 - 紧急任务
+
+### [CLI/Transfer V3] 补齐 create、安全密码输入和未完成操作感知
+
+**优先级**：1（最高）
+
+**背景**：CLI 当前只有 `version/list/import/export` 基础能力，缺少创建 root、安全密码输入、打开 root 时的 unfinished operation 检查。完整设计见 [CLI_DESIGN.md](CLI_DESIGN.md) 和 [TRANSFER_DESIGN.md](TRANSFER_DESIGN.md)。
+
+**底层前置任务**：
+- [x] 重新设计 `sec_transfer` V3，不兼容 v1/v2 task/progress 持久化模型
+- [x] import/export 增加 operation marker：开始写入，成功清理，中断后可被 open root 发现
+- [x] import/export 只做运行时进度 callback，不做进度持久化和断点续传
+- [x] convert 增加 phase marker：creating_work、copying_to_work、verifying_work、renaming_root_to_backup、renaming_work_to_root、completed、needs_attention
+- [x] convert 使用 work/backup 同级目录切换模型，底层复用 import/export 全量复制
+- [x] 实现 unfinished operation query，供 CLI/FFI 在 open root 时调用
+- [ ] 完善 convert recover，根据 phase 和 root/work/backup 实际存在状态继续、重跑或报告人工处理
+
+**CLI 任务**：
+- [ ] CLI 入口改为完整算法注册，使用 `crypto_all` 和 transfer V3 实现
+- [x] 实现统一密码读取 helper：`--password`、`--password-env`、`--password-stdin`、隐藏交互输入
+- [ ] 实现统一 root open helper：绝对路径规范化、`FindRootConfig`、`OpenRootQuick`、unfinished operation 检查
+- [x] 增加 `create --path /abs/root`
+- [x] `create` 默认只允许不存在目录或空目录；已存在非空目录默认拒绝
+- [ ] 交互式非空目录 create 可提示是否原地加密，非交互模式必须拒绝
+- [x] 增加 `create --in-place`，使用 convert work/backup 目录切换模型
+- [x] `import/export` 接入 V3 import/export API 和 `--unfinished=ask|rerun|clean|skip`
+- [ ] 增加 `--json` JSON Lines 输出
+- [ ] 明确不新增单独 `recover/resume` 命令，unfinished operation 处理由 open root 流程触发
+
+**验收标准**：
+- [ ] CLI 创建的 root 可被 FFI/Flutter 打开
+- [ ] FFI/Flutter 创建的 root 可被 CLI 打开
+- [ ] 不同算法配置的 root 可被 CLI 打开
+- [ ] 中断 import/export 后，再次执行 CLI 命令能发现 operation marker，并可全量重跑/清理/跳过
+- [ ] 中断 convert 的 copy/verify/rename 阶段后，再次 open root 能按 phase 给出恢复或人工处理建议
+- [ ] convert 成功后 backup 默认保留，不自动删除
+- [ ] 密码不出现在日志、进度、JSON 输出中
+- [ ] 完整实践测试矩阵覆盖 create、import/export、progress、unfinished operation、安全输入和兼容性
 
 ### [BUG] UI 新创建的加密目录，侧边栏与解密栏标题为一段 json 字符串
 
@@ -166,13 +205,13 @@ Step 6: 返回 Step 2 处理下一个文件
   - [x] 更完善的错误处理 ✅ 2026-04-03
     - 新建 native/errors/errors.go 统一错误处理模块
     - 修改 native/crypto/、native/service/、native/config/ 包使用新错误类型
-    - 修改 native/main.go 添加错误包装和上下文
-    - 新建 docs/error_handling.md 错误处理文档
+    - 修改 native/ffi_sec_fs 添加错误包装和上下文
+    - 新建 docs/reference/error_handling.md 错误处理文档
   - [x] 统一 JSON 响应格式（jsonSuccessResponse/jsonErrorResponse） ✅ 2026-04-03
     - 新建 native/service/result.go 统一响应格式模块
     - 定义 JSONResponse 统一响应结构
     - 实现 jsonSuccess/jsonError/jsonSuccessWithData/jsonSuccessWithID 等辅助函数
-    - 修改 native/main.go 使用新响应格式
+    - 修改 native/ffi_sec_fs 使用新响应格式
     - 修改 native/service/encryption_service.go 使用新响应格式
     - 所有测试通过，功能正常
   - [x] GenerateEncryptionConfig 提取到 service 供 CLI 复用 ✅ 2026-04-03
@@ -215,8 +254,8 @@ Step 6: 返回 Step 2 处理下一个文件
   - 新增 FFI 函数：IsIncrementalFile/GetIncrementalFileInfo
   - 新增 Flutter FFI 绑定：lib/native/bindings.dart (+150 行)
   - 新增 Flutter 端 API：lib/native/native_lib.dart (+172 行)
-  - 新增 Go 层 FFI 实现：native/main.go (+471 行)
-  - 新增文档：docs/FFI_INCREMENTAL_ENCRYPTION.md
+  - 新增 Go 层 FFI 实现：native/ffi_sec_fs (+471 行)
+  - 新增文档：docs/design/FFI_INCREMENTAL_ENCRYPTION.md
   - 新增测试：test/incremental_encrypt_ffi_test.dart
 
 - [x] **实现 Flutter 端 UI 集成** ✅ 2026-04-03
@@ -236,7 +275,7 @@ Step 6: 返回 Step 2 处理下一个文件
 - [x] **性能测试和优化** ✅ 2026-04-03
   - 新增性能测试：native/crypto/incremental_encrypt_bench_test.go
   - 新增性能测试：test/performance/incremental_encrypt_perf_test.dart
-  - 新增性能报告：docs/performance_report.md
+  - 新增性能报告：docs/archive/performance_report.md
   - 测试结果：
     - 加密吞吐量：167 MB/s (100MB 文件)
     - 解密吞吐量：659 MB/s (100MB 文件)
@@ -381,7 +420,7 @@ Step 6: 返回 Step 2 处理下一个文件
     - lib/widgets/secure_image_viewer.dart（完全重写，新增所有功能）
     - lib/pages/home_page.dart（传递 directoryPath 和 fileService 参数）
   - **新增文件**：
-    - docs/secure_image_viewer_report.md（实现报告）
+    - docs/archive/secure_image_viewer_report.md（实现报告）
   - **测试**：Flutter 应用编译成功
 
 - [x] **安全记事本功能实现** ✅ 2026-04-03
@@ -395,13 +434,13 @@ Step 6: 返回 Step 2 处理下一个文件
     - ✅ 内存中处理，不写临时文件
     - ✅ 关闭后清零内存（通过 FFI 调用 Go MemZero）
   - **修改文件**：
-    - native/main.go（添加 ClearSecureMemory FFI 函数）
+    - native/ffi_sec_fs/exports.go（添加 ClearSecureMemory FFI 函数）
     - lib/native/bindings.dart（添加 clearSecureMemory 绑定）
     - lib/native/native_lib.dart（添加 clearSecureMemory 调用接口）
     - lib/widgets/secure_notepad.dart（实现完整的安全记事本功能）
   - **新增文件**：
     - test/secure_notepad_test.dart（单元测试）
-    - docs/secure_notepad_usage.md（使用文档）
+    - docs/usage/secure_notepad_usage.md（使用文档）
   - **未实现**：行号显示/跳转（可选功能）
 
 - [x] **底部弹出的错误提示，应当可以点击复制** ✅ 2026-04-03
@@ -454,6 +493,24 @@ Step 6: 返回 Step 2 处理下一个文件
 - [x] 优化代码结构，减少重复代码 ✅ 2026-04-03（架构重构）
 - [x] 优化 State 管理 ✅ 2026-04-03（CryptoService 无状态化）
 - [x] 检查密码输入框是否使用 obscureText ✅ 2026-04-03
+- [x] **[严重] ConvertRootAsync 加密/解密后文件被删除** ✅ 2026-04-17
+  - **问题**：ConvertRootAsync 加密/解密转换后，文件不存在
+  - **根本原因**：`encryptFileInPlace` 和 `decryptFileInPlace` 在处理文件备份时有逻辑错误
+  - **encryptFileInPlace 问题**：
+    - 当磁盘上有明文文件时，`root.Stat("file1.txt")` 返回成功
+    - 备份明文文件：`root.Rename("file1.txt", "file1.txt.bak")`
+    - 重命名加密文件：`root.Rename("file1.txt.tmp", "file1.txt")`
+    - 删除备份：`root.DeleteFile("file1.txt.bak")`
+    - **错误**：`os.Remove(srcPath)` 又删除了加密文件！
+  - **decryptFileInPlace 问题**：
+    - 当磁盘上有加密文件时，`os.Stat("file1.txt")` 返回成功
+    - 备份加密文件：`os.Rename("file1.txt", "file1.txt.bak")`
+    - 重命名明文文件：`os.Rename("file1.txt.tmp", "file1.txt")`
+    - 删除备份：`os.Remove("file1.txt.bak")`
+    - **错误**：`root.DeleteFile("file1.txt")` 又删除了明文文件！
+  - **修复**：只有当没有备份时，才删除原始文件
+  - **修改文件**：`native/sec_fs/sec_transfer/v2/atomic_file.go`
+  - **验证**：加密/解密功能正常，文件存在且内容正确
 
 ---
 

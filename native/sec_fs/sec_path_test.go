@@ -25,7 +25,7 @@ func TestPathEncryption_AllPathFormats(t *testing.T) {
 			result[i] = c ^ key[i%len(key)]
 		}
 		// Use Base64 encoding to avoid path separator characters
-		return "enc_" + base64.StdEncoding.EncodeToString(result), nil
+		return "enc_" + base64.RawURLEncoding.EncodeToString(result), nil
 	}
 
 	decryptFunc := func(encrypted string) (string, error) {
@@ -36,7 +36,7 @@ func TestPathEncryption_AllPathFormats(t *testing.T) {
 			return encrypted, nil // Not encrypted, return as-is
 		}
 		data := encrypted[4:]
-		decoded, err := base64.StdEncoding.DecodeString(data)
+		decoded, err := base64.RawURLEncoding.DecodeString(data)
 		if err != nil {
 			return "", err
 		}

@@ -5,7 +5,7 @@ import '../native/native_lib.dart';
 
 /// Crypto service for Safe Disk encryption operations.
 ///
-/// **Architecture (V2)**:
+/// **Architecture**:
 /// - Root-based operations: Open a root directory, get a rootID
 /// - All file operations use rootID
 /// - ID mapping managed by Go backend (ffi_comm.Store)
@@ -123,7 +123,8 @@ class CryptoService {
   ///
   /// Returns fileID for subsequent operations.
   int openFile(int rootID, String path, FileMode mode) {
-    final modeInt = mode == FileMode.read ? 0 : (mode == FileMode.write ? 1 : 2);
+    final modeInt =
+        mode == FileMode.read ? 0 : (mode == FileMode.write ? 1 : 2);
     return _native.secFileOpen(rootID, path, modeInt);
   }
 

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'crypto_service.dart';
@@ -70,7 +69,7 @@ class FileSystemNode {
 
 /// Service for file operations in secure storage.
 ///
-/// **Architecture (V2)**:
+/// **Architecture**:
 /// - Uses rootID-based operations
 /// - Delegates to CryptoService for file I/O
 /// - Provides file type detection and helper methods

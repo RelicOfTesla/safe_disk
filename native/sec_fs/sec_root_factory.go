@@ -4,6 +4,8 @@ package sec_fs
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -225,12 +227,14 @@ func FindRootConfig(startPath string, options ...OpenOption) (config.SharedConfi
 		return nil, "", "", NewFullStorePathError("abs", FullStorePath(startPath), err)
 	}
 
-	// If startPath is a file, start from its directory
+	// If startPath doesn't exist or is a file, start from its directory
+	originalPath := absPath // Save the original path for later use
 	info, err := os.Stat(absPath)
 	if err != nil {
-		return nil, "", "", NewFullStorePathError("stat", FullStorePath(absPath), err)
-	}
-	if !info.IsDir() {
+		// Path doesn't exist - this could be a view path (decrypted name)
+		// Try to find config from parent directory
+		absPath = filepath.Dir(absPath)
+	} else if !info.IsDir() {
 		absPath = filepath.Dir(absPath)
 	}
 
@@ -248,6 +252,16 @@ func FindRootConfig(startPath string, options ...OpenOption) (config.SharedConfi
 			}
 			slices.Reverse(relativeList)
 			relativePath := filepath.Join(relativeList...)
+
+			// If original path was different (e.g., a non-existent file),
+			// compute the relative path from the found root to the original path
+			if originalPath != string(currentPath) {
+				relFromRoot, err := filepath.Rel(string(currentPath), originalPath)
+				if err == nil {
+					relativePath = relFromRoot
+				}
+			}
+
 			return cfg, FullStorePath(currentPath), RelativeViewPath(relativePath), nil
 		}
 
@@ -463,6 +477,22 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 		}
 	}
 
+	// Determine required key length from data factory and name factory
+	// For data factory, use GetRequireMinKeyLength
+	// For name factory, we need to check if it requires a specific key length
+	// Currently, only aes-gcm-name requires 32-byte key
+	requiredKeyLength := 0
+	if dataFactory != nil {
+		requiredKeyLength = dataFactory.GetRequireMinKeyLength()
+	}
+	// Check name factory key requirement
+	if nameFactory != nil && nameFactory.GetName() == "aes-gcm-name" {
+		// aes-gcm-name requires 32-byte key
+		if requiredKeyLength < 32 {
+			requiredKeyLength = 32
+		}
+	}
+
 	// Create deriver and key
 	var keyInfo crypto_hkdf.IKeyInfo
 	if deriverFactory != nil {
@@ -476,6 +506,7 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 			Password:      password,
 			StaticSalt:    true,
 			KeyStrengthMs: opts.KeyStrengthMs,
+			KeyLength:     requiredKeyLength,
 		}, cfg)
 		if err != nil {
 			return nil, "", NewConfigError("key_derivation", "failed to create key", err)
@@ -493,6 +524,7 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 			Password:      password,
 			StaticSalt:    true,
 			KeyStrengthMs: opts.KeyStrengthMs,
+			KeyLength:     requiredKeyLength,
 		}, cfg)
 		if err != nil {
 			return nil, "", NewConfigError("key_derivation", "failed to create key", err)
@@ -795,4 +827,227 @@ func getOpenFactories(cfg config.SharedConfig) (
 	}
 
 	return dataFactory, nameFactory, deriverFactory, nil
+}
+
+// ==================== Root Operations ====================
+
+// MoveRoot moves the root directory to a new location.
+// This function renames the underlying directory and updates the root's internal path.
+// The root remains open after the move operation.
+//
+// Parameters:
+//   - root: the secure root to move
+//   - targetPath: the new location for the root directory
+//
+// Returns an error if:
+//   - root is nil
+//   - root is closed
+//   - the underlying directory rename fails
+func MoveRoot(root ISecRoot, targetPath FullStorePath) error {
+	if root == nil {
+		return ErrRootIsNil
+	}
+
+	// Type assertion to access internal fields
+	impl, ok := root.(*secRootImpl)
+	if !ok {
+		return fmt.Errorf("MoveRoot: unsupported root type")
+	}
+
+	impl.mu.Lock()
+	defer impl.mu.Unlock()
+
+	if impl.closed {
+		return ErrRootClosed
+	}
+
+	// Get current path
+	currentPath := impl.rootPathInfo.Encode()
+
+	// Rename the underlying directory
+	if err := os.Rename(currentPath, string(targetPath)); err != nil {
+		return fmt.Errorf("failed to rename root directory: %w", err)
+	}
+
+	// Update rootPathInfo to the new path
+	impl.rootPathInfo = sec_utils.ParsePathInfoMust(string(targetPath))
+
+	return nil
+}
+
+// CloneRootShallow creates a shallow clone of the root object.
+// This function creates a new root object pointing to the same directory,
+// but does not modify the original root's path.
+//
+// This is useful for operations that need to access the same root directory
+// with a different root object instance (e.g., for concurrent access).
+//
+// Parameters:
+//   - root: the secure root to clone
+//
+// Returns:
+//   - ISecRoot: the cloned root object (opened)
+//   - error: any error that occurred
+//
+// Note: The cloned root shares the same underlying directory and configuration.
+// Closing or modifying one root does not affect the other.
+func CloneRootShallow(root ISecRoot) (ISecRoot, error) {
+	if root == nil {
+		return nil, ErrRootIsNil
+	}
+
+	// Type assertion to access internal fields
+	impl, ok := root.(*secRootImpl)
+	if !ok {
+		return nil, fmt.Errorf("CloneRootShallow: unsupported root type")
+	}
+
+	impl.mu.RLock()
+	defer impl.mu.RUnlock()
+
+	if impl.closed {
+		return nil, ErrRootClosed
+	}
+
+	// Create a new root object with the same configuration
+	// This is a shallow clone - the same directory, same configuration
+	cloned := &secRootImpl{
+		fileDataFactory: impl.fileDataFactory,
+		rootPathInfo:    impl.rootPathInfo,
+		keyInfo:         impl.keyInfo,
+		cfg:             impl.cfg,
+		closed:          false,
+		nameCryptor:     impl.nameCryptor,
+		ignoreMatcher:   impl.ignoreMatcher,
+	}
+
+	return cloned, nil
+}
+
+// CloneRoot creates a clone of the root at the target path.
+// This function creates a new root directory with the same configuration and files.
+//
+// Parameters:
+//   - root: the secure root to clone
+//   - targetPath: the path for the cloned root
+//   - password: the password for the cloned root
+//
+// Returns:
+//   - ISecRoot: the cloned root (opened)
+//   - error: any error that occurred
+//
+// Note: This function copies the root's configuration and all files.
+// The cloned root will have the same password and encryption settings.
+func CloneRoot(root ISecRoot, targetPath FullStorePath, password string) (ISecRoot, error) {
+	if root == nil {
+		return nil, ErrRootIsNil
+	}
+
+	// Type assertion to access internal fields
+	impl, ok := root.(*secRootImpl)
+	if !ok {
+		return nil, fmt.Errorf("CloneRoot: unsupported root type")
+	}
+
+	impl.mu.RLock()
+	defer impl.mu.RUnlock()
+
+	if impl.closed {
+		return nil, ErrRootClosed
+	}
+
+	// Get current root path
+	srcPath := impl.rootPathInfo.Encode()
+
+	// Create target directory
+	if err := os.MkdirAll(string(targetPath), 0755); err != nil {
+		return nil, fmt.Errorf("failed to create target directory: %w", err)
+	}
+
+	// Copy config file
+	srcConfigPath := filepath.Join(srcPath, ConfigFileName)
+	destConfigPath := filepath.Join(string(targetPath), ConfigFileName)
+	if err := copyFile(srcConfigPath, destConfigPath); err != nil {
+		os.RemoveAll(string(targetPath))
+		return nil, fmt.Errorf("failed to copy config file: %w", err)
+	}
+
+	// Open the cloned root
+	clonedRoot, err := OpenRootQuick(targetPath, password)
+	if err != nil {
+		os.RemoveAll(string(targetPath))
+		return nil, fmt.Errorf("failed to open cloned root: %w", err)
+	}
+
+	// Walk the source root and copy all files
+	walker, err := root.WalkDir(RelativeViewPath(""))
+	if err != nil {
+		clonedRoot.Close()
+		os.RemoveAll(string(targetPath))
+		return nil, fmt.Errorf("failed to walk source root: %w", err)
+	}
+	defer walker.Close()
+
+	for {
+		entry, err := walker.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			clonedRoot.Close()
+			os.RemoveAll(string(targetPath))
+			return nil, fmt.Errorf("failed to read entry: %w", err)
+		}
+
+		if !entry.IsDir() {
+			// Copy file content
+			relPath := entry.GetRelativeViewPath()
+			if err := copyFileContent(root, clonedRoot, relPath); err != nil {
+				clonedRoot.Close()
+				os.RemoveAll(string(targetPath))
+				return nil, fmt.Errorf("failed to copy file %s: %w", relPath, err)
+			}
+		}
+	}
+
+	return clonedRoot, nil
+}
+
+// copyFile copies a file from src to dst.
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	return err
+}
+
+// copyFileContent copies file content from src root to dest root.
+func copyFileContent(srcRoot, destRoot ISecRoot, relPath RelativeViewPath) error {
+	// Open source file
+	srcFile, err := srcRoot.OpenFile(relPath, os.O_RDONLY)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	// Create destination file
+	destFile, err := destRoot.OpenFile(relPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	// Copy content
+	_, err = io.Copy(destFile, srcFile)
+	return err
 }

@@ -1,4 +1,4 @@
-// Package ffi_sec_transfer provides FFI adapter layer for sec_transfer.
+// Package main provides FFI adapter layer for sec_fs and Transfer V3.
 // This file implements CGO callback mechanism for converting C function pointers
 // to Go ProgressCallback functions.
 package main

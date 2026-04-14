@@ -57,8 +57,8 @@ func (c *Context) EncryptName(name string) (string, error) {
 	}
 	cipher.XORKeyStream(encrypted, encrypted)
 
-	// Encode to Base64
-	encoded := base64.StdEncoding.EncodeToString(encrypted)
+	// Encode to Base64 (URL-safe to avoid "/" in filename)
+	encoded := base64.RawURLEncoding.EncodeToString(encrypted)
 
 	return encoded, nil
 }
@@ -70,8 +70,8 @@ func (c *Context) DecryptName(encrypted string) (string, error) {
 		return "", nil
 	}
 
-	// Decode from Base64
-	data, err := base64.StdEncoding.DecodeString(encrypted)
+	// Decode from Base64 (URL-safe)
+	data, err := base64.RawURLEncoding.DecodeString(encrypted)
 	if err != nil {
 		return "", err
 	}

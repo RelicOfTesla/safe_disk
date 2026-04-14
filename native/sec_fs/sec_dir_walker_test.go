@@ -36,9 +36,9 @@ func TestSecDirWalker_Next(t *testing.T) {
 		require.NoError(t, err, "Failed to initialize walker")
 		defer walker.Close()
 
-		// Should return ErrNoMoreEntries for empty directory
+		// Should return io.EOF for empty directory
 		_, err = walker.Next()
-		assert.ErrorIs(t, err, ErrNoMoreEntries, "Expected ErrNoMoreEntries for empty directory")
+		assert.ErrorIs(t, err, io.EOF, "Expected io.EOF for empty directory")
 	})
 
 	t.Run("SingleFile", func(t *testing.T) {
@@ -62,7 +62,7 @@ func TestSecDirWalker_Next(t *testing.T) {
 
 		// No more entries
 		_, err = walker.Next()
-		assert.ErrorIs(t, err, ErrNoMoreEntries, "Expected ErrNoMoreEntries after single file")
+		assert.ErrorIs(t, err, io.EOF, "Expected io.EOF after single file")
 	})
 
 	t.Run("MultipleFiles", func(t *testing.T) {
@@ -84,7 +84,7 @@ func TestSecDirWalker_Next(t *testing.T) {
 		count := 0
 		for {
 			_, err := walker.Next()
-			if err == ErrNoMoreEntries {
+			if err == io.EOF {
 				break
 			}
 			require.NoError(t, err, "Failed to get entry")
@@ -118,7 +118,7 @@ func TestSecDirWalker_Next(t *testing.T) {
 		dirCount := 0
 		for {
 			entry, err := walker.Next()
-			if err == ErrNoMoreEntries {
+			if err == io.EOF {
 				break
 			}
 			require.NoError(t, err, "Failed to get entry")
@@ -163,9 +163,9 @@ func TestSecDirWalker_NextBatch(t *testing.T) {
 		require.NoError(t, err)
 		defer walker.Close()
 
-		// Should return ErrNoMoreEntries for empty directory
+		// Should return io.EOF for empty directory
 		entries, err := walker.NextBatch(10)
-		assert.ErrorIs(t, err, ErrNoMoreEntries, "Should return ErrNoMoreEntries for empty directory")
+		assert.ErrorIs(t, err, io.EOF, "Should return io.EOF for empty directory")
 		assert.Empty(t, entries, "Entries should be nil or empty")
 	})
 
@@ -188,7 +188,7 @@ func TestSecDirWalker_NextBatch(t *testing.T) {
 		batchNum := 0
 		for {
 			entries, err := walker.NextBatch(5)
-			if err == ErrNoMoreEntries {
+			if err == io.EOF {
 				break
 			}
 			require.NoError(t, err, "NextBatch failed at batch %d", batchNum)
@@ -437,7 +437,7 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 		foundNames := make(map[string]bool)
 		for {
 			entry, err := walker.Next()
-			if err == ErrNoMoreEntries {
+			if err == io.EOF {
 				break
 			}
 			require.NoError(t, err, "Failed to get entry")
@@ -463,9 +463,9 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 		require.NoError(t, err)
 		defer walker.Close()
 
-		// Should return ErrNoMoreEntries for empty directory
+		// Should return io.EOF for empty directory
 		_, err = walker.Next()
-		assert.ErrorIs(t, err, ErrNoMoreEntries, "Should return ErrNoMoreEntries for empty directory")
+		assert.ErrorIs(t, err, io.EOF, "Should return io.EOF for empty directory")
 	})
 
 	t.Run("MultipleFiles", func(t *testing.T) {
@@ -496,7 +496,7 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 		foundCount := 0
 		for {
 			entry, err := walker.Next()
-			if err == ErrNoMoreEntries {
+			if err == io.EOF {
 				break
 			}
 			require.NoError(t, err)
@@ -587,7 +587,7 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 		foundNames := make(map[string]bool)
 		for {
 			entry, err := walker.Next()
-			if err == ErrNoMoreEntries {
+			if err == io.EOF {
 				break
 			}
 			require.NoError(t, err)
@@ -632,7 +632,7 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 
 		// No more entries (invalid file was skipped)
 		_, err = walker.Next()
-		assert.ErrorIs(t, err, ErrNoMoreEntries, "Should skip invalid encrypted files")
+		assert.ErrorIs(t, err, io.EOF, "Should skip invalid encrypted files")
 	})
 
 	t.Run("MixedEncryptedAndPlain", func(t *testing.T) {
@@ -660,7 +660,7 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 		foundNames := make(map[string]bool)
 		for {
 			entry, err := walker.Next()
-			if err == ErrNoMoreEntries {
+			if err == io.EOF {
 				break
 			}
 			require.NoError(t, err)
@@ -742,7 +742,7 @@ func TestSecDirWalker_WithIgnoreMatcher(t *testing.T) {
 
 		// No more entries
 		_, err = walker.Next()
-		assert.ErrorIs(t, err, ErrNoMoreEntries, "Should have no more non-ignored entries")
+		assert.ErrorIs(t, err, io.EOF, "Should have no more non-ignored entries")
 	})
 }
 
@@ -868,7 +868,7 @@ func TestSecDirWalker_ConcurrentAccess(t *testing.T) {
 		// The walker has mutex protection, but proper concurrent testing is complex
 		for i := 0; i < 5; i++ {
 			_, err := walker.Next()
-			if err == ErrNoMoreEntries {
+			if err == io.EOF {
 				break
 			}
 			require.NoError(t, err)

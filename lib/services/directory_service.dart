@@ -3,10 +3,10 @@ import 'crypto_service.dart';
 
 /// Service for directory operations.
 ///
-/// **Architecture (V2)**:
+/// **Architecture (Transfer V3)**:
 /// - Uses rootID-based operations
-/// - Directory export/import via ffi_sec_transfer
-/// - No tempKeyID required (password managed by backend)
+/// - Directory export/import via V3 FFI functions
+/// - Import/export is synchronous and only keeps unfinished operation markers
 class DirectoryService {
   final NativeLib _native = NativeLib.instance;
   final CryptoService _cryptoService = CryptoService();
@@ -29,11 +29,9 @@ class DirectoryService {
   /// [rootID] - Root ID from CryptoService.openRoot()
   /// [srcPath] - Relative path in secure storage
   /// [destPath] - Full path in normal filesystem
-  /// Returns job ID for tracking progress.
-  Future<String> exportDirectory(int rootID, String srcPath, String destPath) async {
-    // TODO: Implement with ffi_sec_transfer
-    // return _native.secExportDirectoryAsync(rootID, srcPath, destPath);
-    throw UnimplementedError('Directory export not yet implemented in FFI bindings');
+  Future<void> exportDirectory(
+      int rootID, String srcPath, String destPath) async {
+    _native.secTransferV3ExportDirectory(rootID, srcPath, destPath);
   }
 
   /// Imports a directory from normal filesystem to secure storage.
@@ -41,11 +39,20 @@ class DirectoryService {
   /// [rootID] - Root ID from CryptoService.openRoot()
   /// [srcPath] - Full path in normal filesystem
   /// [destPath] - Relative path in secure storage
-  /// Returns job ID for tracking progress.
-  Future<String> importDirectory(int rootID, String srcPath, String destPath) async {
-    // TODO: Implement with ffi_sec_transfer
-    // return _native.secImportDirectoryAsync(rootID, srcPath, destPath);
-    throw UnimplementedError('Directory import not yet implemented in FFI bindings');
+  Future<void> importDirectory(
+      int rootID, String srcPath, String destPath) async {
+    _native.secTransferV3ImportDirectory(rootID, srcPath, destPath);
+  }
+
+  /// Lists unfinished import/export operation markers on this root.
+  Future<List<Map<String, dynamic>>> listUnfinishedOperations(
+      int rootID) async {
+    return _native.secTransferV3ListUnfinished(rootID);
+  }
+
+  /// Cleans one unfinished import/export marker by operation ID.
+  Future<void> cleanUnfinishedOperation(int rootID, String opID) async {
+    _native.secTransferV3CleanUnfinished(rootID, opID);
   }
 
   // ==================== Directory Management ====================
@@ -56,35 +63,5 @@ class DirectoryService {
   /// [path] - Relative path to create
   Future<void> createDir(int rootID, String path) async {
     _native.secMkdirAll(rootID, path);
-  }
-}
-
-/// Directory entry information.
-class DirEntry {
-  final String name;
-  final bool isDir;
-  final int size;
-  final int modTime;
-  final int mode;
-  final String path;
-
-  DirEntry({
-    required this.name,
-    required this.isDir,
-    required this.size,
-    required this.modTime,
-    required this.mode,
-    required this.path,
-  });
-
-  factory DirEntry.fromJson(Map<String, dynamic> json) {
-    return DirEntry(
-      name: json['name'] as String,
-      isDir: json['is_dir'] as bool,
-      size: json['size'] as int,
-      modTime: json['mod_time'] as int,
-      mode: json['mode'] as int,
-      path: json['path'] as String,
-    );
   }
 }

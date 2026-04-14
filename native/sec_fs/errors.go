@@ -87,8 +87,6 @@ var (
 	// ErrWalkerClosed indicates that the directory walker is closed.
 	ErrWalkerClosed = errors.New("walker is closed")
 
-	// ErrNoMoreEntries indicates that there are no more entries to read.
-	ErrNoMoreEntries = errors.New("no more entries")
 
 	// ErrNotConfigFile indicates that the config file is missing or invalid.
 	ErrNotConfigFile = errors.New("config file not found or invalid")

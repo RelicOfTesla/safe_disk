@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 
@@ -15,6 +16,127 @@ import (
 // successResponse creates a success JSON response.
 func successResponse(data interface{}) string {
 	return SuccessWithData(data)
+}
+
+// ==================== Transfer V3 Operations ====================
+
+func TransferV3ListUnfinished_FFI(rootID int64) string {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+	manager := sec_transfer.GetDefaultTransferV3()
+	markers, err := manager.ListUnfinishedOperations(context.Background(), entry.RootPath)
+	if err != nil {
+		return errorResponse(err)
+	}
+	return successResponse(map[string]interface{}{"markers": markers, "count": len(markers)})
+}
+
+func TransferV3CleanUnfinished_FFI(rootID int64, opID string) string {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+	manager := sec_transfer.GetDefaultTransferV3()
+	if err := manager.CleanUnfinishedImportExport(context.Background(), entry.RootPath, opID); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
+}
+
+func TransferV3RecoverConvert_FFI(rootPath string) string {
+	manager := sec_transfer.GetDefaultTransferV3()
+	result, err := manager.RecoverConvert(context.Background(), rootPath)
+	if err != nil {
+		return errorResponse(err)
+	}
+	return successResponse(result)
+}
+
+func TransferV3ConvertRoot_FFI(rootPath string, password string, kind string) string {
+	manager := sec_transfer.GetDefaultTransferV3()
+	convertKind := sec_transfer.ConvertKind(kind)
+	if convertKind == "" {
+		convertKind = sec_transfer.ConvertKindEncrypt
+	}
+	if err := manager.ConvertRoot(context.Background(), sec_transfer.ConvertRequest{
+		Kind:      convertKind,
+		RootPath:  rootPath,
+		Password:  password,
+		Overwrite: true,
+	}, nil); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
+}
+
+func TransferV3ImportFile_FFI(rootID int64, srcPath string, destPath string) string {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+	manager := sec_transfer.GetDefaultTransferV3()
+	if err := manager.ImportFile(context.Background(), sec_transfer.ImportFileRequest{
+		Source:    sec_fs.FullStorePath(srcPath),
+		DestRoot:  entry.Root,
+		Dest:      sec_fs.RelativeViewPath(destPath),
+		Overwrite: true,
+	}, nil); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
+}
+
+func TransferV3ImportDirectory_FFI(rootID int64, srcPath string, destPath string) string {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+	manager := sec_transfer.GetDefaultTransferV3()
+	if err := manager.ImportDirectory(context.Background(), sec_transfer.ImportDirectoryRequest{
+		Source:    sec_fs.FullStorePath(srcPath),
+		DestRoot:  entry.Root,
+		Dest:      sec_fs.RelativeViewPath(destPath),
+		Overwrite: true,
+	}, nil); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
+}
+
+func TransferV3ExportFile_FFI(rootID int64, srcPath string, destPath string) string {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+	manager := sec_transfer.GetDefaultTransferV3()
+	if err := manager.ExportFile(context.Background(), sec_transfer.ExportFileRequest{
+		SourceRoot: entry.Root,
+		Source:     sec_fs.RelativeViewPath(srcPath),
+		Dest:       sec_fs.FullStorePath(destPath),
+		Overwrite:  true,
+	}, nil); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
+}
+
+func TransferV3ExportDirectory_FFI(rootID int64, srcPath string, destPath string) string {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+	manager := sec_transfer.GetDefaultTransferV3()
+	if err := manager.ExportDirectory(context.Background(), sec_transfer.ExportDirectoryRequest{
+		SourceRoot: entry.Root,
+		Source:     sec_fs.RelativeViewPath(srcPath),
+		Dest:       sec_fs.FullStorePath(destPath),
+		Overwrite:  true,
+	}, nil); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
 }
 
 // errorResponse creates an error JSON response.
@@ -548,101 +670,64 @@ func QuickWriteFile_FFI(rootID int64, path string, data []byte) string {
 	return successResponse(map[string]int{"bytes_written": n})
 }
 
-// ==================== Transfer Operations (Async) ====================
+// ==================== Transfer Operations (V3 compatibility wrappers) ====================
 
-// ExportDirectoryAsync_FFI exports an encrypted directory to a plaintext directory asynchronously.
+// ExportDirectoryAsync_FFI is kept for ABI compatibility. It now executes V3
+// transfer synchronously and returns completed status instead of a legacy task id.
 func ExportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	entry, ok := RootStore.Get(rootID)
-	root := entry.Root
-	if !ok {
-		return errorResponseStr("root not found")
-	}
-
-	// Use transfer service from sec_transfer package
-	svc := sec_transfer.GetDefaultTransferManager()
-	taskInfo, err := svc.ExportDirectoryAsync(root, sec_fs.RelativeViewPath(srcPath), sec_fs.FullStorePath(destPath), nil, nil)
-	if err != nil {
-		return errorResponse(err)
-	}
-
-	return successResponse(map[string]string{"task_id": taskInfo.GetTaskID(), "status": "started"})
+	return TransferV3ExportDirectory_FFI(rootID, srcPath, destPath)
 }
 
-// ImportDirectoryAsync_FFI imports a plaintext directory into an encrypted directory asynchronously.
+// ExportDirectoryAsyncWithCallback_FFI is kept for ABI compatibility. V3
+// exposes runtime progress separately; this wrapper executes synchronously.
+func ExportDirectoryAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.ProgressCallback) string {
+	return TransferV3ExportDirectory_FFI(rootID, srcPath, destPath)
+}
+
+// ImportDirectoryAsync_FFI is kept for ABI compatibility. It now executes V3
+// transfer synchronously and returns completed status instead of a legacy task id.
 func ImportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	entry, ok := RootStore.Get(rootID)
-	root := entry.Root
-	if !ok {
-		return errorResponseStr("root not found")
-	}
-
-	// Use transfer service from sec_transfer package
-	svc := sec_transfer.GetDefaultTransferManager()
-	taskInfo, err := svc.ImportDirectoryAsync(sec_fs.FullStorePath(srcPath), root, sec_fs.RelativeViewPath(destPath), nil, nil)
-	if err != nil {
-		return errorResponse(err)
-	}
-
-	return successResponse(map[string]string{"task_id": taskInfo.GetTaskID(), "status": "started"})
+	return TransferV3ImportDirectory_FFI(rootID, srcPath, destPath)
 }
 
-// ExportFileAsync_FFI exports an encrypted file to a plaintext file asynchronously.
+// ImportDirectoryAsyncWithCallback_FFI is kept for ABI compatibility. V3
+// exposes runtime progress separately; this wrapper executes synchronously.
+func ImportDirectoryAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.ProgressCallback) string {
+	return TransferV3ImportDirectory_FFI(rootID, srcPath, destPath)
+}
+
+// ExportFileAsync_FFI is kept for ABI compatibility. It now executes V3
+// transfer synchronously and returns completed status instead of a legacy task id.
 func ExportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	entry, ok := RootStore.Get(rootID)
-	root := entry.Root
-	if !ok {
-		return errorResponseStr("root not found")
-	}
-
-	// Use transfer service from sec_transfer package
-	svc := sec_transfer.GetDefaultTransferManager()
-	taskInfo, err := svc.ExportFileAsync(root, sec_fs.RelativeViewPath(srcPath), sec_fs.FullStorePath(destPath), nil, nil)
-	if err != nil {
-		return errorResponse(err)
-	}
-
-	return successResponse(map[string]string{"task_id": taskInfo.GetTaskID(), "status": "started"})
+	return TransferV3ExportFile_FFI(rootID, srcPath, destPath)
 }
 
-// ImportFileAsync_FFI imports a plaintext file into an encrypted file asynchronously.
+// ExportFileAsyncWithCallback_FFI is kept for ABI compatibility. V3 exposes
+// runtime progress separately; this wrapper executes synchronously.
+func ExportFileAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.ProgressCallback) string {
+	return TransferV3ExportFile_FFI(rootID, srcPath, destPath)
+}
+
+// ImportFileAsync_FFI is kept for ABI compatibility. It now executes V3
+// transfer synchronously and returns completed status instead of a legacy task id.
 func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	entry, ok := RootStore.Get(rootID)
-	root := entry.Root
-	if !ok {
-		return errorResponseStr("root not found")
-	}
-
-	// Use transfer service from sec_transfer package
-	svc := sec_transfer.GetDefaultTransferManager()
-	taskInfo, err := svc.ImportFileAsync(sec_fs.FullStorePath(srcPath), root, sec_fs.RelativeViewPath(destPath), nil, nil)
-	if err != nil {
-		return errorResponse(err)
-	}
-
-	return successResponse(map[string]string{"task_id": taskInfo.GetTaskID(), "status": "started"})
+	return TransferV3ImportFile_FFI(rootID, srcPath, destPath)
 }
 
-// GetTransferProgress_FFI gets the progress of a transfer job.
+// ImportFileAsyncWithCallback_FFI is kept for ABI compatibility. V3 exposes
+// runtime progress separately; this wrapper executes synchronously.
+func ImportFileAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.ProgressCallback) string {
+	return TransferV3ImportFile_FFI(rootID, srcPath, destPath)
+}
+
+// GetTransferProgress_FFI is deprecated. V3 import/export does not expose
+// persistent task ids or progress polling.
 func GetTransferProgress_FFI(taskID string) string {
-	task, ok := TaskStore.Get(taskID)
-	if !ok {
-		return errorResponseStr("task not found")
-	}
-
-	curr, max := task.GetTotalProgress()
-	return successResponse(map[string]int{"total": max, "current": curr})
+	return errorResponseStr("legacy task progress is deprecated; use V3 operation markers")
 }
 
-// RollbackTransfer_FFI cancels a transfer job.
+// RollbackTransfer_FFI is deprecated. V3 import/export is rerun/clean marker
+// based, and convert recovery is phase based.
 func RollbackTransfer_FFI(taskID string) string {
-	task, ok := TaskStore.Get(taskID)
-	if !ok {
-		return errorResponseStr("task not found")
-	}
-
-	err := task.AsyncRollback()
-	if err != nil {
-		return errorResponse(err)
-	}
-	return successResponse(map[string]string{"status": "cancelled"})
+	return errorResponseStr("legacy task rollback is deprecated; use V3 clean/recover APIs")
 }

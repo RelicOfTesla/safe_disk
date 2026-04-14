@@ -239,6 +239,45 @@ func (p *PlainFS) Rename(oldPath RelativeViewPath, newPath RelativeViewPath) err
 	return nil
 }
 
+// RenameByStorePath renames a file using store paths directly.
+// For PlainFS, store path and view path are the same (no encryption).
+func (p *PlainFS) RenameByStorePath(oldPath RelativeStorePath, newPath RelativeStorePath) error {
+	if p == nil {
+		return ErrRootClosed
+	}
+
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if p.closed {
+		return ErrRootClosed
+	}
+
+	oldFullPath := filepath.Join(p.rootPath, string(oldPath))
+	newFullPath := filepath.Join(p.rootPath, string(newPath))
+
+	err := os.Rename(oldFullPath, newFullPath)
+	if err != nil {
+		return NewPairPathError("rename_by_store_path", RelativeViewPath(oldPath), FullStorePath(oldFullPath), err)
+	}
+	return nil
+}
+
+// GetStorePath returns the store path for a given view path.
+// For PlainFS, store path and view path are the same (no encryption).
+func (p *PlainFS) GetStorePath(viewPath RelativeViewPath) (RelativeStorePath, error) {
+	if p == nil {
+		return "", ErrRootClosed
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.closed {
+		return "", ErrRootClosed
+	}
+	// For PlainFS, store path = view path
+	return RelativeStorePath(viewPath), nil
+}
+
 // WalkDir returns a directory walker for the given path.
 func (p *PlainFS) WalkDir(path RelativeViewPath, opts ...WalkOption) (IDirWalker, error) {
 	if p == nil {
@@ -369,14 +408,14 @@ func (e *plainDirEntry) StoreName() string {
 
 // plainDirWalker implements IDirWalker for plain directories.
 type plainDirWalker struct {
-	rootPath      string
-	startPath     RelativeViewPath
-	entries       []IDirEntry
-	index         int
-	options       WalkOptions
-	recursive     bool
-	maxDepth      int
-	currentDepth  int
+	rootPath     string
+	startPath    RelativeViewPath
+	entries      []IDirEntry
+	index        int
+	options      WalkOptions
+	recursive    bool
+	maxDepth     int
+	currentDepth int
 }
 
 // newPlainDirWalker creates a new plain directory walker.

@@ -6,7 +6,7 @@
 
 **解决方法**: 
 - 在 **Safe Disk 应用** 中打开加密文件
-- 或使用 `safedisk-cli decrypt` 命令导出解密文件
+- 或使用 `safe-disk export` 命令导出解密文件
 
 **提示**: Safe Disk 会在加密目录中显示原始文件名（解密后的文件名），方便识别。
 
@@ -39,7 +39,7 @@
 
 **方法 2: 使用 CLI 命令**
 ```bash
-safedisk-cli decrypt /path/to/encrypted/file.enc --output /path/to/output/file.txt
+safe-disk export -p <password> -s /path/to/encrypted/file.txt -d /path/to/output/file.txt
 ```
 
 **安全提示**: 导出解密文件会在硬盘上存储明文，请确保目标目录安全。
@@ -50,11 +50,11 @@ safedisk-cli decrypt /path/to/encrypted/file.enc --output /path/to/output/file.t
 
 **使用 CLI 命令**:
 ```bash
-# 解密整个目录
-safedisk-cli decrypt /path/to/encrypted/dir --output /path/to/decrypted/dir
+# 导出整个目录
+safe-disk export -p <password> -s /path/to/encrypted/dir -d /path/to/decrypted/dir
 
 # 或使用 find 批量处理
-find /encrypted -name "*.enc" -exec safedisk-cli decrypt {} --output /decrypted/{} \;
+find /encrypted -type f -exec safe-disk export -p "$PASS" -s {} -d /decrypted/{} \;
 ```
 
 ---
@@ -81,11 +81,6 @@ find /encrypted -name "*.enc" -exec safedisk-cli decrypt {} --output /decrypted/
 2. 点击"修改密码"
 3. 输入旧密码和新密码
 
-**方法 2: 使用 CLI 命令**
-```bash
-safedisk-cli passwd /path/to/encrypted/dir
-```
-
 **注意**: 不可变密码模式的加密目录不支持修改密码，需要重新加密。
 
 ---
@@ -107,15 +102,15 @@ safedisk-cli passwd /path/to/encrypted/dir
 
 **使用 CLI 命令**:
 ```bash
-safedisk-cli info /path/to/encrypted/dir
+safe-disk list -p <password> -d /path/to/encrypted/dir
 
 # 输出示例
-Directory: /path/to/encrypted/dir
-Mode: mutable
-Created: 2026-04-01 23:00:00
-Algorithm: AES-256-GCM
-Files: 42
-Size: 1.2 MB
+Contents of /path/to/encrypted/dir:
+=====================================
+[DIR ] documents (0 bytes)
+[FILE] readme.txt (1245 bytes)
+=====================================
+Total: 2 items
 ```
 
 ---
@@ -183,7 +178,8 @@ cp -r /path/to/encrypted/dir /backup/location/
 
 **方法 2: 使用 CLI 命令**
 ```bash
-safedisk-cli encrypt /path/to/dir --output /backup/encrypted/dir
+# 先创建加密目录，再导入文件
+safe-disk import -p <password> -s /path/to/plain/dir -d /backup/encrypted/dir
 ```
 
 **注意**: 备份时记得保存密码！

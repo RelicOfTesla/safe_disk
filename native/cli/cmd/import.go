@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"sync"
+	"path/filepath"
 
 	"safe_disk/native/sec_fs"
 	"safe_disk/native/sec_fs/sec_transfer"
@@ -23,31 +24,33 @@ var importCmd = &cobra.Command{
 	Short: "Import files into an encrypted root directory",
 	Long:  "Import plaintext files into an encrypted root directory.",
 	Args:  cobra.MaximumNArgs(0),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 
 		if importPassword == "" {
-			fmt.Println("Error: password is required")
-			os.Exit(1)
+			return fmt.Errorf("password is required")
 		}
 
 		if _importSrcPath == "" {
-			fmt.Println("Error: source path is required")
-			os.Exit(1)
+			return fmt.Errorf("source path is required")
 		}
 		importSrcPath := sec_fs.FullStorePath(_importSrcPath)
+
+		// Check if source exists BEFORE checking destination config
+		srcInfo, err := os.Stat(_importSrcPath)
+		if err != nil {
+			return fmt.Errorf("failed to stat: %w", err)
+		}
 
 		_, destRoot, destRelative, err := sec_fs.FindRootConfig(importDestPath)
 		if err != nil {
 			if err == sec_fs.ErrNotConfigFile {
 				// TODO: CreateDir
 			}
-			fmt.Printf("Error: failed to find root config: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to find root config: %w", err)
 		}
 
 		if importDestPath == "" {
-			fmt.Println("Error: destination path is required")
-			os.Exit(1)
+			return fmt.Errorf("destination path is required")
 		}
 
 		// Open or create the encrypted root directory
@@ -56,81 +59,62 @@ var importCmd = &cobra.Command{
 			if err == sec_fs.ErrNotConfigFile {
 				// TODO: CreateDir
 			}
-			fmt.Printf("Error: failed to open root: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to open root: %w", err)
 		}
 		defer root.Close()
+		if err := handleUnfinished(destRoot); err != nil {
+			return err
+		}
 
-		// Create transfer service
-		transferService := sec_transfer.GetDefaultTransferManager()
-
-		// Wait for completion using channel
-		var wg sync.WaitGroup
-		wg.Add(1)
-
-		var importErr error
-
-		callback := func(status sec_transfer.ITransferProgress) {
-			// Print progress
-			if status.GetCurrentFile() != "" {
+		transferService := sec_transfer.GetDefaultTransferV3()
+		var doneFiles int64
+		var totalFiles int64
+		callback := func(status sec_transfer.ProgressEvent) {
+			totalFiles = status.TotalFiles
+			doneFiles = status.DoneFiles
+			if status.CurrentPath != "" {
 				fmt.Printf("\rImporting: %s (%d/%d files)",
-					status.GetCurrentFile(),
-					status.GetCompleted(),
-					status.GetTotal())
-			}
-
-			// Check if complete
-			if status.IsComplete() {
-				if err := status.GetError(); err != nil {
-					importErr = err
-				}
-				wg.Done()
+					status.CurrentPath,
+					status.DoneFiles,
+					status.TotalFiles)
 			}
 		}
 
-		srcInfo, err := os.Stat(_importSrcPath)
-		if err != nil {
-			fmt.Printf("Error: failed to stat: %v\n", err)
-			os.Exit(1)
-		}
-
-		// Perform import
-		var taskInfo sec_transfer.ITask
 		if srcInfo.IsDir() {
 			fmt.Printf("Importing directory: %s -> %s\n", importSrcPath, importDestPath)
-			var opt *sec_transfer.TransferOptions
-			if importSkipRecursive {
-				opt = &sec_transfer.TransferOptions{
-					SkipRecursive: true,
-				}
-			}
-
-			taskInfo, err = transferService.ImportDirectoryAsync(importSrcPath, root, destRelative, callback, opt)
+			err = transferService.ImportDirectory(context.Background(), sec_transfer.ImportDirectoryRequest{
+				Source:        importSrcPath,
+				DestRoot:      root,
+				Dest:          destRelative,
+				SkipRecursive: importSkipRecursive,
+				Overwrite:     true,
+			}, callback)
 		} else {
+			fileDest := destRelative
+			if string(fileDest) == "" {
+				fileDest = sec_fs.RelativeViewPath(filepath.Base(_importSrcPath))
+			} else if info, statErr := root.Stat(fileDest); statErr == nil && info.IsDir() {
+				fileDest = sec_fs.RelativeViewPath(filepath.ToSlash(filepath.Join(string(fileDest), filepath.Base(_importSrcPath))))
+			}
 			fmt.Printf("Importing file: %s -> %s\n", importSrcPath, importDestPath)
-			taskInfo, err = transferService.ImportFileAsync(importSrcPath, root, destRelative, callback, nil)
+			err = transferService.ImportFile(context.Background(), sec_transfer.ImportFileRequest{
+				Source:    importSrcPath,
+				DestRoot:  root,
+				Dest:      fileDest,
+				Overwrite: true,
+			}, callback)
 		}
 
 		if err != nil {
-			fmt.Printf("\nError: failed to start import: %v\n", err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("Task started: %s\n", taskInfo.GetTaskID())
-
-		// Wait for completion
-		wg.Wait()
-
-		// Check result
-		if importErr != nil {
-			fmt.Printf("\nError: import failed: %v\n", importErr)
-			os.Exit(1)
+			return fmt.Errorf("import failed: %w", err)
 		}
 
 		fmt.Println("\nImport successful!")
-		totalFiles, totalBytes := taskInfo.GetTotalProgress()
-		fmt.Printf("Files imported: %d\n", totalFiles)
-		fmt.Printf("Total bytes: %d\n", totalBytes)
+		if doneFiles == 0 {
+			doneFiles = totalFiles
+		}
+		fmt.Printf("Files imported: %d\n", doneFiles)
+		return nil
 	},
 }
 
@@ -139,4 +123,5 @@ func init() {
 	importCmd.Flags().StringVarP(&_importSrcPath, "source", "s", "", "Source path (plaintext)")
 	importCmd.Flags().StringVarP(&importDestPath, "dest", "d", "", "Destination path (encrypted)")
 	importCmd.Flags().BoolVarP(&importSkipRecursive, "skip-recursive", "n", false, "Import directory non-recursively")
+	importCmd.Flags().StringVar(&unfinishedPolicy, "unfinished", "skip", "Unfinished operation policy: skip, ask, clean, rerun")
 }

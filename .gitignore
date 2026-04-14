@@ -104,3 +104,4 @@ docs/task-driver-doc/
 docs/_archived/
 **/_archived*.md
 
+/native/ffi_sec_fs/ffi_sec_fs

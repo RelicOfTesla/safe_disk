@@ -3,7 +3,8 @@
 > 本文档记录所有重构相关的待办任务
 
 **相关文档**：
-- [V2_ARCHITECTURE.md](V2_ARCHITECTURE.md) - V2 架构设计
+- [archive/ARCHITECTURE_REFACTOR_PLAN_V2.md](archive/ARCHITECTURE_REFACTOR_PLAN_V2.md) - V2 架构设计（历史参考）
+- [ARCHITECTURE.md](ARCHITECTURE.md) - 当前架构文档
 - [TODO.md](TODO.md) - 功能任务列表
 
 ---
@@ -161,7 +162,7 @@ char* action_task_close(const char* action_task_id);
 ### 架构文档
 
 **验收标准**：
-- [ ] 更新 V2_ARCHITECTURE.md
+- [ ] 更新 ARCHITECTURE.md（V2 架构设计已合并至当前文档）
 - [ ] 添加设计决策记录
 - [ ] 添加接口文档
 

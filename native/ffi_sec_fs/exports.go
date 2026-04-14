@@ -2,12 +2,22 @@
 // This file contains CGO export functions that can be called from C.
 //
 // To use these exports, compile with CGO enabled:
-//   go build -buildmode=c-shared -o libffi_sec_fs.so
+//
+//	go build -buildmode=c-shared -o libffi_sec_fs.so
 package main
 
 /*
 #include <stdlib.h>
 #include <stdint.h>
+
+// CProgressCallback is the C function pointer type for progress reporting.
+typedef void (*CProgressCallback)(
+    const char* current_file,
+    int files_completed,
+    int files_total,
+    int is_complete,
+    const char* error_message
+);
 */
 import "C"
 import (
@@ -187,5 +197,105 @@ func action_task_get_progress(taskID *C.char) *C.char {
 func action_task_close(taskID *C.char) *C.char {
 	goJobID := C.GoString(taskID)
 	result := RollbackTransfer_FFI(goJobID)
+	return C.CString(result)
+}
+
+// ==================== Transfer Operations (Async with Callback) ====================
+
+//export sec_export_directory_async_with_callback
+func sec_export_directory_async_with_callback(rootID C.int64_t, srcPath *C.char, destPath *C.char, callback C.CProgressCallback) *C.char {
+	goSrcPath := C.GoString(srcPath)
+	goDestPath := C.GoString(destPath)
+
+	// Convert C callback to Go callback
+	goCallback := CProgressCallbackToGo(callback)
+
+	result := ExportDirectoryAsyncWithCallback_FFI(int64(rootID), goSrcPath, goDestPath, goCallback)
+	return C.CString(result)
+}
+
+//export sec_import_directory_async_with_callback
+func sec_import_directory_async_with_callback(rootID C.int64_t, srcPath *C.char, destPath *C.char, callback C.CProgressCallback) *C.char {
+	goSrcPath := C.GoString(srcPath)
+	goDestPath := C.GoString(destPath)
+
+	// Convert C callback to Go callback
+	goCallback := CProgressCallbackToGo(callback)
+
+	result := ImportDirectoryAsyncWithCallback_FFI(int64(rootID), goSrcPath, goDestPath, goCallback)
+	return C.CString(result)
+}
+
+//export sec_export_file_async_with_callback
+func sec_export_file_async_with_callback(rootID C.int64_t, srcPath *C.char, destPath *C.char, callback C.CProgressCallback) *C.char {
+	goSrcPath := C.GoString(srcPath)
+	goDestPath := C.GoString(destPath)
+
+	// Convert C callback to Go callback
+	goCallback := CProgressCallbackToGo(callback)
+
+	result := ExportFileAsyncWithCallback_FFI(int64(rootID), goSrcPath, goDestPath, goCallback)
+	return C.CString(result)
+}
+
+//export sec_import_file_async_with_callback
+func sec_import_file_async_with_callback(rootID C.int64_t, srcPath *C.char, destPath *C.char, callback C.CProgressCallback) *C.char {
+	goSrcPath := C.GoString(srcPath)
+	goDestPath := C.GoString(destPath)
+
+	// Convert C callback to Go callback
+	goCallback := CProgressCallbackToGo(callback)
+
+	result := ImportFileAsyncWithCallback_FFI(int64(rootID), goSrcPath, goDestPath, goCallback)
+	return C.CString(result)
+}
+
+// ==================== Transfer V3 Operations ====================
+
+//export sec_transfer_v3_list_unfinished
+func sec_transfer_v3_list_unfinished(rootID C.int64_t) *C.char {
+	result := TransferV3ListUnfinished_FFI(int64(rootID))
+	return C.CString(result)
+}
+
+//export sec_transfer_v3_clean_unfinished
+func sec_transfer_v3_clean_unfinished(rootID C.int64_t, opID *C.char) *C.char {
+	result := TransferV3CleanUnfinished_FFI(int64(rootID), C.GoString(opID))
+	return C.CString(result)
+}
+
+//export sec_transfer_v3_recover_convert
+func sec_transfer_v3_recover_convert(rootPath *C.char) *C.char {
+	result := TransferV3RecoverConvert_FFI(C.GoString(rootPath))
+	return C.CString(result)
+}
+
+//export sec_transfer_v3_convert_root
+func sec_transfer_v3_convert_root(rootPath *C.char, password *C.char, kind *C.char) *C.char {
+	result := TransferV3ConvertRoot_FFI(C.GoString(rootPath), C.GoString(password), C.GoString(kind))
+	return C.CString(result)
+}
+
+//export sec_transfer_v3_import_file
+func sec_transfer_v3_import_file(rootID C.int64_t, srcPath *C.char, destPath *C.char) *C.char {
+	result := TransferV3ImportFile_FFI(int64(rootID), C.GoString(srcPath), C.GoString(destPath))
+	return C.CString(result)
+}
+
+//export sec_transfer_v3_import_directory
+func sec_transfer_v3_import_directory(rootID C.int64_t, srcPath *C.char, destPath *C.char) *C.char {
+	result := TransferV3ImportDirectory_FFI(int64(rootID), C.GoString(srcPath), C.GoString(destPath))
+	return C.CString(result)
+}
+
+//export sec_transfer_v3_export_file
+func sec_transfer_v3_export_file(rootID C.int64_t, srcPath *C.char, destPath *C.char) *C.char {
+	result := TransferV3ExportFile_FFI(int64(rootID), C.GoString(srcPath), C.GoString(destPath))
+	return C.CString(result)
+}
+
+//export sec_transfer_v3_export_directory
+func sec_transfer_v3_export_directory(rootID C.int64_t, srcPath *C.char, destPath *C.char) *C.char {
+	result := TransferV3ExportDirectory_FFI(int64(rootID), C.GoString(srcPath), C.GoString(destPath))
 	return C.CString(result)
 }

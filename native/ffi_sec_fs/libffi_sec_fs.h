@@ -26,6 +26,15 @@ extern const char *_GoStringPtr(_GoString_ s);
 #include <stdlib.h>
 #include <stdint.h>
 
+// CProgressCallback is the C function pointer type for progress reporting.
+typedef void (*CProgressCallback)(
+    const char* current_file,
+    int files_completed,
+    int files_total,
+    int is_complete,
+    const char* error_message
+);
+
 #line 1 "cgo-generated-wrapper"
 
 
@@ -90,6 +99,7 @@ extern "C" {
 
 extern char* sec_root_open(char* rootPath, char* password, char* configJSON);
 extern char* sec_root_close(int64_t rootID);
+extern char* sec_create_root_config(char* rootPath, char* password, char* optionsJSON);
 extern char* sec_file_open(int64_t rootID, char* path, int mode);
 extern char* sec_file_close(int64_t fileID);
 extern char* sec_file_read(int64_t fileID, int size);
@@ -109,6 +119,18 @@ extern char* sec_export_file_async(int64_t rootID, char* srcPath, char* destPath
 extern char* sec_import_file_async(int64_t rootID, char* srcPath, char* destPath);
 extern char* action_task_get_progress(char* taskID);
 extern char* action_task_close(char* taskID);
+extern char* sec_export_directory_async_with_callback(int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
+extern char* sec_import_directory_async_with_callback(int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
+extern char* sec_export_file_async_with_callback(int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
+extern char* sec_import_file_async_with_callback(int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
+extern char* sec_transfer_v3_list_unfinished(int64_t rootID);
+extern char* sec_transfer_v3_clean_unfinished(int64_t rootID, char* opID);
+extern char* sec_transfer_v3_recover_convert(char* rootPath);
+extern char* sec_transfer_v3_convert_root(char* rootPath, char* password, char* kind);
+extern char* sec_transfer_v3_import_file(int64_t rootID, char* srcPath, char* destPath);
+extern char* sec_transfer_v3_import_directory(int64_t rootID, char* srcPath, char* destPath);
+extern char* sec_transfer_v3_export_file(int64_t rootID, char* srcPath, char* destPath);
+extern char* sec_transfer_v3_export_directory(int64_t rootID, char* srcPath, char* destPath);
 
 #ifdef __cplusplus
 }

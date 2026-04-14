@@ -134,6 +134,7 @@ func (r *secRootImpl) OpenFile(path RelativeViewPath, mode int) (ISecFile, error
 	secFile := &secFileImpl{
 		impl:             cryptorContext,
 		relativeViewPath: path,
+		fullStorePath:    fullPath,
 	}
 	return secFile, nil
 }
@@ -248,6 +249,52 @@ func (r *secRootImpl) Rename(oldPath RelativeViewPath, newPath RelativeViewPath)
 		return NewPairPathError("rename", oldPath, oldFullPath, err)
 	}
 	return nil
+}
+
+// RenameByStorePath renames a file using store paths directly.
+// This is useful for atomic operations where the store path is already known.
+// Both paths are relative store paths (encrypted names as stored on disk).
+func (r *secRootImpl) RenameByStorePath(oldPath RelativeStorePath, newPath RelativeStorePath) error {
+	if r == nil {
+		return ErrRootClosed
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.closed {
+		return ErrRootClosed
+	}
+
+	// Convert store paths to full paths using filepath.Join
+	// This correctly handles paths with subdirectories (containing /)
+	rootPath := r.rootPathInfo.Encode()
+	oldFullPath := filepath.Join(rootPath, string(oldPath))
+	newFullPath := filepath.Join(rootPath, string(newPath))
+
+	err := os.Rename(oldFullPath, newFullPath)
+	if err != nil {
+		return NewPairPathError("rename_by_store_path", RelativeViewPath(oldPath), FullStorePath(oldFullPath), err)
+	}
+	return nil
+}
+
+// GetStorePath returns the store path for a given view path.
+func (r *secRootImpl) GetStorePath(viewPath RelativeViewPath) (RelativeStorePath, error) {
+	if r == nil {
+		return "", ErrRootClosed
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.closed {
+		return "", ErrRootClosed
+	}
+
+	// Convert view path to store path (encrypt file names)
+	relStorePath, _, err := viewPathToStorePathCheck(r.rootPathInfo, viewPath, r.nameCryptor, false)
+	if err != nil {
+		return "", err
+	}
+
+	return relStorePath, nil
 }
 
 // WalkDir returns a directory walker for the given path.

@@ -1,6 +1,8 @@
 # Safe Disk 功能规划
 
 > 本文档描述 Safe Disk 的功能特性规划
+>
+> 其中部分条目带有历史完成标记，但这些标记不应当被当作当前实现证明。请以 [CODE_AUDIT_STATUS.md](CODE_AUDIT_STATUS.md) 为准。
 
 **相关文档**：
 - [TODO.md](TODO.md) - 任务清单
@@ -170,11 +172,12 @@
 ## 8. Go CLI 工具
 
 ### 8.1 核心功能
-- [x] 创建加密目录（支持两种密码模式）✅ 2026-04-02
-- [ ] 加密目录（已有目录加密）(原子安全化，断电安全)
-- [ ] 解密目录（导出解密）
-- [x] 查看加密目录信息（包含密码模式）✅ 2026-04-02
-- [x] 修改密码（仅可变密码模式）✅ 2026-04-02
+- [x] 列出加密目录内容 ✅ 2026-04-02
+- [x] 导出解密（支持 stdout）✅ 2026-04-02
+- [x] 导入加密 ✅ 2026-04-02
+- [ ] 创建加密目录（当前仅 Flutter 应用支持）
+- [ ] 查看加密目录信息
+- [ ] 修改密码（仅可变密码模式）
 - [ ] 检查密码模式兼容性
 
 **配置文件字段**（2026-04-02 更新）：
@@ -190,22 +193,22 @@
 - 命令行用户
 - 服务器环境（无 GUI）
 
-### 8.3 命令设计
+### 8.3 命令设计（已实现的命令）
 ```bash
-# 创建加密目录
-safedisk-cli create /path/to/dir --password
+# 列出加密目录内容
+safe-disk list -p <password> -d /path/to/encrypted/dir
 
-# 加密已有目录
-safedisk-cli encrypt /path/to/dir --output /encrypted/dir
+# 导出解密文件或目录
+safe-disk export -p <password> -s /encrypted/file.txt -d /output/file.txt
 
-# 解密目录
-safedisk-cli decrypt /path/to/encrypted/dir --output /decrypted/dir
+# 导出到 stdout（不写磁盘）
+safe-disk export -p <password> -s /encrypted/file.txt -
 
-# 查看信息
-safedisk-cli info /path/to/encrypted/dir
+# 导入明文到加密目录
+safe-disk import -p <password> -s /plaintext/file.txt -d /encrypted/file.txt
 
-# 修改密码
-safedisk-cli passwd /path/to/encrypted/dir
+# 查看版本
+safe-disk version
 ```
 
 ---
@@ -238,7 +241,7 @@ safedisk-cli passwd /path/to/encrypted/dir
 3. ✅ 导出解密文件
 4. ✅ 导入加密文件
 5. ✅ **安全记事本**（Flutter 渲染，防木马探测） ✅ 2026-04-03
-6. [ ] **图片浏览器**（内存中解密显示）
+6. ✅ **图片浏览器**（内存中解密显示） ✅ 2026-04-03
 
 ### 高级功能（后续实现）
 - 剪贴板复制/粘贴
@@ -252,4 +255,4 @@ safedisk-cli passwd /path/to/encrypted/dir
 
 ---
 
-**最后更新**: 2026-04-03
+**最后更新**: 2026-06-02

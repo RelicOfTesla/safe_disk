@@ -6,23 +6,24 @@ import 'package:ffi/ffi.dart';
 import 'bindings.dart';
 
 /// Native library wrapper for Safe Disk FFI operations.
-/// 
-/// Architecture (V2):
+///
+/// Architecture:
 /// - Root-based operations: Open a root directory, get a rootID
 /// - File operations: Use rootID to open/read/write files
 /// - ID mapping managed by Go backend (ffi_comm.Store)
-/// 
+/// - Transfer V3 exposes synchronous import/export plus unfinished markers
+///
 /// Usage:
 /// ```dart
 /// // 1. Open root
 /// final rootID = NativeLib.instance.secRootOpen('/path/to/root', 'password', '{}');
-/// 
+///
 /// // 2. Read file
 /// final data = NativeLib.instance.secQuickReadFile(rootID, 'path/to/file.txt');
-/// 
+///
 /// // 3. Write file
 /// NativeLib.instance.secQuickWriteFile(rootID, 'path/to/file.txt', data);
-/// 
+///
 /// // 4. Close root
 /// NativeLib.instance.secRootClose(rootID);
 /// ```
@@ -64,15 +65,16 @@ class NativeLib {
   // ==================== Root Operations ====================
 
   /// Opens a secure root directory.
-  /// 
+  ///
   /// Returns rootID on success, throws on error.
   int secRootOpen(String rootPath, String password, String configJSON) {
     final rootPathPtr = rootPath.toNativeUtf8();
     final passwordPtr = password.toNativeUtf8();
     final configJSONPtr = configJSON.toNativeUtf8();
-    
+
     try {
-      final resultPtr = _bindings.secRootOpen(rootPathPtr, passwordPtr, configJSONPtr);
+      final resultPtr =
+          _bindings.secRootOpen(rootPathPtr, passwordPtr, configJSONPtr);
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secRootOpen');
@@ -95,11 +97,11 @@ class NativeLib {
   // ==================== File Operations ====================
 
   /// Opens a file within a secure root.
-  /// 
+  ///
   /// Mode: 0=read, 1=write, 2=readwrite
   int secFileOpen(int rootID, String path, int mode) {
     final pathPtr = path.toNativeUtf8();
-    
+
     try {
       final resultPtr = _bindings.secFileOpen(rootID, pathPtr, mode);
       final result = _ptrToString(resultPtr);
@@ -125,7 +127,7 @@ class NativeLib {
     final result = _ptrToString(resultPtr);
     final data = _parseJson(result);
     _checkResult(data, 'secFileRead');
-    
+
     // Data is base64 encoded in JSON
     final base64Data = data['data']['data'] as String;
     return base64Decode(base64Data);
@@ -135,7 +137,7 @@ class NativeLib {
   void secFileWrite(int fileID, List<int> data) {
     final dataStr = base64Encode(data);
     final dataPtr = dataStr.toNativeUtf8();
-    
+
     try {
       final resultPtr = _bindings.secFileWrite(fileID, dataPtr, data.length);
       final result = _ptrToString(resultPtr);
@@ -147,7 +149,7 @@ class NativeLib {
   }
 
   /// Seeks in a file.
-  /// 
+  ///
   /// Whence: 0=SEEK_SET, 1=SEEK_CUR, 2=SEEK_END
   int secFileSeek(int fileID, int offset, int whence) {
     final resultPtr = _bindings.secFileSeek(fileID, offset, whence);
@@ -168,7 +170,7 @@ class NativeLib {
   /// Deletes a file.
   void secFileDelete(int rootID, String path) {
     final pathPtr = path.toNativeUtf8();
-    
+
     try {
       final resultPtr = _bindings.secFileDelete(rootID, pathPtr);
       final result = _ptrToString(resultPtr);
@@ -182,7 +184,7 @@ class NativeLib {
   /// Checks if a file exists.
   bool secFileExists(int rootID, String path) {
     final pathPtr = path.toNativeUtf8();
-    
+
     try {
       final resultPtr = _bindings.secFileExists(rootID, pathPtr);
       final result = _ptrToString(resultPtr);
@@ -201,7 +203,7 @@ class NativeLib {
   /// Creates a directory.
   void secMkdirAll(int rootID, String path) {
     final pathPtr = path.toNativeUtf8();
-    
+
     try {
       final resultPtr = _bindings.secMkdirAll(rootID, pathPtr);
       final result = _ptrToString(resultPtr);
@@ -215,13 +217,13 @@ class NativeLib {
   /// Reads directory entries.
   List<Map<String, dynamic>> secReadDir(int rootID, String path) {
     final pathPtr = path.toNativeUtf8();
-    
+
     try {
       final resultPtr = _bindings.secReadDir(rootID, pathPtr);
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secReadDir');
-      
+
       final entries = data['data']['entries'] as List;
       return entries.cast<Map<String, dynamic>>();
     } finally {
@@ -234,13 +236,13 @@ class NativeLib {
   /// Quick reads a file (open + read + close).
   List<int> secQuickReadFile(int rootID, String path) {
     final pathPtr = path.toNativeUtf8();
-    
+
     try {
       final resultPtr = _bindings.secQuickReadFile(rootID, pathPtr);
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secQuickReadFile');
-      
+
       final base64Data = data['data']['data'] as String;
       return base64Decode(base64Data);
     } finally {
@@ -253,15 +255,131 @@ class NativeLib {
     final pathPtr = path.toNativeUtf8();
     final dataStr = base64Encode(data);
     final dataPtr = dataStr.toNativeUtf8();
-    
+
     try {
-      final resultPtr = _bindings.secQuickWriteFile(rootID, pathPtr, dataPtr, data.length);
+      final resultPtr =
+          _bindings.secQuickWriteFile(rootID, pathPtr, dataPtr, data.length);
       final result = _ptrToString(resultPtr);
       final resultData = _parseJson(result);
       _checkResult(resultData, 'secQuickWriteFile');
     } finally {
       calloc.free(pathPtr);
       calloc.free(dataPtr);
+    }
+  }
+
+  // ==================== Transfer V3 Operations ====================
+
+  List<Map<String, dynamic>> secTransferV3ListUnfinished(int rootID) {
+    final resultPtr = _bindings.secTransferV3ListUnfinished(rootID);
+    final result = _ptrToString(resultPtr);
+    final data = _parseJson(result);
+    _checkResult(data, 'secTransferV3ListUnfinished');
+    final markers = data['data']['markers'] as List;
+    return markers.cast<Map<String, dynamic>>();
+  }
+
+  void secTransferV3CleanUnfinished(int rootID, String opID) {
+    final opIDPtr = opID.toNativeUtf8();
+    try {
+      final resultPtr = _bindings.secTransferV3CleanUnfinished(rootID, opIDPtr);
+      final result = _ptrToString(resultPtr);
+      final data = _parseJson(result);
+      _checkResult(data, 'secTransferV3CleanUnfinished');
+    } finally {
+      calloc.free(opIDPtr);
+    }
+  }
+
+  Map<String, dynamic> secTransferV3RecoverConvert(String rootPath) {
+    final rootPathPtr = rootPath.toNativeUtf8();
+    try {
+      final resultPtr = _bindings.secTransferV3RecoverConvert(rootPathPtr);
+      final result = _ptrToString(resultPtr);
+      final data = _parseJson(result);
+      _checkResult(data, 'secTransferV3RecoverConvert');
+      return data['data'] as Map<String, dynamic>;
+    } finally {
+      calloc.free(rootPathPtr);
+    }
+  }
+
+  void secTransferV3ConvertRoot(String rootPath, String password, String kind) {
+    final rootPathPtr = rootPath.toNativeUtf8();
+    final passwordPtr = password.toNativeUtf8();
+    final kindPtr = kind.toNativeUtf8();
+    try {
+      final resultPtr =
+          _bindings.secTransferV3ConvertRoot(rootPathPtr, passwordPtr, kindPtr);
+      final result = _ptrToString(resultPtr);
+      final data = _parseJson(result);
+      _checkResult(data, 'secTransferV3ConvertRoot');
+    } finally {
+      calloc.free(rootPathPtr);
+      calloc.free(passwordPtr);
+      calloc.free(kindPtr);
+    }
+  }
+
+  void secTransferV3ImportFile(int rootID, String srcPath, String destPath) {
+    final srcPathPtr = srcPath.toNativeUtf8();
+    final destPathPtr = destPath.toNativeUtf8();
+    try {
+      final resultPtr =
+          _bindings.secTransferV3ImportFile(rootID, srcPathPtr, destPathPtr);
+      final result = _ptrToString(resultPtr);
+      final data = _parseJson(result);
+      _checkResult(data, 'secTransferV3ImportFile');
+    } finally {
+      calloc.free(srcPathPtr);
+      calloc.free(destPathPtr);
+    }
+  }
+
+  void secTransferV3ImportDirectory(
+      int rootID, String srcPath, String destPath) {
+    final srcPathPtr = srcPath.toNativeUtf8();
+    final destPathPtr = destPath.toNativeUtf8();
+    try {
+      final resultPtr = _bindings.secTransferV3ImportDirectory(
+          rootID, srcPathPtr, destPathPtr);
+      final result = _ptrToString(resultPtr);
+      final data = _parseJson(result);
+      _checkResult(data, 'secTransferV3ImportDirectory');
+    } finally {
+      calloc.free(srcPathPtr);
+      calloc.free(destPathPtr);
+    }
+  }
+
+  void secTransferV3ExportFile(int rootID, String srcPath, String destPath) {
+    final srcPathPtr = srcPath.toNativeUtf8();
+    final destPathPtr = destPath.toNativeUtf8();
+    try {
+      final resultPtr =
+          _bindings.secTransferV3ExportFile(rootID, srcPathPtr, destPathPtr);
+      final result = _ptrToString(resultPtr);
+      final data = _parseJson(result);
+      _checkResult(data, 'secTransferV3ExportFile');
+    } finally {
+      calloc.free(srcPathPtr);
+      calloc.free(destPathPtr);
+    }
+  }
+
+  void secTransferV3ExportDirectory(
+      int rootID, String srcPath, String destPath) {
+    final srcPathPtr = srcPath.toNativeUtf8();
+    final destPathPtr = destPath.toNativeUtf8();
+    try {
+      final resultPtr = _bindings.secTransferV3ExportDirectory(
+          rootID, srcPathPtr, destPathPtr);
+      final result = _ptrToString(resultPtr);
+      final data = _parseJson(result);
+      _checkResult(data, 'secTransferV3ExportDirectory');
+    } finally {
+      calloc.free(srcPathPtr);
+      calloc.free(destPathPtr);
     }
   }
 }
