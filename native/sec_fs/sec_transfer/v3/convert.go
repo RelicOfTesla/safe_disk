@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"safe_disk/native/sec_fs"
 	"safe_disk/native/sec_fs/sec_transfer"
@@ -182,7 +183,11 @@ func (m *Manager) RecoverConvert(ctx context.Context, rootPath string) (sec_tran
 	if err := ctx.Err(); err != nil {
 		return sec_transfer.RecoverResult{}, err
 	}
-	markers, err := listMarkers(rootPath)
+	absRootPath, err := filepath.Abs(rootPath)
+	if err != nil {
+		return sec_transfer.RecoverResult{}, err
+	}
+	markers, err := findConvertMarkers(absRootPath)
 	if err != nil {
 		return sec_transfer.RecoverResult{}, err
 	}
@@ -196,6 +201,42 @@ func (m *Manager) RecoverConvert(ctx context.Context, rootPath string) (sec_tran
 		return recoverFromMarker(marker)
 	}
 	return sec_transfer.RecoverResult{Action: sec_transfer.RecoverActionNone, Message: "no convert marker found"}, nil
+}
+
+func findConvertMarkers(rootPath string) ([]sec_transfer.OperationMarker, error) {
+	candidates := []string{rootPath}
+	for _, pattern := range []string{
+		rootPath + ".safe_disk.backup.*",
+		rootPath + ".safe_disk.work.*",
+	} {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return nil, err
+		}
+		sort.Strings(matches)
+		candidates = append(candidates, matches...)
+	}
+
+	var markers []sec_transfer.OperationMarker
+	seen := map[string]struct{}{}
+	for _, candidate := range candidates {
+		found, err := listMarkers(candidate)
+		if err != nil {
+			return nil, err
+		}
+		for _, marker := range found {
+			if marker.Type != sec_transfer.OperationConvertEncrypt && marker.Type != sec_transfer.OperationConvertDecrypt {
+				continue
+			}
+			key := marker.OpID + "\x00" + marker.Phase + "\x00" + marker.Root + "\x00" + marker.Work + "\x00" + marker.Backup
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			markers = append(markers, marker)
+		}
+	}
+	return markers, nil
 }
 
 func recoverFromMarker(marker sec_transfer.OperationMarker) (sec_transfer.RecoverResult, error) {
@@ -216,11 +257,15 @@ func recoverFromMarker(marker sec_transfer.OperationMarker) (sec_transfer.Recove
 				result.Message = err.Error()
 				return result, nil
 			}
+			_ = removeMarker(marker.Root, marker.OpID)
+			_ = removeMarker(marker.Backup, marker.OpID)
 			result.Action = sec_transfer.RecoverActionContinueRename
 			result.Message = "work directory moved into root path"
 			return result, nil
 		}
 		if result.RootExists && !result.WorkExists && result.BackupExists {
+			_ = removeMarker(marker.Root, marker.OpID)
+			_ = removeMarker(marker.Backup, marker.OpID)
 			result.Action = sec_transfer.RecoverActionCompleted
 			result.Message = "root exists and backup is preserved"
 			return result, nil

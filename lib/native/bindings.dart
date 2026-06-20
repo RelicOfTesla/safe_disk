@@ -15,6 +15,12 @@ typedef SecRootOpenDart = Pointer<Utf8> Function(
 typedef SecRootCloseC = Pointer<Utf8> Function(Int64 rootID);
 typedef SecRootCloseDart = Pointer<Utf8> Function(int rootID);
 
+// sec_create_root_config: (rootPath, password, optionsJSON) -> JSON string
+typedef SecCreateRootConfigC = Pointer<Utf8> Function(
+    Pointer<Utf8> rootPath, Pointer<Utf8> password, Pointer<Utf8> optionsJSON);
+typedef SecCreateRootConfigDart = Pointer<Utf8> Function(
+    Pointer<Utf8> rootPath, Pointer<Utf8> password, Pointer<Utf8> optionsJSON);
+
 // sec_file_open: (rootID, path, mode) -> JSON string
 typedef SecFileOpenC = Pointer<Utf8> Function(
     Int64 rootID, Pointer<Utf8> path, Int32 mode);
@@ -82,6 +88,12 @@ typedef SecQuickWriteFileDart = Pointer<Utf8> Function(
 typedef SecFreeStringC = Void Function(Pointer<Utf8> s);
 typedef SecFreeStringDart = void Function(Pointer<Utf8> s);
 
+// sec_clear_secure_memory: (data, size) -> JSON string
+typedef SecClearSecureMemoryC = Pointer<Utf8> Function(
+    Pointer<Uint8> data, Int32 size);
+typedef SecClearSecureMemoryDart = Pointer<Utf8> Function(
+    Pointer<Uint8> data, int size);
+
 // transfer v3 operations
 typedef SecTransferV3ListUnfinishedC = Pointer<Utf8> Function(Int64 rootID);
 typedef SecTransferV3ListUnfinishedDart = Pointer<Utf8> Function(int rootID);
@@ -129,6 +141,7 @@ class NativeBindings {
 
   late final SecRootOpenDart secRootOpen;
   late final SecRootCloseDart secRootClose;
+  late final SecCreateRootConfigDart secCreateRootConfig;
   late final SecFileOpenDart secFileOpen;
   late final SecFileCloseDart secFileClose;
   late final SecFileReadDart secFileRead;
@@ -142,6 +155,7 @@ class NativeBindings {
   late final SecQuickReadFileDart secQuickReadFile;
   late final SecQuickWriteFileDart secQuickWriteFile;
   late final SecFreeStringDart secFreeString;
+  late final SecClearSecureMemoryDart secClearSecureMemory;
   late final SecTransferV3ListUnfinishedDart secTransferV3ListUnfinished;
   late final SecTransferV3CleanUnfinishedDart secTransferV3CleanUnfinished;
   late final SecTransferV3RecoverConvertDart secTransferV3RecoverConvert;
@@ -162,6 +176,10 @@ class NativeBindings {
   }
 
   static DynamicLibrary _openLibrary() {
+    final overridePath = Platform.environment['SAFE_DISK_FFI_LIBRARY'];
+    if (overridePath != null && overridePath.isNotEmpty) {
+      return DynamicLibrary.open(overridePath);
+    }
     if (Platform.isLinux) {
       return DynamicLibrary.open('libffi_sec_fs.so');
     } else if (Platform.isMacOS) {
@@ -177,6 +195,9 @@ class NativeBindings {
         _lib!.lookupFunction<SecRootOpenC, SecRootOpenDart>('sec_root_open');
     secRootClose =
         _lib!.lookupFunction<SecRootCloseC, SecRootCloseDart>('sec_root_close');
+    secCreateRootConfig = _lib!
+        .lookupFunction<SecCreateRootConfigC, SecCreateRootConfigDart>(
+            'sec_create_root_config');
     secFileOpen =
         _lib!.lookupFunction<SecFileOpenC, SecFileOpenDart>('sec_file_open');
     secFileClose =
@@ -206,6 +227,9 @@ class NativeBindings {
             'sec_quick_write_file');
     secFreeString = _lib!
         .lookupFunction<SecFreeStringC, SecFreeStringDart>('sec_free_string');
+    secClearSecureMemory = _lib!
+        .lookupFunction<SecClearSecureMemoryC, SecClearSecureMemoryDart>(
+            'sec_clear_secure_memory');
     secTransferV3ListUnfinished = _lib!.lookupFunction<
         SecTransferV3ListUnfinishedC,
         SecTransferV3ListUnfinishedDart>('sec_transfer_v3_list_unfinished');

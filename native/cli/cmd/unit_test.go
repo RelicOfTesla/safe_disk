@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,14 +11,49 @@ import (
 	"safe_disk/native/sec_fs"
 
 	// Import algorithm implementations to register key derivers and encryptors
-	_ "safe_disk/native/sec_fs/crypto_hkdf/algorithm_impl/argon2"
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_ctr"
+	_ "safe_disk/native/sec_fs/crypto_hkdf/algorithm_impl/argon2"
 	_ "safe_disk/native/sec_fs/crypto_name/algorithm_impl/aes_gcm_name"
 )
 
 // =============================================================================
 // Unit Tests - Test error handling, edge cases, and validation
 // =============================================================================
+
+func TestConfirmInPlaceForNonEmptyDir(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		interactive bool
+		wantOK      bool
+		wantErr     bool
+	}{
+		{name: "yes short", input: "y\n", interactive: true, wantOK: true},
+		{name: "yes word", input: "yes\n", interactive: true, wantOK: true},
+		{name: "default no", input: "\n", interactive: true, wantOK: false},
+		{name: "explicit no", input: "n\n", interactive: true, wantOK: false},
+		{name: "non interactive rejects", input: "y\n", interactive: false, wantOK: false, wantErr: true},
+		{name: "empty input errors", input: "", interactive: true, wantOK: false, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var prompt bytes.Buffer
+			gotOK, err := confirmInPlaceForNonEmptyDir(strings.NewReader(tt.input), &prompt, tt.interactive)
+			if gotOK != tt.wantOK {
+				t.Fatalf("confirmInPlaceForNonEmptyDir() ok = %v, want %v", gotOK, tt.wantOK)
+			}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("confirmInPlaceForNonEmptyDir() err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.interactive && !strings.Contains(prompt.String(), "[y/N]") {
+				t.Fatalf("prompt missing default marker: %q", prompt.String())
+			}
+			if !tt.interactive && prompt.Len() != 0 {
+				t.Fatalf("non-interactive mode should not write prompt, got %q", prompt.String())
+			}
+		})
+	}
+}
 
 // TestInvalidPassword tests wrong password handling
 func TestInvalidPassword(t *testing.T) {

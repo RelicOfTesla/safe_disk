@@ -9,10 +9,7 @@ package main
 import (
 	"C" // Required for c-shared builds
 
-	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_ctr"
-	_ "safe_disk/native/sec_fs/crypto_hkdf/algorithm_impl/argon2"
-	_ "safe_disk/native/sec_fs/crypto_name/algorithm_impl/aes_gcm_name"
-	_ "safe_disk/native/sec_fs/crypto_name/algorithm_impl/none"
+	_ "safe_disk/native/sec_fs/crypto_all"
 	_ "safe_disk/native/sec_fs/sec_transfer/v3"
 )
 

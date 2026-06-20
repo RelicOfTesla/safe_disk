@@ -34,29 +34,36 @@
 - [x] convert 增加 phase marker：creating_work、copying_to_work、verifying_work、renaming_root_to_backup、renaming_work_to_root、completed、needs_attention
 - [x] convert 使用 work/backup 同级目录切换模型，底层复用 import/export 全量复制
 - [x] 实现 unfinished operation query，供 CLI/FFI 在 open root 时调用
-- [ ] 完善 convert recover，根据 phase 和 root/work/backup 实际存在状态继续、重跑或报告人工处理
+- [x] 完善 convert recover，根据 phase 和 root/work/backup 实际存在状态继续、重跑或报告人工处理
 
 **CLI 任务**：
-- [ ] CLI 入口改为完整算法注册，使用 `crypto_all` 和 transfer V3 实现
+- [x] CLI 入口改为完整算法注册，使用 `crypto_all` 和 transfer V3 实现
 - [x] 实现统一密码读取 helper：`--password`、`--password-env`、`--password-stdin`、隐藏交互输入
-- [ ] 实现统一 root open helper：绝对路径规范化、`FindRootConfig`、`OpenRootQuick`、unfinished operation 检查
+- [x] 实现统一 root open helper：绝对路径规范化、`FindRootConfig`、`OpenRootQuick`、unfinished operation 检查
 - [x] 增加 `create --path /abs/root`
 - [x] `create` 默认只允许不存在目录或空目录；已存在非空目录默认拒绝
-- [ ] 交互式非空目录 create 可提示是否原地加密，非交互模式必须拒绝
+- [x] 交互式非空目录 create 可提示是否原地加密，非交互模式必须拒绝
 - [x] 增加 `create --in-place`，使用 convert work/backup 目录切换模型
 - [x] `import/export` 接入 V3 import/export API 和 `--unfinished=ask|rerun|clean|skip`
-- [ ] 增加 `--json` JSON Lines 输出
-- [ ] 明确不新增单独 `recover/resume` 命令，unfinished operation 处理由 open root 流程触发
+- [x] 增加 `--json` JSON Lines 输出
+- [x] 明确不新增单独 `recover/resume` 命令，unfinished operation 处理由 open root 流程触发
 
 **验收标准**：
-- [ ] CLI 创建的 root 可被 FFI/Flutter 打开
-- [ ] FFI/Flutter 创建的 root 可被 CLI 打开
-- [ ] 不同算法配置的 root 可被 CLI 打开
-- [ ] 中断 import/export 后，再次执行 CLI 命令能发现 operation marker，并可全量重跑/清理/跳过
-- [ ] 中断 convert 的 copy/verify/rename 阶段后，再次 open root 能按 phase 给出恢复或人工处理建议
-- [ ] convert 成功后 backup 默认保留，不自动删除
-- [ ] 密码不出现在日志、进度、JSON 输出中
+- [x] CLI 创建的 root 可被 FFI/Flutter 打开
+- [x] FFI/Flutter 创建的 root 可被 CLI 打开
+- [x] 不同算法配置的 root 可被 CLI 打开
+- [x] 中断 import/export 后，再次执行 CLI 命令能发现 operation marker，并可全量重跑/清理/跳过
+- [x] 中断 convert 的 copy/verify/rename 阶段后，再次 open root 能按 phase 给出恢复或人工处理建议
+- [x] convert 成功后 backup 默认保留，不自动删除
+- [x] 密码不出现在日志、进度、JSON 输出中
 - [ ] 完整实践测试矩阵覆盖 create、import/export、progress、unfinished operation、安全输入和兼容性
+  - [x] sec/walker/transfer/CLI/FFI/Dart 覆盖 `aes-gcm-name` 文件名/目录名加密场景
+  - [x] Dart FFI 集成测试覆盖 root create/open、quick read/write、V3 import/export、unfinished marker
+  - [x] CLI `import/export --json` 覆盖 JSON Lines started/progress/completed 事件
+  - [x] FFI Go 与 Dart FFI 集成测试覆盖 CLI-created root 由 FFI/Dart 写读并由 CLI export、FFI/Dart-created root 由 CLI import/export 使用
+  - [x] Transfer V3 测试覆盖 convert encrypt 成功后 backup 目录保留且 marker 清理
+  - [x] CLI 集成测试覆盖 create/import/list/export 普通输出和 JSON 输出不泄漏密码
+  - [x] CLI 单元/集成测试覆盖非空目录 create 交互确认逻辑、非交互拒绝和 JSON 模式拒绝提示污染
 
 ### [BUG] UI 新创建的加密目录，侧边栏与解密栏标题为一段 json 字符串
 

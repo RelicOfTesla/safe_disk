@@ -190,7 +190,7 @@ import/export 不再创建 `ITask`，也不返回 `task_id`。
 
 当前缺口：
 
-- `ClearSecureMemory` 不在当前活跃 FFI 绑定面上。
+- `ClearSecureMemory` 已通过 `sec_clear_secure_memory` 和 Dart `NativeLib.clearSecureBytes/clearSecureMemory` 暴露；字符串清理属于 best-effort，只能清理 UTF-8 byte copy，不能保证 Dart `String` 对象原地清零。
 - Go 后端并非所有敏感对象 close 时都执行清零。
 
 ## 注册与自举
@@ -209,7 +209,7 @@ FFI shared library 也必须完成同样的自举，否则 standalone shared lib
 
 设计要求：
 
-- `native/ffi_sec_fs` 的构建入口必须注册完整算法集；当前因 `crypto_all` deriver 注册问题暂用最小算法集合。
+- `native/ffi_sec_fs` 的构建入口必须注册完整算法集；当前已使用 `crypto_all`。
 - `native/ffi_sec_fs` 的构建入口必须 blank import `sec_transfer/v3`。
 - 自举依赖应集中放在 FFI 入口文件或专门的 `init.go` 中。
 
@@ -236,6 +236,8 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 - Dart 绑定已接入 V3 函数。
 - Flutter `DirectoryService` 已接通 V3 目录 import/export。
 - FFI shared library 已注册 V3；旧 v2 task 模型不再用于 FFI/Dart 主路径。
+- Dart FFI 集成测试已覆盖真实 shared library 下的 root create/open、quick read/write、V3 import/export、unfinished marker，以及 `aes-gcm-name` 文件名/目录名加密。
+- Go FFI 与 Dart FFI 集成测试已覆盖 CLI 创建 root 后由 FFI/Dart 写读并由 CLI export、FFI/Dart 创建 root 后由 CLI import/export 使用。
 - 运行时 progress callback 仍待补齐，当前 V3 Dart 调用表现为同步阻塞。
 
 收口顺序：
@@ -265,12 +267,11 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 
 | 问题 | 影响 | 建议优先级 |
 |------|------|------------|
-| FFI 入口仍未使用完整 `crypto_all` | shared library 只能覆盖当前最小算法集合 | P0 |
 | Transfer V3 缺少 Dart 运行时 progress callback | UI 暂时只能同步等待或自建 loading | P1 |
 | UI 未处理 unfinished marker | 中断后还不能在界面提示重跑/清理 | P1 |
 | `ignoreMatcher` 未解析 | 自定义忽略规则不可用 | P2 |
 | 增量加密 FFI 仅有设计文档 | 文档容易误导进度判断 | P2 |
-| `ClearSecureMemory` 未绑定 | 安全清零链路不完整 | P1 |
+| Dart runtime progress callback 仍未接 UI | UI 暂时只能同步等待或自建 loading | P1 |
 
 ## 验收标准
 
@@ -299,6 +300,7 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 - `DirectoryService.exportDirectory` 不再抛 `UnimplementedError`。
 - `DirectoryService.importDirectory` 不再抛 `UnimplementedError`。
 - `CryptoService` 与 `DirectoryService` 不直接触碰 C 指针。
+- Dart FFI 集成测试能通过 `SAFE_DISK_FFI_LIBRARY=/path/to/libffi_sec_fs.so flutter test test/native_ffi_integration_test.dart` 运行。
 
 ### 文档
 

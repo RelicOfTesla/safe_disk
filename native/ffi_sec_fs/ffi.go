@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"runtime"
+	"unsafe"
 
 	"safe_disk/native/sec_fs"
 	"safe_disk/native/sec_fs/sec_transfer"
@@ -16,6 +18,23 @@ import (
 // successResponse creates a success JSON response.
 func successResponse(data interface{}) string {
 	return SuccessWithData(data)
+}
+
+// ==================== Utility Operations ====================
+
+func ClearSecureMemory_FFI(data []byte) string {
+	memZero(data)
+	return Success()
+}
+
+func memZero(data []byte) {
+	if len(data) == 0 {
+		return
+	}
+	for i := range data {
+		data[i] = 0
+	}
+	runtime.KeepAlive(unsafe.Pointer(&data[0]))
 }
 
 // ==================== Transfer V3 Operations ====================

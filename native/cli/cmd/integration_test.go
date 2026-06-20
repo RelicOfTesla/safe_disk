@@ -2,17 +2,20 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"safe_disk/native/sec_fs"
+	"safe_disk/native/sec_fs/sec_transfer"
 
 	// Import algorithm implementations to register key derivers and encryptors
-	_ "safe_disk/native/sec_fs/crypto_hkdf/algorithm_impl/argon2"
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_ctr"
+	_ "safe_disk/native/sec_fs/crypto_hkdf/algorithm_impl/argon2"
 	_ "safe_disk/native/sec_fs/crypto_name/algorithm_impl/aes_gcm_name"
 )
 
@@ -32,6 +35,491 @@ func TestMain(m *testing.M) {
 	os.Remove("../safe-disk-test")
 
 	os.Exit(code)
+}
+
+func TestUnfinishedImportRerunOnOpenRoot(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "safe-disk-rerun-import-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	plainDir := filepath.Join(tmpDir, "plain")
+	encryptedDir := filepath.Join(tmpDir, "encrypted")
+	password := "rerun-import-password"
+	if err := os.MkdirAll(plainDir, 0755); err != nil {
+		t.Fatalf("Failed to create plain dir: %v", err)
+	}
+	if err := os.MkdirAll(encryptedDir, 0755); err != nil {
+		t.Fatalf("Failed to create encrypted dir: %v", err)
+	}
+	sourceFile := filepath.Join(plainDir, "source.txt")
+	want := []byte("rerun import content")
+	if err := os.WriteFile(sourceFile, want, 0644); err != nil {
+		t.Fatalf("Failed to write source file: %v", err)
+	}
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(encryptedDir), password); err != nil {
+		t.Fatalf("Failed to create encrypted root: %v", err)
+	}
+	writeTestMarker(t, encryptedDir, sec_transfer.OperationMarker{
+		Version:   3,
+		OpID:      "test-import-rerun",
+		Type:      sec_transfer.OperationImport,
+		Status:    "running",
+		Src:       sourceFile,
+		Dst:       "restored.txt",
+		Root:      encryptedDir,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+
+	cmd := exec.Command("../safe-disk-test", "list",
+		"--password", password,
+		"--path", encryptedDir,
+		"--unfinished", "rerun")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("list --unfinished=rerun failed: %v\nOutput: %s", err, output)
+	}
+
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(encryptedDir), password)
+	if err != nil {
+		t.Fatalf("Failed to open encrypted root: %v", err)
+	}
+	defer root.Close()
+	file, err := root.OpenFile("restored.txt", os.O_RDONLY)
+	if err != nil {
+		t.Fatalf("Failed to open rerun imported file: %v", err)
+	}
+	got := make([]byte, len(want))
+	n, err := file.Read(got)
+	file.Close()
+	if err != nil && n != len(want) {
+		t.Fatalf("Failed to read rerun imported file: %v", err)
+	}
+	if string(got[:n]) != string(want) {
+		t.Fatalf("Rerun imported content mismatch: got %q want %q", string(got[:n]), string(want))
+	}
+	assertNoTestMarker(t, encryptedDir, "test-import-rerun")
+}
+
+func TestCLIImportExportWithEncryptedNames(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "safe-disk-cli-names-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	plainDir := filepath.Join(tmpDir, "plain")
+	encryptedDir := filepath.Join(tmpDir, "encrypted")
+	outDir := filepath.Join(tmpDir, "out")
+	password := "cli-encrypted-names-password"
+	if err := os.MkdirAll(filepath.Join(plainDir, "目录"), 0755); err != nil {
+		t.Fatalf("Failed to create plain dir: %v", err)
+	}
+	if err := os.MkdirAll(encryptedDir, 0755); err != nil {
+		t.Fatalf("Failed to create encrypted dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(plainDir, "目录", "文件.txt"), []byte("cli encrypted names"), 0644); err != nil {
+		t.Fatalf("Failed to write source file: %v", err)
+	}
+	if _, _, err := sec_fs.CreateRootConfigQuick(
+		sec_fs.FullStorePath(encryptedDir),
+		password,
+		sec_fs.WithDataFactory("aes-ctr"),
+		sec_fs.WithNameFactory("aes-gcm-name"),
+	); err != nil {
+		t.Fatalf("Failed to create encrypted root: %v", err)
+	}
+
+	cmd := exec.Command("../safe-disk-test", "import",
+		"--password", password,
+		"--source", plainDir,
+		"--dest", encryptedDir)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Import command failed: %v\nOutput: %s", err, output)
+	}
+	if containsDiskName(t, encryptedDir, "目录") || containsDiskName(t, encryptedDir, "文件.txt") {
+		t.Fatal("plain directory or file name leaked to encrypted store")
+	}
+
+	cmd = exec.Command("../safe-disk-test", "export",
+		"--password", password,
+		"--source", encryptedDir,
+		"--dest", outDir)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Export command failed: %v\nOutput: %s", err, output)
+	}
+	data, err := os.ReadFile(filepath.Join(outDir, "目录", "文件.txt"))
+	if err != nil {
+		t.Fatalf("Failed to read exported file: %v", err)
+	}
+	if string(data) != "cli encrypted names" {
+		t.Fatalf("unexpected exported content: %q", string(data))
+	}
+}
+
+func TestCLIImportExportJSONLines(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "safe-disk-cli-json-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	plainDir := filepath.Join(tmpDir, "plain")
+	encryptedDir := filepath.Join(tmpDir, "encrypted")
+	outDir := filepath.Join(tmpDir, "out")
+	password := "cli-json-password"
+	if err := os.MkdirAll(plainDir, 0755); err != nil {
+		t.Fatalf("Failed to create plain dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(plainDir, "a.txt"), []byte("json progress"), 0644); err != nil {
+		t.Fatalf("Failed to write source file: %v", err)
+	}
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(encryptedDir), password); err != nil {
+		t.Fatalf("Failed to create encrypted root: %v", err)
+	}
+
+	cmd := exec.Command("../safe-disk-test", "import",
+		"--json",
+		"--password", password,
+		"--source", plainDir,
+		"--dest", encryptedDir)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("import --json failed: %v\nOutput: %s", err, output)
+	}
+	assertJSONEvents(t, output, "import")
+
+	cmd = exec.Command("../safe-disk-test", "export",
+		"--json",
+		"--password", password,
+		"--source", encryptedDir,
+		"--dest", outDir)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("export --json failed: %v\nOutput: %s", err, output)
+	}
+	assertJSONEvents(t, output, "export")
+}
+
+func TestCLIDoesNotLeakPasswordInCommandOutput(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "safe-disk-cli-password-output-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	password := "DO_NOT_LEAK_password_9b67f0b1"
+	rootPath := filepath.Join(tmpDir, "root")
+	plainPath := filepath.Join(tmpDir, "plain.txt")
+	exportPath := filepath.Join(tmpDir, "exported.txt")
+	if err := os.WriteFile(plainPath, []byte("password output guard"), 0644); err != nil {
+		t.Fatalf("Failed to write source file: %v", err)
+	}
+
+	output := runCLIAndRequireSuccess(t, "create",
+		"--path", rootPath,
+		"--password", password)
+	assertOutputDoesNotContain(t, output, password)
+
+	output = runCLIAndRequireSuccess(t, "import",
+		"--json",
+		"--password", password,
+		"--source", plainPath,
+		"--dest", filepath.Join(rootPath, "inside.txt"))
+	assertOutputDoesNotContain(t, output, password)
+	assertJSONEvents(t, output, "import")
+
+	output = runCLIAndRequireSuccess(t, "list",
+		"--password", password,
+		"--path", rootPath)
+	assertOutputDoesNotContain(t, output, password)
+
+	output = runCLIAndRequireSuccess(t, "export",
+		"--json",
+		"--password", password,
+		"--source", filepath.Join(rootPath, "inside.txt"),
+		"--dest", exportPath)
+	assertOutputDoesNotContain(t, output, password)
+	assertJSONEvents(t, output, "export")
+}
+
+func TestCreateNonEmptyDirectoryRequiresExplicitInPlaceInNonInteractiveMode(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "safe-disk-cli-create-nonempty-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	rootPath := filepath.Join(tmpDir, "root")
+	if err := os.MkdirAll(rootPath, 0755); err != nil {
+		t.Fatalf("Failed to create root dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rootPath, "plain.txt"), []byte("plain content"), 0644); err != nil {
+		t.Fatalf("Failed to write plain file: %v", err)
+	}
+
+	cmd := exec.Command("../safe-disk-test", "create",
+		"--path", rootPath,
+		"--password", "noninteractive-password")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected non-interactive create on non-empty dir to fail, output: %s", output)
+	}
+	if !strings.Contains(string(output), "directory is not empty") {
+		t.Fatalf("expected non-empty directory error, got: %s", output)
+	}
+	if _, err := os.Stat(filepath.Join(rootPath, sec_fs.ConfigFileName)); !os.IsNotExist(err) {
+		t.Fatalf("expected no root config after rejected create, stat err: %v", err)
+	}
+}
+
+func TestCreateNonEmptyDirectoryJSONRequiresExplicitInPlace(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "safe-disk-cli-create-json-nonempty-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	rootPath := filepath.Join(tmpDir, "root")
+	if err := os.MkdirAll(rootPath, 0755); err != nil {
+		t.Fatalf("Failed to create root dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(rootPath, "plain.txt"), []byte("plain content"), 0644); err != nil {
+		t.Fatalf("Failed to write plain file: %v", err)
+	}
+
+	cmd := exec.Command("../safe-disk-test", "create",
+		"--json",
+		"--path", rootPath,
+		"--password", "json-password")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected create --json on non-empty dir without --in-place to fail, output: %s", output)
+	}
+	outputText := string(output)
+	if !strings.Contains(outputText, "directory is not empty") {
+		t.Fatalf("expected non-empty directory error, got: %s", output)
+	}
+	if strings.Contains(outputText, "[y/N]") {
+		t.Fatalf("JSON mode should not print an interactive prompt, got: %s", output)
+	}
+}
+
+func TestUnfinishedExportRerunOnOpenRoot(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "safe-disk-rerun-export-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	encryptedDir := filepath.Join(tmpDir, "encrypted")
+	exportDir := filepath.Join(tmpDir, "exported")
+	password := "rerun-export-password"
+	if err := os.MkdirAll(encryptedDir, 0755); err != nil {
+		t.Fatalf("Failed to create encrypted dir: %v", err)
+	}
+	if err := os.MkdirAll(exportDir, 0755); err != nil {
+		t.Fatalf("Failed to create export dir: %v", err)
+	}
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(encryptedDir), password); err != nil {
+		t.Fatalf("Failed to create encrypted root: %v", err)
+	}
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(encryptedDir), password)
+	if err != nil {
+		t.Fatalf("Failed to open encrypted root: %v", err)
+	}
+	want := []byte("rerun export content")
+	file, err := root.OpenFile("inside.txt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("Failed to create encrypted file: %v", err)
+	}
+	if _, err := file.Write(want); err != nil {
+		t.Fatalf("Failed to write encrypted file: %v", err)
+	}
+	file.Close()
+	root.Close()
+
+	destFile := filepath.Join(exportDir, "inside.txt")
+	writeTestMarker(t, encryptedDir, sec_transfer.OperationMarker{
+		Version:   3,
+		OpID:      "test-export-rerun",
+		Type:      sec_transfer.OperationExport,
+		Status:    "running",
+		Src:       "inside.txt",
+		Dst:       destFile,
+		Root:      encryptedDir,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+
+	cmd := exec.Command("../safe-disk-test", "list",
+		"--password", password,
+		"--path", encryptedDir,
+		"--unfinished", "rerun")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("list --unfinished=rerun failed: %v\nOutput: %s", err, output)
+	}
+	got, err := os.ReadFile(destFile)
+	if err != nil {
+		t.Fatalf("Failed to read rerun exported file: %v", err)
+	}
+	if string(got) != string(want) {
+		t.Fatalf("Rerun exported content mismatch: got %q want %q", string(got), string(want))
+	}
+	assertNoTestMarker(t, encryptedDir, "test-export-rerun")
+}
+
+func TestOpenRootRecoversConvertRenameWindow(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "safe-disk-convert-recover-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	rootPath := filepath.Join(tmpDir, "root")
+	workPath := rootPath + ".safe_disk.work.test"
+	backupPath := rootPath + ".safe_disk.backup.test"
+	password := "convert-recover-password"
+	if err := os.MkdirAll(workPath, 0755); err != nil {
+		t.Fatalf("Failed to create work dir: %v", err)
+	}
+	if err := os.MkdirAll(backupPath, 0755); err != nil {
+		t.Fatalf("Failed to create backup dir: %v", err)
+	}
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(workPath), password); err != nil {
+		t.Fatalf("Failed to create work root config: %v", err)
+	}
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(workPath), password)
+	if err != nil {
+		t.Fatalf("Failed to open work root: %v", err)
+	}
+	file, err := root.OpenFile("after-recover.txt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	if err != nil {
+		t.Fatalf("Failed to create work file: %v", err)
+	}
+	if _, err := file.Write([]byte("after recover")); err != nil {
+		t.Fatalf("Failed to write work file: %v", err)
+	}
+	file.Close()
+	root.Close()
+	writeTestMarker(t, backupPath, sec_transfer.OperationMarker{
+		Version:   3,
+		OpID:      "test-convert-recover",
+		Type:      sec_transfer.OperationConvertEncrypt,
+		Status:    "running",
+		Phase:     "renaming_work_to_root",
+		Root:      rootPath,
+		Work:      workPath,
+		Backup:    backupPath,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+
+	cmd := exec.Command("../safe-disk-test", "list",
+		"--password", password,
+		"--path", rootPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("list should recover convert rename window: %v\nOutput: %s", err, output)
+	}
+	if !strings.Contains(string(output), "after-recover.txt") {
+		t.Fatalf("expected recovered root listing to include file, got: %s", output)
+	}
+	if _, err := os.Stat(workPath); !os.IsNotExist(err) {
+		t.Fatalf("expected work path to be moved into root, stat err: %v", err)
+	}
+	assertNoTestMarker(t, backupPath, "test-convert-recover")
+}
+
+func writeTestMarker(t *testing.T, rootPath string, marker sec_transfer.OperationMarker) {
+	t.Helper()
+	activeDir := filepath.Join(rootPath, ".transfer_v3", "active")
+	if err := os.MkdirAll(activeDir, 0755); err != nil {
+		t.Fatalf("Failed to create marker dir: %v", err)
+	}
+	data, err := json.MarshalIndent(marker, "", "  ")
+	if err != nil {
+		t.Fatalf("Failed to marshal marker: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(activeDir, marker.OpID+".json"), data, 0644); err != nil {
+		t.Fatalf("Failed to write marker: %v", err)
+	}
+}
+
+func assertNoTestMarker(t *testing.T, rootPath string, opID string) {
+	t.Helper()
+	markerPath := filepath.Join(rootPath, ".transfer_v3", "active", opID+".json")
+	if _, err := os.Stat(markerPath); !os.IsNotExist(err) {
+		t.Fatalf("Expected marker to be removed: %s", markerPath)
+	}
+}
+
+func containsDiskName(t *testing.T, rootPath string, name string) bool {
+	t.Helper()
+	found := false
+	err := filepath.WalkDir(rootPath, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Name() == name {
+			found = true
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return found
+}
+
+func assertJSONEvents(t *testing.T, output []byte, wantType string) {
+	t.Helper()
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least 2 JSON lines, got %d: %s", len(lines), output)
+	}
+	events := make([]map[string]interface{}, 0, len(lines))
+	for _, line := range lines {
+		var event map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatalf("invalid JSON line %q: %v\nall output: %s", line, err, output)
+		}
+		if event["type"] != wantType {
+			t.Fatalf("unexpected event type: got %v want %s in %s", event["type"], wantType, line)
+		}
+		events = append(events, event)
+	}
+	if events[0]["event"] != "operation_started" {
+		t.Fatalf("first event = %v, want operation_started", events[0]["event"])
+	}
+	if events[len(events)-1]["event"] != "operation_completed" {
+		t.Fatalf("last event = %v, want operation_completed", events[len(events)-1]["event"])
+	}
+	if _, ok := events[0]["op_id"].(string); !ok {
+		t.Fatalf("operation_started missing op_id: %#v", events[0])
+	}
+}
+
+func runCLIAndRequireSuccess(t *testing.T, args ...string) []byte {
+	t.Helper()
+	cmd := exec.Command("../safe-disk-test", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("safe-disk %s failed: %v\nOutput: %s", strings.Join(args, " "), err, output)
+	}
+	return output
+}
+
+func assertOutputDoesNotContain(t *testing.T, output []byte, secret string) {
+	t.Helper()
+	if strings.Contains(string(output), secret) {
+		t.Fatalf("command output leaked secret %q: %s", secret, output)
+	}
 }
 
 func TestVersionIntegration(t *testing.T) {
@@ -179,27 +667,27 @@ func TestFullWorkflow(t *testing.T) {
 	for _, dir := range []string{plaintextDir, encryptedDir, decryptedDir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatalf("Failed to create dir %s: %v", dir, err)
-	}
+		}
 	}
 
 	// Create test directory structure
 	testStructure := map[string][]byte{
-		"root_file.txt":              []byte("Root level file content"),
-		"docs/readme.txt":            []byte("Documentation file"),
-		"docs/api/guide.txt":         []byte("API guide"),
-		"src/main.go":                []byte("package main\n\nfunc main() {}"),
-		"src/utils/helper.txt":       []byte("Helper utilities"),
-		"data/empty.txt":             []byte(""),
+		"root_file.txt":        []byte("Root level file content"),
+		"docs/readme.txt":      []byte("Documentation file"),
+		"docs/api/guide.txt":   []byte("API guide"),
+		"src/main.go":          []byte("package main\n\nfunc main() {}"),
+		"src/utils/helper.txt": []byte("Helper utilities"),
+		"data/empty.txt":       []byte(""),
 	}
 
 	for relPath, content := range testStructure {
 		fullPath := filepath.Join(plaintextDir, relPath)
 		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 			t.Fatalf("Failed to create dir for %s: %v", relPath, err)
-	}
+		}
 		if err := os.WriteFile(fullPath, content, 0644); err != nil {
 			t.Fatalf("Failed to create file %s: %v", relPath, err)
-	}
+		}
 	}
 
 	password := "integration-test-password"
@@ -295,7 +783,7 @@ func TestRoundTripConsistency(t *testing.T) {
 	for _, dir := range []string{plaintextDir, encryptedDir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatalf("Failed to create dir %s: %v", dir, err)
-	}
+		}
 	}
 
 	// Create test file with binary content
@@ -381,7 +869,7 @@ func TestListSpecificFile(t *testing.T) {
 	for _, dir := range []string{plaintextDir, encryptedDir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatalf("Failed to create dir %s: %v", dir, err)
-	}
+		}
 	}
 
 	// Create test file
@@ -441,7 +929,7 @@ func TestListDirectoryWithNestedStructure(t *testing.T) {
 	for _, dir := range []string{plaintextDir, encryptedDir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatalf("Failed to create dir %s: %v", dir, err)
-	}
+		}
 	}
 
 	// Create nested structure
@@ -455,10 +943,10 @@ func TestListDirectoryWithNestedStructure(t *testing.T) {
 		fullPath := filepath.Join(plaintextDir, relPath)
 		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 			t.Fatalf("Failed to create dir for %s: %v", relPath, err)
-	}
+		}
 		if err := os.WriteFile(fullPath, content, 0644); err != nil {
 			t.Fatalf("Failed to create file %s: %v", relPath, err)
-	}
+		}
 	}
 
 	password := "list-nested-password"
@@ -547,7 +1035,7 @@ func TestMultipleUsersDifferentPasswords(t *testing.T) {
 	for _, dir := range []string{plaintextDir, user1Dir, user2Dir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatalf("Failed to create dir %s: %v", dir, err)
-	}
+		}
 	}
 
 	// Create test file

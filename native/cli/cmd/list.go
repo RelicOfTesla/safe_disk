@@ -3,14 +3,14 @@ package cmd
 import (
 	"fmt"
 
-	"safe_disk/native/sec_fs"
-
 	"github.com/spf13/cobra"
 )
 
 var (
-	listPassword string
-	listPath     string
+	listPassword      string
+	listPasswordEnv   string
+	listPasswordStdin bool
+	listPath          string
 )
 
 var listCmd = &cobra.Command{
@@ -19,23 +19,17 @@ var listCmd = &cobra.Command{
 	Long:  "List files and directories in an encrypted root directory.",
 	Args:  cobra.MaximumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if listPassword == "" {
-			return fmt.Errorf("password is required")
-		}
-		_, listRoot, listRelative, err := sec_fs.FindRootConfig(listPath)
+		opened, cleanup, err := openRootForPath(listPath, passwordOptions{
+			Password:      listPassword,
+			PasswordEnv:   listPasswordEnv,
+			PasswordStdin: listPasswordStdin,
+		})
 		if err != nil {
-			return fmt.Errorf("failed to find root config: %w", err)
-		}
-
-		// Open the encrypted root directory
-		root, err := sec_fs.OpenRootQuick(listRoot, listPassword)
-		if err != nil {
-			return fmt.Errorf("failed to open root: %w", err)
-		}
-		defer root.Close()
-		if err := handleUnfinished(listRoot); err != nil {
 			return err
 		}
+		defer cleanup()
+		root := opened.Root
+		listRelative := opened.Relative
 
 		// Get directory info
 		info, err := root.Stat(listRelative)
@@ -98,7 +92,7 @@ var listCmd = &cobra.Command{
 }
 
 func init() {
-	listCmd.Flags().StringVarP(&listPassword, "password", "p", "", "Password for encryption")
+	addPasswordFlags(listCmd.Flags(), &listPassword, &listPasswordEnv, &listPasswordStdin)
 	listCmd.Flags().StringVarP(&listPath, "path", "d", "", "Directory path to list (default: root)")
 	listCmd.Flags().StringVar(&unfinishedPolicy, "unfinished", "skip", "Unfinished operation policy: skip, ask, clean, rerun")
 }

@@ -14,9 +14,12 @@ import (
 
 var (
 	exportPassword      string
+	exportPasswordEnv   string
+	exportPasswordStdin bool
 	exportSrcPath       string
 	_exportDestPath     string
 	exportSkipRecursive bool
+	exportJSON          bool
 )
 
 var exportCmd = &cobra.Command{
@@ -25,10 +28,6 @@ var exportCmd = &cobra.Command{
 	Long:  "Export encrypted files to plaintext from an encrypted root directory.",
 	Args:  cobra.MaximumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if exportPassword == "" {
-			return fmt.Errorf("password is required")
-		}
-
 		if exportSrcPath == "" {
 			return fmt.Errorf("source path is required")
 		}
@@ -37,20 +36,17 @@ var exportCmd = &cobra.Command{
 
 		exportDestPath := sec_fs.FullStorePath(_exportDestPath)
 
-		_, fromRoot, fromRelative, err := sec_fs.FindRootConfig(exportSrcPath)
+		opened, cleanup, err := openRootForPath(exportSrcPath, passwordOptions{
+			Password:      exportPassword,
+			PasswordEnv:   exportPasswordEnv,
+			PasswordStdin: exportPasswordStdin,
+		})
 		if err != nil {
-			return fmt.Errorf("failed to find root config: %w", err)
-		}
-
-		// Open the encrypted root directory
-		root, err := sec_fs.OpenRootQuick(fromRoot, exportPassword)
-		if err != nil {
-			return fmt.Errorf("failed to open root: %w", err)
-		}
-		defer root.Close()
-		if err := handleUnfinished(fromRoot); err != nil {
 			return err
 		}
+		defer cleanup()
+		root := opened.Root
+		fromRelative := opened.Relative
 		targetInfo, err := root.Stat(fromRelative)
 		if err != nil {
 			return fmt.Errorf("failed to stat: %w", err)
@@ -59,15 +55,22 @@ var exportCmd = &cobra.Command{
 		transferService := sec_transfer.GetDefaultTransferV3()
 		var doneFiles int64
 		var totalFiles int64
-		callback := func(status sec_transfer.ProgressEvent) {
-			totalFiles = status.TotalFiles
-			doneFiles = status.DoneFiles
-			if !outputStd {
-				if currFile := status.CurrentPath; currFile != "" {
-					fmt.Printf("\rExporting: %s (%d/%d files)",
-						currFile,
-						status.DoneFiles,
-						status.TotalFiles)
+		var callback sec_transfer.V3ProgressCallback
+		var jsonReporter *transferJSONReporter
+		if exportJSON {
+			jsonReporter = newTransferJSONReporter(sec_transfer.OperationExport)
+			callback = jsonReporter.Callback()
+		} else {
+			callback = func(status sec_transfer.ProgressEvent) {
+				totalFiles = status.TotalFiles
+				doneFiles = status.DoneFiles
+				if !outputStd {
+					if currFile := status.CurrentPath; currFile != "" {
+						fmt.Printf("\rExporting: %s (%d/%d files)",
+							currFile,
+							status.DoneFiles,
+							status.TotalFiles)
+					}
 				}
 			}
 		}
@@ -76,7 +79,9 @@ var exportCmd = &cobra.Command{
 			if outputStd {
 				return fmt.Errorf("stdout export not yet implemented")
 			}
-			fmt.Printf("Exporting directory: %s -> %s\n", exportSrcPath, exportDestPath)
+			if !exportJSON {
+				fmt.Printf("Exporting directory: %s -> %s\n", exportSrcPath, exportDestPath)
+			}
 			err = transferService.ExportDirectory(context.Background(), sec_transfer.ExportDirectoryRequest{
 				SourceRoot:    root,
 				Source:        fromRelative,
@@ -97,7 +102,9 @@ var exportCmd = &cobra.Command{
 				}
 				return nil
 			} else {
-				fmt.Printf("Exporting file: %s -> %s\n", exportSrcPath, exportDestPath)
+				if !exportJSON {
+					fmt.Printf("Exporting file: %s -> %s\n", exportSrcPath, exportDestPath)
+				}
 				err = transferService.ExportFile(context.Background(), sec_transfer.ExportFileRequest{
 					SourceRoot: root,
 					Source:     fromRelative,
@@ -108,10 +115,13 @@ var exportCmd = &cobra.Command{
 		}
 
 		if err != nil {
+			if jsonReporter != nil {
+				jsonReporter.Failed(err)
+			}
 			return fmt.Errorf("export failed: %w", err)
 		}
 
-		if !outputStd {
+		if !outputStd && !exportJSON {
 			fmt.Println("\nExport successful!")
 			if doneFiles == 0 {
 				doneFiles = totalFiles
@@ -123,9 +133,10 @@ var exportCmd = &cobra.Command{
 }
 
 func init() {
-	exportCmd.Flags().StringVarP(&exportPassword, "password", "p", "", "Password for encryption")
+	addPasswordFlags(exportCmd.Flags(), &exportPassword, &exportPasswordEnv, &exportPasswordStdin)
 	exportCmd.Flags().StringVarP(&exportSrcPath, "source", "s", "", "Source path (encrypted)")
 	exportCmd.Flags().StringVarP(&_exportDestPath, "dest", "d", "", "Destination path (plaintext)")
 	exportCmd.Flags().BoolVarP(&exportSkipRecursive, "skip-recursive", "n", false, "Export directory non-recursively")
+	exportCmd.Flags().BoolVar(&exportJSON, "json", false, "Output JSON Lines progress events")
 	exportCmd.Flags().StringVar(&unfinishedPolicy, "unfinished", "skip", "Unfinished operation policy: skip, ask, clean, rerun")
 }

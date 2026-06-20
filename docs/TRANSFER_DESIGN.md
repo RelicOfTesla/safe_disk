@@ -54,9 +54,10 @@ V3 目标需要满足：
 
 仍未完成：
 
-- `crypto_all` 不能直接用于 CLI/FFI 入口，因为当前 deriver factory 注册与默认选择会导致部分 root open 失败。
+- CLI/FFI 入口已可使用 `crypto_all`；deriver 实现会同时注册旧 deriver registry 与 factory registry。
 - V3 默认 root 创建暂用 `nameFactory=none`，尚未解决随机文件名加密下目录稳定映射问题。
-- convert recover 仍是基础 phase 判断，未实现完整自动清理和人工处理报告。
+- convert recover 已能跨 root/backup/work 发现 phase marker，并对可判断的 rename 窗口继续切换；仍需后续增加更细的校验报告。
+- convert 成功后会保留同级 `.safe_disk.backup.<op_id>` 目录；测试已覆盖 backup 保留和 marker 清理。
 
 ### 总体取舍
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:ffi';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
@@ -94,6 +95,26 @@ class NativeLib {
     _checkResult(data, 'secRootClose');
   }
 
+  /// Creates a secure root configuration.
+  void secCreateRootConfig(
+      String rootPath, String password, String optionsJSON) {
+    final rootPathPtr = rootPath.toNativeUtf8();
+    final passwordPtr = password.toNativeUtf8();
+    final optionsJSONPtr = optionsJSON.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.secCreateRootConfig(
+          rootPathPtr, passwordPtr, optionsJSONPtr);
+      final result = _ptrToString(resultPtr);
+      final data = _parseJson(result);
+      _checkResult(data, 'secCreateRootConfig');
+    } finally {
+      calloc.free(rootPathPtr);
+      calloc.free(passwordPtr);
+      calloc.free(optionsJSONPtr);
+    }
+  }
+
   // ==================== File Operations ====================
 
   /// Opens a file within a secure root.
@@ -135,11 +156,11 @@ class NativeLib {
 
   /// Writes data to a file.
   void secFileWrite(int fileID, List<int> data) {
-    final dataStr = base64Encode(data);
-    final dataPtr = dataStr.toNativeUtf8();
+    final dataPtr = _bytesToNative(data);
 
     try {
-      final resultPtr = _bindings.secFileWrite(fileID, dataPtr, data.length);
+      final resultPtr =
+          _bindings.secFileWrite(fileID, dataPtr.cast<Utf8>(), data.length);
       final result = _ptrToString(resultPtr);
       final resultData = _parseJson(result);
       _checkResult(resultData, 'secFileWrite');
@@ -253,12 +274,11 @@ class NativeLib {
   /// Quick writes a file (open + write + close).
   void secQuickWriteFile(int rootID, String path, List<int> data) {
     final pathPtr = path.toNativeUtf8();
-    final dataStr = base64Encode(data);
-    final dataPtr = dataStr.toNativeUtf8();
+    final dataPtr = _bytesToNative(data);
 
     try {
-      final resultPtr =
-          _bindings.secQuickWriteFile(rootID, pathPtr, dataPtr, data.length);
+      final resultPtr = _bindings.secQuickWriteFile(
+          rootID, pathPtr, dataPtr.cast<Utf8>(), data.length);
       final result = _ptrToString(resultPtr);
       final resultData = _parseJson(result);
       _checkResult(resultData, 'secQuickWriteFile');
@@ -266,6 +286,37 @@ class NativeLib {
       calloc.free(pathPtr);
       calloc.free(dataPtr);
     }
+  }
+
+  Pointer<Uint8> _bytesToNative(List<int> data) {
+    final ptr = calloc<Uint8>(data.length);
+    ptr.asTypedList(data.length).setAll(0, Uint8List.fromList(data));
+    return ptr;
+  }
+
+  // ==================== Utility Operations ====================
+
+  /// Clears a mutable byte buffer and its temporary native copy.
+  void clearSecureBytes(Uint8List data) {
+    final dataPtr = _bytesToNative(data);
+
+    try {
+      final resultPtr = _bindings.secClearSecureMemory(dataPtr, data.length);
+      final result = _ptrToString(resultPtr);
+      final resultData = _parseJson(result);
+      _checkResult(resultData, 'clearSecureBytes');
+    } finally {
+      calloc.free(dataPtr);
+      data.fillRange(0, data.length, 0);
+    }
+  }
+
+  /// Best-effort clear for string content by clearing a UTF-8 byte copy.
+  void clearSecureMemory(String text) {
+    if (text.isEmpty) {
+      return;
+    }
+    clearSecureBytes(Uint8List.fromList(utf8.encode(text)));
   }
 
   // ==================== Transfer V3 Operations ====================

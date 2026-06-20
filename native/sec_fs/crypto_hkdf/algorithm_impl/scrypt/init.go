@@ -3,8 +3,9 @@ package scrypt
 
 import "safe_disk/native/sec_fs/crypto_hkdf"
 
-// init registers the scrypt key deriver.
+// init registers the scrypt key deriver factory.
 func init() {
 	factory := NewFactory()
 	crypto_hkdf.RegisterKeyDeriver(factory)
+	crypto_hkdf.RegisterDeriverFactory(factory)
 }

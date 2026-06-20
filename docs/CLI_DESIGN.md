@@ -24,16 +24,19 @@ CLI 需要负责：
 
 ## 当前实现状态
 
-截至 2026-06-20，CLI 已接入 Transfer V3 的基础 import/export/create --in-place，但仍未达到完整目标态。
+截至 2026-06-30，CLI 已接入 Transfer V3 的基础 import/export/create --in-place，但仍未达到完整目标态。
 
 已确认：
 
 - `native/cli/cmd/root.go` 已注册 `version`、`list`、`import`、`export`、`create`。
-- `native/cli/main.go` 已 blank import `sec_transfer/v3`，但算法只按具体实现逐个 import，并未使用 `crypto_all` 聚合注册。
+- `native/cli/main.go` 已 blank import `crypto_all` 和 `sec_transfer/v3`。
 - `import/export/list/create` 已支持 `--password`、`--password-env`、`--password-stdin` 和交互式隐藏输入。
 - `import/export` 已通过 `sec_transfer.GetDefaultTransferV3()` 执行同步 V3 操作，并在失败/中断时保留 operation marker。
-- `list/import/export` 已在打开 root 后接入 unfinished marker 检查；`skip/ask/clean` 可用，`rerun` 尚未实现。
+- `import/export --json` 已输出 JSON Lines 运行时事件：`operation_started`、`progress`、`operation_completed`、`operation_failed`。
+- `list/import/export` 已通过统一 open root helper 接入 unfinished marker 检查；`skip/ask/clean/rerun` 可用，其中 `rerun` 只自动处理 import/export。
+- 统一 open root helper 已在打开 root 前检查 convert phase marker；可判断的 rename 窗口会自动继续，无法判断时拒绝打开并要求人工处理。
 - `create` 已注册，`info/passwd` 未注册为 CLI 命令。
+- `create` 对非空目录默认要求显式 `--in-place`；交互式终端可确认后进入原地加密，非交互和 `--json` 模式仍直接拒绝。
 - `export --dest -` 的单文件 stdout 路径存在；目录导出到 stdout 会明确报错。
 
 明确不再作为主线：
@@ -69,7 +72,7 @@ CLI 参数使用绝对路径。
 3. 读取密码。
 4. 调用 `OpenRootQuick`。
 5. 查询 root 上的未完成 operation marker。
-6. 对未完成 import/export 提示重新全量执行、清理 marker 或跳过。当前 `rerun` 待实现。
+6. 对未完成 import/export 提示重新全量执行、清理 marker 或跳过。
 7. 对未完成 convert 按 phase 提示恢复、重跑或人工处理。
 8. 返回 root、相对路径、transfer manager。
 
@@ -139,6 +142,8 @@ safe-disk create --path /abs/root --in-place
 
 非交互模式必须拒绝，不能默认原地加密。
 
+`--json` 模式按非交互规则处理：如果目录非空且没有 `--in-place`，直接返回错误，不输出交互提示，避免污染 JSON Lines。
+
 语义：
 
 - 不带 `--in-place`：只创建 `_cryption.json`，不转换已有文件。
@@ -165,7 +170,7 @@ safe-disk list --path /abs/encrypted/root/or/file
 - `--path` 必须能通过向上查找找到 `_cryption.json`。
 - 如果 path 是文件，输出单个文件信息。
 - 如果 path 是目录，列出目录内容。
-- 打开 root 后先处理未完成 task。
+- 打开 root 时先处理未完成 operation marker。
 
 ### import
 
@@ -330,6 +335,13 @@ Files imported: 80
 {"event":"operation_failed","op_id":"...","error":"..."}
 ```
 
+当前实现状态：
+
+- `import --json` 和 `export --json` 已接入 V3 runtime callback。
+- `create --in-place --json` 已接入 convert runtime callback。
+- 普通 `create --path` 不涉及 transfer 进度，当前仍输出人类可读创建结果。
+- 仍未实现统一结构化错误输出；参数错误、密码错误等命令启动前错误仍由 Cobra/CLI 返回普通错误文本。
+
 ## 底层 sec 设计要求
 
 ### sec_fs
@@ -418,15 +430,11 @@ import _ "safe_disk/native/sec_fs/sec_transfer/v3"
 
 不要在 CLI 中手工挑选部分算法实现。否则配置文件使用其他算法时，CLI 可能无法打开 root。
 
-当前 `native/cli/main.go` 仍是手工 import：
+当前 `native/cli/main.go` 已使用 `crypto_all` 聚合注册和 `sec_transfer/v3` 注册。回归测试应继续覆盖不同 key/data/name 算法创建 root 后 CLI 能打开。
 
-- `crypto_hkdf/algorithm_impl/argon2`
-- `crypto_data/algorithm_impl/aes_ctr`
-- `crypto_name/algorithm_impl/aes_gcm_name`
-- `crypto_name/algorithm_impl/none`
-- `sec_transfer/v3`
+已覆盖：
 
-这说明 V3 transfer 注册已接入，但算法注册覆盖面不足。实现时应在修复 `crypto_all` deriver 注册问题后改成聚合注册，并添加回归测试：用不同 key/data/name 算法创建 root 后，CLI 必须能打开。
+- CLI import/export 可打开 `aes-gcm-name` root，并保持磁盘 store path 不泄漏明文文件名/目录名。
 
 ## 测试规划
 

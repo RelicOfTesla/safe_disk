@@ -2,9 +2,11 @@ package sec_transfer_v3
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"safe_disk/native/sec_fs/sec_transfer"
@@ -77,7 +79,7 @@ func readMarker(path string) (sec_transfer.OperationMarker, error) {
 
 func listMarkers(rootPath string) ([]sec_transfer.OperationMarker, error) {
 	entries, err := os.ReadDir(activeDir(rootPath))
-	if os.IsNotExist(err) {
+	if os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR) {
 		return nil, nil
 	}
 	if err != nil {

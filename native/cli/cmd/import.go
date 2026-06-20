@@ -14,9 +14,12 @@ import (
 
 var (
 	importPassword      string
+	importPasswordEnv   string
+	importPasswordStdin bool
 	_importSrcPath      string
 	importDestPath      string
 	importSkipRecursive bool
+	importJSON          bool
 )
 
 var importCmd = &cobra.Command{
@@ -25,13 +28,16 @@ var importCmd = &cobra.Command{
 	Long:  "Import plaintext files into an encrypted root directory.",
 	Args:  cobra.MaximumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
-
-		if importPassword == "" {
-			return fmt.Errorf("password is required")
-		}
-
 		if _importSrcPath == "" {
 			return fmt.Errorf("source path is required")
+		}
+		password, err := readPassword(passwordOptions{
+			Password:      importPassword,
+			PasswordEnv:   importPasswordEnv,
+			PasswordStdin: importPasswordStdin,
+		})
+		if err != nil {
+			return err
 		}
 		importSrcPath := sec_fs.FullStorePath(_importSrcPath)
 
@@ -41,47 +47,43 @@ var importCmd = &cobra.Command{
 			return fmt.Errorf("failed to stat: %w", err)
 		}
 
-		_, destRoot, destRelative, err := sec_fs.FindRootConfig(importDestPath)
-		if err != nil {
-			if err == sec_fs.ErrNotConfigFile {
-				// TODO: CreateDir
-			}
-			return fmt.Errorf("failed to find root config: %w", err)
-		}
-
 		if importDestPath == "" {
 			return fmt.Errorf("destination path is required")
 		}
 
-		// Open or create the encrypted root directory
-		root, err := sec_fs.OpenRootQuick(destRoot, importPassword)
+		opened, cleanup, err := openRootForPathWithPassword(importDestPath, password)
 		if err != nil {
-			if err == sec_fs.ErrNotConfigFile {
-				// TODO: CreateDir
-			}
-			return fmt.Errorf("failed to open root: %w", err)
-		}
-		defer root.Close()
-		if err := handleUnfinished(destRoot); err != nil {
 			return err
 		}
+		defer cleanup()
+		root := opened.Root
+		destRelative := opened.Relative
 
 		transferService := sec_transfer.GetDefaultTransferV3()
 		var doneFiles int64
 		var totalFiles int64
-		callback := func(status sec_transfer.ProgressEvent) {
-			totalFiles = status.TotalFiles
-			doneFiles = status.DoneFiles
-			if status.CurrentPath != "" {
-				fmt.Printf("\rImporting: %s (%d/%d files)",
-					status.CurrentPath,
-					status.DoneFiles,
-					status.TotalFiles)
+		var callback sec_transfer.V3ProgressCallback
+		var jsonReporter *transferJSONReporter
+		if importJSON {
+			jsonReporter = newTransferJSONReporter(sec_transfer.OperationImport)
+			callback = jsonReporter.Callback()
+		} else {
+			callback = func(status sec_transfer.ProgressEvent) {
+				totalFiles = status.TotalFiles
+				doneFiles = status.DoneFiles
+				if status.CurrentPath != "" {
+					fmt.Printf("\rImporting: %s (%d/%d files)",
+						status.CurrentPath,
+						status.DoneFiles,
+						status.TotalFiles)
+				}
 			}
 		}
 
 		if srcInfo.IsDir() {
-			fmt.Printf("Importing directory: %s -> %s\n", importSrcPath, importDestPath)
+			if !importJSON {
+				fmt.Printf("Importing directory: %s -> %s\n", importSrcPath, importDestPath)
+			}
 			err = transferService.ImportDirectory(context.Background(), sec_transfer.ImportDirectoryRequest{
 				Source:        importSrcPath,
 				DestRoot:      root,
@@ -96,7 +98,9 @@ var importCmd = &cobra.Command{
 			} else if info, statErr := root.Stat(fileDest); statErr == nil && info.IsDir() {
 				fileDest = sec_fs.RelativeViewPath(filepath.ToSlash(filepath.Join(string(fileDest), filepath.Base(_importSrcPath))))
 			}
-			fmt.Printf("Importing file: %s -> %s\n", importSrcPath, importDestPath)
+			if !importJSON {
+				fmt.Printf("Importing file: %s -> %s\n", importSrcPath, importDestPath)
+			}
 			err = transferService.ImportFile(context.Background(), sec_transfer.ImportFileRequest{
 				Source:    importSrcPath,
 				DestRoot:  root,
@@ -106,22 +110,28 @@ var importCmd = &cobra.Command{
 		}
 
 		if err != nil {
+			if jsonReporter != nil {
+				jsonReporter.Failed(err)
+			}
 			return fmt.Errorf("import failed: %w", err)
 		}
 
-		fmt.Println("\nImport successful!")
-		if doneFiles == 0 {
-			doneFiles = totalFiles
+		if !importJSON {
+			fmt.Println("\nImport successful!")
+			if doneFiles == 0 {
+				doneFiles = totalFiles
+			}
+			fmt.Printf("Files imported: %d\n", doneFiles)
 		}
-		fmt.Printf("Files imported: %d\n", doneFiles)
 		return nil
 	},
 }
 
 func init() {
-	importCmd.Flags().StringVarP(&importPassword, "password", "p", "", "Password for encryption")
+	addPasswordFlags(importCmd.Flags(), &importPassword, &importPasswordEnv, &importPasswordStdin)
 	importCmd.Flags().StringVarP(&_importSrcPath, "source", "s", "", "Source path (plaintext)")
 	importCmd.Flags().StringVarP(&importDestPath, "dest", "d", "", "Destination path (encrypted)")
 	importCmd.Flags().BoolVarP(&importSkipRecursive, "skip-recursive", "n", false, "Import directory non-recursively")
+	importCmd.Flags().BoolVar(&importJSON, "json", false, "Output JSON Lines progress events")
 	importCmd.Flags().StringVar(&unfinishedPolicy, "unfinished", "skip", "Unfinished operation policy: skip, ask, clean, rerun")
 }

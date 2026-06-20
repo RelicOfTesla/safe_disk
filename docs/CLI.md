@@ -148,22 +148,17 @@ safe-disk export -p "$PASS" -s /encrypted/secret.txt | less
    ```bash
    # 不安全（密码会被历史记录）
    safe-disk list -p "secret" -d /encrypted
-   
-   # 当前版本没有安全密码输入参数；脚本中只能先降低暴露面
-   PASS="secret" safe-disk list -p "$PASS" -d /encrypted
    ```
 
-2. **目标安全输入方式**
-   当前版本还没有 `--password-env`、`--password-stdin` 和隐藏交互输入。目标设计见 [CLI_DESIGN.md](CLI_DESIGN.md)，后续应优先实现。
-
-3. **使用环境变量时仍需注意**
+2. **优先使用安全输入方式**
    ```bash
    export SAFE_DISK_PASSWORD="your-password"
-   safe-disk list -p "$SAFE_DISK_PASSWORD" -d /encrypted
+   safe-disk list --password-env SAFE_DISK_PASSWORD -d /encrypted
+   printf '%s\n' "$SAFE_DISK_PASSWORD" | safe-disk list --password-stdin -d /encrypted
    ```
-   这只是当前版本的折中方式，不等同于安全密码输入，因为 shell 环境和进程启动参数仍可能暴露。
+   不传密码参数且在交互式终端运行时，CLI 会使用隐藏输入。
 
-4. **检查文件权限**
+3. **检查文件权限**
    ```bash
    # 加密目录权限应该是 700
    chmod 700 /path/to/encrypted/dir

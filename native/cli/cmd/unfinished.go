@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"safe_disk/native/sec_fs"
 	"safe_disk/native/sec_fs/sec_transfer"
@@ -10,7 +11,7 @@ import (
 
 var unfinishedPolicy string
 
-func handleUnfinished(rootPath sec_fs.FullStorePath) error {
+func handleUnfinished(rootPath sec_fs.FullStorePath, root sec_fs.ISecRoot) error {
 	if unfinishedPolicy == "" || unfinishedPolicy == "skip" {
 		return nil
 	}
@@ -25,23 +26,104 @@ func handleUnfinished(rootPath sec_fs.FullStorePath) error {
 
 	switch unfinishedPolicy {
 	case "clean":
+		cleaned := 0
 		for _, marker := range markers {
 			if marker.Type == sec_transfer.OperationImport || marker.Type == sec_transfer.OperationExport {
 				if err := manager.CleanUnfinishedImportExport(context.Background(), string(rootPath), marker.OpID); err != nil {
 					return fmt.Errorf("failed to clean unfinished operation %s: %w", marker.OpID, err)
 				}
+				cleaned++
 			}
 		}
-		fmt.Printf("Cleaned unfinished import/export markers: %d\n", len(markers))
+		fmt.Printf("Cleaned unfinished import/export markers: %d\n", cleaned)
 		return nil
 	case "ask":
 		printUnfinished(markers)
 		return fmt.Errorf("unfinished operations found; use --unfinished=clean to clear import/export markers or --unfinished=skip to ignore")
 	case "rerun":
 		printUnfinished(markers)
-		return fmt.Errorf("--unfinished=rerun is not implemented yet")
+		for _, marker := range markers {
+			if marker.Type != sec_transfer.OperationImport && marker.Type != sec_transfer.OperationExport {
+				return fmt.Errorf("cannot rerun unfinished %s operation automatically; use convert recovery", marker.Type)
+			}
+			if err := rerunImportExportMarker(manager, rootPath, root, marker); err != nil {
+				return err
+			}
+		}
+		return nil
 	default:
 		return fmt.Errorf("invalid --unfinished policy: %s", unfinishedPolicy)
+	}
+}
+
+func rerunImportExportMarker(manager sec_transfer.V3Transfer, rootPath sec_fs.FullStorePath, root sec_fs.ISecRoot, marker sec_transfer.OperationMarker) error {
+	if marker.Src == "" || marker.Dst == "" {
+		return fmt.Errorf("unfinished operation %s cannot rerun without src/dst", marker.OpID)
+	}
+	fmt.Printf("Rerunning unfinished operation: %s type=%s\n", marker.OpID, marker.Type)
+	if err := manager.CleanUnfinishedImportExport(context.Background(), string(rootPath), marker.OpID); err != nil {
+		return fmt.Errorf("failed to clean stale marker before rerun %s: %w", marker.OpID, err)
+	}
+	switch marker.Type {
+	case sec_transfer.OperationImport:
+		info, err := os.Stat(marker.Src)
+		if err != nil {
+			return fmt.Errorf("failed to stat import source for rerun %s: %w", marker.OpID, err)
+		}
+		if info.IsDir() {
+			err = manager.ImportDirectory(context.Background(), sec_transfer.ImportDirectoryRequest{
+				Source:    sec_fs.FullStorePath(marker.Src),
+				DestRoot:  root,
+				Dest:      sec_fs.RelativeViewPath(marker.Dst),
+				Overwrite: true,
+			}, progressPrinter("Importing"))
+		} else {
+			err = manager.ImportFile(context.Background(), sec_transfer.ImportFileRequest{
+				Source:    sec_fs.FullStorePath(marker.Src),
+				DestRoot:  root,
+				Dest:      sec_fs.RelativeViewPath(marker.Dst),
+				Overwrite: true,
+			}, progressPrinter("Importing"))
+		}
+		if err != nil {
+			return fmt.Errorf("failed to rerun import %s: %w", marker.OpID, err)
+		}
+	case sec_transfer.OperationExport:
+		info, err := root.Stat(sec_fs.RelativeViewPath(marker.Src))
+		if err != nil {
+			return fmt.Errorf("failed to stat export source for rerun %s: %w", marker.OpID, err)
+		}
+		if info.IsDir() {
+			err = manager.ExportDirectory(context.Background(), sec_transfer.ExportDirectoryRequest{
+				SourceRoot: root,
+				Source:     sec_fs.RelativeViewPath(marker.Src),
+				Dest:       sec_fs.FullStorePath(marker.Dst),
+				Overwrite:  true,
+			}, progressPrinter("Exporting"))
+		} else {
+			err = manager.ExportFile(context.Background(), sec_transfer.ExportFileRequest{
+				SourceRoot: root,
+				Source:     sec_fs.RelativeViewPath(marker.Src),
+				Dest:       sec_fs.FullStorePath(marker.Dst),
+				Overwrite:  true,
+			}, progressPrinter("Exporting"))
+		}
+		if err != nil {
+			return fmt.Errorf("failed to rerun export %s: %w", marker.OpID, err)
+		}
+	default:
+		return fmt.Errorf("unsupported unfinished operation type: %s", marker.Type)
+	}
+	fmt.Printf("\nRerun completed: %s\n", marker.OpID)
+	return nil
+}
+
+func progressPrinter(label string) sec_transfer.V3ProgressCallback {
+	return func(progress sec_transfer.ProgressEvent) {
+		if progress.CurrentPath == "" {
+			return
+		}
+		fmt.Printf("\r%s: %s (%d/%d files)", label, progress.CurrentPath, progress.DoneFiles, progress.TotalFiles)
 	}
 }
 

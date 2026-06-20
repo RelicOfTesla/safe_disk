@@ -27,6 +27,11 @@ func NewFactory() *Factory {
 	}
 }
 
+// NewDeriver returns a key deriver instance for this factory.
+func (f *Factory) NewDeriver(cfg config.SharedConfig) (crypto_hkdf.IKeyDeriver, error) {
+	return NewFactory(), nil
+}
+
 // ==================== IKeyDeriver Interface ====================
 
 // LoadKey loads an existing key from configuration.
@@ -64,7 +69,7 @@ func (f *Factory) LoadKey(password string, cfg config.SharedConfig) (crypto_hkdf
 	key := deriveKey(password, salt, iterations, keyLength)
 
 	return &keyInfo{
-		key:  key,
+		key: key,
 	}, nil
 }
 
@@ -120,7 +125,7 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 	}
 
 	return &keyInfo{
-		key:  key,
+		key: key,
 	}, nil
 }
 
@@ -140,12 +145,13 @@ func deriveKey(password string, salt []byte, iterations, keyLength int) []byte {
 
 // keyInfo implements crypto_hkdf.IKeyInfo.
 type keyInfo struct {
-	key  []byte
+	key []byte
 }
 
-func (k *keyInfo) GetKey() []byte  { return k.key }
+func (k *keyInfo) GetKey() []byte { return k.key }
 
 // ==================== Compile-time Interface Verification ====================
 
 var _ crypto_hkdf.IKeyDeriver = (*Factory)(nil)
+var _ crypto_hkdf.IDeriverFactory = (*Factory)(nil)
 var _ crypto_hkdf.IKeyInfo = (*keyInfo)(nil)

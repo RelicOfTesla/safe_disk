@@ -7,7 +7,8 @@ import (
 )
 
 func init() {
-	// Register PBKDF2 as the default key deriver
+	// Register PBKDF2 as a key deriver factory.
 	factory := NewFactory()
 	crypto_hkdf.RegisterKeyDeriver(factory)
+	crypto_hkdf.RegisterDeriverFactory(factory)
 }

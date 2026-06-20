@@ -146,6 +146,15 @@ func sec_free_string(s *C.char) {
 	C.free(unsafe.Pointer(s))
 }
 
+//export sec_clear_secure_memory
+func sec_clear_secure_memory(data unsafe.Pointer, size C.int) *C.char {
+	if data != nil && size > 0 {
+		buf := unsafe.Slice((*byte)(data), int(size))
+		memZero(buf)
+	}
+	return C.CString(Success())
+}
+
 // ==================== Transfer Operations (Async) ====================
 
 //export sec_export_directory_async
