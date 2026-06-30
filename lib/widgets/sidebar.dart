@@ -56,6 +56,7 @@ class SidebarWidget extends StatelessWidget {
                 icon: Icon(drawerPinned ? Icons.lock : Icons.lock_open),
                 onPressed: () async {
                   await onTogglePin(!drawerPinned);
+                  if (!context.mounted) return;
                   if (!drawerPinned && Navigator.canPop(context)) {
                     Navigator.pop(context);
                   }

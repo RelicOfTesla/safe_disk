@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:ffi';
+import 'dart:isolate';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
@@ -387,6 +389,24 @@ class NativeLib {
     }
   }
 
+  Future<void> secTransferV3ImportFileWithProgress(
+    int rootID,
+    String srcPath,
+    String destPath,
+    void Function(TransferProgressEvent progress) onProgress, {
+    TransferCancellationToken? cancellationToken,
+  }) {
+    return _runTransferInBackground(
+      kind: _TransferWorkerKind.importFile,
+      rootID: rootID,
+      srcPath: srcPath,
+      destPath: destPath,
+      operation: 'secTransferV3ImportFileWithProgress',
+      onProgress: onProgress,
+      cancellationToken: cancellationToken,
+    );
+  }
+
   void secTransferV3ImportDirectory(
       int rootID, String srcPath, String destPath) {
     final srcPathPtr = srcPath.toNativeUtf8();
@@ -401,6 +421,24 @@ class NativeLib {
       calloc.free(srcPathPtr);
       calloc.free(destPathPtr);
     }
+  }
+
+  Future<void> secTransferV3ImportDirectoryWithProgress(
+    int rootID,
+    String srcPath,
+    String destPath,
+    void Function(TransferProgressEvent progress) onProgress, {
+    TransferCancellationToken? cancellationToken,
+  }) {
+    return _runTransferInBackground(
+      kind: _TransferWorkerKind.importDirectory,
+      rootID: rootID,
+      srcPath: srcPath,
+      destPath: destPath,
+      operation: 'secTransferV3ImportDirectoryWithProgress',
+      onProgress: onProgress,
+      cancellationToken: cancellationToken,
+    );
   }
 
   void secTransferV3ExportFile(int rootID, String srcPath, String destPath) {
@@ -418,6 +456,24 @@ class NativeLib {
     }
   }
 
+  Future<void> secTransferV3ExportFileWithProgress(
+    int rootID,
+    String srcPath,
+    String destPath,
+    void Function(TransferProgressEvent progress) onProgress, {
+    TransferCancellationToken? cancellationToken,
+  }) {
+    return _runTransferInBackground(
+      kind: _TransferWorkerKind.exportFile,
+      rootID: rootID,
+      srcPath: srcPath,
+      destPath: destPath,
+      operation: 'secTransferV3ExportFileWithProgress',
+      onProgress: onProgress,
+      cancellationToken: cancellationToken,
+    );
+  }
+
   void secTransferV3ExportDirectory(
       int rootID, String srcPath, String destPath) {
     final srcPathPtr = srcPath.toNativeUtf8();
@@ -432,5 +488,368 @@ class NativeLib {
       calloc.free(srcPathPtr);
       calloc.free(destPathPtr);
     }
+  }
+
+  Future<void> secTransferV3ExportDirectoryWithProgress(
+    int rootID,
+    String srcPath,
+    String destPath,
+    void Function(TransferProgressEvent progress) onProgress, {
+    TransferCancellationToken? cancellationToken,
+  }) {
+    return _runTransferInBackground(
+      kind: _TransferWorkerKind.exportDirectory,
+      rootID: rootID,
+      srcPath: srcPath,
+      destPath: destPath,
+      operation: 'secTransferV3ExportDirectoryWithProgress',
+      onProgress: onProgress,
+      cancellationToken: cancellationToken,
+    );
+  }
+
+  Future<void> _runTransferInBackground({
+    required String kind,
+    required int rootID,
+    required String srcPath,
+    required String destPath,
+    required String operation,
+    required void Function(TransferProgressEvent progress) onProgress,
+    TransferCancellationToken? cancellationToken,
+  }) async {
+    final messages = ReceivePort();
+    final operationID = _newTransferOperationID();
+    cancellationToken?._bind(operationID);
+    Object? callbackError;
+    StackTrace? callbackStackTrace;
+
+    try {
+      await Isolate.spawn<Map<String, Object>>(
+        _transferWorkerMain,
+        <String, Object>{
+          'sendPort': messages.sendPort,
+          'kind': kind,
+          'rootID': rootID,
+          'srcPath': srcPath,
+          'destPath': destPath,
+          'operation': operation,
+          'operationID': operationID,
+        },
+        onExit: messages.sendPort,
+        debugName: 'safe-disk-transfer-$kind',
+      );
+
+      await for (final message in messages) {
+        if (message == null) {
+          throw StateError('$operation worker exited without a result');
+        }
+
+        final event = message as Map<Object?, Object?>;
+        switch (event['type']) {
+          case 'progress':
+            final progress = TransferProgressEvent.fromMessage(
+              event['progress']! as Map<Object?, Object?>,
+            );
+            if (progress.isComplete) {
+              cancellationToken?._markComplete();
+            } else {
+              cancellationToken?._markActive();
+            }
+            if (callbackError == null) {
+              try {
+                onProgress(progress);
+              } catch (error, stackTrace) {
+                // Keep the worker callback alive until native code returns.
+                callbackError = error;
+                callbackStackTrace = stackTrace;
+              }
+            }
+          case 'complete':
+            if (callbackError != null) {
+              Error.throwWithStackTrace(callbackError, callbackStackTrace!);
+            }
+            return;
+          case 'error':
+            throw StateError(event['error']! as String);
+          default:
+            throw StateError('$operation worker sent an unknown event');
+        }
+      }
+    } finally {
+      cancellationToken?._markComplete();
+      messages.close();
+    }
+  }
+
+  void _runTransferWithProgress(
+    int rootID,
+    String srcPath,
+    String destPath,
+    String operationID,
+    SecTransferV3WithCallbackDart nativeFunction,
+    String operation,
+    void Function(TransferProgressEvent progress) onProgress,
+  ) {
+    final srcPathPtr = srcPath.toNativeUtf8();
+    final destPathPtr = destPath.toNativeUtf8();
+    final operationIDPtr = operationID.toNativeUtf8();
+    late final NativeCallable<NativeProgressCallbackC> callback;
+    callback = NativeCallable<NativeProgressCallbackC>.isolateLocal(
+      (
+        Pointer<Utf8> currentFile,
+        int filesCompleted,
+        int filesTotal,
+        int isComplete,
+        Pointer<Utf8> errorMessage,
+      ) {
+        onProgress(TransferProgressEvent(
+          currentFile: currentFile == nullptr ? '' : currentFile.toDartString(),
+          completedFiles: filesCompleted,
+          totalFiles: filesTotal,
+          isComplete: isComplete != 0,
+          errorMessage:
+              errorMessage == nullptr ? null : errorMessage.toDartString(),
+        ));
+      },
+    );
+
+    try {
+      final resultPtr = nativeFunction(operationIDPtr, rootID, srcPathPtr,
+          destPathPtr, callback.nativeFunction);
+      final result = _ptrToString(resultPtr);
+      final data = _parseJson(result);
+      _checkResult(data, operation);
+    } finally {
+      callback.close();
+      calloc.free(operationIDPtr);
+      calloc.free(srcPathPtr);
+      calloc.free(destPathPtr);
+    }
+  }
+
+  bool secTransferV3Cancel(String operationID) {
+    final operationIDPtr = operationID.toNativeUtf8();
+    try {
+      final result =
+          _ptrToString(_bindings.secTransferV3Cancel(operationIDPtr));
+      final data = _parseJson(result);
+      _checkResult(data, 'secTransferV3Cancel');
+      return data['data']['active'] as bool;
+    } finally {
+      calloc.free(operationIDPtr);
+    }
+  }
+
+  // ==================== Unsupported Incremental API Stubs ====================
+
+  String incrementalEncryptorCreate(
+          String dstPath, String keyBase64, int chunkSizeKB) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalEncryptorAddBlock(int handleID, String dataBase64) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalEncryptorFinalize(int handleID) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalEncryptorClose(int handleID) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalDecryptorOpen(String srcPath, String keyBase64) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalDecryptorDecryptBlock(int handleID, int blockIndex) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalDecryptorDecryptRange(
+          int handleID, int offset, int length) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalDecryptorDecryptAll(int handleID) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalDecryptorVerifyBlockIntegrity(
+          int handleID, int blockIndex) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalDecryptorVerifyIntegrity(int handleID) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalDecryptorGetBlockInfo(int handleID, int blockIndex) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalDecryptorGetAllBlockInfo(int handleID) =>
+      _unsupportedIncrementalResult();
+
+  String incrementalDecryptorClose(int handleID) =>
+      _unsupportedIncrementalResult();
+
+  String isIncrementalFile(String path) => _unsupportedIncrementalResult();
+
+  String getIncrementalFileInfo(String path) => _unsupportedIncrementalResult();
+
+  String _unsupportedIncrementalResult() {
+    return jsonEncode({
+      'success': false,
+      'error':
+          'Incremental encryption FFI is not part of the active Safe Disk API.',
+    });
+  }
+}
+
+abstract final class _TransferWorkerKind {
+  static const importFile = 'import-file';
+  static const importDirectory = 'import-directory';
+  static const exportFile = 'export-file';
+  static const exportDirectory = 'export-directory';
+}
+
+void _transferWorkerMain(Map<String, Object> request) {
+  final sendPort = request['sendPort']! as SendPort;
+  final kind = request['kind']! as String;
+  final rootID = request['rootID']! as int;
+  final srcPath = request['srcPath']! as String;
+  final destPath = request['destPath']! as String;
+  final operation = request['operation']! as String;
+  final operationID = request['operationID']! as String;
+  final native = NativeLib.instance;
+
+  void report(TransferProgressEvent progress) {
+    sendPort.send(<String, Object>{
+      'type': 'progress',
+      'progress': progress.toMessage(),
+    });
+  }
+
+  try {
+    switch (kind) {
+      case _TransferWorkerKind.importFile:
+        native._runTransferWithProgress(
+            rootID,
+            srcPath,
+            destPath,
+            operationID,
+            native._bindings.secTransferV3ImportFileWithCallback,
+            operation,
+            report);
+      case _TransferWorkerKind.importDirectory:
+        native._runTransferWithProgress(
+            rootID,
+            srcPath,
+            destPath,
+            operationID,
+            native._bindings.secTransferV3ImportDirectoryWithCallback,
+            operation,
+            report);
+      case _TransferWorkerKind.exportFile:
+        native._runTransferWithProgress(
+            rootID,
+            srcPath,
+            destPath,
+            operationID,
+            native._bindings.secTransferV3ExportFileWithCallback,
+            operation,
+            report);
+      case _TransferWorkerKind.exportDirectory:
+        native._runTransferWithProgress(
+            rootID,
+            srcPath,
+            destPath,
+            operationID,
+            native._bindings.secTransferV3ExportDirectoryWithCallback,
+            operation,
+            report);
+      default:
+        throw ArgumentError.value(kind, 'kind', 'unsupported transfer kind');
+    }
+    Isolate.exit(sendPort, const <String, Object>{'type': 'complete'});
+  } catch (error) {
+    Isolate.exit(sendPort, <String, Object>{
+      'type': 'error',
+      'error': error.toString(),
+    });
+  }
+}
+
+String _newTransferOperationID() {
+  final random = Random.secure();
+  final randomPart = List.generate(
+    4,
+    (_) => random.nextInt(1 << 32).toRadixString(16).padLeft(8, '0'),
+  ).join();
+  return 'dart-${DateTime.now().microsecondsSinceEpoch}-$randomPart';
+}
+
+class TransferCancellationToken {
+  String? _operationID;
+  bool _active = false;
+  bool _complete = false;
+  bool _cancelRequested = false;
+
+  bool get isActive => _active && !_complete;
+  bool get isComplete => _complete;
+  bool get isCancelled => _cancelRequested;
+
+  bool cancel() {
+    final operationID = _operationID;
+    if (!isActive || operationID == null) return false;
+    final accepted = NativeLib.instance.secTransferV3Cancel(operationID);
+    _cancelRequested = _cancelRequested || accepted;
+    return accepted;
+  }
+
+  void _bind(String operationID) {
+    if (_operationID != null) {
+      throw StateError('TransferCancellationToken cannot be reused');
+    }
+    _operationID = operationID;
+  }
+
+  void _markActive() => _active = true;
+
+  void _markComplete() {
+    _active = false;
+    _complete = true;
+  }
+}
+
+class TransferProgressEvent {
+  final String currentFile;
+  final int completedFiles;
+  final int totalFiles;
+  final bool isComplete;
+  final String? errorMessage;
+
+  const TransferProgressEvent({
+    required this.currentFile,
+    required this.completedFiles,
+    required this.totalFiles,
+    required this.isComplete,
+    this.errorMessage,
+  });
+
+  factory TransferProgressEvent.fromMessage(Map<Object?, Object?> message) {
+    return TransferProgressEvent(
+      currentFile: message['currentFile']! as String,
+      completedFiles: message['completedFiles']! as int,
+      totalFiles: message['totalFiles']! as int,
+      isComplete: message['isComplete']! as bool,
+      errorMessage: message['errorMessage'] as String?,
+    );
+  }
+
+  Map<String, Object?> toMessage() => <String, Object?>{
+        'currentFile': currentFile,
+        'completedFiles': completedFiles,
+        'totalFiles': totalFiles,
+        'isComplete': isComplete,
+        'errorMessage': errorMessage,
+      };
+
+  int get percent {
+    if (totalFiles <= 0) {
+      return isComplete ? 100 : 0;
+    }
+    return ((completedFiles / totalFiles) * 100).round().clamp(0, 100);
   }
 }

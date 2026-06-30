@@ -1,9 +1,8 @@
-import 'dart:io';
 import 'dart:async';
+import 'dart:io';
 import 'clipboard_service.dart';
 import 'file_service.dart';
 import 'directory_service.dart';
-import '../models/ffi_results.dart';
 
 /// Progress callback for paste operations
 typedef PasteProgressCallback = void Function(
@@ -143,7 +142,8 @@ class ClipboardPasteHelper {
         filesFailed += result.filesFailed;
         errors.addAll(result.errors);
       } else {
-        onProgress?.call(filesProcessed + 1, totalFiles, item.path.split('/').last);
+        onProgress?.call(
+            filesProcessed + 1, totalFiles, item.path.split('/').last);
 
         final success = await _pasteFile(item.path, targetRelativePath);
         if (success) {
@@ -188,19 +188,17 @@ class ClipboardPasteHelper {
 
       // Calculate target relative path
       final fileName = sourcePath.split(Platform.pathSeparator).last;
-      final targetRelativePath = relativeDir.isEmpty
-          ? fileName
-          : '$relativeDir/$fileName';
+      final targetRelativePath =
+          relativeDir.isEmpty ? fileName : '$relativeDir/$fileName';
 
       // Encrypt and write
-      fileService.writeFile(sessionID, targetRelativePath, data);
+      await fileService.writeFile(sessionID, targetRelativePath, data);
 
       // Track for potential cleanup
       _writtenFiles.add(targetRelativePath);
 
       return true;
-    } catch (e) {
-      print('Failed to paste file $sourcePath: $e');
+    } catch (_) {
       return false;
     }
   }
@@ -220,9 +218,8 @@ class ClipboardPasteHelper {
     }
 
     final dirName = sourcePath.split(Platform.pathSeparator).last;
-    final newRelativeDir = relativeDir.isEmpty
-        ? dirName
-        : '$relativeDir/$dirName';
+    final newRelativeDir =
+        relativeDir.isEmpty ? dirName : '$relativeDir/$dirName';
 
     int filesProcessed = 0;
     int filesFailed = 0;
@@ -241,7 +238,7 @@ class ClipboardPasteHelper {
 
         try {
           final data = await entity.readAsBytes();
-          fileService.writeFile(sessionID, targetPath, data);
+          await fileService.writeFile(sessionID, targetPath, data);
           _writtenFiles.add(targetPath);
           filesProcessed++;
         } catch (e) {
@@ -289,9 +286,7 @@ class ClipboardPasteHelper {
         if (await file.exists()) {
           await file.delete();
         }
-      } catch (e) {
-        print('Failed to cleanup $relativePath: $e');
-      }
+      } catch (_) {}
     }
     _writtenFiles.clear();
   }
@@ -385,8 +380,7 @@ class ClipboardCopyHelper {
       // Copy paths to clipboard
       final result = await _clipboardService.copyFiles(exportedItems);
       return result.success;
-    } catch (e) {
-      print('Failed to export and copy: $e');
+    } catch (_) {
       return false;
     }
   }
@@ -394,7 +388,7 @@ class ClipboardCopyHelper {
   /// Exports a single file to temp location
   Future<void> _exportFile(FileSystemNode item, String exportPath) async {
     final relativePath = item.path.substring(rootPath.length + 1);
-    final data = fileService.readFile(sessionID, relativePath);
+    final data = await fileService.readFile(sessionID, relativePath);
     await File(exportPath).writeAsBytes(data);
   }
 
@@ -402,21 +396,7 @@ class ClipboardCopyHelper {
   Future<void> _exportDirectory(FileSystemNode item, String exportPath) async {
     final relativePath = item.path.substring(rootPath.length + 1);
 
-    // Walk through directory
-    final walker = DirectoryService().listDir(sessionID, relativePath);
-    final entries = <Map<String, dynamic>>[];
-
-    try {
-      while (true) {
-        final next = walker.next();
-        if (next.done) break;
-        if (next.entry != null) {
-          entries.add(next.entry!);
-        }
-      }
-    } finally {
-      walker.close();
-    }
+    final entries = await DirectoryService().listDir(sessionID, relativePath);
 
     // Create directory structure and export files
     await Directory(exportPath).create(recursive: true);
@@ -425,10 +405,9 @@ class ClipboardCopyHelper {
       if (entry.isDir) {
         await Directory('$exportPath/${entry.name}').create(recursive: true);
       } else {
-        final entryRelativePath = relativePath.isEmpty
-            ? entry.name
-            : '$relativePath/${entry.name}';
-        final data = fileService.readFile(sessionID, entryRelativePath);
+        final entryRelativePath =
+            relativePath.isEmpty ? entry.name : '$relativePath/${entry.name}';
+        final data = await fileService.readFile(sessionID, entryRelativePath);
         await File('$exportPath/${entry.name}').writeAsBytes(data);
       }
     }

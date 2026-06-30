@@ -2,7 +2,7 @@
 
 > 本文档概括 `native/sec_fs/sec_transfer` 的设计意图、核心原理、当前实现状态和后续规划。当前完成度仍以代码审计为准，不能把历史报告或测试名直接视为完整实现证明。
 
-最后更新：2026-06-20
+最后更新：2026-07-10
 
 ## 模块定位
 
@@ -506,6 +506,8 @@ CLI 应做：
 
 V3 中 CLI/FFI/Dart 不依赖 `ITask` 对象。当前主路径使用 `V3Transfer`：同步 import/export、operation marker 查询/清理、convert 和 convert recover。
 
+Dart 侧不应直接在 UI isolate 调用这组同步 C ABI。当前实现由 worker isolate 执行同步传输并持有 callback，再通过 isolate 消息转发运行时进度和最终结果。这个 worker 只解决线程占用与 callback 生命周期，不保存 task，也不提供断点续传。
+
 ## 与 FFI 的关系
 
 FFI 层应把 `sec_transfer` 包装为 C ABI 可调用能力：
@@ -517,6 +519,10 @@ FFI 层应把 `sec_transfer` 包装为 C ABI 可调用能力：
 - convert recover/cleanup
 
 V3 中 FFI 不应暴露复杂 task 对象。Flutter 只需要查询是否存在未完成 operation，并对 convert 展示 phase 与恢复建议。
+
+取消采用纯运行时设计：Go 为正在执行的 operation 保存一次性 `context.CancelFunc` handle，完成后立即移除。该状态只存在于进程内，不写进度文件；进程异常退出或主动取消后，仍由 operation marker 提供“是否未完成”的感知。
+
+sec 层在目录扫描、root walker、逐文件循环和文件复制 reader 边界检查 `context`。取消发生在原子 rename 提交前时，会删除临时文件且不替换原目标；一旦进入 rename 提交段，则应完成原子提交/回滚，不在中间强行中断。FFI/Dart 与 Flutter 目录导出已接通该路径，并有 Go、真实 Dart FFI 和 widget 测试。
 
 ## 测试现状
 

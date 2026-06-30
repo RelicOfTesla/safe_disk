@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import '../native/native_lib.dart';
+import '../models/cryption_config.dart';
 
 /// Crypto service for Safe Disk encryption operations.
 ///
@@ -28,6 +30,7 @@ import '../native/native_lib.dart';
 /// ```
 class CryptoService {
   final NativeLib _native = NativeLib.instance;
+  static final Map<int, String> _rootPaths = {};
 
   // ==================== ROOT OPERATIONS ====================
 
@@ -38,12 +41,109 @@ class CryptoService {
   /// [configJSON] - Configuration JSON string
   /// Returns rootID on success, throws on error.
   int openRoot(String rootPath, String password, String configJSON) {
-    return _native.secRootOpen(rootPath, password, configJSON);
+    final rootID = _native.secRootOpen(rootPath, password, configJSON);
+    _rootPaths[rootID] = _normalizePath(rootPath);
+    return rootID;
   }
 
   /// Closes a secure root directory.
   void closeRoot(int rootID) {
     _native.secRootClose(rootID);
+    _rootPaths.remove(rootID);
+  }
+
+  /// Creates a secure root configuration.
+  void createRootConfig(String rootPath, String password, String optionsJSON) {
+    Directory(rootPath).createSync(recursive: true);
+    _native.secCreateRootConfig(rootPath, password, optionsJSON);
+  }
+
+  /// Finds the nearest parent directory containing `_cryption.json`.
+  String findCryptionRoot(String path) {
+    var current = FileSystemEntity.isDirectorySync(path)
+        ? Directory(path)
+        : File(path).parent;
+    while (true) {
+      if (File('${current.path}/_cryption.json').existsSync()) {
+        return _normalizePath(current.path);
+      }
+      final parent = current.parent;
+      if (parent.path == current.path) {
+        return '';
+      }
+      current = parent;
+    }
+  }
+
+  /// Loads the raw root config for UI display and persistence.
+  CryptionConfig loadConfig(String rootPath) {
+    final file = File('$rootPath/_cryption.json');
+    final data = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+    return CryptionConfig.fromJson(data);
+  }
+
+  String? rootPathForID(int rootID) => _rootPaths[rootID];
+
+  int? rootIDForPath(String path) {
+    final normalized = _normalizePath(path);
+    for (final entry in _rootPaths.entries) {
+      final root = entry.value;
+      if (normalized == root || normalized.startsWith('$root/')) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
+  String relativePathForRoot(int rootID, String path) {
+    final root = _rootPaths[rootID];
+    if (root == null) {
+      throw StateError('Root $rootID is not open');
+    }
+    final normalized = _normalizePath(path);
+    if (normalized == root) {
+      return '';
+    }
+    if (!normalized.startsWith('$root/')) {
+      return normalized;
+    }
+    return normalized.substring(root.length + 1);
+  }
+
+  String absolutePathForRoot(int rootID, String relativePath) {
+    final root = _rootPaths[rootID];
+    if (root == null) {
+      throw StateError('Root $rootID is not open');
+    }
+    if (relativePath.isEmpty) {
+      return root;
+    }
+    return '$root/$relativePath';
+  }
+
+  Uint8List decryptFileToData(String path, String tempKeyID) {
+    final rootID = int.parse(tempKeyID);
+    final relativePath = relativePathForRoot(rootID, path);
+    return Uint8List.fromList(_native.secQuickReadFile(rootID, relativePath));
+  }
+
+  Future<void> writeFileBySession(
+      String path, String tempKeyID, List<int> data) async {
+    final rootID = int.parse(tempKeyID);
+    final relativePath = relativePathForRoot(rootID, path);
+    await writeFile(rootID, relativePath, Uint8List.fromList(data));
+  }
+
+  Future<void> deleteFileBySession(String path, String tempKeyID) async {
+    final rootID = int.parse(tempKeyID);
+    final relativePath = relativePathForRoot(rootID, path);
+    await deleteFile(rootID, relativePath);
+  }
+
+  String encryptDataBytes(List<int> data, String tempKeyID) {
+    // Compatibility for restored widgets that still expect base64 bytes.
+    // New code should call writeFile/readFile through rootID instead.
+    return base64Encode(data);
   }
 
   // ==================== FILE OPERATIONS ====================
@@ -152,6 +252,14 @@ class CryptoService {
   void truncateFile(int fileID, int size) {
     _native.secFileTruncate(fileID, size);
   }
+}
+
+String _normalizePath(String path) {
+  final normalized = path.replaceAll('\\', '/');
+  if (normalized.length > 1 && normalized.endsWith('/')) {
+    return normalized.substring(0, normalized.length - 1);
+  }
+  return normalized;
 }
 
 /// File mode for open operations.

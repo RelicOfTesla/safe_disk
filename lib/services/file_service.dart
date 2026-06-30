@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:io';
 
 import 'crypto_service.dart';
 
@@ -153,5 +154,51 @@ class FileService {
   /// Lists directory entries.
   Future<List<DirEntry>> listDir(int rootID, String path) async {
     return _cryptoService.listDir(rootID, path);
+  }
+
+  /// Lists a directory using the absolute virtual path used by the UI.
+  Future<List<FileSystemNode>> listCurrentDirectory(
+    String path, {
+    int offset = 0,
+    int? limit,
+  }) async {
+    final rootID = _cryptoService.rootIDForPath(path);
+    if (rootID == null) {
+      return [];
+    }
+
+    final relativePath = _cryptoService.relativePathForRoot(rootID, path);
+    final entries = await _cryptoService.listDir(rootID, relativePath);
+    final page =
+        limit == null ? entries.skip(offset) : entries.skip(offset).take(limit);
+    return page.map((entry) {
+      final childRelativePath =
+          relativePath.isEmpty ? entry.name : '$relativePath/${entry.name}';
+      return FileSystemNode(
+        name: entry.name,
+        path: _cryptoService.absolutePathForRoot(rootID, childRelativePath),
+        isDirectory: entry.isDir,
+        modifiedTime: DateTime.fromMillisecondsSinceEpoch(entry.modTime * 1000),
+        size: entry.size,
+      );
+    }).toList();
+  }
+
+  String? getParentDirectory(String path) {
+    final rootID = _cryptoService.rootIDForPath(path);
+    if (rootID == null) {
+      return null;
+    }
+    final rootPath = _cryptoService.rootPathForID(rootID);
+    if (rootPath == null || path == rootPath) {
+      return null;
+    }
+    return File(path).parent.path;
+  }
+
+  Future<void> exportFile(
+      FileSystemNode item, String exportPath, String tempKeyID) async {
+    final data = _cryptoService.decryptFileToData(item.path, tempKeyID);
+    await File(exportPath).writeAsBytes(data);
   }
 }

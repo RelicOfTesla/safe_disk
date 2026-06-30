@@ -9,6 +9,7 @@ import '../services/file_service.dart';
 import '../services/directory_service.dart';
 import '../services/directory_persistence_service.dart';
 import '../utils/error_messages.dart';
+import '../widgets/copyable_snackbar.dart';
 import '../widgets/sidebar.dart';
 import '../widgets/secure_notepad.dart';
 import '../widgets/secure_image_viewer.dart';
@@ -50,7 +51,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _fileService = FileService(_cryptoService);
+    _fileService = FileService(cryptoService: _cryptoService);
     _loadQuickList();
     _loadPersistedDirectories();
     _loadDrawerPinnedState();
@@ -152,47 +153,33 @@ class _HomePageState extends State<HomePage> {
     setState(() => _isLoading = true);
 
     try {
-      final configJson =
-          _cryptoService.generateEncryptionConfig(password, 1000, mutable, '');
-      final response = jsonDecode(configJson) as Map<String, dynamic>;
-      if (response['success'] != true) {
-        throw Exception(response['error'] ?? 'Failed to generate config');
-      }
-
-      final config = Map<String, dynamic>.from(response);
-      config.remove('success');
-      config.remove('code');
-
-      final resultData =
-          _cryptoService.createEncryptedDirectory(selectedPath, config);
-      if (resultData['success'] != true) {
-        throw Exception(resultData['error'] ?? 'Failed to create config file');
-      }
-
-      final dir = Directory(selectedPath);
-      final files = dir.listSync(recursive: true);
-      final tempKeyID =
-          _cryptoService.createSession(password, jsonEncode(config));
-
-      int fileCount = 0;
-      for (final file in files) {
-        if (file is File && !file.path.endsWith('_cryption.json')) {
-          try {
-            final plaintext = await file.readAsBytes();
-            final ciphertextBase64 =
-                _cryptoService.encryptDataBytes(plaintext, tempKeyID);
-            final ciphertext = base64Decode(ciphertextBase64);
-            await file.writeAsBytes(ciphertext);
-            fileCount++;
-          } catch (e) {
-            // Skip files that can't be encrypted.
-          }
-        }
-      }
+      final options = jsonEncode({
+        'dataFactory': 'aes-ctr',
+        'nameFactory': 'none',
+        'mutable': mutable,
+      });
+      _cryptoService.createRootConfig(selectedPath, password, options);
+      final rootID = _cryptoService.openRoot(selectedPath, password, '');
+      final config = _cryptoService.loadConfig(selectedPath);
 
       if (mounted) {
-        ErrorHelper.showSuccess(context, '加密目录创建成功！已加密 $fileCount 个文件。');
-        await _loadDirectory(selectedPath);
+        setState(() {
+          _currentDir = EncryptedDirectory(
+            path: selectedPath,
+            config: config,
+            isVerified: true,
+            tempKeyID: rootID.toString(),
+          );
+          _currentPath = selectedPath;
+          final existingIndex =
+              _openedDirs.indexWhere((d) => d.path == selectedPath);
+          if (existingIndex >= 0) _openedDirs.removeAt(existingIndex);
+          _openedDirs.insert(0, _currentDir!);
+        });
+        await _saveOpenedDirectories();
+        await _loadCurrentPath();
+        if (!mounted) return;
+        ErrorHelper.showSuccess(context, '加密目录创建成功');
       }
     } catch (e) {
       if (mounted) {
@@ -203,7 +190,7 @@ class _HomePageState extends State<HomePage> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -214,7 +201,8 @@ class _HomePageState extends State<HomePage> {
       final root = _cryptoService.findCryptionRoot(path);
       if (root.isEmpty) {
         if (mounted) {
-          ErrorHelper.showError(context, errorType: ErrorType.notEncryptedDirectory);
+          ErrorHelper.showError(context,
+              errorType: ErrorType.notEncryptedDirectory);
         }
         return;
       }
@@ -274,21 +262,20 @@ class _HomePageState extends State<HomePage> {
   Future<bool> _verifyPassword(String password) async {
     if (_currentDir == null) return false;
 
-    final configJSON = jsonEncode(_currentDir!.config.toJson());
-    final result = _cryptoService.verifyPassword(password, configJSON);
-
-    if (result.success) {
-      final tempKeyID = _cryptoService.createSession(password, configJSON);
+    try {
+      final rootID = _cryptoService.openRoot(_currentDir!.path, password, '');
+      await _handleUnfinishedOperations(rootID);
 
       setState(() {
         _currentDir = EncryptedDirectory(
           path: _currentDir!.path,
           config: _currentDir!.config,
           isVerified: true,
-          tempKeyID: tempKeyID,
+          tempKeyID: rootID.toString(),
         );
 
-        final index = _openedDirs.indexWhere((d) => d.path == _currentDir!.path);
+        final index =
+            _openedDirs.indexWhere((d) => d.path == _currentDir!.path);
         if (index >= 0) _openedDirs[index] = _currentDir!;
       });
 
@@ -296,11 +283,78 @@ class _HomePageState extends State<HomePage> {
         ErrorHelper.showSuccess(context, '密码验证成功');
       }
       return true;
-    } else {
+    } catch (_) {
       if (mounted) {
         ErrorHelper.showError(context, errorType: ErrorType.invalidPassword);
       }
       return false;
+    }
+  }
+
+  Future<void> _handleUnfinishedOperations(int rootID) async {
+    List<Map<String, dynamic>> markers;
+    try {
+      markers = await _directoryService.listUnfinishedOperations(rootID);
+    } catch (e) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: e.toString(),
+        );
+      }
+      return;
+    }
+    if (!mounted || markers.isEmpty) return;
+
+    final clean = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('发现未完成的导入/导出'),
+        content: Text(
+          '检测到 ${markers.length} 个未完成的导入/导出状态。\n\n'
+          'Safe Disk V3 不做断点续传。你可以清理状态后重新全量执行导入/导出，'
+          '也可以暂时跳过。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('暂时跳过'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('清理状态'),
+          ),
+        ],
+      ),
+    );
+
+    if (clean != true) {
+      return;
+    }
+
+    try {
+      var cleaned = 0;
+      for (final marker in markers) {
+        final opID = marker['op_id'] as String?;
+        if (opID == null || opID.isEmpty) {
+          continue;
+        }
+        await _directoryService.cleanUnfinishedOperation(rootID, opID);
+        cleaned++;
+      }
+
+      if (mounted) {
+        ErrorHelper.showSuccess(context, '已清理 $cleaned 个未完成状态');
+      }
+    } catch (e) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: e.toString(),
+        );
+      }
     }
   }
 
@@ -442,7 +496,8 @@ class _HomePageState extends State<HomePage> {
               ),
             ListTile(
               leading: const Icon(Icons.download),
-              title: Text(item.isDirectory ? 'Export Directory' : 'Export Decrypted'),
+              title: Text(
+                  item.isDirectory ? 'Export Directory' : 'Export Decrypted'),
               onTap: () {
                 Navigator.pop(context);
                 item.isDirectory ? _exportDirectory(item) : _exportFile(item);
@@ -476,12 +531,11 @@ class _HomePageState extends State<HomePage> {
 
       final inputFile = File(file.path);
       final plaintext = await inputFile.readAsBytes();
-      final encryptedDataBase64 =
-          _cryptoService.encryptDataBytes(plaintext, _currentDir!.tempKeyID!);
-      final encryptedData = base64Decode(encryptedDataBase64);
-
-      final outputFile = File('$_currentPath/${file.name}');
-      await outputFile.writeAsBytes(encryptedData);
+      await _cryptoService.writeFileBySession(
+        '$_currentPath/${file.name}',
+        _currentDir!.tempKeyID!,
+        plaintext,
+      );
       await _loadCurrentPath();
 
       if (mounted) {
@@ -509,7 +563,8 @@ class _HomePageState extends State<HomePage> {
     if (saveLocation == null) return;
 
     try {
-      await _fileService.exportFile(item, saveLocation.path, _currentDir!.tempKeyID!);
+      await _fileService.exportFile(
+          item, saveLocation.path, _currentDir!.tempKeyID!);
       if (mounted) {
         ErrorHelper.showSuccess(context, '文件导出成功：${saveLocation.path}');
       }
@@ -529,13 +584,23 @@ class _HomePageState extends State<HomePage> {
 
     final String? exportDir = await getDirectoryPath();
     if (exportDir == null) return;
+    if (!mounted) return;
 
     final dstDir = '$exportDir/${item.name}';
-    final progressController = ProgressHelper.showProgressDialog(
+    final cancellationToken = DirectoryTransferCancellationToken();
+    late final ProgressController progressController;
+    progressController = ProgressHelper.showProgressDialog(
       context,
       title: '导出目录',
       total: 100,
       status: '正在准备导出...',
+      onCancel: () {
+        final accepted = cancellationToken.cancel();
+        if (!accepted) {
+          progressController.update(status: '正在准备，暂时无法取消...');
+        }
+        return accepted;
+      },
     );
 
     try {
@@ -543,22 +608,28 @@ class _HomePageState extends State<HomePage> {
         item.path,
         dstDir,
         _currentDir!.tempKeyID!,
+        cancellationToken: cancellationToken,
         onProgress: (jobProgress) {
-          if (!progressController.isCancelled) {
-            progressController.update(
-              current: jobProgress.percent,
-              currentFileName: jobProgress.currentFile,
-              status: '正在导出...',
-            );
-          }
+          progressController.update(
+            current: jobProgress.percent,
+            currentFileName: jobProgress.currentFile,
+            status: '正在导出...',
+          );
         },
       );
 
-      if (mounted) progressController.close(context);
-
       if (mounted && !progressController.isCancelled) {
-        if (progress.isComplete && !progress.isFailed && !progress.isCancelled) {
-          ErrorHelper.showSuccess(context, '导出完成：${progress.processedFiles} 个文件');
+        progressController.close(context);
+      }
+
+      if (mounted) {
+        if (progress.isCancelled) {
+          ErrorHelper.showInfo(context, '导出已取消，可在下次打开目录时清理未完成状态');
+        } else if (progress.isComplete &&
+            !progress.isFailed &&
+            !progress.isCancelled) {
+          ErrorHelper.showSuccess(
+              context, '导出完成：${progress.processedFiles} 个文件');
         } else if (progress.isFailed) {
           ErrorHelper.showError(
             context,
@@ -566,12 +637,14 @@ class _HomePageState extends State<HomePage> {
             originalError: progress.error ?? 'Unknown error',
           );
         }
-      } else if (mounted && progressController.isCancelled) {
-        ErrorHelper.showInfo(context, '导出已取消');
       }
     } catch (e) {
-      if (mounted) progressController.close(context);
-      if (mounted) {
+      if (mounted && !progressController.isCancelled) {
+        progressController.close(context);
+      }
+      if (mounted && progressController.isCancelled) {
+        ErrorHelper.showInfo(context, '导出已取消，可在下次打开目录时清理未完成状态');
+      } else if (mounted) {
         ErrorHelper.showError(
           context,
           errorType: ErrorType.exportDirectoryFailed,
@@ -586,6 +659,7 @@ class _HomePageState extends State<HomePage> {
 
     final String? exportDir = await getDirectoryPath();
     if (exportDir == null) return;
+    if (!mounted) return;
 
     final totalFiles = _selectedFiles.length;
     final progressController = ProgressHelper.showProgressDialog(
@@ -677,8 +751,10 @@ class _HomePageState extends State<HomePage> {
 
     if (confirm == true) {
       try {
-        final file = File(item.path);
-        await file.delete();
+        await _cryptoService.deleteFileBySession(
+          item.path,
+          _currentDir!.tempKeyID!,
+        );
         _loadCurrentPath();
         if (mounted) ErrorHelper.showSuccess(context, '文件已删除');
       } catch (e) {
@@ -804,7 +880,8 @@ class _HomePageState extends State<HomePage> {
         ),
         onPressed: () {
           setState(() {
-            _viewMode = _viewMode == ViewMode.list ? ViewMode.grid : ViewMode.list;
+            _viewMode =
+                _viewMode == ViewMode.list ? ViewMode.grid : ViewMode.list;
           });
         },
         tooltip: _viewMode == ViewMode.list

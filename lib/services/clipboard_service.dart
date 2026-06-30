@@ -90,8 +90,7 @@ class ClipboardService {
     for (final item in items) {
       if (item.isDirectory) {
         if (!await Directory(item.path).exists()) {
-          return ClipboardResult.failure(
-              'Directory not found: ${item.path}');
+          return ClipboardResult.failure('Directory not found: ${item.path}');
         }
       } else {
         if (!await File(item.path).exists()) {
@@ -425,7 +424,7 @@ class ClipboardService {
 
     // Check Windows clipboard via PowerShell
     try {
-      final psScript = '''
+      const psScript = '''
         Add-Type -AssemblyName System.Windows.Forms
         [System.Windows.Forms.Clipboard]::ContainsFileDropList()
       ''';
@@ -487,7 +486,7 @@ class ClipboardService {
 
     // Check Windows clipboard via PowerShell
     try {
-      final psScript = '''
+      const psScript = '''
         Add-Type -AssemblyName System.Windows.Forms
         \$files = [System.Windows.Forms.Clipboard]::GetFileDropList()
         \$files -join '|'
@@ -599,7 +598,8 @@ class ClipboardService {
 
         final xclipAvailable = await _commandExists('xclip');
         if (xclipAvailable) {
-          await Process.run('xclip', ['-selection', 'clipboard', '-i', '/dev/null']);
+          await Process.run(
+              'xclip', ['-selection', 'clipboard', '-i', '/dev/null']);
         }
       } else if (Platform.isWindows) {
         final tempDir = Directory.systemTemp;
@@ -608,7 +608,7 @@ class ClipboardService {
           await clipboardFile.delete();
         }
 
-        final psScript = '''
+        const psScript = '''
           Add-Type -AssemblyName System.Windows.Forms
           [System.Windows.Forms.Clipboard]::Clear()
         ''';

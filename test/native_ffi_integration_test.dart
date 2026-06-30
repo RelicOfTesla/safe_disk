@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -65,10 +66,128 @@ void main() {
       expect(rootDiskNames, isNot(contains('目录')));
 
       final directoryService = DirectoryService();
-      await directoryService.importDirectory(rootID, plainPath, '导入');
-      await directoryService.exportDirectory(rootID, '导入', outPath);
+      final importProgress = <DirectoryTransferProgress>[];
+      final eventLoopTurn = Completer<void>();
+      Timer.run(eventLoopTurn.complete);
+      var importCompleted = false;
+      final importFuture = directoryService
+          .importDirectory(
+            rootID,
+            plainPath,
+            '导入',
+            onProgress: importProgress.add,
+          )
+          .whenComplete(() => importCompleted = true);
+      await eventLoopTurn.future.timeout(const Duration(seconds: 5));
+      expect(importCompleted, isFalse,
+          reason: 'Transfer must not block the caller isolate');
+      await importFuture;
+      expect(importProgress, isNotEmpty);
+      expect(importProgress.last.isComplete, isTrue);
+      expect(importProgress.last.totalFiles, 1);
+      expect(importProgress.last.completedFiles, 1);
+
+      final exportProgress = <DirectoryTransferProgress>[];
+      await directoryService.exportDirectory(
+        rootID,
+        '导入',
+        outPath,
+        onProgress: exportProgress.add,
+      );
+      expect(exportProgress, isNotEmpty);
+      expect(exportProgress.last.isComplete, isTrue);
+      expect(exportProgress.last.totalFiles, 1);
+      expect(exportProgress.last.completedFiles, 1);
       expect(await File('$outPath/nested/source.txt').readAsString(),
           'transfer content');
+
+      final noCallbackOutPath = '${tmp.path}/out-no-callback';
+      final noCallbackEventLoopTurn = Completer<void>();
+      Timer.run(noCallbackEventLoopTurn.complete);
+      var noCallbackExportCompleted = false;
+      final noCallbackExport = directoryService
+          .exportDirectory(rootID, '导入', noCallbackOutPath)
+          .whenComplete(() => noCallbackExportCompleted = true);
+      await noCallbackEventLoopTurn.future.timeout(const Duration(seconds: 5));
+      expect(noCallbackExportCompleted, isFalse,
+          reason: 'Transfer without a progress listener must remain async');
+      await noCallbackExport;
+      expect(
+        await File('$noCallbackOutPath/nested/source.txt').readAsString(),
+        'transfer content',
+      );
+
+      final listenerErrorOutPath = '${tmp.path}/out-listener-error';
+      await expectLater(
+        directoryService.exportDirectory(
+          rootID,
+          '导入',
+          listenerErrorOutPath,
+          onProgress: (_) => throw StateError('listener failed'),
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'listener failed',
+          ),
+        ),
+      );
+      expect(
+        await File('$listenerErrorOutPath/nested/source.txt').readAsString(),
+        'transfer content',
+        reason: 'A Dart listener error must not invalidate the native callback',
+      );
+
+      await expectLater(
+        directoryService.exportDirectory(
+          rootID,
+          '不存在',
+          '${tmp.path}/out-missing-source',
+        ),
+        throwsA(isA<StateError>()),
+      );
+      final failedMarkers =
+          await directoryService.listUnfinishedOperations(rootID);
+      expect(failedMarkers, hasLength(1));
+      expect(failedMarkers.single['type'], 'export');
+      await directoryService.cleanUnfinishedOperation(
+        rootID,
+        failedMarkers.single['op_id']! as String,
+      );
+
+      final cancelPlainPath = '${tmp.path}/cancel-plain';
+      await Directory(cancelPlainPath).create();
+      await File('$cancelPlainPath/large.bin')
+          .writeAsBytes(Uint8List(16 * 1024 * 1024), flush: true);
+      final cancellationToken = DirectoryTransferCancellationToken();
+      var cancelAccepted = false;
+      await expectLater(
+        directoryService.importDirectory(
+          rootID,
+          cancelPlainPath,
+          '取消',
+          cancellationToken: cancellationToken,
+          onProgress: (progress) {
+            if (!progress.isComplete && !cancelAccepted) {
+              cancelAccepted = cancellationToken.cancel();
+            }
+          },
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(cancelAccepted, isTrue);
+      expect(cancellationToken.isComplete, isTrue);
+      expect(cancellationToken.isActive, isFalse);
+      expect(native.secFileExists(rootID, '取消/large.bin'), isFalse);
+      final canceledMarkers =
+          await directoryService.listUnfinishedOperations(rootID);
+      expect(canceledMarkers, hasLength(1));
+      expect(canceledMarkers.single['type'], 'import');
+      await directoryService.cleanUnfinishedOperation(
+        rootID,
+        canceledMarkers.single['op_id']! as String,
+      );
 
       expect(await directoryService.listUnfinishedOperations(rootID), isEmpty);
     });

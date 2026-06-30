@@ -104,19 +104,20 @@ FFI 层的职责是把 Go 后端能力稳定、安全地暴露给 Flutter，而�
 
 ### 当前 Dart 绑定
 
-当前 `bindings.dart` 只绑定了：
+当前 `bindings.dart` 已绑定：
 
 - Root
 - File
 - Root 级目录/文件操作
 - Quick 操作
 - `sec_free_string`
+- Transfer V3 import/export、unfinished marker、convert/recover
+- Transfer V3 runtime progress callback 兼容符号
+- Transfer V3 runtime operation callback 与 cancel handle
 
 当前 Dart 已绑定 V3 import/export、unfinished marker、convert recover/convert root。尚未绑定：
 
-- 运行时 progress callback
-- 增量加密接口
-- `ClearSecureMemory`
+- 增量加密 C ABI。`NativeLib` 仅保留返回 `success:false` 的 unsupported JSON stub，避免设计草稿代码导致 Dart 编译失败。
 
 ## 生命周期设计
 
@@ -129,6 +130,22 @@ FFI 层的职责是把 Go 后端能力稳定、安全地暴露给 Flutter，而�
 5. Flutter 后续所有文件/目录操作都带 `rootID`。
 6. Flutter 调用 `sec_root_close`。
 7. Go 关闭 root 并从 `RootStore` 删除。
+
+`sec_root_open` 的 `optionsJSON` 当前支持：
+
+```json
+{
+  "configFileName": "_cryption.json",
+  "ignoreMatcher": {
+    "before": ["raw-store-name"],
+    "beforePatterns": ["*.tmp"],
+    "after": ["view-name"],
+    "afterPatterns": [".*", "*.tmp"]
+  }
+}
+```
+
+`before`/`beforePatterns` 在文件名解密前匹配 store name，`after`/`afterPatterns` 在文件名解密后匹配 view name。即使传入自定义 matcher，FFI 仍会保留 config 文件忽略逻辑。
 
 ### File 生命周期
 
@@ -233,19 +250,21 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 
 - Go C 导出函数已存在。
 - Go 适配层已调用 `sec_transfer.GetDefaultTransferV3()`。
-- Dart 绑定已接入 V3 函数。
-- Flutter `DirectoryService` 已接通 V3 目录 import/export。
+- Dart 绑定已接入 V3 函数和运行时 progress callback；耗时 C 调用在 worker isolate 中执行，主 isolate 只接收进度和最终结果。
+- Flutter `DirectoryService` 已接通 V3 目录 import/export；有无 progress listener 都不会在调用 isolate 上同步执行传输。
+- Flutter `HomePage` 验证 root 后会查询 unfinished import/export marker，并提示用户清理或跳过。
 - FFI shared library 已注册 V3；旧 v2 task 模型不再用于 FFI/Dart 主路径。
-- Dart FFI 集成测试已覆盖真实 shared library 下的 root create/open、quick read/write、V3 import/export、unfinished marker，以及 `aes-gcm-name` 文件名/目录名加密。
+- Dart FFI 集成测试已覆盖真实 shared library 下的 root create/open、quick read/write、V3 import/export、runtime progress callback、调用 isolate 非阻塞、listener 异常、native 失败 marker 清理，以及 `aes-gcm-name` 文件名/目录名加密。
 - Go FFI 与 Dart FFI 集成测试已覆盖 CLI 创建 root 后由 FFI/Dart 写读并由 CLI export、FFI/Dart 创建 root 后由 CLI import/export 使用。
-- 运行时 progress callback 仍待补齐，当前 V3 Dart 调用表现为同步阻塞。
+- 运行时 progress callback 已通过旧 `sec_*_async_with_callback` C ABI 桥接到 V3 `ProgressEvent`；Dart worker isolate 在同步 C 调用期间持有 `NativeCallable`，通过 `SendPort` 把事件转发给调用 isolate。
+- Dart progress listener 抛错时不会提前销毁 native callback；worker 会先等 native 调用结束，再把 listener 错误交还调用方。
+- FFI 提供一次性 runtime operation handle；`sec_transfer_v3_cancel` 只触发进程内 `context.CancelFunc`，操作结束立即移除，不保存 task 或进度。
+- Flutter 目录导出 UI 已接真实取消；handle 尚未 active 时拒绝关闭进度框，取消成功后保留 unfinished marker 供下次打开时清理或全量重跑。
 
 收口顺序：
 
-1. 补齐运行时 progress callback。
-2. 接 UI 层进度展示。
-3. 接 UI 层 unfinished operation 提示。
-4. 补充 Dart/Flutter 集成测试。
+1. 补充目录导入 UI 入口。
+2. 继续覆盖更多 Flutter UI 级进度交互与异常恢复测试。
 
 ## 增量加密接口
 
@@ -267,11 +286,9 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 
 | 问题 | 影响 | 建议优先级 |
 |------|------|------------|
-| Transfer V3 缺少 Dart 运行时 progress callback | UI 暂时只能同步等待或自建 loading | P1 |
-| UI 未处理 unfinished marker | 中断后还不能在界面提示重跑/清理 | P1 |
-| `ignoreMatcher` 未解析 | 自定义忽略规则不可用 | P2 |
+| UI 缺少目录导入入口和更完整的进度交互测试 | service 与目录导出已接通，但 UI 全链路仍不完整 | P1 |
+| UI unfinished marker 仅支持清理/跳过 | 还没有 UI 级全量重跑入口 | P2 |
 | 增量加密 FFI 仅有设计文档 | 文档容易误导进度判断 | P2 |
-| Dart runtime progress callback 仍未接 UI | UI 暂时只能同步等待或自建 loading | P1 |
 
 ## 验收标准
 
@@ -290,7 +307,10 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 - 能导出单文件。
 - 能导入目录。
 - 能导出目录。
-- callback 能收到运行时进度和完成事件。当前未完成。
+- callback 能收到运行时进度和完成事件。
+- Dart `DirectoryService` 调用有无 progress listener 都不会阻塞调用 isolate。
+- Dart listener 抛错不会使 native callback 在传输结束前失效。
+- runtime cancel 能停止扫描或文件复制，清理临时文件、不提交部分目标，并保留 unfinished marker。
 - import/export 中断后能查询 unfinished operation marker。
 - convert 中断后能查询 phase marker 和恢复建议。
 - import/export 不要求断点续传，不暴露 v2 task resume/rollback。

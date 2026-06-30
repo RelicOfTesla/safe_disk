@@ -283,7 +283,7 @@ class ProgressHelper {
     required int total,
     String? status,
     bool canCancel = true,
-    VoidCallback? onCancel,
+    bool Function()? onCancel,
   }) {
     final controller = ProgressController(
       total: total,
@@ -301,10 +301,10 @@ class ProgressHelper {
             progress: controller.progress,
             canCancel: canCancel,
             onCancel: () {
-              controller.cancel();
-              if (onCancel != null) {
-                onCancel();
+              if (onCancel != null && !onCancel()) {
+                return;
               }
+              controller.cancel();
               Navigator.of(context).pop();
             },
           );

@@ -56,14 +56,16 @@
 - [x] 中断 convert 的 copy/verify/rename 阶段后，再次 open root 能按 phase 给出恢复或人工处理建议
 - [x] convert 成功后 backup 默认保留，不自动删除
 - [x] 密码不出现在日志、进度、JSON 输出中
-- [ ] 完整实践测试矩阵覆盖 create、import/export、progress、unfinished operation、安全输入和兼容性
+- [x] 完整实践测试矩阵覆盖 create、import/export、progress、unfinished operation、安全输入和兼容性
   - [x] sec/walker/transfer/CLI/FFI/Dart 覆盖 `aes-gcm-name` 文件名/目录名加密场景
   - [x] Dart FFI 集成测试覆盖 root create/open、quick read/write、V3 import/export、unfinished marker
   - [x] CLI `import/export --json` 覆盖 JSON Lines started/progress/completed 事件
+  - [x] FFI/Dart 覆盖 V3 runtime progress callback，Dart 通过 `NativeCallable` 接收完成事件和文件计数
   - [x] FFI Go 与 Dart FFI 集成测试覆盖 CLI-created root 由 FFI/Dart 写读并由 CLI export、FFI/Dart-created root 由 CLI import/export 使用
   - [x] Transfer V3 测试覆盖 convert encrypt 成功后 backup 目录保留且 marker 清理
   - [x] CLI 集成测试覆盖 create/import/list/export 普通输出和 JSON 输出不泄漏密码
   - [x] CLI 单元/集成测试覆盖非空目录 create 交互确认逻辑、非交互拒绝和 JSON 模式拒绝提示污染
+  - [x] Flutter/Dart 全量 analyze 无 error/warning，真实 Dart FFI 集成测试通过
 
 ### [BUG] UI 新创建的加密目录，侧边栏与解密栏标题为一段 json 字符串
 
@@ -73,24 +75,28 @@
 
 **影响**：严重影响用户体验
 
+**状态**：已修复。UI 创建目录不再把 FFI 返回 JSON 当作目录配置/标题来源，创建和解锁流程已切到 rootID FFI 模型；新增 `SidebarWidget` 测试确保侧边栏显示 path basename 而不是 config JSON。
+
 **验收标准**：
-- [ ] 侧边栏显示正确的目录名
-- [ ] 解密栏显示正确的目录名
+- [x] 侧边栏显示正确的目录名
+- [x] 解密栏显示正确的目录名
 
 ---
 
 ## 🟡 P1 - 高优先级任务
 
-**优先级**：2
+### [已废弃/非主线] 旧 TransferService V2 进度持久化方案
 
-**背景**：TransferService 需要支持断电恢复、幂等性、数据安全
+**状态**：不再作为当前主线实现。当前 import/export/convert 以 Transfer V3 为准，详见 [TRANSFER_DESIGN.md](TRANSFER_DESIGN.md)。V3 明确不做 import/export 进度持久化和断点续传，只保留 unfinished operation marker；convert 使用 phase marker 和 work/backup 目录切换恢复。
 
-**核心设计**（详见 V2 文档）：
+**历史背景**：旧 TransferService 曾计划支持断电恢复、幂等性、数据安全。
+
+**旧核心设计**（详见 V2 文档，已不作为实现目标）：
 - 进度持久化：`_progress_files.json`
 - 原子化文件替换：`rename -> rename -> update progress -> remove temp`
 - 断电恢复：启动时检查进度文件，清理临时文件
 
-**流程**（Import/Export 统一）：
+**旧流程**（Import/Export 统一，已不作为实现目标）：
 ```
 Step 1: 扫描所有文件，保存 -> _progress_files.json
 Step 2: 加密/解密文件
@@ -100,11 +106,10 @@ Step 5: 清理临时文件：remove(a.txt.raw) ← 后删除临时文件
 Step 6: 返回 Step 2 处理下一个文件
 ```
 
-**验收标准**：
-- [ ] ImportDirectoryAsync 实现原子化流程
-- [ ] ExportDirectoryAsync 实现原子化流程
-- [ ] 断电恢复测试通过
-- [ ] 幂等性测试通过
+**结论**：
+- [x] 不实现旧 `ImportDirectoryAsync/ExportDirectoryAsync` 进度持久化方案
+- [x] 不恢复旧 `_progress_files.json` 断点续传模型
+- [x] import/export 未完成状态只通过 operation marker 感知，下次打开 root 后由用户选择全量重跑/清理/跳过
 
 ---
 
@@ -160,9 +165,14 @@ Step 6: 返回 Step 2 处理下一个文件
     - ✅ 显示当前处理的文件名
     - ✅ 显示已处理文件数/总文件数
     - ✅ 预计剩余时间（可选）
-    - ✅ 用户可以取消操作
-    - ✅ 进度显示不阻塞 UI
+    - ✅ 目录导出已接纯运行时 cancel ABI；取消清理临时文件、不提交部分目标并保留 unfinished marker（2026-07-10）
+    - ✅ V3 目录进度通过 worker isolate 转发，不阻塞 UI（2026-07-10 真实 FFI 测试验证）
   - Flutter 应用编译成功
+
+- [x] **Transfer V3 运行时取消**（2026-07-10）
+  - [x] 只维护进程内 operation cancel handle，不引入 task/progress 持久化
+  - [x] Go 在扫描、复制和原子提交前检查 context，结束后清理 handle
+  - [x] FFI/Dart 暴露 cancel；测试覆盖 callback 生命周期、marker 保留、重复取消和 UI 拒绝过早关闭
 - [x] 创建新加密目录后，没有添加到侧边栏 ✅ 2026-04-03
   - 修改 `_createEncryptedDirectory()` 方法，成功后自动调用 `_loadDirectory(selectedPath)`
   - 自动打开新创建的加密目录，从而自动添加到侧边栏
@@ -189,7 +199,7 @@ Step 6: 返回 Step 2 处理下一个文件
 
 ### 代码质量
 
-- [x] Dart/Flutter 代码质量 Review ✅ 2026-04-03（部分完成）
+- [x] Dart/Flutter 代码质量 Review ✅ 2026-07-10
   - [x] 修复所有 warning 和 info 级别的问题（9/9 warning，26/43 info）
   - [x] 配置 `analysis_options.yaml` 规则集
   - [x] 使用 `dart format` 统一代码格式
@@ -198,7 +208,7 @@ Step 6: 返回 Step 2 处理下一个文件
   - [x] 检查性能问题（不必要的 rebuild）
   - [x] 使用 const constructor 优化
   - [x] 检查是否有敏感信息硬编码
-  - [ ] 剩余 17 个 info 级别问题（主要是 avoid_print 和 use_build_context_synchronously）
+  - [x] 清理剩余 info 级别问题；当前 `dart analyze` 为 0 issue（2026-07-10）
 
 - [x] 测试覆盖率达到 60%+ ⚠️ 部分完成 2026-04-03
   - **目标**：60%

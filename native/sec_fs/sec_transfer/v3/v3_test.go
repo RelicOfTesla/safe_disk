@@ -2,6 +2,7 @@ package sec_transfer_v3
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -173,6 +174,102 @@ func TestV3ImportFailureLeavesMarkerAndCleanRemovesIt(t *testing.T) {
 	}
 	if len(markers) != 0 {
 		t.Fatalf("expected markers to be cleaned, got %d", len(markers))
+	}
+}
+
+func TestV3CancellationKeepsMarkerAndDoesNotCommitPartialFiles(t *testing.T) {
+	tmp := t.TempDir()
+	rootPath := filepath.Join(tmp, "root")
+	sourcePath := filepath.Join(tmp, "source.txt")
+	exportPath := filepath.Join(tmp, "export.txt")
+	if err := os.MkdirAll(rootPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sourcePath, []byte("new content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(exportPath, []byte("original content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	const password = "cancel-password"
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(rootPath), password, defaultCreateRootOptions()...); err != nil {
+		t.Fatal(err)
+	}
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(rootPath), password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+
+	manager := New()
+	importCtx, cancelImport := context.WithCancel(context.Background())
+	callbackCount := 0
+	err = manager.ImportFile(importCtx, sec_transfer.ImportFileRequest{
+		Source:    sec_fs.FullStorePath(sourcePath),
+		DestRoot:  root,
+		Dest:      "cancelled.txt",
+		Overwrite: true,
+	}, func(event sec_transfer.ProgressEvent) {
+		if !event.Complete {
+			callbackCount++
+			if callbackCount == 2 {
+				cancelImport()
+			}
+		}
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected canceled import, got %v", err)
+	}
+	if root.FileExists("cancelled.txt") || root.FileExists("cancelled.txt"+tempSuffix) {
+		t.Fatal("canceled import committed a destination or left a temp file")
+	}
+
+	markers, err := manager.ListUnfinishedOperations(context.Background(), rootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(markers) != 1 || markers[0].Type != sec_transfer.OperationImport {
+		t.Fatalf("expected one canceled import marker, got %+v", markers)
+	}
+	if err := manager.CleanUnfinishedImportExport(context.Background(), rootPath, markers[0].OpID); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := manager.ImportFile(context.Background(), sec_transfer.ImportFileRequest{
+		Source:    sec_fs.FullStorePath(sourcePath),
+		DestRoot:  root,
+		Dest:      "source.txt",
+		Overwrite: true,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	exportCtx, cancelExport := context.WithCancel(context.Background())
+	err = manager.ExportFile(exportCtx, sec_transfer.ExportFileRequest{
+		SourceRoot: root,
+		Source:     "source.txt",
+		Dest:       sec_fs.FullStorePath(exportPath),
+		Overwrite:  true,
+	}, func(event sec_transfer.ProgressEvent) {
+		if !event.Complete {
+			cancelExport()
+		}
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected canceled export, got %v", err)
+	}
+	assertFileContent(t, exportPath, "original content")
+	if pathExists(exportPath + tempSuffix) {
+		t.Fatal("canceled export left a temp file")
+	}
+
+	markers, err = manager.ListUnfinishedOperations(context.Background(), rootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(markers) != 1 || markers[0].Type != sec_transfer.OperationExport {
+		t.Fatalf("expected one canceled export marker, got %+v", markers)
 	}
 }
 

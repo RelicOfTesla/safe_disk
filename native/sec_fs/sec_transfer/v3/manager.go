@@ -70,6 +70,7 @@ func (m *Manager) ImportFile(ctx context.Context, req sec_transfer.ImportFileReq
 	if err := writeMarker(rootPath, marker); err != nil {
 		return err
 	}
+	report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, TotalFiles: 1, CurrentPath: string(req.Source)})
 	err := m.importOne(ctx, opID, string(req.Source), req.DestRoot, req.Dest, req.Overwrite, cb, 1, 0)
 	if err != nil {
 		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, Error: err, Complete: true})
@@ -96,7 +97,8 @@ func (m *Manager) ImportDirectory(ctx context.Context, req sec_transfer.ImportDi
 	if err := writeMarker(rootPath, marker); err != nil {
 		return err
 	}
-	files, err := collectPlainFiles(string(req.Source), req.SkipRecursive)
+	report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, CurrentPath: string(req.Source)})
+	files, err := collectPlainFiles(ctx, string(req.Source), req.SkipRecursive)
 	if err != nil {
 		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, Error: err, Complete: true})
 		return err
@@ -138,6 +140,7 @@ func (m *Manager) ExportFile(ctx context.Context, req sec_transfer.ExportFileReq
 	if err := writeMarker(rootPath, marker); err != nil {
 		return err
 	}
+	report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, TotalFiles: 1, CurrentPath: string(req.Source)})
 	err := exportOne(ctx, opID, req.SourceRoot, req.Source, string(req.Dest), req.Overwrite)
 	if err != nil {
 		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, Error: err, Complete: true})
@@ -164,7 +167,8 @@ func (m *Manager) ExportDirectory(ctx context.Context, req sec_transfer.ExportDi
 	if err := writeMarker(rootPath, marker); err != nil {
 		return err
 	}
-	files, err := collectRootFiles(req.SourceRoot, req.Source, req.SkipRecursive)
+	report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, CurrentPath: string(req.Source)})
+	files, err := collectRootFiles(ctx, req.SourceRoot, req.Source, req.SkipRecursive)
 	if err != nil {
 		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, Error: err, Complete: true})
 		return err
@@ -179,6 +183,7 @@ func (m *Manager) ExportDirectory(ctx context.Context, req sec_transfer.ExportDi
 			rel = string(src)
 		}
 		dest := filepath.Join(string(req.Dest), rel)
+		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, TotalFiles: int64(len(files)), DoneFiles: int64(i), CurrentPath: string(src)})
 		if err := exportOne(ctx, opID, req.SourceRoot, src, dest, req.Overwrite); err != nil {
 			report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, Error: err, Complete: true})
 			return err
@@ -197,10 +202,10 @@ func (m *Manager) importOne(ctx context.Context, opID string, src string, root s
 	if !overwrite && root.FileExists(dest) {
 		return fmt.Errorf("destination exists: %s", dest)
 	}
-	return importFileAtomic(src, root, dest, overwrite)
+	return importFileAtomic(ctx, src, root, dest, overwrite)
 }
 
-func importFileAtomic(src string, root sec_fs.ISecRoot, dest sec_fs.RelativeViewPath, overwrite bool) error {
+func importFileAtomic(ctx context.Context, src string, root sec_fs.ISecRoot, dest sec_fs.RelativeViewPath, overwrite bool) error {
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -222,7 +227,7 @@ func importFileAtomic(src string, root sec_fs.ISecRoot, dest sec_fs.RelativeView
 	if err != nil {
 		return err
 	}
-	_, copyErr := io.Copy(tempFile, srcFile)
+	_, copyErr := io.Copy(tempFile, contextReader{ctx: ctx, reader: srcFile})
 	closeErr := tempFile.Close()
 	if copyErr != nil {
 		_ = root.DeleteFile(temp)
@@ -231,6 +236,10 @@ func importFileAtomic(src string, root sec_fs.ISecRoot, dest sec_fs.RelativeView
 	if closeErr != nil {
 		_ = root.DeleteFile(temp)
 		return closeErr
+	}
+	if err := ctx.Err(); err != nil {
+		_ = root.DeleteFile(temp)
+		return err
 	}
 	if root.FileExists(dest) {
 		if err := root.Rename(dest, backup); err != nil {
@@ -260,10 +269,10 @@ func exportOne(ctx context.Context, opID string, root sec_fs.ISecRoot, src sec_f
 			return fmt.Errorf("destination exists: %s", dest)
 		}
 	}
-	return exportFileAtomic(root, src, dest, overwrite)
+	return exportFileAtomic(ctx, root, src, dest, overwrite)
 }
 
-func exportFileAtomic(root sec_fs.ISecRoot, src sec_fs.RelativeViewPath, dest string, overwrite bool) error {
+func exportFileAtomic(ctx context.Context, root sec_fs.ISecRoot, src sec_fs.RelativeViewPath, dest string, overwrite bool) error {
 	srcFile, err := root.OpenFile(src, os.O_RDONLY)
 	if err != nil {
 		return err
@@ -285,7 +294,7 @@ func exportFileAtomic(root sec_fs.ISecRoot, src sec_fs.RelativeViewPath, dest st
 	if err != nil {
 		return err
 	}
-	_, copyErr := io.Copy(tempFile, srcFile)
+	_, copyErr := io.Copy(tempFile, contextReader{ctx: ctx, reader: srcFile})
 	syncErr := tempFile.Sync()
 	closeErr := tempFile.Close()
 	if copyErr != nil {
@@ -299,6 +308,10 @@ func exportFileAtomic(root sec_fs.ISecRoot, src sec_fs.RelativeViewPath, dest st
 	if closeErr != nil {
 		_ = os.Remove(temp)
 		return closeErr
+	}
+	if err := ctx.Err(); err != nil {
+		_ = os.Remove(temp)
+		return err
 	}
 	if _, err := os.Stat(dest); err == nil {
 		if err := os.Rename(dest, backup); err != nil {
@@ -317,14 +330,20 @@ func exportFileAtomic(root sec_fs.ISecRoot, src sec_fs.RelativeViewPath, dest st
 	return nil
 }
 
-func collectPlainFiles(root string, skipRecursive bool) ([]string, error) {
+func collectPlainFiles(ctx context.Context, root string, skipRecursive bool) ([]string, error) {
 	var files []string
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if skipRecursive {
 		entries, err := os.ReadDir(root)
 		if err != nil {
 			return nil, err
 		}
 		for _, entry := range entries {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
 			if entry.IsDir() || shouldSkipPlainName(entry.Name()) {
 				continue
 			}
@@ -333,6 +352,9 @@ func collectPlainFiles(root string, skipRecursive bool) ([]string, error) {
 		return files, nil
 	}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
 		if err != nil {
 			return err
 		}
@@ -354,7 +376,10 @@ func collectPlainFiles(root string, skipRecursive bool) ([]string, error) {
 	return files, err
 }
 
-func collectRootFiles(root sec_fs.ISecRoot, base sec_fs.RelativeViewPath, skipRecursive bool) ([]sec_fs.RelativeViewPath, error) {
+func collectRootFiles(ctx context.Context, root sec_fs.ISecRoot, base sec_fs.RelativeViewPath, skipRecursive bool) ([]sec_fs.RelativeViewPath, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var opts []sec_fs.WalkOption
 	if !skipRecursive {
 		opts = append(opts, sec_fs.WithRecursive())
@@ -366,6 +391,9 @@ func collectRootFiles(root sec_fs.ISecRoot, base sec_fs.RelativeViewPath, skipRe
 	defer walker.Close()
 	var files []sec_fs.RelativeViewPath
 	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		entry, err := walker.Next()
 		if err == io.EOF {
 			break
@@ -388,6 +416,18 @@ func collectRootFiles(root sec_fs.ISecRoot, base sec_fs.RelativeViewPath, skipRe
 		files = append(files, rel)
 	}
 	return files, nil
+}
+
+type contextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(p)
 }
 
 func shouldSkipPlainName(name string) bool {

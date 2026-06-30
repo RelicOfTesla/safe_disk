@@ -6,8 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
+
+	"safe_disk/native/sec_fs/sec_transfer"
 )
 
 func TestTransferV3FFIRoundTrip(t *testing.T) {
@@ -40,6 +43,106 @@ func TestTransferV3FFIRoundTrip(t *testing.T) {
 	unfinished := assertSuccess(t, TransferV3ListUnfinished_FFI(rootID))
 	if got := unfinished["data"].(map[string]interface{})["count"].(float64); got != 0 {
 		t.Fatalf("expected no unfinished operations, got %.0f", got)
+	}
+}
+
+func TestTransferV3FFIProgressCallback(t *testing.T) {
+	tmp := t.TempDir()
+	plain := filepath.Join(tmp, "plain")
+	rootPath := filepath.Join(tmp, "root")
+	if err := os.MkdirAll(plain, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"a.txt", "b.txt"} {
+		if err := os.WriteFile(filepath.Join(plain, name), []byte(name), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+
+	var events []sec_transfer.ProgressEvent
+	assertSuccess(t, ImportDirectoryAsyncWithCallback_FFI(rootID, plain, "", func(event sec_transfer.ProgressEvent) {
+		events = append(events, event)
+	}))
+	if len(events) == 0 {
+		t.Fatal("expected at least one progress event")
+	}
+	last := events[len(events)-1]
+	if !last.Complete {
+		t.Fatalf("expected final progress event to be complete: %#v", last)
+	}
+	if last.DoneFiles != 2 || last.TotalFiles != 2 {
+		t.Fatalf("unexpected final progress counts: done=%d total=%d", last.DoneFiles, last.TotalFiles)
+	}
+}
+
+func TestTransferV3FFICancelRuntimeOperation(t *testing.T) {
+	tmp := t.TempDir()
+	plain := filepath.Join(tmp, "plain")
+	rootPath := filepath.Join(tmp, "root")
+	if err := os.MkdirAll(plain, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(plain, "cancel.txt"), []byte("cancel me"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	resultCh := make(chan string, 1)
+	var once sync.Once
+	go func() {
+		resultCh <- TransferV3ImportDirectoryWithOperation_FFI(
+			"ffi-cancel-test",
+			rootID,
+			plain,
+			"",
+			func(event sec_transfer.ProgressEvent) {
+				if !event.Complete {
+					once.Do(func() { close(started) })
+					<-release
+				}
+			},
+		)
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for operation registration")
+	}
+	if active := assertSuccess(t, TransferV3Cancel_FFI("ffi-cancel-test"))["data"].(map[string]interface{})["active"].(bool); !active {
+		t.Fatal("expected active operation to accept cancellation")
+	}
+	if active := assertSuccess(t, TransferV3Cancel_FFI("ffi-cancel-test"))["data"].(map[string]interface{})["active"].(bool); !active {
+		t.Fatal("expected repeated cancellation to remain idempotent while active")
+	}
+	close(release)
+
+	select {
+	case result := <-resultCh:
+		if jsonSuccess(result) {
+			t.Fatalf("expected canceled transfer to fail: %s", result)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for canceled operation")
+	}
+	if active := assertSuccess(t, TransferV3Cancel_FFI("ffi-cancel-test"))["data"].(map[string]interface{})["active"].(bool); active {
+		t.Fatal("completed operation remained in runtime registry")
+	}
+
+	unfinished := assertSuccess(t, TransferV3ListUnfinished_FFI(rootID))
+	if got := unfinished["data"].(map[string]interface{})["count"].(float64); got != 1 {
+		t.Fatalf("expected canceled operation marker, got %.0f", got)
 	}
 }
 
@@ -85,6 +188,38 @@ func TestTransferV3FFIWithEncryptedNames(t *testing.T) {
 	}
 	if string(data) != "ffi encrypted names" {
 		t.Fatalf("unexpected export content: %q", string(data))
+	}
+}
+
+func TestOpenRootFFIIgnoreMatcher(t *testing.T) {
+	tmp := t.TempDir()
+	rootPath := filepath.Join(tmp, "root")
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+	assertSuccess(t, QuickWriteFile_FFI(rootID, "keep.txt", []byte("keep")))
+	assertSuccess(t, QuickWriteFile_FFI(rootID, "skip.tmp", []byte("skip")))
+	assertSuccess(t, CloseRoot_FFI(rootID))
+
+	openOptions := `{"ignoreMatcher":{"afterPatterns":["*.tmp"]}}`
+	rootResp = assertSuccess(t, OpenRoot_FFI(rootPath, "pw", openOptions))
+	rootID = int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+
+	readDir := assertSuccess(t, ReadDir_FFI(rootID, ""))
+	entries := readDir["data"].(map[string]interface{})["entries"].([]interface{})
+	var names []string
+	for _, entry := range entries {
+		names = append(names, entry.(map[string]interface{})["name"].(string))
+	}
+	if !containsString(names, "keep.txt") {
+		t.Fatalf("expected keep.txt in entries: %#v", names)
+	}
+	if containsString(names, "skip.tmp") {
+		t.Fatalf("expected skip.tmp to be ignored: %#v", names)
+	}
+	if containsString(names, "_cryption.json") {
+		t.Fatalf("expected config file to remain ignored: %#v", names)
 	}
 }
 
@@ -188,4 +323,13 @@ func containsDiskName(t *testing.T, rootPath string, name string) bool {
 		t.Fatal(err)
 	}
 	return found
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/crypto_service.dart';
@@ -37,25 +36,25 @@ class SecureNotepad extends StatefulWidget {
 class _SecureNotepadState extends State<SecureNotepad> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
-  
+
   // Undo/Redo support
   final List<String> _undoStack = [];
   final List<String> _redoStack = [];
   static const int _maxHistorySize = 50;
   String _lastText = '';
   bool _isUndoRedo = false;
-  
+
   // State management
   bool _isLoading = true;
   bool _isSaving = false;
   bool _hasChanges = false;
   bool _isInitializing = true;
   String? _errorMessage;
-  
+
   // Auto-save
   Timer? _autoSaveTimer;
   static const Duration _autoSaveDelay = Duration(seconds: 30);
-  
+
   // Find/Replace (optional feature)
   bool _showFindReplace = false;
   final TextEditingController _findController = TextEditingController();
@@ -85,45 +84,43 @@ class _SecureNotepadState extends State<SecureNotepad> {
     // Clear controller
     final text = _controller.text;
     _controller.clear();
-    
+
     // Clear undo/redo stacks
     for (final item in _undoStack) {
       await _clearSecureString(item);
     }
     _undoStack.clear();
-    
+
     for (final item in _redoStack) {
       await _clearSecureString(item);
     }
     _redoStack.clear();
-    
+
     // Clear the last text
     await _clearSecureString(_lastText);
     await _clearSecureString(text);
-    
+
     // Clear find/replace controllers
     _findController.clear();
     _replaceController.clear();
-    
+
     _focusNode.dispose();
   }
 
   /// Clear a string from memory using native MemZero
   Future<void> _clearSecureString(String text) async {
     if (text.isEmpty) return;
-    
+
     try {
       // Convert string to bytes and encode as base64
       final bytes = utf8.encode(text);
       final base64Data = base64Encode(bytes);
-      
+
       // Call native MemZero through FFI
       final native = NativeLib.instance;
       native.clearSecureMemory(base64Data);
-    } catch (e) {
-      // If native clear fails, just ignore
-      // The important thing is we tried
-      print('[SecureNotepad] Warning: Failed to clear memory: $e');
+    } catch (_) {
+      // Best effort: VM-managed String storage cannot be cleared in place.
     }
   }
 
@@ -152,7 +149,6 @@ class _SecureNotepadState extends State<SecureNotepad> {
       final content = utf8.decode(contentBytes);
 
       if (content.isNotEmpty) {
-        print('[DEBUG] Setting controller.text (length=${content.length})');
         _controller.text = content;
         _lastText = content;
         // Add initial state to undo stack
@@ -162,7 +158,6 @@ class _SecureNotepadState extends State<SecureNotepad> {
       setState(() {
         _isLoading = false;
         _hasChanges = false;
-        print('[DEBUG] _hasChanges reset to false');
       });
 
       // Mark initialization complete after a short delay
@@ -171,7 +166,6 @@ class _SecureNotepadState extends State<SecureNotepad> {
           setState(() {
             _isInitializing = false;
           });
-          print('[DEBUG] Initialization complete, _isInitializing=false');
         }
       });
     } catch (e) {
@@ -188,12 +182,12 @@ class _SecureNotepadState extends State<SecureNotepad> {
     try {
       setState(() => _isSaving = true);
 
-      // Encrypt and save
       final contentBytes = utf8.encode(_controller.text);
-      final encryptedBase64 =
-          widget.cryptoService.encryptDataBytes(contentBytes, widget.tempKeyID);
-      final encryptedBytes = base64Decode(encryptedBase64);
-      await File(widget.file.encryptedPath).writeAsBytes(encryptedBytes);
+      await widget.cryptoService.writeFileBySession(
+        widget.file.encryptedPath,
+        widget.tempKeyID,
+        contentBytes,
+      );
 
       setState(() {
         _hasChanges = false;
@@ -204,8 +198,6 @@ class _SecureNotepadState extends State<SecureNotepad> {
 
       if (mounted && !autoSave) {
         ErrorHelper.showSuccess(context, '文件保存成功');
-      } else if (mounted && autoSave) {
-        print('[DEBUG] Auto-saved successfully');
       }
     } catch (e) {
       setState(() => _isSaving = false);
@@ -224,13 +216,13 @@ class _SecureNotepadState extends State<SecureNotepad> {
   void _pushToUndoStack(String text) {
     if (_undoStack.isEmpty || _undoStack.last != text) {
       _undoStack.add(text);
-      
+
       // Limit stack size
       if (_undoStack.length > _maxHistorySize) {
         _undoStack.removeAt(0);
       }
     }
-    
+
     // Clear redo stack on new change
     _redoStack.clear();
   }
@@ -240,15 +232,15 @@ class _SecureNotepadState extends State<SecureNotepad> {
     if (_undoStack.length > 1) {
       // Save current state to redo stack
       _redoStack.add(_controller.text);
-      
+
       // Pop last state from undo stack
       final previousState = _undoStack.removeLast();
-      
+
       _isUndoRedo = true;
       _controller.text = previousState;
       _lastText = previousState;
       _isUndoRedo = false;
-      
+
       setState(() {
         _hasChanges = _undoStack.length > 1;
       });
@@ -260,15 +252,15 @@ class _SecureNotepadState extends State<SecureNotepad> {
     if (_redoStack.isNotEmpty) {
       // Save current state to undo stack
       _undoStack.add(_controller.text);
-      
+
       // Pop last state from redo stack
       final nextState = _redoStack.removeLast();
-      
+
       _isUndoRedo = true;
       _controller.text = nextState;
       _lastText = nextState;
       _isUndoRedo = false;
-      
+
       setState(() {
         _hasChanges = true;
       });
@@ -279,11 +271,11 @@ class _SecureNotepadState extends State<SecureNotepad> {
   void _findText() {
     final findText = _findController.text;
     if (findText.isEmpty) return;
-    
+
     final currentText = _controller.text;
     final startIndex = _findIndex + 1;
     final index = currentText.indexOf(findText, startIndex);
-    
+
     if (index != -1) {
       setState(() {
         _findIndex = index;
@@ -309,16 +301,16 @@ class _SecureNotepadState extends State<SecureNotepad> {
   void _replaceText() {
     final findText = _findController.text;
     final replaceText = _replaceController.text;
-    
+
     if (findText.isEmpty || _findIndex == -1) return;
-    
+
     final currentText = _controller.text;
     final newText = currentText.replaceRange(
       _findIndex,
       _findIndex + findText.length,
       replaceText,
     );
-    
+
     _pushToUndoStack(_controller.text);
     _controller.text = newText;
     _lastText = newText;
@@ -326,7 +318,7 @@ class _SecureNotepadState extends State<SecureNotepad> {
       _hasChanges = true;
       _findIndex = -1;
     });
-    
+
     // Find next occurrence
     _findText();
   }
@@ -335,12 +327,12 @@ class _SecureNotepadState extends State<SecureNotepad> {
   void _replaceAll() {
     final findText = _findController.text;
     final replaceText = _replaceController.text;
-    
+
     if (findText.isEmpty) return;
-    
+
     final currentText = _controller.text;
     final count = findText.allMatches(currentText).length;
-    
+
     if (count == 0) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -349,7 +341,7 @@ class _SecureNotepadState extends State<SecureNotepad> {
       }
       return;
     }
-    
+
     _pushToUndoStack(_controller.text);
     final newText = currentText.replaceAll(findText, replaceText);
     _controller.text = newText;
@@ -358,7 +350,7 @@ class _SecureNotepadState extends State<SecureNotepad> {
       _hasChanges = true;
       _findIndex = -1;
     });
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('已替换 $count 处')),
@@ -443,7 +435,7 @@ class _SecureNotepadState extends State<SecureNotepad> {
             // Save button
             if (_hasChanges)
               IconButton(
-                icon: _isSaving 
+                icon: _isSaving
                     ? const SizedBox(
                         width: 20,
                         height: 20,
@@ -490,7 +482,7 @@ class _SecureNotepadState extends State<SecureNotepad> {
           children: [
             // Find/Replace bar (optional)
             if (_showFindReplace) _buildFindReplaceBar(),
-            
+
             // Status bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -502,7 +494,8 @@ class _SecureNotepadState extends State<SecureNotepad> {
                   if (_hasChanges)
                     const Icon(Icons.edit, size: 16, color: Colors.orange)
                   else
-                    const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                    const Icon(Icons.check_circle,
+                        size: 16, color: Colors.green),
                   const SizedBox(width: 8),
                   Text(
                     _hasChanges ? '未保存' : '已保存',
@@ -548,21 +541,17 @@ class _SecureNotepadState extends State<SecureNotepad> {
                   onChanged: (text) {
                     // Ignore text changes during initialization or undo/redo
                     if (_isInitializing || _isUndoRedo) {
-                      print('[DEBUG] onChanged called during initialization/undo/redo, ignoring');
                       return;
                     }
 
                     // Check if text actually changed
                     if (text != _lastText) {
-                      print('[DEBUG] Text changed from ${_lastText.length} to ${text.length}');
-                      
                       // Push old text to undo stack
                       _pushToUndoStack(_lastText);
-                      
+
                       _lastText = text;
                       if (!_hasChanges) {
                         setState(() => _hasChanges = true);
-                        print('[DEBUG] _hasChanges set to true');
                       }
                     }
                   },
@@ -599,7 +588,8 @@ class _SecureNotepadState extends State<SecureNotepad> {
               decoration: const InputDecoration(
                 hintText: '查找',
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 border: OutlineInputBorder(),
               ),
               onSubmitted: (_) => _findText(),
@@ -612,9 +602,9 @@ class _SecureNotepadState extends State<SecureNotepad> {
             onPressed: _findText,
             tooltip: '查找下一个',
           ),
-          
+
           const SizedBox(width: 16),
-          
+
           // Replace field
           Expanded(
             child: TextField(
@@ -622,7 +612,8 @@ class _SecureNotepadState extends State<SecureNotepad> {
               decoration: const InputDecoration(
                 hintText: '替换',
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 border: OutlineInputBorder(),
               ),
             ),

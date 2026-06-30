@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/crypto_service.dart';
@@ -7,7 +6,12 @@ import '../models/cryption_config.dart';
 
 /// Supported image formats
 const Set<String> kSupportedImageFormats = {
-  'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp',
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'bmp',
+  'webp',
 };
 
 /// Check if a file extension is a supported image format
@@ -17,7 +21,7 @@ bool isSupportedImageFormat(String? extension) {
 }
 
 /// Secure image viewer for viewing encrypted images.
-/// 
+///
 /// Features:
 /// - Decrypts image in memory without writing to disk
 /// - Supports zoom, pan, and rotation
@@ -28,10 +32,10 @@ class SecureImageViewer extends StatefulWidget {
   final EncryptedFile file;
   final CryptoService cryptoService;
   final String tempKeyID;
-  
+
   /// Directory path containing the image (for navigation)
   final String? directoryPath;
-  
+
   /// File service for listing directory contents
   final FileService? fileService;
 
@@ -57,7 +61,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   final TransformationController _transformController =
       TransformationController();
   double _rotation = 0.0;
-  
+
   // Navigation state
   List<FileSystemNode> _imageFiles = [];
   int _currentIndex = -1;
@@ -97,16 +101,18 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
     }
 
     try {
-      final items = await widget.fileService!.listCurrentDirectory(widget.directoryPath!);
-      
+      final items =
+          await widget.fileService!.listCurrentDirectory(widget.directoryPath!);
+
       // Filter only supported image files
       _imageFiles = items.where((item) {
         return !item.isDirectory && isSupportedImageFormat(item.extension);
       }).toList();
-      
+
       // Find current file index
-      _currentIndex = _imageFiles.indexWhere((f) => f.path == widget.file.encryptedPath);
-      
+      _currentIndex =
+          _imageFiles.indexWhere((f) => f.path == widget.file.encryptedPath);
+
       // Update UI to show navigation controls
       if (mounted) {
         setState(() {});
@@ -152,7 +158,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   /// Navigate to previous image
   Future<void> _previousImage() async {
     if (_imageFiles.isEmpty || _currentIndex <= 0) return;
-    
+
     _secureClearMemory();
     _currentIndex--;
     await _loadImageByIndex(_currentIndex);
@@ -161,7 +167,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   /// Navigate to next image
   Future<void> _nextImage() async {
     if (_imageFiles.isEmpty || _currentIndex >= _imageFiles.length - 1) return;
-    
+
     _secureClearMemory();
     _currentIndex++;
     await _loadImageByIndex(_currentIndex);
@@ -170,9 +176,9 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   /// Load image by index from the image list
   Future<void> _loadImageByIndex(int index) async {
     if (index < 0 || index >= _imageFiles.length) return;
-    
+
     final file = _imageFiles[index];
-    
+
     try {
       setState(() {
         _isLoading = true;
@@ -269,7 +275,9 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   }
 
   String get _currentFileName {
-    if (_imageFiles.isNotEmpty && _currentIndex >= 0 && _currentIndex < _imageFiles.length) {
+    if (_imageFiles.isNotEmpty &&
+        _currentIndex >= 0 &&
+        _currentIndex < _imageFiles.length) {
       return _imageFiles[_currentIndex].name;
     }
     return widget.file.name;
@@ -350,7 +358,8 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
           // Next button
           IconButton(
             icon: const Icon(Icons.navigate_next),
-            onPressed: _currentIndex < _imageFiles.length - 1 ? _nextImage : null,
+            onPressed:
+                _currentIndex < _imageFiles.length - 1 ? _nextImage : null,
             tooltip: 'Next (→)',
           ),
         ],
@@ -396,7 +405,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
       onHorizontalDragEnd: (details) {
         // Swipe left/right to navigate
         if (details.primaryVelocity == null) return;
-        
+
         if (details.primaryVelocity! > 300) {
           // Swipe right -> previous
           _previousImage();

@@ -97,6 +97,36 @@ func CProgressCallbackToGo(cCallback C.CProgressCallback) sec_transfer.ProgressC
 	return goCallback
 }
 
+func CProgressCallbackToGoV3(cCallback C.CProgressCallback) sec_transfer.V3ProgressCallback {
+	if cCallback == nil {
+		return nil
+	}
+
+	return func(event sec_transfer.ProgressEvent) {
+		var cCurrentFile *C.char
+		var cErrorMsg *C.char
+
+		if event.CurrentPath != "" {
+			cCurrentFile = C.CString(event.CurrentPath)
+			defer C.free(unsafe.Pointer(cCurrentFile))
+		}
+
+		if event.Error != nil {
+			cErrorMsg = C.CString(event.Error.Error())
+			defer C.free(unsafe.Pointer(cErrorMsg))
+		}
+
+		C.call_progress_callback(
+			cCallback,
+			cCurrentFile,
+			C.int(event.DoneFiles),
+			C.int(event.TotalFiles),
+			C.int(boolToInt(event.Complete)),
+			cErrorMsg,
+		)
+	}
+}
+
 // boolToInt converts a bool to an int (0 or 1).
 func boolToInt(b bool) int {
 	if b {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"runtime"
 	"unsafe"
 
@@ -74,6 +75,10 @@ func TransferV3RecoverConvert_FFI(rootPath string) string {
 }
 
 func TransferV3ConvertRoot_FFI(rootPath string, password string, kind string) string {
+	return transferV3ConvertRoot(rootPath, password, kind, nil)
+}
+
+func transferV3ConvertRoot(rootPath string, password string, kind string, callback sec_transfer.V3ProgressCallback) string {
 	manager := sec_transfer.GetDefaultTransferV3()
 	convertKind := sec_transfer.ConvertKind(kind)
 	if convertKind == "" {
@@ -84,78 +89,122 @@ func TransferV3ConvertRoot_FFI(rootPath string, password string, kind string) st
 		RootPath:  rootPath,
 		Password:  password,
 		Overwrite: true,
-	}, nil); err != nil {
+	}, callback); err != nil {
 		return errorResponse(err)
 	}
 	return Success()
 }
 
 func TransferV3ImportFile_FFI(rootID int64, srcPath string, destPath string) string {
+	return transferV3ImportFile(context.Background(), rootID, srcPath, destPath, nil)
+}
+
+func transferV3ImportFile(ctx context.Context, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
 	manager := sec_transfer.GetDefaultTransferV3()
-	if err := manager.ImportFile(context.Background(), sec_transfer.ImportFileRequest{
+	if err := manager.ImportFile(ctx, sec_transfer.ImportFileRequest{
 		Source:    sec_fs.FullStorePath(srcPath),
 		DestRoot:  entry.Root,
 		Dest:      sec_fs.RelativeViewPath(destPath),
 		Overwrite: true,
-	}, nil); err != nil {
+	}, callback); err != nil {
 		return errorResponse(err)
 	}
 	return Success()
 }
 
 func TransferV3ImportDirectory_FFI(rootID int64, srcPath string, destPath string) string {
+	return transferV3ImportDirectory(context.Background(), rootID, srcPath, destPath, nil)
+}
+
+func transferV3ImportDirectory(ctx context.Context, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
 	manager := sec_transfer.GetDefaultTransferV3()
-	if err := manager.ImportDirectory(context.Background(), sec_transfer.ImportDirectoryRequest{
+	if err := manager.ImportDirectory(ctx, sec_transfer.ImportDirectoryRequest{
 		Source:    sec_fs.FullStorePath(srcPath),
 		DestRoot:  entry.Root,
 		Dest:      sec_fs.RelativeViewPath(destPath),
 		Overwrite: true,
-	}, nil); err != nil {
+	}, callback); err != nil {
 		return errorResponse(err)
 	}
 	return Success()
 }
 
 func TransferV3ExportFile_FFI(rootID int64, srcPath string, destPath string) string {
+	return transferV3ExportFile(context.Background(), rootID, srcPath, destPath, nil)
+}
+
+func transferV3ExportFile(ctx context.Context, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
 	manager := sec_transfer.GetDefaultTransferV3()
-	if err := manager.ExportFile(context.Background(), sec_transfer.ExportFileRequest{
+	if err := manager.ExportFile(ctx, sec_transfer.ExportFileRequest{
 		SourceRoot: entry.Root,
 		Source:     sec_fs.RelativeViewPath(srcPath),
 		Dest:       sec_fs.FullStorePath(destPath),
 		Overwrite:  true,
-	}, nil); err != nil {
+	}, callback); err != nil {
 		return errorResponse(err)
 	}
 	return Success()
 }
 
 func TransferV3ExportDirectory_FFI(rootID int64, srcPath string, destPath string) string {
+	return transferV3ExportDirectory(context.Background(), rootID, srcPath, destPath, nil)
+}
+
+func transferV3ExportDirectory(ctx context.Context, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
 	}
 	manager := sec_transfer.GetDefaultTransferV3()
-	if err := manager.ExportDirectory(context.Background(), sec_transfer.ExportDirectoryRequest{
+	if err := manager.ExportDirectory(ctx, sec_transfer.ExportDirectoryRequest{
 		SourceRoot: entry.Root,
 		Source:     sec_fs.RelativeViewPath(srcPath),
 		Dest:       sec_fs.FullStorePath(destPath),
 		Overwrite:  true,
-	}, nil); err != nil {
+	}, callback); err != nil {
 		return errorResponse(err)
 	}
 	return Success()
+}
+
+func TransferV3ImportFileWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+	return runtimeOperations.run(operationID, func(ctx context.Context) string {
+		return transferV3ImportFile(ctx, rootID, srcPath, destPath, callback)
+	})
+}
+
+func TransferV3ImportDirectoryWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+	return runtimeOperations.run(operationID, func(ctx context.Context) string {
+		return transferV3ImportDirectory(ctx, rootID, srcPath, destPath, callback)
+	})
+}
+
+func TransferV3ExportFileWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+	return runtimeOperations.run(operationID, func(ctx context.Context) string {
+		return transferV3ExportFile(ctx, rootID, srcPath, destPath, callback)
+	})
+}
+
+func TransferV3ExportDirectoryWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+	return runtimeOperations.run(operationID, func(ctx context.Context) string {
+		return transferV3ExportDirectory(ctx, rootID, srcPath, destPath, callback)
+	})
+}
+
+func TransferV3Cancel_FFI(operationID string) string {
+	return SuccessWithData(map[string]bool{"active": runtimeOperations.cancel(operationID)})
 }
 
 // errorResponse creates an error JSON response.
@@ -219,7 +268,7 @@ type ReadDirResult struct {
 //
 // Supported options:
 //   - configFileName: custom config file name (string)
-//   - ignoreMatcher: ignore matcher configuration (TODO: not implemented yet)
+//   - ignoreMatcher: ignore matcher configuration
 func parseOpenOptions(optionsJSON string) []sec_fs.OpenOption {
 	if optionsJSON == "" {
 		return nil
@@ -233,15 +282,96 @@ func parseOpenOptions(optionsJSON string) []sec_fs.OpenOption {
 	}
 
 	var options []sec_fs.OpenOption
+	configFileName := sec_fs.ConfigFileName
 
 	// Parse configFileName
-	if configFileName, ok := optsMap["configFileName"].(string); ok && configFileName != "" {
-		options = append(options, sec_fs.WithOpenConfigFileName(configFileName))
+	if cfgName, ok := optsMap["configFileName"].(string); ok && cfgName != "" {
+		options = append(options, sec_fs.WithOpenConfigFileName(cfgName))
+		configFileName = cfgName
 	}
 
-	// TODO: Parse ignoreMatcher if needed in the future
+	if matcher := parseIgnoreMatcher(optsMap["ignoreMatcher"], configFileName); matcher != nil {
+		options = append(options, sec_fs.WithIgnoreMatcher(matcher))
+	}
 
 	return options
+}
+
+type ffiIgnoreMatcher struct {
+	configFileName string
+	beforeNames    map[string]struct{}
+	afterNames     map[string]struct{}
+	beforePatterns []string
+	afterPatterns  []string
+}
+
+func parseIgnoreMatcher(raw interface{}, configFileName string) sec_fs.IIgnoreMatcher {
+	rawMap, ok := raw.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	matcher := &ffiIgnoreMatcher{
+		configFileName: configFileName,
+		beforeNames:    makeStringSet(appendStringFields(rawMap, "before", "beforeNames", "beforeExact")),
+		afterNames:     makeStringSet(appendStringFields(rawMap, "after", "afterNames", "afterExact")),
+		beforePatterns: appendStringFields(rawMap, "beforePatterns", "beforeGlob", "beforeGlobs"),
+		afterPatterns:  appendStringFields(rawMap, "afterPatterns", "afterGlob", "afterGlobs"),
+	}
+	if len(matcher.beforeNames) == 0 && len(matcher.afterNames) == 0 &&
+		len(matcher.beforePatterns) == 0 && len(matcher.afterPatterns) == 0 {
+		return nil
+	}
+	return matcher
+}
+
+func appendStringFields(m map[string]interface{}, keys ...string) []string {
+	var out []string
+	for _, key := range keys {
+		switch v := m[key].(type) {
+		case string:
+			if v != "" {
+				out = append(out, v)
+			}
+		case []interface{}:
+			for _, item := range v {
+				if s, ok := item.(string); ok && s != "" {
+					out = append(out, s)
+				}
+			}
+		}
+	}
+	return out
+}
+
+func makeStringSet(values []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		set[value] = struct{}{}
+	}
+	return set
+}
+
+func (m *ffiIgnoreMatcher) ShouldIgnore1(encryptedName string, isDir bool) bool {
+	return m.shouldIgnore(encryptedName, isDir, m.beforeNames, m.beforePatterns)
+}
+
+func (m *ffiIgnoreMatcher) ShouldIgnore2(decryptedName string, isDir bool) bool {
+	return m.shouldIgnore(decryptedName, isDir, m.afterNames, m.afterPatterns)
+}
+
+func (m *ffiIgnoreMatcher) shouldIgnore(name string, isDir bool, names map[string]struct{}, patterns []string) bool {
+	if !isDir && name == m.configFileName {
+		return true
+	}
+	if _, ok := names[name]; ok {
+		return true
+	}
+	for _, pattern := range patterns {
+		if matched, err := filepath.Match(pattern, name); err == nil && matched {
+			return true
+		}
+	}
+	return false
 }
 
 // parseCreateRootOptions parses a JSON string into CreateRootOption slice.
@@ -697,10 +827,10 @@ func ExportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 	return TransferV3ExportDirectory_FFI(rootID, srcPath, destPath)
 }
 
-// ExportDirectoryAsyncWithCallback_FFI is kept for ABI compatibility. V3
-// exposes runtime progress separately; this wrapper executes synchronously.
-func ExportDirectoryAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.ProgressCallback) string {
-	return TransferV3ExportDirectory_FFI(rootID, srcPath, destPath)
+// ExportDirectoryAsyncWithCallback_FFI is kept for ABI compatibility and now
+// bridges runtime V3 progress events to the legacy C callback shape.
+func ExportDirectoryAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+	return transferV3ExportDirectory(context.Background(), rootID, srcPath, destPath, callback)
 }
 
 // ImportDirectoryAsync_FFI is kept for ABI compatibility. It now executes V3
@@ -709,10 +839,10 @@ func ImportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) str
 	return TransferV3ImportDirectory_FFI(rootID, srcPath, destPath)
 }
 
-// ImportDirectoryAsyncWithCallback_FFI is kept for ABI compatibility. V3
-// exposes runtime progress separately; this wrapper executes synchronously.
-func ImportDirectoryAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.ProgressCallback) string {
-	return TransferV3ImportDirectory_FFI(rootID, srcPath, destPath)
+// ImportDirectoryAsyncWithCallback_FFI is kept for ABI compatibility and now
+// bridges runtime V3 progress events to the legacy C callback shape.
+func ImportDirectoryAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+	return transferV3ImportDirectory(context.Background(), rootID, srcPath, destPath, callback)
 }
 
 // ExportFileAsync_FFI is kept for ABI compatibility. It now executes V3
@@ -721,10 +851,10 @@ func ExportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 	return TransferV3ExportFile_FFI(rootID, srcPath, destPath)
 }
 
-// ExportFileAsyncWithCallback_FFI is kept for ABI compatibility. V3 exposes
-// runtime progress separately; this wrapper executes synchronously.
-func ExportFileAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.ProgressCallback) string {
-	return TransferV3ExportFile_FFI(rootID, srcPath, destPath)
+// ExportFileAsyncWithCallback_FFI is kept for ABI compatibility and now
+// bridges runtime V3 progress events to the legacy C callback shape.
+func ExportFileAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+	return transferV3ExportFile(context.Background(), rootID, srcPath, destPath, callback)
 }
 
 // ImportFileAsync_FFI is kept for ABI compatibility. It now executes V3
@@ -733,10 +863,10 @@ func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
 	return TransferV3ImportFile_FFI(rootID, srcPath, destPath)
 }
 
-// ImportFileAsyncWithCallback_FFI is kept for ABI compatibility. V3 exposes
-// runtime progress separately; this wrapper executes synchronously.
-func ImportFileAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.ProgressCallback) string {
-	return TransferV3ImportFile_FFI(rootID, srcPath, destPath)
+// ImportFileAsyncWithCallback_FFI is kept for ABI compatibility and now
+// bridges runtime V3 progress events to the legacy C callback shape.
+func ImportFileAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+	return transferV3ImportFile(context.Background(), rootID, srcPath, destPath, callback)
 }
 
 // GetTransferProgress_FFI is deprecated. V3 import/export does not expose

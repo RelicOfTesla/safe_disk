@@ -30,8 +30,19 @@ class DirectoryService {
   /// [srcPath] - Relative path in secure storage
   /// [destPath] - Full path in normal filesystem
   Future<void> exportDirectory(
-      int rootID, String srcPath, String destPath) async {
-    _native.secTransferV3ExportDirectory(rootID, srcPath, destPath);
+    int rootID,
+    String srcPath,
+    String destPath, {
+    void Function(DirectoryTransferProgress progress)? onProgress,
+    DirectoryTransferCancellationToken? cancellationToken,
+  }) async {
+    await _native.secTransferV3ExportDirectoryWithProgress(
+      rootID,
+      srcPath,
+      destPath,
+      (event) => onProgress?.call(_fromNativeProgress(event)),
+      cancellationToken: cancellationToken?._native,
+    );
   }
 
   /// Imports a directory from normal filesystem to secure storage.
@@ -40,8 +51,19 @@ class DirectoryService {
   /// [srcPath] - Full path in normal filesystem
   /// [destPath] - Relative path in secure storage
   Future<void> importDirectory(
-      int rootID, String srcPath, String destPath) async {
-    _native.secTransferV3ImportDirectory(rootID, srcPath, destPath);
+    int rootID,
+    String srcPath,
+    String destPath, {
+    void Function(DirectoryTransferProgress progress)? onProgress,
+    DirectoryTransferCancellationToken? cancellationToken,
+  }) async {
+    await _native.secTransferV3ImportDirectoryWithProgress(
+      rootID,
+      srcPath,
+      destPath,
+      (event) => onProgress?.call(_fromNativeProgress(event)),
+      cancellationToken: cancellationToken?._native,
+    );
   }
 
   /// Lists unfinished import/export operation markers on this root.
@@ -64,4 +86,95 @@ class DirectoryService {
   Future<void> createDir(int rootID, String path) async {
     _native.secMkdirAll(rootID, path);
   }
+
+  Future<DirectoryTransferResult> decryptDirectory(
+    String srcPath,
+    String destPath,
+    String tempKeyID, {
+    void Function(DirectoryTransferProgress progress)? onProgress,
+    DirectoryTransferCancellationToken? cancellationToken,
+  }) async {
+    final rootID = int.parse(tempKeyID);
+    final relativePath = _cryptoService.relativePathForRoot(rootID, srcPath);
+    var completedFiles = 0;
+    try {
+      await exportDirectory(
+        rootID,
+        relativePath,
+        destPath,
+        onProgress: (progress) {
+          completedFiles = progress.completedFiles;
+          onProgress?.call(progress);
+        },
+        cancellationToken: cancellationToken,
+      );
+      return DirectoryTransferResult(
+        isComplete: true,
+        processedFiles: completedFiles,
+      );
+    } catch (e) {
+      return DirectoryTransferResult(
+        isComplete: false,
+        isFailed: cancellationToken?.isCancelled != true,
+        isCancelled: cancellationToken?.isCancelled == true,
+        processedFiles: 0,
+        error: e.toString(),
+      );
+    }
+  }
+
+  DirectoryTransferProgress _fromNativeProgress(TransferProgressEvent event) {
+    return DirectoryTransferProgress(
+      percent: event.percent,
+      currentFile: event.currentFile,
+      completedFiles: event.completedFiles,
+      totalFiles: event.totalFiles,
+      isComplete: event.isComplete,
+      error: event.errorMessage,
+    );
+  }
+}
+
+class DirectoryTransferProgress {
+  final int percent;
+  final String currentFile;
+  final int completedFiles;
+  final int totalFiles;
+  final bool isComplete;
+  final String? error;
+
+  const DirectoryTransferProgress({
+    required this.percent,
+    required this.currentFile,
+    this.completedFiles = 0,
+    this.totalFiles = 0,
+    this.isComplete = false,
+    this.error,
+  });
+}
+
+class DirectoryTransferCancellationToken {
+  final TransferCancellationToken _native = TransferCancellationToken();
+
+  bool get isActive => _native.isActive;
+  bool get isComplete => _native.isComplete;
+  bool get isCancelled => _native.isCancelled;
+
+  bool cancel() => _native.cancel();
+}
+
+class DirectoryTransferResult {
+  final bool isComplete;
+  final bool isFailed;
+  final bool isCancelled;
+  final int processedFiles;
+  final String? error;
+
+  const DirectoryTransferResult({
+    required this.isComplete,
+    required this.processedFiles,
+    this.isFailed = false,
+    this.isCancelled = false,
+    this.error,
+  });
 }
