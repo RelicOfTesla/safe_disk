@@ -48,9 +48,17 @@ func viewPathToStorePathCheck(rootInfo sec_utils.PathInfo, viewPath RelativeView
 	if err != nil {
 		return "", "", err
 	}
+	storePathInfo, err := sec_utils.ParsePathInfo(string(storePath))
+	if err != nil {
+		return "", "", err
+	}
+	if !allowUnsafe && !isSafeRelativeStorePath(storePathInfo) {
+		return "", "", NewPairPathError("validate", viewPath, FullStorePath(storePath), ErrPathTraversal)
+	}
 
-	// Build the full storage path
-	fullPathInfo := rootInfo.Join(string(storePath))
+	// Join parsed components so separators and parent components cannot be hidden
+	// inside a single PathInfo part.
+	fullPathInfo := rootInfo.Join(storePathInfo.Parts()...)
 	fullPath := FullStorePath(fullPathInfo.Encode())
 
 	// Validate the full path is within the root directory (unless allowUnsafe is true)
@@ -61,6 +69,39 @@ func viewPathToStorePathCheck(rootInfo sec_utils.PathInfo, viewPath RelativeView
 	}
 
 	return storePath, fullPath, nil
+}
+
+func fullPathFromRelativeStorePath(rootInfo sec_utils.PathInfo, storePath RelativeStorePath) (FullStorePath, error) {
+	storePathInfo, err := sec_utils.ParsePathInfo(string(storePath))
+	if err != nil {
+		return "", err
+	}
+	if !isSafeRelativeStorePath(storePathInfo) {
+		return "", ErrPathTraversal
+	}
+	fullPathInfo := rootInfo.Join(storePathInfo.Parts()...)
+	if !rootInfo.ContainsPathInfo(fullPathInfo) {
+		return "", ErrPathTraversal
+	}
+	return FullStorePath(fullPathInfo.Encode()), nil
+}
+
+func isSafeRelativeStorePath(pathInfo sec_utils.PathInfo) bool {
+	if pathInfo == nil {
+		return false
+	}
+	if pathInfo.Encode() == "" {
+		return true
+	}
+	if pathInfo.Type() != sec_utils.PathTypeLocalRelative || pathInfo.Scheme() != "" || pathInfo.Host() != "" {
+		return false
+	}
+	for _, part := range pathInfo.Parts() {
+		if part == "" || part == "." || part == ".." {
+			return false
+		}
+	}
+	return true
 }
 
 // ==================== ISecRoot Interface Methods ====================
@@ -264,15 +305,18 @@ func (r *secRootImpl) RenameByStorePath(oldPath RelativeStorePath, newPath Relat
 		return ErrRootClosed
 	}
 
-	// Convert store paths to full paths using filepath.Join
-	// This correctly handles paths with subdirectories (containing /)
-	rootPath := r.rootPathInfo.Encode()
-	oldFullPath := filepath.Join(rootPath, string(oldPath))
-	newFullPath := filepath.Join(rootPath, string(newPath))
-
-	err := os.Rename(oldFullPath, newFullPath)
+	oldFullPath, err := fullPathFromRelativeStorePath(r.rootPathInfo, oldPath)
 	if err != nil {
-		return NewPairPathError("rename_by_store_path", RelativeViewPath(oldPath), FullStorePath(oldFullPath), err)
+		return NewPairPathError("validate_store_path", RelativeViewPath(oldPath), oldFullPath, err)
+	}
+	newFullPath, err := fullPathFromRelativeStorePath(r.rootPathInfo, newPath)
+	if err != nil {
+		return NewPairPathError("validate_store_path", RelativeViewPath(newPath), newFullPath, err)
+	}
+
+	err = os.Rename(string(oldFullPath), string(newFullPath))
+	if err != nil {
+		return NewPairPathError("rename_by_store_path", RelativeViewPath(oldPath), oldFullPath, err)
 	}
 	return nil
 }

@@ -6,7 +6,7 @@ import 'crypto_service.dart';
 /// **Architecture (Transfer V3)**:
 /// - Uses rootID-based operations
 /// - Directory export/import via V3 FFI functions
-/// - Import/export is synchronous and only keeps unfinished operation markers
+/// - Import/export runs in a worker isolate and only persists unfinished markers
 class DirectoryService {
   final NativeLib _native = NativeLib.instance;
   final CryptoService _cryptoService = CryptoService();
@@ -177,4 +177,42 @@ class DirectoryTransferResult {
     this.isCancelled = false,
     this.error,
   });
+}
+
+String buildDirectoryImportDestination({
+  required String rootPath,
+  required String currentPath,
+  required String sourcePath,
+}) {
+  final root = _normalizeTransferPath(rootPath);
+  final current = _normalizeTransferPath(currentPath);
+  final source = _normalizeTransferPath(sourcePath);
+  if (root.isEmpty || current.isEmpty || source.isEmpty) {
+    throw ArgumentError('Directory import paths must not be empty');
+  }
+  if (current != root && !current.startsWith('$root/')) {
+    throw StateError('Current path is outside the open root');
+  }
+  final sourceName = source.split('/').last;
+  if (sourceName.isEmpty) {
+    throw ArgumentError('Source directory must have a name');
+  }
+  final currentRelative =
+      current == root ? '' : current.substring(root.length + 1);
+  return currentRelative.isEmpty ? sourceName : '$currentRelative/$sourceName';
+}
+
+bool isPathInsideDirectory(String path, String directory) {
+  final normalizedPath = _normalizeTransferPath(path);
+  final normalizedDirectory = _normalizeTransferPath(directory);
+  return normalizedPath == normalizedDirectory ||
+      normalizedPath.startsWith('$normalizedDirectory/');
+}
+
+String _normalizeTransferPath(String path) {
+  var normalized = path.trim().replaceAll('\\', '/');
+  while (normalized.length > 1 && normalized.endsWith('/')) {
+    normalized = normalized.substring(0, normalized.length - 1);
+  }
+  return normalized;
 }

@@ -4,6 +4,7 @@
 package hkdf
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -95,13 +96,10 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 		// Use static salt
 		salt = []byte(crypto_hkdf.STATIC_SALT)
 	} else {
-		// For HKDF, when not using static salt, generate a random one
-		// Note: HKDF can also use a fixed salt for deterministic derivation
-		saltLength := 16
-		salt = make([]byte, saltLength)
-		// Using a simple counter or timestamp as salt for variety
-		// For deterministic derivation, use StaticSalt = true
-		salt = []byte(crypto_hkdf.STATIC_SALT)
+		salt = make([]byte, 16)
+		if _, err := rand.Read(salt); err != nil {
+			return nil, fmt.Errorf("failed to generate salt: %w", err)
+		}
 	}
 
 	// Derive key using HKDF

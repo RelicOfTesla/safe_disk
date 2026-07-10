@@ -21,6 +21,30 @@
 
 ## 🔴 P0 - 紧急任务
 
+### [已修复] 新 root 的 KDF 与 salt 不确定
+
+**问题**：未显式指定 KDF 时曾从无序 registry map 取首项，可能随机选择到 HKDF；`CreateRootConfigQuick` 同时使用静态 salt，使相同密码跨 root 派生相同主密钥。
+
+**修复（2026-07-12）**：
+- [x] 默认算法固定为 `aes-ctr + none + argon2id`
+- [x] 四种 KDF 新 root 均使用独立随机 salt
+- [x] HKDF 非静态模式修复为真实随机 salt
+- [x] 打开 root 严格按配置 factory，不再猜测缺失字段
+- [x] sec 测试覆盖全部 KDF salt 隔离，Dart 真 FFI 覆盖 CLI/FFI 默认与跨入口 salt 隔离
+
+### [已修复] Flutter import 后错误密码可进入空目录
+
+**问题**：`OpenRootQuick` 只派生 key、不认证密码；错误 key 导致文件名解密失败，walker 跳过失败项，Flutter 因而显示空目录。
+
+**修复（2026-07-10）**：
+- [x] sec 创建 root 时写入版本化随机 challenge + HMAC-SHA256 password verifier
+- [x] sec 打开 root 时先常量时间认证密码，再构造 root
+- [x] 无 verifier 的旧配置失败关闭，不做不可靠自动迁移
+- [x] FFI 失败时不分配 rootID、不泄漏 `RootStore` 对象
+- [x] sec 覆盖全部已注册 KDF；CLI、FFI、Dart 真库覆盖错误密码
+- [x] Dart 真库精确覆盖“目录 import 后关闭，错误密码重开失败，正确密码仍可读取内容”
+- [x] CLI/Dart 创建目录双向互通测试同时覆盖错误密码拒绝
+
 ### [CLI/Transfer V3] 补齐 create、安全密码输入和未完成操作感知
 
 **优先级**：1（最高）
@@ -28,6 +52,8 @@
 **背景**：CLI 当前只有 `version/list/import/export` 基础能力，缺少创建 root、安全密码输入、打开 root 时的 unfinished operation 检查。完整设计见 [CLI_DESIGN.md](CLI_DESIGN.md) 和 [TRANSFER_DESIGN.md](TRANSFER_DESIGN.md)。
 
 **底层前置任务**：
+- [x] 删除活跃 `sec_transfer/v2`、旧 task 公共接口和 FFI/Dart v1/v2 兼容符号；历史仅保留在受保护 archive
+- [x] V3 实现未注册时返回 `ErrTransferV3NotRegistered`，不在公共 API 边界 panic
 - [x] 重新设计 `sec_transfer` V3，不兼容 v1/v2 task/progress 持久化模型
 - [x] import/export 增加 operation marker：开始写入，成功清理，中断后可被 open root 发现
 - [x] import/export 只做运行时进度 callback，不做进度持久化和断点续传
@@ -87,7 +113,7 @@
 
 ### [已废弃/非主线] 旧 TransferService V2 进度持久化方案
 
-**状态**：不再作为当前主线实现。当前 import/export/convert 以 Transfer V3 为准，详见 [TRANSFER_DESIGN.md](TRANSFER_DESIGN.md)。V3 明确不做 import/export 进度持久化和断点续传，只保留 unfinished operation marker；convert 使用 phase marker 和 work/backup 目录切换恢复。
+**状态**：已从活跃源码和 FFI/Dart 公共面删除。当前 import/export/convert 只使用 Transfer V3，历史实现仅保留在受保护 archive 供审计。
 
 **历史背景**：旧 TransferService 曾计划支持断电恢复、幂等性、数据安全。
 
@@ -173,6 +199,11 @@ Step 6: 返回 Step 2 处理下一个文件
   - [x] 只维护进程内 operation cancel handle，不引入 task/progress 持久化
   - [x] Go 在扫描、复制和原子提交前检查 context，结束后清理 handle
   - [x] FFI/Dart 暴露 cancel；测试覆盖 callback 生命周期、marker 保留、重复取消和 UI 拒绝过早关闭
+- [x] **Flutter 目录导入入口接入 Transfer V3**（2026-07-10）
+  - [x] 所选目录作为当前加密目录的子目录导入，已有目标需确认合并覆盖
+  - [x] 接入 worker isolate 进度与纯运行时取消
+  - [x] 拒绝选择当前加密 root 或其子目录；V3 排除嵌套 root 和保留空目录
+  - [x] sec/FFI/Dart/widget 测试覆盖加密目录名、空目录、符号链接拒绝和目标路径
 - [x] 创建新加密目录后，没有添加到侧边栏 ✅ 2026-04-03
   - 修改 `_createEncryptedDirectory()` 方法，成功后自动调用 `_loadDirectory(selectedPath)`
   - 自动打开新创建的加密目录，从而自动添加到侧边栏
@@ -526,7 +557,7 @@ Step 6: 返回 Step 2 处理下一个文件
     - 删除备份：`os.Remove("file1.txt.bak")`
     - **错误**：`root.DeleteFile("file1.txt")` 又删除了明文文件！
   - **修复**：只有当没有备份时，才删除原始文件
-  - **修改文件**：`native/sec_fs/sec_transfer/v2/atomic_file.go`
+  - **历史文件**：旧 `native/sec_fs/sec_transfer/v2/atomic_file.go` 已随 v2 从活跃源码删除
   - **验证**：加密/解密功能正常，文件存在且内容正确
 
 ---

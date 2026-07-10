@@ -382,8 +382,9 @@ func TestOpenRootRecoversConvertRenameWindow(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	rootPath := filepath.Join(tmpDir, "root")
-	workPath := rootPath + ".safe_disk.work.test"
-	backupPath := rootPath + ".safe_disk.backup.test"
+	opID := "test-convert-recover"
+	workPath := rootPath + ".safe_disk.work." + opID
+	backupPath := rootPath + ".safe_disk.backup." + opID
 	password := "convert-recover-password"
 	if err := os.MkdirAll(workPath, 0755); err != nil {
 		t.Fatalf("Failed to create work dir: %v", err)
@@ -409,7 +410,7 @@ func TestOpenRootRecoversConvertRenameWindow(t *testing.T) {
 	root.Close()
 	writeTestMarker(t, backupPath, sec_transfer.OperationMarker{
 		Version:   3,
-		OpID:      "test-convert-recover",
+		OpID:      opID,
 		Type:      sec_transfer.OperationConvertEncrypt,
 		Status:    "running",
 		Phase:     "renaming_work_to_root",
@@ -433,7 +434,40 @@ func TestOpenRootRecoversConvertRenameWindow(t *testing.T) {
 	if _, err := os.Stat(workPath); !os.IsNotExist(err) {
 		t.Fatalf("expected work path to be moved into root, stat err: %v", err)
 	}
-	assertNoTestMarker(t, backupPath, "test-convert-recover")
+	assertNoTestMarker(t, backupPath, opID)
+}
+
+func TestOpenRootCleansIncompleteConvertWorkBeforeOpening(t *testing.T) {
+	tmpDir := t.TempDir()
+	rootPath := filepath.Join(tmpDir, "root")
+	opID := "test-convert-copy"
+	workPath := rootPath + ".safe_disk.work." + opID
+	backupPath := rootPath + ".safe_disk.backup." + opID
+	password := "convert-copy-password"
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(rootPath), password); err != nil {
+		t.Fatalf("Failed to create source root: %v", err)
+	}
+	if err := os.MkdirAll(workPath, 0755); err != nil {
+		t.Fatalf("Failed to create incomplete work: %v", err)
+	}
+	writeTestMarker(t, rootPath, sec_transfer.OperationMarker{
+		Version: 3, OpID: opID, Type: sec_transfer.OperationConvertEncrypt, Status: "running",
+		Phase: "copying_to_work", Root: rootPath, Work: workPath, Backup: backupPath,
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	})
+
+	cmd := exec.Command("../safe-disk-test", "list", "--password", password, "--path", rootPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("list should clean safe incomplete convert state: %v\nOutput: %s", err, output)
+	}
+	if !strings.Contains(string(output), "Found unfinished convert operation") {
+		t.Fatalf("expected recovery notice, got: %s", output)
+	}
+	if _, err := os.Stat(workPath); !os.IsNotExist(err) {
+		t.Fatalf("expected incomplete work to be removed, stat err: %v", err)
+	}
+	assertNoTestMarker(t, rootPath, opID)
 }
 
 func writeTestMarker(t *testing.T, rootPath string, marker sec_transfer.OperationMarker) {

@@ -54,6 +54,10 @@ var (
 	// ErrInvalidPassword indicates that the provided password is invalid.
 	ErrInvalidPassword = errors.New("invalid password")
 
+	// ErrPasswordVerifierMissing indicates that the root predates password
+	// authentication and cannot safely validate a supplied password.
+	ErrPasswordVerifierMissing = errors.New("password verifier missing")
+
 	// ErrInvalidConfig indicates that the configuration is invalid.
 	ErrInvalidConfig = errors.New("invalid configuration")
 
@@ -86,7 +90,6 @@ var (
 
 	// ErrWalkerClosed indicates that the directory walker is closed.
 	ErrWalkerClosed = errors.New("walker is closed")
-
 
 	// ErrNotConfigFile indicates that the config file is missing or invalid.
 	ErrNotConfigFile = errors.New("config file not found or invalid")

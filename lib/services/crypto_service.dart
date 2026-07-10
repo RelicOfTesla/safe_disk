@@ -274,6 +274,8 @@ class DirEntry {
   final String name;
   final bool isDir;
   final int size;
+
+  /// Modification time in Unix seconds.
   final int modTime;
   final int mode;
   final String path;

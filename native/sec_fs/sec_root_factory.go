@@ -20,8 +20,16 @@ import (
 
 // ==================== Constants ====================
 
-// ConfigFileName is the name of the configuration file in the root directory.
-const ConfigFileName = "_cryption.json"
+const (
+	// ConfigFileName is the name of the configuration file in the root directory.
+	ConfigFileName = "_cryption.json"
+
+	// Defaults are explicit so registry map iteration can never select security
+	// algorithms nondeterministically.
+	DefaultDataFactoryName    = "aes-ctr"
+	DefaultNameFactoryName    = "none"
+	DefaultDeriverFactoryName = "argon2id"
+)
 
 // ==================== CreateRootOptions ====================
 
@@ -391,6 +399,10 @@ func createRootConfig(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, opti
 		}
 	}
 
+	if err := writePasswordVerifier(cfg, keyInfo.GetKey()); err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
 }
 
@@ -493,42 +505,18 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 		}
 	}
 
-	// Create deriver and key
-	var keyInfo crypto_hkdf.IKeyInfo
-	if deriverFactory != nil {
-		deriver, err := deriverFactory.NewDeriver(cfg)
-		if err != nil {
-			return nil, "", NewConfigError("sec_deriver_factory", "failed to create deriver", err)
-		}
-
-		// Create new key with password
-		keyInfo, err = deriver.NewKey(&crypto_hkdf.MakeKeyParams{
-			Password:      password,
-			StaticSalt:    true,
-			KeyStrengthMs: opts.KeyStrengthMs,
-			KeyLength:     requiredKeyLength,
-		}, cfg)
-		if err != nil {
-			return nil, "", NewConfigError("key_derivation", "failed to create key", err)
-		}
-	} else {
-		// Fallback: use global registry
-		deriverNames := crypto_hkdf.ListKeyDerivers()
-		if len(deriverNames) == 0 {
-			return nil, "", NewConfigError("key_deriver", "no key deriver registered", nil)
-		}
-		keyDeriver := crypto_hkdf.GetKeyDeriver(deriverNames[0])
-
-		// Create new key with password
-		keyInfo, err = keyDeriver.NewKey(&crypto_hkdf.MakeKeyParams{
-			Password:      password,
-			StaticSalt:    true,
-			KeyStrengthMs: opts.KeyStrengthMs,
-			KeyLength:     requiredKeyLength,
-		}, cfg)
-		if err != nil {
-			return nil, "", NewConfigError("key_derivation", "failed to create key", err)
-		}
+	deriver, err := deriverFactory.NewDeriver(cfg)
+	if err != nil {
+		return nil, "", NewConfigError("sec_deriver_factory", "failed to create deriver", err)
+	}
+	keyInfo, err := deriver.NewKey(&crypto_hkdf.MakeKeyParams{
+		Password:      password,
+		StaticSalt:    false,
+		KeyStrengthMs: opts.KeyStrengthMs,
+		KeyLength:     requiredKeyLength,
+	}, cfg)
+	if err != nil {
+		return nil, "", NewConfigError("key_derivation", "failed to create key", err)
 	}
 
 	// Create nameCryptor and save its parameters if available
@@ -537,6 +525,13 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 		if err != nil {
 			// Non-fatal: name encryption may work with defaults
 		}
+	}
+
+	if keyInfo == nil {
+		return nil, "", NewConfigError("key_derivation", "derived key is required", ErrInvalidConfig)
+	}
+	if err := writePasswordVerifier(cfg, keyInfo.GetKey()); err != nil {
+		return nil, "", err
 	}
 
 	return cfg, rootPath, nil
@@ -585,26 +580,18 @@ func OpenRootQuick(rootPath FullStorePath, inputPassword string, options ...Open
 		return nil, err
 	}
 
-	// Create deriver from factory
-	var keyDeriver crypto_hkdf.IKeyDeriver
-	if deriverFactory != nil {
-		keyDeriver, err = deriverFactory.NewDeriver(cfg)
-		if err != nil {
-			return nil, NewConfigError("sec_deriver_factory", "failed to create deriver", err)
-		}
-	} else {
-		// Fallback: use global registry
-		deriverNames := crypto_hkdf.ListKeyDerivers()
-		if len(deriverNames) == 0 {
-			return nil, NewConfigError("key_deriver", "no key deriver registered", nil)
-		}
-		keyDeriver = crypto_hkdf.GetKeyDeriver(deriverNames[0])
+	keyDeriver, err := deriverFactory.NewDeriver(cfg)
+	if err != nil {
+		return nil, NewConfigError("sec_deriver_factory", "failed to create deriver", err)
 	}
 
 	// Derive key from password
 	keyInfo, err := keyDeriver.LoadKey(inputPassword, cfg)
 	if err != nil {
 		return nil, NewConfigError("key_derivation", "failed to derive key", err)
+	}
+	if err := verifyPassword(cfg, keyInfo.GetKey()); err != nil {
+		return nil, err
 	}
 
 	// Open root with derived keyInfo
@@ -724,10 +711,12 @@ func getCreateFactories(cfg config.SharedConfig, opts *CreateRootOptions) (
 			dataFactory = crypto_data.GetFactory(factoryName)
 		}
 		if dataFactory == nil {
-			// Use default (first available)
-			factoryNames := crypto_data.ListFactories()
-			if len(factoryNames) > 0 {
-				dataFactory = crypto_data.GetFactory(factoryNames[0])
+			dataFactory = crypto_data.GetFactory(DefaultDataFactoryName)
+			if dataFactory == nil {
+				factoryNames := crypto_data.ListFactories()
+				if len(factoryNames) == 1 {
+					dataFactory = crypto_data.GetFactory(factoryNames[0])
+				}
 			}
 		}
 	}
@@ -745,10 +734,12 @@ func getCreateFactories(cfg config.SharedConfig, opts *CreateRootOptions) (
 			nameFactory = crypto_name.GetNameFactory(factoryName)
 		}
 		if nameFactory == nil {
-			// Use default (first available)
-			factoryNames := crypto_name.ListNameFactories()
-			if len(factoryNames) > 0 {
-				nameFactory = crypto_name.GetNameFactory(factoryNames[0])
+			nameFactory = crypto_name.GetNameFactory(DefaultNameFactoryName)
+			if nameFactory == nil {
+				factoryNames := crypto_name.ListNameFactories()
+				if len(factoryNames) == 1 {
+					nameFactory = crypto_name.GetNameFactory(factoryNames[0])
+				}
 			}
 		}
 	}
@@ -766,14 +757,25 @@ func getCreateFactories(cfg config.SharedConfig, opts *CreateRootOptions) (
 			deriverFactory = crypto_hkdf.GetDeriverFactory(factoryName)
 		}
 		if deriverFactory == nil {
-			// Use default (first available)
-			factoryNames := crypto_hkdf.ListDeriverFactories()
-			if len(factoryNames) > 0 {
-				deriverFactory = crypto_hkdf.GetDeriverFactory(factoryNames[0])
+			deriverFactory = crypto_hkdf.GetDeriverFactory(DefaultDeriverFactoryName)
+			if deriverFactory == nil {
+				factoryNames := crypto_hkdf.ListDeriverFactories()
+				if len(factoryNames) == 1 {
+					deriverFactory = crypto_hkdf.GetDeriverFactory(factoryNames[0])
+				}
 			}
 		}
 	}
 
+	if dataFactory == nil {
+		return nil, nil, nil, NewConfigError("sec_fs_factory", "default data factory is not registered", ErrInvalidConfig)
+	}
+	if nameFactory == nil {
+		return nil, nil, nil, NewConfigError("sec_name_factory", "default name factory is not registered", ErrInvalidConfig)
+	}
+	if deriverFactory == nil {
+		return nil, nil, nil, NewConfigError("sec_deriver_factory", "default key deriver is not registered", ErrInvalidConfig)
+	}
 	return dataFactory, nameFactory, deriverFactory, nil
 }
 
@@ -784,46 +786,31 @@ func getOpenFactories(cfg config.SharedConfig) (
 	crypto_hkdf.IDeriverFactory,
 	error,
 ) {
-	// Get file data factory from config
-	var dataFactory crypto_data.ICryptoDataFactory
 	factoryName, err := cfg.GetStr("sec_fs_factory")
-	if err == nil && factoryName != "" {
-		dataFactory = crypto_data.GetFactory(factoryName)
+	if err != nil || factoryName == "" {
+		return nil, nil, nil, NewConfigError("sec_fs_factory", "data factory is missing", ErrInvalidConfig)
 	}
+	dataFactory := crypto_data.GetFactory(factoryName)
 	if dataFactory == nil {
-		// Use default (first available)
-		factoryNames := crypto_data.ListFactories()
-		if len(factoryNames) > 0 {
-			dataFactory = crypto_data.GetFactory(factoryNames[0])
-		}
+		return nil, nil, nil, NewConfigError("sec_fs_factory", "data factory is not registered: "+factoryName, ErrInvalidConfig)
 	}
 
-	// Get name factory from config
-	var nameFactory crypto_name.ICryptoNameFactory
 	nameFactoryName, err := cfg.GetStr("sec_name_factory")
-	if err == nil && nameFactoryName != "" {
-		nameFactory = crypto_name.GetNameFactory(nameFactoryName)
+	if err != nil || nameFactoryName == "" {
+		return nil, nil, nil, NewConfigError("sec_name_factory", "name factory is missing", ErrInvalidConfig)
 	}
+	nameFactory := crypto_name.GetNameFactory(nameFactoryName)
 	if nameFactory == nil {
-		// Use default (first available)
-		nameFactoryNames := crypto_name.ListNameFactories()
-		if len(nameFactoryNames) > 0 {
-			nameFactory = crypto_name.GetNameFactory(nameFactoryNames[0])
-		}
+		return nil, nil, nil, NewConfigError("sec_name_factory", "name factory is not registered: "+nameFactoryName, ErrInvalidConfig)
 	}
 
-	// Get deriver factory from config
-	var deriverFactory crypto_hkdf.IDeriverFactory
 	deriverFactoryName, err := cfg.GetStr("sec_deriver_factory")
-	if err == nil && deriverFactoryName != "" {
-		deriverFactory = crypto_hkdf.GetDeriverFactory(deriverFactoryName)
+	if err != nil || deriverFactoryName == "" {
+		return nil, nil, nil, NewConfigError("sec_deriver_factory", "key deriver is missing", ErrInvalidConfig)
 	}
+	deriverFactory := crypto_hkdf.GetDeriverFactory(deriverFactoryName)
 	if deriverFactory == nil {
-		// Use default (first available)
-		deriverFactoryNames := crypto_hkdf.ListDeriverFactories()
-		if len(deriverFactoryNames) > 0 {
-			deriverFactory = crypto_hkdf.GetDeriverFactory(deriverFactoryNames[0])
-		}
+		return nil, nil, nil, NewConfigError("sec_deriver_factory", "key deriver is not registered: "+deriverFactoryName, ErrInvalidConfig)
 	}
 
 	return dataFactory, nameFactory, deriverFactory, nil

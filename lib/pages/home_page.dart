@@ -17,6 +17,7 @@ import '../widgets/progress_dialog.dart';
 import '../widgets/welcome_screen.dart';
 import '../widgets/password_prompt.dart';
 import '../widgets/file_browser.dart';
+import '../widgets/import_actions.dart';
 import 'dialogs.dart';
 
 export '../models/view_mode.dart';
@@ -237,13 +238,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _loadCurrentPath() async {
-    if (_currentPath == null) return;
+  Future<bool> _loadCurrentPath() async {
+    if (_currentPath == null || !mounted) return false;
     setState(() => _isLoading = true);
 
     try {
       final items = await _fileService.listCurrentDirectory(_currentPath!);
-      setState(() => _items = items);
+      if (mounted) setState(() => _items = items);
+      return true;
     } catch (e) {
       if (mounted) {
         ErrorHelper.showError(
@@ -252,8 +254,9 @@ class _HomePageState extends State<HomePage> {
           originalError: e.toString(),
         );
       }
+      return false;
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -279,7 +282,10 @@ class _HomePageState extends State<HomePage> {
         if (index >= 0) _openedDirs[index] = _currentDir!;
       });
 
-      if (mounted) {
+      final loaded = await _loadCurrentPath();
+      if (!mounted) return false;
+
+      if (loaded) {
         ErrorHelper.showSuccess(context, '密码验证成功');
       }
       return true;
@@ -551,6 +557,104 @@ class _HomePageState extends State<HomePage> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _importDirectory() async {
+    if (!_validateSession()) return;
+
+    final sourcePath = await getDirectoryPath();
+    if (sourcePath == null || !mounted) return;
+    if (isPathInsideDirectory(sourcePath, _currentDir!.path)) {
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.importDirectoryFailed,
+        originalError: 'Source directory is inside the encrypted root',
+      );
+      return;
+    }
+
+    final destPath = buildDirectoryImportDestination(
+      rootPath: _currentDir!.path,
+      currentPath: _currentPath!,
+      sourcePath: sourcePath,
+    );
+    final sourceName = destPath.split('/').last;
+    if (_items.any((item) => item.name == sourceName)) {
+      final merge = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('目标已存在'),
+          content: Text('“$sourceName” 已存在。继续导入会合并目录并覆盖同名文件。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('继续导入'),
+            ),
+          ],
+        ),
+      );
+      if (merge != true || !mounted) return;
+    }
+
+    final rootID = int.parse(_currentDir!.tempKeyID!);
+    final cancellationToken = DirectoryTransferCancellationToken();
+    var completedFiles = 0;
+    late final ProgressController progressController;
+    progressController = ProgressHelper.showProgressDialog(
+      context,
+      title: '导入目录',
+      total: 100,
+      status: '正在准备导入...',
+      onCancel: () {
+        final accepted = cancellationToken.cancel();
+        if (!accepted) {
+          progressController.update(status: '正在准备，暂时无法取消...');
+        }
+        return accepted;
+      },
+    );
+
+    try {
+      await _directoryService.importDirectory(
+        rootID,
+        sourcePath,
+        destPath,
+        cancellationToken: cancellationToken,
+        onProgress: (progress) {
+          completedFiles = progress.completedFiles;
+          progressController.update(
+            current: progress.percent,
+            currentFileName: progress.currentFile,
+            status: '正在导入...',
+          );
+        },
+      );
+      if (mounted && !progressController.isCancelled) {
+        progressController.close(context);
+      }
+      if (!mounted) return;
+      await _loadCurrentPath();
+      if (mounted) {
+        ErrorHelper.showSuccess(context, '目录导入完成：$completedFiles 个文件');
+      }
+    } catch (e) {
+      if (mounted && !progressController.isCancelled) {
+        progressController.close(context);
+      }
+      if (mounted && cancellationToken.isCancelled) {
+        ErrorHelper.showInfo(context, '导入已取消，可在下次打开目录时清理未完成状态');
+      } else if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.importDirectoryFailed,
+          originalError: e.toString(),
+        );
+      }
     }
   }
 
@@ -869,10 +973,9 @@ class _HomePageState extends State<HomePage> {
 
   List<Widget> _buildNormalActions() {
     return [
-      IconButton(
-        icon: const Icon(Icons.upload_file),
-        onPressed: _importFile,
-        tooltip: 'Import File',
+      ImportActions(
+        onImportFile: _importFile,
+        onImportDirectory: _importDirectory,
       ),
       IconButton(
         icon: Icon(

@@ -37,7 +37,7 @@ type PathInfo interface {
 	Dir() PathInfo
 	// ContainsPath checks if the given path is contained within this path.
 	ContainsPath(otherPath string) bool
-	// TODO:
+	// ContainsPathInfo is ContainsPath 的已解析路径版本。
 	ContainsPathInfo(otherPath PathInfo) bool
 	// ReplaceParts creates a new PathInfo with replaced path parts.
 	ReplaceParts(newParts []string) PathInfo

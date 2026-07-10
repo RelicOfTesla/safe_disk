@@ -1,6 +1,4 @@
-// Package main provides FFI adapter layer for sec_fs and Transfer V3.
-// This file implements CGO callback mechanism for converting C function pointers
-// to Go ProgressCallback functions.
+// Package main provides the Transfer V3 CGO progress callback adapter.
 package main
 
 /*
@@ -44,58 +42,6 @@ import (
 
 	"safe_disk/native/sec_fs/sec_transfer"
 )
-
-// ==================== C to Go Callback Conversion ====================
-
-// CProgressCallbackToGo converts a C function pointer to a Go ProgressCallback.
-// It returns a wrapper ID that should be used to unregister the callback when done.
-//
-// Usage:
-//
-//	// In C code, pass the callback function pointer
-//	CProgressCallback myCallback = &my_progress_handler;
-//	// In Go code, convert to Go callback
-//	goCallback, id := CProgressCallbackToGo(myCallback);
-//	// Use the callback
-//	transfer.ExportDirectoryAsync(root, src, dest, goCallback);
-//	// When done, unregister (optional - auto-unregistered on completion)
-//	UnregisterCallback(id);
-func CProgressCallbackToGo(cCallback C.CProgressCallback) sec_transfer.ProgressCallback {
-	if cCallback == nil {
-		return nil
-	}
-
-	// Create a Go callback wrapper
-	goCallback := func(status sec_transfer.ITransferProgress) {
-
-		// Convert Go strings to C strings
-		var cCurrentFile *C.char
-		var cErrorMsg *C.char
-
-		if status.GetCurrentFile() != "" {
-			cCurrentFile = C.CString(status.GetCurrentFile())
-			defer C.free(unsafe.Pointer(cCurrentFile))
-		}
-
-		if err := status.GetError(); err != nil {
-			cErrorMsg = C.CString(err.Error())
-			defer C.free(unsafe.Pointer(cErrorMsg))
-		}
-
-		// Call the C callback via the helper function
-		C.call_progress_callback(
-			cCallback,
-			cCurrentFile,
-			C.int(status.GetCompleted()),
-			C.int(status.GetTotal()),
-			C.int(boolToInt(status.IsComplete())),
-			cErrorMsg,
-		)
-
-	}
-
-	return goCallback
-}
 
 func CProgressCallbackToGoV3(cCallback C.CProgressCallback) sec_transfer.V3ProgressCallback {
 	if cCallback == nil {

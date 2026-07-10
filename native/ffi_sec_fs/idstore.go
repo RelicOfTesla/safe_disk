@@ -49,6 +49,13 @@ func (s *IDStore[T]) Remove(id int64) bool {
 	return false
 }
 
+// Len returns the number of currently stored items.
+func (s *IDStore[T]) Len() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.items)
+}
+
 ////
 
 type KeyValueMap[K comparable, V any] struct {

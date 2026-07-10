@@ -247,7 +247,7 @@ class NativeLib {
       final data = _parseJson(result);
       _checkResult(data, 'secReadDir');
 
-      final entries = data['data']['entries'] as List;
+      final entries = data['data']['entries'] as List? ?? const [];
       return entries.cast<Map<String, dynamic>>();
     } finally {
       calloc.free(pathPtr);

@@ -6,15 +6,16 @@
 //	import _ "safe_disk/native/sec_fs/crypto_all"
 //
 // This will automatically register:
-// - Data encryption: RC4, AES-GCM
-// - Name encryption: RC4, AES-GCM
-// - Key derivation: PBKDF2
+// - Data encryption: AES-CTR, AES-XTS, ChaCha20, RC4
+// - Name encryption: AES-GCM, RC4, none
+// - Key derivation: Argon2id, PBKDF2, scrypt, HKDF
 package crypto_all
 
 import (
 	// Data encryption algorithms
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_ctr"
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_xts"
+	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/chacha20"
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/rc4"
 
 	// Name encryption algorithms

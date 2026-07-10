@@ -5,7 +5,9 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe_disk/native/native_lib.dart';
+import 'package:safe_disk/services/crypto_service.dart';
 import 'package:safe_disk/services/directory_service.dart';
+import 'package:safe_disk/services/file_service.dart';
 
 void main() {
   final ffiLibrary = Platform.environment['SAFE_DISK_FFI_LIBRARY'];
@@ -30,10 +32,12 @@ void main() {
       final outPath = '${tmp.path}/out';
       await Directory(rootPath).create(recursive: true);
       await Directory('$plainPath/nested').create(recursive: true);
+      await Directory('$plainPath/nested/空目录').create(recursive: true);
       await File('$plainPath/nested/source.txt')
           .writeAsString('transfer content');
 
       final native = NativeLib.instance;
+      final cryptoService = CryptoService();
       const password = 'dart-ffi-password';
       final options = jsonEncode({
         'dataFactory': 'aes-ctr',
@@ -41,10 +45,20 @@ void main() {
       });
 
       native.secCreateRootConfig(rootPath, password, options);
-      final rootID = native.secRootOpen(rootPath, password, '');
+      expect(
+        () => native.secRootOpen(rootPath, 'wrong-password', ''),
+        throwsA(
+          isA<Exception>().having(
+            (error) => error.toString(),
+            'message',
+            contains('invalid password'),
+          ),
+        ),
+      );
+      final rootID = cryptoService.openRoot(rootPath, password, '');
       addTearDown(() {
         try {
-          native.secRootClose(rootID);
+          cryptoService.closeRoot(rootID);
         } catch (_) {
           // The root may already be closed by the assertion path.
         }
@@ -57,6 +71,11 @@ void main() {
 
       final entries = native.secReadDir(rootID, '目录');
       expect(entries.map((entry) => entry['name']), contains('文件.txt'));
+
+      final uiEntries =
+          await FileService().listCurrentDirectory('$rootPath/目录');
+      expect(uiEntries.map((entry) => entry.name), contains('文件.txt'));
+      expect(uiEntries.single.modifiedTime, isNotNull);
 
       final rootDiskNames = await Directory(rootPath)
           .list()
@@ -86,6 +105,7 @@ void main() {
       expect(importProgress.last.isComplete, isTrue);
       expect(importProgress.last.totalFiles, 1);
       expect(importProgress.last.completedFiles, 1);
+      expect(native.secReadDir(rootID, '导入/nested/空目录'), isEmpty);
 
       final exportProgress = <DirectoryTransferProgress>[];
       await directoryService.exportDirectory(
@@ -100,6 +120,7 @@ void main() {
       expect(exportProgress.last.completedFiles, 1);
       expect(await File('$outPath/nested/source.txt').readAsString(),
           'transfer content');
+      expect(await Directory('$outPath/nested/空目录').exists(), isTrue);
 
       final noCallbackOutPath = '${tmp.path}/out-no-callback';
       final noCallbackEventLoopTurn = Completer<void>();
@@ -219,6 +240,20 @@ void main() {
       ).timeout(const Duration(seconds: 60));
       expect(cliCreate.exitCode, 0,
           reason: '${cliCreate.stdout}\n${cliCreate.stderr}');
+      final cliConfig = jsonDecode(
+        await File('$cliRoot/_cryption.json').readAsString(),
+      ) as Map<String, dynamic>;
+      expect(cliConfig['sec_deriver_factory'], 'argon2id');
+      expect(
+        () => native.secRootOpen(cliRoot, 'wrong-password', ''),
+        throwsA(
+          isA<Exception>().having(
+            (error) => error.toString(),
+            'message',
+            contains('invalid password'),
+          ),
+        ),
+      );
       final cliRootID = native.secRootOpen(cliRoot, password, '');
       native.secMkdirAll(cliRootID, 'dart-dir');
       native.secQuickWriteFile(cliRootID, 'dart-dir/from-dart.txt',
@@ -235,6 +270,30 @@ void main() {
         ffiRoot,
         password,
         jsonEncode({'dataFactory': 'aes-ctr', 'nameFactory': 'none'}),
+      );
+      final ffiConfig = jsonDecode(
+        await File('$ffiRoot/_cryption.json').readAsString(),
+      ) as Map<String, dynamic>;
+      expect(ffiConfig['sec_deriver_factory'], 'argon2id');
+      expect(
+        ffiConfig['argon2_salt'],
+        isNot(cliConfig['argon2_salt']),
+        reason: 'CLI and FFI roots using one password need independent salts',
+      );
+      final cliWrongPassword = await Process.run(
+        cliBin,
+        [
+          'list',
+          '--password',
+          'wrong-password',
+          '--path',
+          ffiRoot,
+        ],
+      ).timeout(const Duration(seconds: 60));
+      expect(cliWrongPassword.exitCode, isNot(0));
+      expect(
+        '${cliWrongPassword.stdout}\n${cliWrongPassword.stderr}',
+        contains('invalid password'),
       );
       final plainFile = '${tmp.path}/plain.txt';
       await File(plainFile).writeAsString('cli imports into ffi root');
@@ -279,6 +338,62 @@ void main() {
       });
       expect(utf8.decode(native.secQuickReadFile(ffiRootID, 'from-cli.txt')),
           'cli imports into ffi root');
+    });
+
+    test('rejects a wrong password after a directory import', () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('safe-disk-import-password-');
+      addTearDown(() async {
+        if (await tmp.exists()) {
+          await tmp.delete(recursive: true);
+        }
+      });
+
+      final rootPath = '${tmp.path}/root';
+      final sourcePath = '${tmp.path}/source';
+      await Directory('$sourcePath/子目录').create(recursive: true);
+      await File('$sourcePath/子目录/内容.txt').writeAsString('imported');
+
+      const password = 'correct-import-password';
+      final native = NativeLib.instance;
+      native.secCreateRootConfig(
+        rootPath,
+        password,
+        jsonEncode({
+          'dataFactory': 'aes-ctr',
+          'nameFactory': 'aes-gcm-name',
+          'deriverFactory': 'pbkdf2',
+        }),
+      );
+      var rootID = native.secRootOpen(rootPath, password, '');
+      await DirectoryService().importDirectory(
+        rootID,
+        sourcePath,
+        '已导入',
+      );
+      native.secRootClose(rootID);
+
+      expect(
+        () => native.secRootOpen(rootPath, 'any-wrong-password', ''),
+        throwsA(
+          isA<Exception>().having(
+            (error) => error.toString(),
+            'message',
+            contains('invalid password'),
+          ),
+        ),
+      );
+
+      rootID = native.secRootOpen(rootPath, password, '');
+      addTearDown(() {
+        try {
+          native.secRootClose(rootID);
+        } catch (_) {}
+      });
+      expect(
+        utf8.decode(native.secQuickReadFile(rootID, '已导入/子目录/内容.txt')),
+        'imported',
+      );
     });
 
     test('clears secure byte buffers through FFI binding', () {

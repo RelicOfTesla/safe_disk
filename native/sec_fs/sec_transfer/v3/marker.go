@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -26,7 +27,26 @@ func markerPath(rootPath, opID string) string {
 	return filepath.Join(activeDir(rootPath), opID+".json")
 }
 
+func validateOpID(opID string) error {
+	if opID == "" {
+		return fmt.Errorf("operation id is required")
+	}
+	if strings.ContainsAny(opID, `/\\`) || opID == "." || opID == ".." {
+		return fmt.Errorf("invalid operation id: %q", opID)
+	}
+	for _, char := range opID {
+		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') &&
+			(char < '0' || char > '9') && char != '-' && char != '_' {
+			return fmt.Errorf("invalid operation id: %q", opID)
+		}
+	}
+	return nil
+}
+
 func writeMarker(rootPath string, marker sec_transfer.OperationMarker) error {
+	if err := validateOpID(marker.OpID); err != nil {
+		return err
+	}
 	if marker.Version == 0 {
 		marker.Version = markerVersion
 	}
@@ -58,6 +78,9 @@ func writeMarker(rootPath string, marker sec_transfer.OperationMarker) error {
 }
 
 func removeMarker(rootPath, opID string) error {
+	if err := validateOpID(opID); err != nil {
+		return err
+	}
 	err := os.Remove(markerPath(rootPath, opID))
 	if os.IsNotExist(err) {
 		return nil

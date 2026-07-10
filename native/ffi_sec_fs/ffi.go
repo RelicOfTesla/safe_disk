@@ -250,7 +250,7 @@ type DirEntryResult struct {
 	Name    string `json:"name"`
 	IsDir   bool   `json:"is_dir"`
 	Size    int64  `json:"size"`
-	ModTime int64  `json:"mod_time"`
+	ModTime int64  `json:"mod_time"` // Unix seconds.
 	Mode    uint32 `json:"mode"`
 	Path    string `json:"path"`
 }
@@ -686,7 +686,7 @@ func ReadDir_FFI(rootID int64, path string) string {
 	defer walker.Close()
 
 	// Read all entries
-	var entries []DirEntryResult
+	entries := make([]DirEntryResult, 0)
 	for walker.HasNext() {
 		dirEntry, err := walker.Next()
 		if err != nil {
@@ -703,7 +703,7 @@ func ReadDir_FFI(rootID int64, path string) string {
 			Name:    dirEntry.Name(),
 			IsDir:   dirEntry.IsDir(),
 			Size:    info.Size(),
-			ModTime: info.ModTime().UnixNano(),
+			ModTime: info.ModTime().Unix(),
 			Mode:    uint32(info.Mode()),
 			Path:    string(dirEntry.GetRelativeViewPath()),
 		})
@@ -817,66 +817,4 @@ func QuickWriteFile_FFI(rootID int64, path string, data []byte) string {
 	}
 
 	return successResponse(map[string]int{"bytes_written": n})
-}
-
-// ==================== Transfer Operations (V3 compatibility wrappers) ====================
-
-// ExportDirectoryAsync_FFI is kept for ABI compatibility. It now executes V3
-// transfer synchronously and returns completed status instead of a legacy task id.
-func ExportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	return TransferV3ExportDirectory_FFI(rootID, srcPath, destPath)
-}
-
-// ExportDirectoryAsyncWithCallback_FFI is kept for ABI compatibility and now
-// bridges runtime V3 progress events to the legacy C callback shape.
-func ExportDirectoryAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
-	return transferV3ExportDirectory(context.Background(), rootID, srcPath, destPath, callback)
-}
-
-// ImportDirectoryAsync_FFI is kept for ABI compatibility. It now executes V3
-// transfer synchronously and returns completed status instead of a legacy task id.
-func ImportDirectoryAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	return TransferV3ImportDirectory_FFI(rootID, srcPath, destPath)
-}
-
-// ImportDirectoryAsyncWithCallback_FFI is kept for ABI compatibility and now
-// bridges runtime V3 progress events to the legacy C callback shape.
-func ImportDirectoryAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
-	return transferV3ImportDirectory(context.Background(), rootID, srcPath, destPath, callback)
-}
-
-// ExportFileAsync_FFI is kept for ABI compatibility. It now executes V3
-// transfer synchronously and returns completed status instead of a legacy task id.
-func ExportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	return TransferV3ExportFile_FFI(rootID, srcPath, destPath)
-}
-
-// ExportFileAsyncWithCallback_FFI is kept for ABI compatibility and now
-// bridges runtime V3 progress events to the legacy C callback shape.
-func ExportFileAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
-	return transferV3ExportFile(context.Background(), rootID, srcPath, destPath, callback)
-}
-
-// ImportFileAsync_FFI is kept for ABI compatibility. It now executes V3
-// transfer synchronously and returns completed status instead of a legacy task id.
-func ImportFileAsync_FFI(rootID int64, srcPath string, destPath string) string {
-	return TransferV3ImportFile_FFI(rootID, srcPath, destPath)
-}
-
-// ImportFileAsyncWithCallback_FFI is kept for ABI compatibility and now
-// bridges runtime V3 progress events to the legacy C callback shape.
-func ImportFileAsyncWithCallback_FFI(rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
-	return transferV3ImportFile(context.Background(), rootID, srcPath, destPath, callback)
-}
-
-// GetTransferProgress_FFI is deprecated. V3 import/export does not expose
-// persistent task ids or progress polling.
-func GetTransferProgress_FFI(taskID string) string {
-	return errorResponseStr("legacy task progress is deprecated; use V3 operation markers")
-}
-
-// RollbackTransfer_FFI is deprecated. V3 import/export is rerun/clean marker
-// based, and convert recovery is phase based.
-func RollbackTransfer_FFI(taskID string) string {
-	return errorResponseStr("legacy task rollback is deprecated; use V3 clean/recover APIs")
 }

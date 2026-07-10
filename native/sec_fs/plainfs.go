@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"safe_disk/native/config"
+	"safe_disk/native/sec_fs/sec_utils"
 )
 
 // PlainFS is a plain (non-encrypted) file system wrapper.
@@ -19,9 +20,10 @@ import (
 //   - Initialize encryption: PlainFS (source) -> SecFS (destination)
 //   - Final decryption: SecFS (source) -> PlainFS (destination)
 type PlainFS struct {
-	rootPath string
-	closed   bool
-	mu       sync.RWMutex
+	rootPath     string
+	rootPathInfo sec_utils.PathInfo
+	closed       bool
+	mu           sync.RWMutex
 }
 
 // NewPlainFS creates a new PlainFS instance for the given root path.
@@ -44,9 +46,18 @@ func NewPlainFS(rootPath string) (ISecRoot, error) {
 	}
 
 	return &PlainFS{
-		rootPath: absPath,
-		closed:   false,
+		rootPath:     absPath,
+		rootPathInfo: sec_utils.ParsePathInfoMust(absPath),
+		closed:       false,
 	}, nil
+}
+
+func (p *PlainFS) resolvePath(path string) (string, error) {
+	fullPath, err := fullPathFromRelativeStorePath(p.rootPathInfo, RelativeStorePath(path))
+	if err != nil {
+		return "", NewPairPathError("validate", RelativeViewPath(path), fullPath, err)
+	}
+	return string(fullPath), nil
 }
 
 // ==================== fs.FS Interface ====================
@@ -84,7 +95,10 @@ func (p *PlainFS) ReadDir(name string) ([]fs.DirEntry, error) {
 		return nil, ErrRootClosed
 	}
 
-	fullPath := filepath.Join(p.rootPath, name)
+	fullPath, err := p.resolvePath(name)
+	if err != nil {
+		return nil, err
+	}
 	entries, err := os.ReadDir(fullPath)
 	if err != nil {
 		return nil, err
@@ -117,8 +131,10 @@ func (p *PlainFS) OpenFile(path RelativeViewPath, mode int) (ISecFile, error) {
 		return nil, ErrRootClosed
 	}
 
-	// Build full path
-	fullPath := filepath.Join(p.rootPath, string(path))
+	fullPath, err := p.resolvePath(string(path))
+	if err != nil {
+		return nil, err
+	}
 
 	// Ensure parent directory exists for write operations
 	if mode&os.O_WRONLY != 0 || mode&os.O_RDWR != 0 || mode&os.O_CREATE != 0 {
@@ -172,8 +188,11 @@ func (p *PlainFS) DeleteFile(path RelativeViewPath) error {
 		return ErrRootClosed
 	}
 
-	fullPath := filepath.Join(p.rootPath, string(path))
-	err := os.Remove(fullPath)
+	fullPath, err := p.resolvePath(string(path))
+	if err != nil {
+		return err
+	}
+	err = os.Remove(fullPath)
 	if err != nil {
 		return NewPairPathError("remove", path, FullStorePath(fullPath), err)
 	}
@@ -193,8 +212,11 @@ func (p *PlainFS) FileExists(path RelativeViewPath) bool {
 		return false
 	}
 
-	fullPath := filepath.Join(p.rootPath, string(path))
-	_, err := os.Stat(fullPath)
+	fullPath, err := p.resolvePath(string(path))
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(fullPath)
 	return err == nil
 }
 
@@ -211,7 +233,10 @@ func (p *PlainFS) MkdirAll(path RelativeViewPath) error {
 		return ErrRootClosed
 	}
 
-	fullPath := filepath.Join(p.rootPath, string(path))
+	fullPath, err := p.resolvePath(string(path))
+	if err != nil {
+		return err
+	}
 	return os.MkdirAll(fullPath, 0755)
 }
 
@@ -229,10 +254,16 @@ func (p *PlainFS) Rename(oldPath RelativeViewPath, newPath RelativeViewPath) err
 		return ErrRootClosed
 	}
 
-	oldFullPath := filepath.Join(p.rootPath, string(oldPath))
-	newFullPath := filepath.Join(p.rootPath, string(newPath))
+	oldFullPath, err := p.resolvePath(string(oldPath))
+	if err != nil {
+		return err
+	}
+	newFullPath, err := p.resolvePath(string(newPath))
+	if err != nil {
+		return err
+	}
 
-	err := os.Rename(oldFullPath, newFullPath)
+	err = os.Rename(oldFullPath, newFullPath)
 	if err != nil {
 		return NewPairPathError("rename", oldPath, FullStorePath(oldFullPath), err)
 	}
@@ -253,10 +284,16 @@ func (p *PlainFS) RenameByStorePath(oldPath RelativeStorePath, newPath RelativeS
 		return ErrRootClosed
 	}
 
-	oldFullPath := filepath.Join(p.rootPath, string(oldPath))
-	newFullPath := filepath.Join(p.rootPath, string(newPath))
+	oldFullPath, err := p.resolvePath(string(oldPath))
+	if err != nil {
+		return err
+	}
+	newFullPath, err := p.resolvePath(string(newPath))
+	if err != nil {
+		return err
+	}
 
-	err := os.Rename(oldFullPath, newFullPath)
+	err = os.Rename(oldFullPath, newFullPath)
 	if err != nil {
 		return NewPairPathError("rename_by_store_path", RelativeViewPath(oldPath), FullStorePath(oldFullPath), err)
 	}
@@ -274,8 +311,12 @@ func (p *PlainFS) GetStorePath(viewPath RelativeViewPath) (RelativeStorePath, er
 	if p.closed {
 		return "", ErrRootClosed
 	}
+	pathInfo, err := sec_utils.ParsePathInfo(string(viewPath))
+	if err != nil || !isSafeRelativeStorePath(pathInfo) {
+		return "", NewRelativeViewPathError("validate", viewPath, ErrPathTraversal)
+	}
 	// For PlainFS, store path = view path
-	return RelativeStorePath(viewPath), nil
+	return RelativeStorePath(pathInfo.Encode()), nil
 }
 
 // WalkDir returns a directory walker for the given path.
@@ -289,6 +330,9 @@ func (p *PlainFS) WalkDir(path RelativeViewPath, opts ...WalkOption) (IDirWalker
 
 	if p.closed {
 		return nil, ErrRootClosed
+	}
+	if _, err := p.resolvePath(string(path)); err != nil {
+		return nil, err
 	}
 
 	// Create walker for plain directory
@@ -325,7 +369,10 @@ func (p *PlainFS) Stat(path RelativeViewPath) (fs.FileInfo, error) {
 		return nil, ErrRootClosed
 	}
 
-	fullPath := filepath.Join(p.rootPath, string(path))
+	fullPath, err := p.resolvePath(string(path))
+	if err != nil {
+		return nil, err
+	}
 	return os.Stat(fullPath)
 }
 

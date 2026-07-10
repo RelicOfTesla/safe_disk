@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 )
@@ -57,6 +58,9 @@ var listCmd = &cobra.Command{
 		for walker.HasNext() {
 			entry, err := walker.Next()
 			if err != nil {
+				if err == io.EOF {
+					break
+				}
 				if firstError == nil {
 					firstError = err
 				}

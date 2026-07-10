@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -32,6 +33,15 @@ func TestTransferV3FFIRoundTrip(t *testing.T) {
 	defer CloseRoot_FFI(rootID)
 
 	assertSuccess(t, TransferV3ImportDirectory_FFI(rootID, plain, ""))
+	directoryResponse := assertSuccess(t, ReadDir_FFI(rootID, ""))
+	directoryEntries := directoryResponse["data"].(map[string]interface{})["entries"].([]interface{})
+	if len(directoryEntries) != 1 {
+		t.Fatalf("expected one imported entry, got %d", len(directoryEntries))
+	}
+	modTime := int64(directoryEntries[0].(map[string]interface{})["mod_time"].(float64))
+	if modTime <= 0 || modTime > time.Now().Add(time.Minute).Unix() {
+		t.Fatalf("mod_time must use Unix seconds, got %d", modTime)
+	}
 	assertSuccess(t, TransferV3ExportDirectory_FFI(rootID, "", out))
 	data, err := os.ReadFile(filepath.Join(out, "a.txt"))
 	if err != nil {
@@ -44,6 +54,77 @@ func TestTransferV3FFIRoundTrip(t *testing.T) {
 	if got := unfinished["data"].(map[string]interface{})["count"].(float64); got != 0 {
 		t.Fatalf("expected no unfinished operations, got %.0f", got)
 	}
+}
+
+func TestTransferV3FFICleanRejectsPathTraversalOperationID(t *testing.T) {
+	rootPath := filepath.Join(t.TempDir(), "root")
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+
+	response := TransferV3CleanUnfinished_FFI(rootID, "../../outside")
+	if jsonSuccess(response) {
+		t.Fatalf("path traversal operation id unexpectedly succeeded: %s", response)
+	}
+	if !strings.Contains(response, "invalid operation id") {
+		t.Fatalf("path traversal returned an unclear error: %s", response)
+	}
+}
+
+func TestFFIRootAndTransferRejectPathTraversal(t *testing.T) {
+	tmp := t.TempDir()
+	rootPath := filepath.Join(tmp, "root")
+	sourcePath := filepath.Join(tmp, "source.txt")
+	if err := os.WriteFile(sourcePath, []byte("must stay inside root"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`))
+	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+
+	for name, response := range map[string]string{
+		"quick write": QuickWriteFile_FFI(rootID, "../quick-escape.txt", []byte("escape")),
+		"transfer":    TransferV3ImportFile_FFI(rootID, sourcePath, "../transfer-escape.txt"),
+	} {
+		if jsonSuccess(response) {
+			t.Fatalf("%s path traversal unexpectedly succeeded: %s", name, response)
+		}
+		if !strings.Contains(response, "path traversal") {
+			t.Fatalf("%s returned an unclear error: %s", name, response)
+		}
+	}
+	for _, name := range []string{"quick-escape.txt", "transfer-escape.txt"} {
+		if _, err := os.Stat(filepath.Join(tmp, name)); !os.IsNotExist(err) {
+			t.Fatalf("FFI operation escaped root and created %s", name)
+		}
+	}
+}
+
+func TestOpenRootFFIRejectsWrongPasswordWithoutRegisteringRoot(t *testing.T) {
+	rootPath := filepath.Join(t.TempDir(), "root")
+	assertSuccess(t, CreateRootConfig_FFI(
+		rootPath,
+		"correct-password",
+		`{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name","deriverFactory":"pbkdf2"}`,
+	))
+
+	before := RootStore.Len()
+	response := OpenRoot_FFI(rootPath, "wrong-password", "")
+	if jsonSuccess(response) {
+		t.Fatalf("wrong password unexpectedly opened root: %s", response)
+	}
+	if !strings.Contains(response, "invalid password") {
+		t.Fatalf("wrong password returned an unclear error: %s", response)
+	}
+	if got := RootStore.Len(); got != before {
+		t.Fatalf("failed open leaked a root handle: before=%d after=%d", before, got)
+	}
+
+	rootResponse := assertSuccess(t, OpenRoot_FFI(rootPath, "correct-password", ""))
+	rootID := int64(rootResponse["data"].(map[string]interface{})["root_id"].(float64))
+	assertSuccess(t, CloseRoot_FFI(rootID))
 }
 
 func TestTransferV3FFIProgressCallback(t *testing.T) {
@@ -65,7 +146,7 @@ func TestTransferV3FFIProgressCallback(t *testing.T) {
 	defer CloseRoot_FFI(rootID)
 
 	var events []sec_transfer.ProgressEvent
-	assertSuccess(t, ImportDirectoryAsyncWithCallback_FFI(rootID, plain, "", func(event sec_transfer.ProgressEvent) {
+	assertSuccess(t, transferV3ImportDirectory(context.Background(), rootID, plain, "", func(event sec_transfer.ProgressEvent) {
 		events = append(events, event)
 	}))
 	if len(events) == 0 {
@@ -143,6 +224,83 @@ func TestTransferV3FFICancelRuntimeOperation(t *testing.T) {
 	unfinished := assertSuccess(t, TransferV3ListUnfinished_FFI(rootID))
 	if got := unfinished["data"].(map[string]interface{})["count"].(float64); got != 1 {
 		t.Fatalf("expected canceled operation marker, got %.0f", got)
+	}
+}
+
+func TestTransferV3FFICancelWhileWaitingForRootLock(t *testing.T) {
+	tmp := t.TempDir()
+	rootPath := filepath.Join(tmp, "root")
+	firstSource := filepath.Join(tmp, "first.txt")
+	secondSource := filepath.Join(tmp, "second.txt")
+	for path, content := range map[string]string{firstSource: "first", secondSource: "second"} {
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+
+	firstStarted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	firstResult := make(chan string, 1)
+	var once sync.Once
+	go func() {
+		firstResult <- TransferV3ImportFileWithOperation_FFI(
+			"ffi-lock-holder", rootID, firstSource, "first.txt",
+			func(event sec_transfer.ProgressEvent) {
+				if !event.Complete {
+					once.Do(func() { close(firstStarted) })
+					<-releaseFirst
+				}
+			},
+		)
+	}()
+	select {
+	case <-firstStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for lock holder")
+	}
+
+	secondResult := make(chan string, 1)
+	go func() {
+		secondResult <- TransferV3ImportFileWithOperation_FFI(
+			"ffi-lock-waiter", rootID, secondSource, "second.txt", nil,
+		)
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		response := assertSuccess(t, TransferV3Cancel_FFI("ffi-lock-waiter"))
+		if response["data"].(map[string]interface{})["active"].(bool) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for lock waiter registration")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	select {
+	case result := <-secondResult:
+		if jsonSuccess(result) || !strings.Contains(result, "context canceled") {
+			t.Fatalf("lock waiter did not return cancellation: %s", result)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for canceled lock waiter")
+	}
+	close(releaseFirst)
+	select {
+	case result := <-firstResult:
+		assertSuccess(t, result)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for lock holder completion")
+	}
+	if raw := QuickReadFile_FFI(rootID, "second.txt"); jsonSuccess(raw) {
+		t.Fatal("canceled lock waiter committed its destination")
+	}
+	unfinished := assertSuccess(t, TransferV3ListUnfinished_FFI(rootID))
+	if got := unfinished["data"].(map[string]interface{})["count"].(float64); got != 0 {
+		t.Fatalf("lock waiter wrote an unfinished marker, count=%.0f", got)
 	}
 }
 

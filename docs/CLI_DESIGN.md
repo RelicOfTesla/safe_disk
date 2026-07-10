@@ -496,6 +496,8 @@ import _ "safe_disk/native/sec_fs/sec_transfer/v3"
 - 人工构造 convert marker 的各个 phase。
 - copy/verify phase 可删除 work 后重跑。
 - rename 中间态可继续目录切换或进入 `needs_attention`。
+- encrypt/decrypt 已通过真实子进程 kill 覆盖 copy、verify 和两次 rename 窗口；Windows 运行时故障注入仍单独保留。
+- marker 的 root/work/backup 路径必须校验；路径注入或多个 convert operation 必须进入 `needs_attention`。
 - convert 成功后 backup 默认保留。
 
 ### 6. 安全测试

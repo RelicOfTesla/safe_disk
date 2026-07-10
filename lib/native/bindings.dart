@@ -147,17 +147,6 @@ typedef NativeProgressCallbackDart = void Function(
     int isComplete,
     Pointer<Utf8> errorMessage);
 
-typedef SecTransferWithCallbackC = Pointer<Utf8> Function(
-    Int64 rootID,
-    Pointer<Utf8> srcPath,
-    Pointer<Utf8> destPath,
-    Pointer<NativeFunction<NativeProgressCallbackC>> callback);
-typedef SecTransferWithCallbackDart = Pointer<Utf8> Function(
-    int rootID,
-    Pointer<Utf8> srcPath,
-    Pointer<Utf8> destPath,
-    Pointer<NativeFunction<NativeProgressCallbackC>> callback);
-
 typedef SecTransferV3WithCallbackC = Pointer<Utf8> Function(
     Pointer<Utf8> operationID,
     Int64 rootID,
@@ -207,10 +196,6 @@ class NativeBindings {
   late final SecTransferV3ImportDirectoryDart secTransferV3ImportDirectory;
   late final SecTransferV3ExportFileDart secTransferV3ExportFile;
   late final SecTransferV3ExportDirectoryDart secTransferV3ExportDirectory;
-  late final SecTransferWithCallbackDart secImportFileAsyncWithCallback;
-  late final SecTransferWithCallbackDart secImportDirectoryAsyncWithCallback;
-  late final SecTransferWithCallbackDart secExportFileAsyncWithCallback;
-  late final SecTransferWithCallbackDart secExportDirectoryAsyncWithCallback;
   late final SecTransferV3WithCallbackDart secTransferV3ImportFileWithCallback;
   late final SecTransferV3WithCallbackDart
       secTransferV3ImportDirectoryWithCallback;
@@ -307,18 +292,6 @@ class NativeBindings {
     secTransferV3ExportDirectory = _lib!.lookupFunction<
         SecTransferV3ExportDirectoryC,
         SecTransferV3ExportDirectoryDart>('sec_transfer_v3_export_directory');
-    secImportFileAsyncWithCallback = _lib!
-        .lookupFunction<SecTransferWithCallbackC, SecTransferWithCallbackDart>(
-            'sec_import_file_async_with_callback');
-    secImportDirectoryAsyncWithCallback = _lib!
-        .lookupFunction<SecTransferWithCallbackC, SecTransferWithCallbackDart>(
-            'sec_import_directory_async_with_callback');
-    secExportFileAsyncWithCallback = _lib!
-        .lookupFunction<SecTransferWithCallbackC, SecTransferWithCallbackDart>(
-            'sec_export_file_async_with_callback');
-    secExportDirectoryAsyncWithCallback = _lib!
-        .lookupFunction<SecTransferWithCallbackC, SecTransferWithCallbackDart>(
-            'sec_export_directory_async_with_callback');
     secTransferV3ImportFileWithCallback = _lib!.lookupFunction<
             SecTransferV3WithCallbackC, SecTransferV3WithCallbackDart>(
         'sec_transfer_v3_import_file_with_callback');

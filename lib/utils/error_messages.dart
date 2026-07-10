@@ -34,6 +34,9 @@ enum ErrorType {
   /// 导入文件失败
   importFileFailed,
 
+  /// 导入目录失败
+  importDirectoryFailed,
+
   /// 导出文件失败
   exportFileFailed,
 
@@ -148,6 +151,11 @@ class ErrorMessages {
       title: '导入文件失败',
       description: '无法将文件导入到加密目录。',
       suggestion: '请检查文件是否存在且可读，然后重试。',
+    ),
+    ErrorType.importDirectoryFailed: ErrorMessage(
+      title: '导入目录失败',
+      description: '无法将目录导入到加密目录。',
+      suggestion: '请检查源目录权限、符号链接和目标目录状态，然后重试。',
     ),
     ErrorType.exportFileFailed: ErrorMessage(
       title: '导出文件失败',
