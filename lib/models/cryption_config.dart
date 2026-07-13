@@ -44,12 +44,14 @@ class EncryptedDirectory {
   final CryptionConfig config;
   final bool isVerified;
   final String? tempKeyID; // Temporary key ID for session (managed externally)
+  final String? displayAlias;
 
   EncryptedDirectory({
     required this.path,
     required this.config,
     this.isVerified = false,
     this.tempKeyID,
+    this.displayAlias,
   });
 
   /// Creates a copy with updated fields
@@ -58,12 +60,16 @@ class EncryptedDirectory {
     CryptionConfig? config,
     bool? isVerified,
     String? tempKeyID,
+    String? displayAlias,
+    bool clearDisplayAlias = false,
   }) {
     return EncryptedDirectory(
       path: path ?? this.path,
       config: config ?? this.config,
       isVerified: isVerified ?? this.isVerified,
       tempKeyID: tempKeyID ?? this.tempKeyID,
+      displayAlias:
+          clearDisplayAlias ? null : (displayAlias ?? this.displayAlias),
     );
   }
 }

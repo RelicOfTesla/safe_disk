@@ -54,7 +54,17 @@ class CryptoService {
 
   /// Creates a secure root configuration.
   void createRootConfig(String rootPath, String password, String optionsJSON) {
-    Directory(rootPath).createSync(recursive: true);
+    final directory = Directory(rootPath);
+    if (directory.existsSync()) {
+      if (directory.listSync(followLinks: false).isNotEmpty) {
+        throw FileSystemException(
+          'Encrypted root must be created in an empty directory',
+          rootPath,
+        );
+      }
+    } else {
+      directory.createSync(recursive: true);
+    }
     _native.secCreateRootConfig(rootPath, password, optionsJSON);
   }
 
@@ -138,6 +148,68 @@ class CryptoService {
     final rootID = int.parse(tempKeyID);
     final relativePath = relativePathForRoot(rootID, path);
     await deleteFile(rootID, relativePath);
+  }
+
+  Future<bool> fileExistsBySession(String path, String tempKeyID) async {
+    final rootID = int.parse(tempKeyID);
+    final relativePath = relativePathForRoot(rootID, path);
+    return fileExists(rootID, relativePath);
+  }
+
+  Future<void> renameBySession(
+    String oldPath,
+    String newPath,
+    String tempKeyID,
+  ) async {
+    final rootID = int.parse(tempKeyID);
+    final oldRelativePath = relativePathForRoot(rootID, oldPath);
+    final newRelativePath = relativePathForRoot(rootID, newPath);
+    await Future.microtask(
+      () => _native.secRename(rootID, oldRelativePath, newRelativePath),
+    );
+  }
+
+  Future<void> copyBySession({
+    required String sourcePath,
+    required String sourceSessionID,
+    required String destinationPath,
+    required String destinationSessionID,
+    bool overwrite = false,
+  }) async {
+    final sourceRootID = int.parse(sourceSessionID);
+    final destinationRootID = int.parse(destinationSessionID);
+    final sourceRelativePath = relativePathForRoot(sourceRootID, sourcePath);
+    final destinationRelativePath =
+        relativePathForRoot(destinationRootID, destinationPath);
+    await _native.secCopyEntryInBackground(
+      sourceRootID,
+      sourceRelativePath,
+      destinationRootID,
+      destinationRelativePath,
+      overwrite: overwrite,
+    );
+  }
+
+  Future<void> createEmptyFileBySession(
+    String path,
+    String tempKeyID,
+  ) async {
+    final rootID = int.parse(tempKeyID);
+    final relativePath = relativePathForRoot(rootID, path);
+    await Future.microtask(
+      () => _native.secCreateEmptyFile(rootID, relativePath),
+    );
+  }
+
+  Future<void> createDirectoryBySession(
+    String path,
+    String tempKeyID,
+  ) async {
+    final rootID = int.parse(tempKeyID);
+    final relativePath = relativePathForRoot(rootID, path);
+    await Future.microtask(
+      () => _native.secCreateDirectory(rootID, relativePath),
+    );
   }
 
   String encryptDataBytes(List<int> data, String tempKeyID) {

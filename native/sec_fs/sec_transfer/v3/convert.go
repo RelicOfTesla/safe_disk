@@ -2,10 +2,12 @@ package sec_transfer_v3
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"safe_disk/native/sec_fs"
 	"safe_disk/native/sec_fs/sec_transfer"
@@ -126,7 +128,7 @@ func (m *Manager) convertEncrypt(ctx context.Context, marker sec_transfer.Operat
 	}
 	if err := verifyPlainAndRoot(ctx, marker.Root, verifyRoot); err != nil {
 		_ = verifyRoot.Close()
-		return fmt.Errorf("verify work tree: %w", err)
+		return m.recordVerificationFailure(marker, fmt.Errorf("verify work tree: %w", err))
 	}
 	if err := verifyRoot.Close(); err != nil {
 		return err
@@ -167,12 +169,27 @@ func (m *Manager) convertDecrypt(ctx context.Context, marker sec_transfer.Operat
 	m.checkpoint(checkpointVerifyingWork, marker)
 	if err := verifyRootAndPlain(ctx, root, marker.Work); err != nil {
 		_ = root.Close()
-		return fmt.Errorf("verify work tree: %w", err)
+		return m.recordVerificationFailure(marker, fmt.Errorf("verify work tree: %w", err))
 	}
 	if err := root.Close(); err != nil {
 		return err
 	}
 	return m.commitConvertRename(marker)
+}
+
+func (m *Manager) recordVerificationFailure(marker sec_transfer.OperationMarker, verifyErr error) error {
+	var mismatch *treeVerificationError
+	if !errors.As(verifyErr, &mismatch) {
+		return verifyErr
+	}
+	report := mismatch.Report()
+	marker.Phase = phaseNeedsAttention
+	marker.Status = "failed"
+	marker.Verification = &report
+	if err := m.writeMarker(marker.Root, marker); err != nil {
+		return errors.Join(verifyErr, fmt.Errorf("record verification report: %w", err))
+	}
+	return verifyErr
 }
 
 func (m *Manager) commitConvertRename(marker sec_transfer.OperationMarker) error {
@@ -356,11 +373,53 @@ func (m *Manager) recoverFromMarker(rootPath string, marker sec_transfer.Operati
 		_ = m.removeMarker(marker.Backup, marker.OpID)
 		result.Action = sec_transfer.RecoverActionCompleted
 		result.Message = "convert already completed; stale markers were cleaned"
+	case phaseNeedsAttention:
+		result.Action = sec_transfer.RecoverActionNeedsAttention
+		result.Message = verificationAttentionMessage(marker)
 	default:
 		result.Action = sec_transfer.RecoverActionNeedsAttention
 		result.Message = "unknown convert phase"
 	}
 	return result, nil
+}
+
+func verificationAttentionMessage(marker sec_transfer.OperationMarker) string {
+	if marker.Verification == nil {
+		return "convert marker requires manual attention; source, work, and backup were preserved"
+	}
+	report := marker.Verification
+	message := fmt.Sprintf(
+		"convert verification failed; missing_dirs=%d unexpected_dirs=%d missing_files=%d unexpected_files=%d digest_mismatches=%d truncated=%t; source, work, and backup were preserved",
+		report.MissingDirectoryCount,
+		report.UnexpectedDirectoryCount,
+		report.MissingFileCount,
+		report.UnexpectedFileCount,
+		report.DigestMismatchCount,
+		report.Truncated,
+	)
+	if samples := verificationReportSamples(*report); samples != "" {
+		message += "; samples: " + samples
+	}
+	return message
+}
+
+func verificationReportSamples(report sec_transfer.VerificationReport) string {
+	parts := make([]string, 0, 5)
+	for _, sample := range []struct {
+		label string
+		paths []string
+	}{
+		{"missing_dir", report.MissingDirectories},
+		{"unexpected_dir", report.UnexpectedDirectories},
+		{"missing_file", report.MissingFiles},
+		{"unexpected_file", report.UnexpectedFiles},
+		{"digest_mismatch", report.DigestMismatches},
+	} {
+		if len(sample.paths) > 0 {
+			parts = append(parts, sample.label+"="+sample.paths[0])
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (m *Manager) finishRecoveredWorkRename(marker sec_transfer.OperationMarker, result sec_transfer.RecoverResult) (sec_transfer.RecoverResult, error) {

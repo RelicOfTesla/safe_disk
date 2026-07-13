@@ -1,7 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 import '../utils/error_messages.dart';
+import '../models/create_root_options.dart';
 import '../widgets/copyable_snackbar.dart';
 
 /// Welcome guide dialog for first-time users
@@ -182,9 +182,13 @@ class _CreateEncryptedDirectoryDialogState
     extends State<CreateEncryptedDirectoryDialog> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
-  bool _mutable = true;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  bool _showAdvanced = false;
+  String _dataFactory = 'aes-ctr';
+  String _nameFactory = 'aes-gcm-name';
+  String _deriverFactory = 'argon2id';
+  int _keyStrengthMs = 1000;
 
   @override
   void dispose() {
@@ -196,51 +200,96 @@ class _CreateEncryptedDirectoryDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Create Encrypted Directory'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _passwordController,
-            obscureText: _obscurePassword,
-            decoration: InputDecoration(
-              labelText: 'Password',
-              suffixIcon: IconButton(
-                icon: Icon(
-                    _obscurePassword ? Icons.visibility : Icons.visibility_off),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
+      title: const Text('创建加密目录'),
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: 480,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  labelText: '密码',
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscurePassword
+                        ? Icons.visibility
+                        : Icons.visibility_off),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _confirmController,
-            obscureText: _obscureConfirm,
-            decoration: InputDecoration(
-              labelText: 'Confirm Password',
-              suffixIcon: IconButton(
-                icon: Icon(
-                    _obscureConfirm ? Icons.visibility : Icons.visibility_off),
-                onPressed: () =>
-                    setState(() => _obscureConfirm = !_obscureConfirm),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _confirmController,
+                obscureText: _obscureConfirm,
+                decoration: InputDecoration(
+                  labelText: '确认密码',
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureConfirm
+                        ? Icons.visibility
+                        : Icons.visibility_off),
+                    onPressed: () =>
+                        setState(() => _obscureConfirm = !_obscureConfirm),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('高级加密参数'),
+                subtitle: const Text('默认配置适合大多数用户'),
+                value: _showAdvanced,
+                onChanged: (value) => setState(() => _showAdvanced = value),
+              ),
+              if (_showAdvanced) ...[
+                _algorithmDropdown(
+                  label: '数据加密',
+                  value: _dataFactory,
+                  values: CreateRootRequest.dataFactories,
+                  onChanged: (value) => setState(() => _dataFactory = value),
+                ),
+                _algorithmDropdown(
+                  label: '文件名加密',
+                  value: _nameFactory,
+                  values: CreateRootRequest.nameFactories,
+                  onChanged: (value) => setState(() => _nameFactory = value),
+                ),
+                _algorithmDropdown(
+                  label: '密码派生',
+                  value: _deriverFactory,
+                  values: CreateRootRequest.deriverFactories,
+                  onChanged: (value) => setState(() => _deriverFactory = value),
+                ),
+                DropdownButtonFormField<int>(
+                  initialValue: _keyStrengthMs,
+                  decoration: const InputDecoration(labelText: '派生强度'),
+                  items: CreateRootRequest.keyStrengthOptions
+                      .map((value) => DropdownMenuItem(
+                            value: value,
+                            child: Text('$value 毫秒'),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) setState(() => _keyStrengthMs = value);
+                  },
+                ),
+                if (_nameFactory == 'none')
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text('注意：选择 none 后，文件名和目录名不会加密。'),
+                  ),
+              ],
+            ],
           ),
-          const SizedBox(height: 16),
-          SwitchListTile(
-            title: const Text('Mutable Password Mode'),
-            subtitle: const Text(
-                'Allows changing password without re-encrypting files'),
-            value: _mutable,
-            onChanged: (value) => setState(() => _mutable = value),
-          ),
-        ],
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: const Text('取消'),
         ),
         ElevatedButton(
           onPressed: () {
@@ -263,14 +312,38 @@ class _CreateEncryptedDirectoryDialogState
               return;
             }
 
-            Navigator.pop(context, {
-              'password': password,
-              'mutable': _mutable,
-            });
+            Navigator.pop(
+              context,
+              CreateRootRequest(
+                password: password,
+                dataFactory: _dataFactory,
+                nameFactory: _nameFactory,
+                deriverFactory: _deriverFactory,
+                keyStrengthMs: _keyStrengthMs,
+              ),
+            );
           },
-          child: const Text('Create'),
+          child: const Text('创建'),
         ),
       ],
+    );
+  }
+
+  Widget _algorithmDropdown({
+    required String label,
+    required String value,
+    required List<String> values,
+    required ValueChanged<String> onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      decoration: InputDecoration(labelText: label),
+      items: values
+          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .toList(),
+      onChanged: (selected) {
+        if (selected != null) onChanged(selected);
+      },
     );
   }
 }
@@ -342,15 +415,6 @@ class _PathSelectionDialogState extends State<PathSelectionDialog> {
               ErrorHelper.showError(
                 context,
                 errorType: ErrorType.pathEmpty,
-              );
-              return;
-            }
-
-            final dir = Directory(path);
-            if (!dir.existsSync()) {
-              ErrorHelper.showError(
-                context,
-                errorType: ErrorType.directoryNotExist,
               );
               return;
             }

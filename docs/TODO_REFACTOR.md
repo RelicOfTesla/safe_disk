@@ -1,182 +1,38 @@
-# Safe Disk 重构任务列表
+# Safe Disk 活跃重构任务
 
-> 本文档记录所有重构相关的待办任务
+> 只记录未达到 100% 的重构。已验收重构见 [completed/REFACTOR_COMPLETED.md](completed/REFACTOR_COMPLETED.md)。
+>
+> 百分比规则与 [TODO.md](TODO.md) 相同：没有自动化实际功能测试，最高 90%。
 
-**相关文档**：
-- [archive/ARCHITECTURE_REFACTOR_PLAN_V2.md](archive/ARCHITECTURE_REFACTOR_PLAN_V2.md) - V2 架构设计（历史参考）
-- [ARCHITECTURE.md](ARCHITECTURE.md) - 当前架构文档
-- [TODO.md](TODO.md) - 功能任务列表
+## P0 基础设施
 
----
+| 重构任务 | 进度 | 当前状态 | 验收缺口 |
+|---|---:|---|---|
+| secure root walker 工作集重构 | 55% | 每批读取 100 entries，但同层待处理目录可无限累计 | 设计受控 DFS/句柄预算；超宽、超深、取消、错误传播和 FD 上限测试 |
+| PlainFS walker 流式化 | 30% | 当前 plainDirWalker 初始化时递归收集全部 entries | 改为流式 walker，统一 sec/plain 语义并补大目录资源测试 |
+| walker 错误传播统一 | 35% | 部分 entry 解密或 info 错误仍被跳过 | 明确 ignore 与 corruption 的边界；错误必须可观测；补损坏 backing tree 实测 |
+| Transfer 进度模型收敛 | 70% | 文件数进度稳定，源在两遍间变化时允许 done/total 不同 | 定义扫描阶段、未知/变化 total、字节级进度兼容策略并覆盖 CLI/FFI/Dart |
 
-## 📊 优先级说明
+## P1 边界与构建
 
-- **P0（紧急）**：必须立即处理，影响架构稳定性
-- **P1（高）**：尽快处理，影响代码质量
-- **P2（中）**：后续改进，架构优化
-- **P3（低）**：锦上添花，可选重构
+| 重构任务 | 进度 | 当前状态 | 验收缺口 |
+|---|---:|---|---|
+| FFI ABI 单一来源 | 65% | C header、Go export、Dart binding 可工作，但存在多份生成/复制头文件 | 建立生成命令和 ABI diff 检查，删除重复源，Linux/Windows 构建实测 |
+| Flutter service/rootID 模型收敛 | 60% | 新 rootID API 与旧绝对虚拟路径适配并存 | 移除页面层旧路径假设，统一 error/result，真实桌面 E2E |
+| build/run 脚本收敛 | 45% | 当前有 Makefile、多个 shell 脚本和备份脚本并存 | 定义唯一开发/测试/发布入口，干净环境自动化验证 |
+| 文档旧 V2/task 叙述清理 | 75% | Transfer 主设计已切 V3，部分 ARCHITECTURE/CLAUDE/历史清单仍描述持久 task | 活跃文档只保留 V3，历史内容移 archive，链接检查通过 |
+| 错误类型与跨层映射 | 50% | Go/FFI/Dart 各层已有错误处理，但仍依赖字符串判断 | 建立稳定错误码、FFI JSON schema、UI 文案映射和跨层测试 |
 
----
+## P2 后续架构
 
-## 🔴 P0 - 紧急任务
+| 重构任务 | 进度 | 当前状态 | 验收缺口 |
+|---|---:|---|---|
+| Stream V3 架构重做 | 15% | 仅设计，旧增量接口不在活跃 ABI | 完成格式/完整性/原子提交设计评审，再实施 sec 到 UI 全链路 |
+| UI 状态管理拆分 | 55% | HomeShell 已从 HomePage 抽离，记事本状态/编辑区/查找区已拆分；HomePage 仍承担较多 root、transfer、progress 和错误流程 | 继续拆 transfer/use-case 与 root session 状态，保持 widget 行为并增加真实 E2E |
+| 可测试平台抽象 | 25% | Linux 本地测试较强，Windows/macOS 依赖条件编译 | 文件系统故障、锁、durability、选择器和桌面 runner 可注入且有平台实测 |
 
-### 1. TaskManager 持久化实现
+## 明确废弃，不再作为待办
 
-**优先级**：1（最高）
-
-**背景**：taskManager 需要支持断电恢复和多任务管理
-
-**设计方案**：
-- `_pending_task_list.json` - 维护处理一半的 import/export 任务列表
-- `_progress_task_<task_id>.json` - 每个任务的进度文件（原 `_progress_list.json`）
-
-**实现要点**：
-```
-taskManager 内部结构：
-- taskList: map[taskID]*ActionTaskInfo
-- pendingTaskListFile: _pending_task_list.json（持久化）
-
-ActionTaskInfo 内部结构：
-- taskID: string
-- taskType: TransferType（export/import）
-- status: TaskStatus（pending/running/paused/complete/failed/rolled_back）
-- progressFile: _progress_task_<task_id>.json（持久化）
-- progress: ProgressStatus（内存）
-```
-
-**持久化流程**：
-1. 任务创建时：
-   - 生成 taskID
-   - 写入 `_pending_task_list.json`
-   - 创建 `_progress_task_<task_id>.json`
-
-2. 任务更新时：
-   - 更新内存中的 progress
-   - 写入 `_progress_task_<task_id>.json`
-
-3. 任务完成/失败时：
-   - 从 `_pending_task_list.json` 中移除
-   - 保留 `_progress_task_<task_id>.json`（用于回滚）
-
-**验收标准**：
-- [ ] taskManager 创建时加载 `_pending_task_list.json`
-- [ ] 任务创建/更新/完成时持久化
-- [ ] 断电恢复测试通过
-
----
-
-### 2. 原子化导入导出实现（安全 + 异步 + 原子化 + 持久队列）
-
-**优先级**：2
-
-**背景**：TransferService 需要支持断电恢复、幂等性、数据安全
-
-**核心设计**（详见 V2 文档）：
-- 进度持久化：`_progress_task_<task_id>.json`
-- 原子化文件替换：`rename -> rename -> update progress -> remove temp`
-- 断电恢复：启动时检查进度文件，清理临时文件
-
-**流程**（Import/Export 统一）：
-```
-Step 1: 扫描所有文件，保存 -> _progress_task_<task_id>.json
-Step 2: 加密/解密文件
-Step 3: 安全替换（原子操作）：rename(a.txt -> a.txt.raw), rename(a.txt.enc -> a.txt)
-Step 4: 保存进度（更新 _progress_task_<task_id>.json）← 先更新进度
-Step 5: 清理临时文件：remove(a.txt.raw) ← 后删除临时文件
-Step 6: 返回 Step 2 处理下一个文件
-```
-
-**验收标准**：
-- [ ] ImportDirectoryAsync 实现原子化流程
-- [ ] ExportDirectoryAsync 实现原子化流程
-- [ ] 断电恢复测试通过
-- [ ] 幂等性测试通过
-
----
-
-### 3. ActionTask 任务管理接口
-
-**优先级**：3
-
-**背景**：ExportDirectoryAsync/ImportDirectoryAsync 需要返回任务管理对象，支持暂停、继续、回滚等操作。
-
-**依赖**：
-- TaskManager 持久化实现
-- 原子化导入导出实现（回滚功能依赖持久化进度文件）
-
-**接口设计**：
-```go
-type ActionTask interface {
-    GetProgress() *TaskProgress
-    AsyncPause() error
-    AsyncContinue() error
-    AsyncRollback() error  // 仅能回滚导入/导出一回
-    Close() error
-}
-```
-
-**FFI 导出函数**：
-```c
-// 任务进度查询
-char* action_task_get_progress(const char* action_task_id);
-
-// 任务控制
-char* action_task_async_pause(const char* action_task_id);
-char* action_task_async_continue(const char* action_task_id);
-char* action_task_async_rollback(const char* action_task_id);
-
-// 任务关闭
-char* action_task_close(const char* action_task_id);
-```
-
-**实现要点**：
-- ActionTask 内部维护任务状态（pending/running/paused/complete/failed/rolled_back）
-- AsyncRollback 记录已完成的操作，按逆序撤销
-- 导入回滚：删除已导入的文件
-- 导出回滚：删除已导出的文件
-- FFI 返回 JSON 格式的结果
-
-**验收标准**：
-- [ ] ActionTask 接口定义
-- [ ] TransferService 返回 ActionTask 对象
-- [ ] FFI 导出函数实现
-- [ ] Dart 端测试通过
-
----
-
-## 🟡 P1 - 高优先级任务
-
-### 重构 stream 设计
-
-**背景**：允许重构掉原来 V2 的 stream 设计，允许不兼容
-
-**验收标准**：
-- [ ] 评估现有 stream 设计的问题
-- [ ] 设计新的 stream 方案
-- [ ] 实现并测试
-
----
-
-## 🟢 P2 - 中优先级任务
-
-### 架构文档
-
-**验收标准**：
-- [ ] 更新 ARCHITECTURE.md（V2 架构设计已合并至当前文档）
-- [ ] 添加设计决策记录
-- [ ] 添加接口文档
-
----
-
-## ✅ 已完成任务
-
-- [x] **架构重构：统一配置传递** ✅ 2026-04-06
-- [x] **架构重构：路径类型安全强制** ✅ 2026-04-06
-- [x] **架构重构：修复过度设计** ✅ 2026-04-06
-- [x] **架构重构：移动 sec_transfer 到 sec_fs** ✅ 2026-04-06
-- [x] **架构重构：TaskManager 封装化** ✅ 2026-04-06
-- [x] **架构重构：删除 TransferResult 和同步方法** ✅ 2026-04-06
-
----
-
-_Last updated: 2026-04-06_
+- TaskManager 持久化、ActionTask、ImportDirectoryAsync/ExportDirectoryAsync、逐文件 task 进度和断点续传属于已废弃 V1/V2 方向。
+- import/export 仅保留 operation marker 状态感知，后续全量重跑；convert 仅按 phase 处理安全 rename 窗口。
+- 废弃决策及删除公共接口的证据记录在 [completed/REFACTOR_COMPLETED.md](completed/REFACTOR_COMPLETED.md)，不得重新放回活跃任务。

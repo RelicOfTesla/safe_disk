@@ -2,14 +2,14 @@
 
 > 以当前可执行代码为准，不以历史 TODO 或路线图为准。
 
-最后审计时间：2026-07-12
+最后审计时间：2026-07-13
 
 ## 总结
 
 - Flutter 侧主 UI 已从占位壳恢复，并已重新接入 rootID FFI 基础读写路径；仍不应视为完整可发布 UI。
 - Go 侧 `sec_fs` 后端是真实存在的，且实现量较大。
 - sec root 已在构造 root 前执行 KDF 无关的 password verifier 认证；错误密码不再表现为可打开的空目录。旧的无 verifier 配置失败关闭，需要重建并重新导入。
-- 新 root 默认固定为 `aes-ctr + none + argon2id`，所有 KDF 创建均使用每 root 随机 salt；打开时严格按配置 factory，不再依赖 registry map 的随机首项或缺字段猜测。
+- Go 默认 root helper 固定为 `aes-ctr + none + argon2id`；Flutter 主界面新建 root 显式使用 `aes-ctr + aes-gcm-name`。所有 KDF 创建均使用每 root 随机 salt；打开时严格按配置 factory，不再依赖 registry map 的随机首项或缺字段猜测。
 - FFI 层存在，已暴露 Transfer V3 import/export、runtime progress callback、unfinished marker 和 convert 基础接口。
 - Flutter service 层目录导入/导出已接 V3，并通过 worker isolate 执行耗时 FFI；主 UI 已接基础 rootID 读写、目录导入/导出进度、真实 runtime cancel 和 unfinished marker 感知。
 - 增量加密 FFI 有设计文档，但不在当前活跃导出/绑定面上；Dart `NativeLib` 只保留 unsupported JSON stub，防止设计草稿阻塞编译。
@@ -22,6 +22,9 @@
 
 - `lib/main.dart` 启动的是 `HomePage`。
 - `lib/pages/home_page.dart` 已从占位页还原为较完整 UI，并将创建、解锁、列表、文件/目录导入、目录导出、删除、安全记事本保存和 unfinished marker 清理提示的基础路径接到当前 rootID FFI 模型。
+- `lib/widgets/home_shell.dart` 已承接主界面视觉组合；`HomePage` 仍负责 root 和 transfer 工作流编排，尚未完成状态管理拆分。
+- 主界面列表和网格均已接鼠标 secondary click。右键菜单与触屏操作面板共用类型化动作定义：文本编辑、原子重命名、应用内复制/粘贴、明文导出确认、文件删除、复制明文名称/逻辑路径、属性和刷新均有整页 widget 执行链测试。`sec_copy_entry` 通过逻辑路径在两个已打开 root 间解密/重加密，目录递归复制；冲突可取消、保留两者或显式替换。剪切/移动、批量复制和系统文件管理器互通仍未开放。
+- 安全记事本已拆为 controller、状态/查找/编辑区和页面协调层。单元/widget 测试覆盖首步撤销、查找替换、只读切换、定时保存及保存失败关闭保护；真实 FFI 测试覆盖加密中文路径下保存、关闭 root、重新认证读取。
 - `lib/services/directory_service.dart` 的目录导出/导入已调用 `NativeLib` 的 Transfer V3 FFI 封装；有无 progress listener 都走后台 worker isolate，且完成计数不再保存在 service 共享字段中。
 - `lib/services/file_service.dart` 和 `lib/services/crypto_service.dart` 提供 rootID 底层封装，并额外提供 UI 旧绝对虚拟路径到 root 相对路径的兼容适配。
 
@@ -38,7 +41,9 @@
 - `ISecFile` 基础接口已包含 `Sync()`，`secRoot`、`PlainFS` 和测试 mock 由编译器统一校验；Transfer V3 不再运行时猜测文件是否支持落盘。
 - `OpenFile().Stat()` 已使用打开的 store 文件句柄返回真实 mode/mtime，同时保留解密后 size；与 root/walker 的 metadata 视图一致，且 store 文件 rename 后仍可查询。
 - 新建 sec root/config/密文与 Transfer marker/work/export 使用 `0700/0600`；Transfer 明确不传播源 owner/mode/mtime，已有 root 目录不被递归 chmod，PlainFS 保持通用明文语义。
+- convert 校验会汇总并持久化结构化 verification report；内容不一致转为 `needs_attention/failed`，recovery 保留 source/work/backup，CLI 错误输出计数与样本。
 - `native/ffi_sec_fs/runtime_operations.go` 只保存活动 operation 的 `context.CancelFunc`，结束即删除；sec V3 在扫描、复制和原子提交前检查取消。
+- Transfer V3 目录 import/export 已改为计数遍与逐项执行遍，不保存整树路径；convert 校验使用双向逐项存在性、类型和摘要检查，报告每类只保存 16 条稳定样本。secure root walker 的待处理子目录栈仍没有硬上限，不能据此宣称端到端目录扫描内存完全有界。
 
 ### Go 后端
 
@@ -54,11 +59,13 @@
 
 - 安全记事本已完成。
 - 图片浏览器已完成。
-- 目录导入/导出 UI 已有可注入选择器的 `HomePage` 整页测试，覆盖未认证 root 不提前读取、错误/正确密码、文件选择导入、目录合并确认、导入异常恢复和 unfinished operation 全量重跑；这些证据只证明当前 transfer 交互闭环，不代表整个 UI 已完成。
+- 目录导入/导出 UI 已有可注入选择器的 `HomePage` 整页测试，覆盖未认证 root 不提前读取、错误/正确密码、文件 import 冲突取消/替换、目录保留两者/合并确认、导入异常恢复和 unfinished operation 全量重跑；marker 保存 overwrite 决策。这些证据只证明当前 transfer 交互闭环，不代表整个 UI 已完成。
 - 增量加密 FFI 已发布并可从 Flutter 实际使用；当前仅有明确返回 unsupported 的 Dart stub。
 - 整个 UI 已完成。
 
 ## 使用规则
+
+活跃进度统一维护在 [TODO.md](TODO.md)、[TODO_REFACTOR.md](TODO_REFACTOR.md)、[ROADMAP.md](ROADMAP.md) 和 [FEATURES.md](FEATURES.md)。100% 项只进入 `docs/completed/`，不得同时保留在活跃清单。
 
 当某个文档写 `已完成` 时，至少要检查以下三项：
 

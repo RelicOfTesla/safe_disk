@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/error_messages.dart';
+import '../services/error_reporting_service.dart';
+import '../utils/error_diagnostics.dart';
 
 /// 友好的错误提示对话框
 ///
@@ -20,6 +22,14 @@ class ErrorDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final error = ErrorMessages.getError(errorType);
+    final details = ErrorReportingService.detailedErrorsEnabled &&
+            originalError != null &&
+            originalError!.isNotEmpty
+        ? ErrorDiagnostics.build(
+            type: errorType,
+            originalError: originalError!,
+          )
+        : null;
 
     return AlertDialog(
       icon: Icon(
@@ -47,9 +57,9 @@ class ErrorDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                color: Colors.blue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,7 +79,7 @@ class ErrorDialog extends StatelessWidget {
           ],
 
           // 原始错误（仅在调试模式或用户请求时显示）
-          if (originalError != null && originalError!.isNotEmpty) ...[
+          if (details != null) ...[
             const SizedBox(height: 16),
             ExpansionTile(
               title: const Text(
@@ -86,7 +96,7 @@ class ErrorDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: SelectableText(
-                    originalError!,
+                    details,
                     style:
                         const TextStyle(fontSize: 11, fontFamily: 'monospace'),
                   ),
@@ -94,7 +104,7 @@ class ErrorDialog extends StatelessWidget {
                 const SizedBox(height: 4),
                 TextButton.icon(
                   onPressed: () {
-                    Clipboard.setData(ClipboardData(text: originalError!));
+                    Clipboard.setData(ClipboardData(text: details));
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('已复制错误信息')),
                     );

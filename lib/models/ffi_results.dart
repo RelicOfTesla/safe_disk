@@ -352,7 +352,8 @@ class JobProgressResult extends FFIResult {
 class IncrementalEncryptorResult extends FFIResult {
   final int? handleID;
 
-  IncrementalEncryptorResult({required super.success, super.error, this.handleID});
+  IncrementalEncryptorResult(
+      {required super.success, super.error, this.handleID});
 
   factory IncrementalEncryptorResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -474,7 +475,8 @@ class IncrementalBlockInfo {
 class IncrementalBlockInfoResult extends FFIResult {
   final IncrementalBlockInfo? blockInfo;
 
-  IncrementalBlockInfoResult({required super.success, super.error, this.blockInfo});
+  IncrementalBlockInfoResult(
+      {required super.success, super.error, this.blockInfo});
 
   factory IncrementalBlockInfoResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -496,7 +498,8 @@ class IncrementalBlockInfoResult extends FFIResult {
 class IncrementalAllBlockInfoResult extends FFIResult {
   final List<IncrementalBlockInfo>? blockInfos;
 
-  IncrementalAllBlockInfoResult({required super.success, super.error, this.blockInfos});
+  IncrementalAllBlockInfoResult(
+      {required super.success, super.error, this.blockInfos});
 
   factory IncrementalAllBlockInfoResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;
@@ -518,7 +521,8 @@ class IncrementalAllBlockInfoResult extends FFIResult {
 class IsIncrementalResult extends FFIResult {
   final bool? isIncremental;
 
-  IsIncrementalResult({required super.success, super.error, this.isIncremental});
+  IsIncrementalResult(
+      {required super.success, super.error, this.isIncremental});
 
   factory IsIncrementalResult.fromJson(String jsonStr) {
     final json = jsonDecode(jsonStr) as Map<String, dynamic>;

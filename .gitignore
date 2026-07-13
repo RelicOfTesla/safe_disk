@@ -50,6 +50,12 @@ app.*.map.json
 native/*.test
 native/*.out
 native/*.h
+
+# Build tool binaries (compiled from .go scripts)
+/scripts/build
+/scripts/build.exe
+/native/build_cli
+/native/build_cli.exe
 native/sec_fs/*.test
 native/sec_fs/sec_utils/*.test
 
@@ -70,6 +76,7 @@ native/darwin/
 
 /native/safedisk-cli
 /native/safedisk-cli-test
+/native/safe_disk_cli
 
 # Backup directories
 native/_backup*
@@ -105,3 +112,13 @@ docs/_archived/
 **/_archived*.md
 
 /native/ffi_sec_fs/ffi_sec_fs
+/linux/libffi_sec_fs.h
+/native/ffi_sec_fs/libsafedisk_native.h
+
+/.learnings
+/test_vaults
+/CLAUDE.md
+/_archived
+.claude
+/native/ffi_sec_fs/ffi_sec_fs.h
+/windows/ffi_sec_fs.h

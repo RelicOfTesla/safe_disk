@@ -1,20 +1,25 @@
-.PHONY: build test clean
+.PHONY: build test clean run build-go build-flutter build-cli test-go test-flutter
+
+# 使用 Go 构建脚本
+BUILD_TOOL := go run scripts/build.go
+
+run:
+	$(BUILD_TOOL) run
 
 build-go:
-	cd native && go build -buildmode=c-shared -o ../build/libsafe_disk.so ./exports.go
-
-build-cli:
-	cd native && go build -o ../build/safe-disk ./cli/main.go
+	$(BUILD_TOOL) build-go
 
 build-flutter:
-	flutter build linux
+	$(BUILD_TOOL) build-flutter
+
+build-cli:
+	$(BUILD_TOOL) build-cli
 
 test-go:
-	cd native && go test ./...
+	$(BUILD_TOOL) test-go
 
 test-flutter:
-	flutter test
+	$(BUILD_TOOL) test-flutter
 
 clean:
-	rm -rf build/
-	rm -f native/*.so native/*.h
+	$(BUILD_TOOL) clean

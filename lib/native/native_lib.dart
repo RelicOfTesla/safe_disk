@@ -8,6 +8,16 @@ import 'package:ffi/ffi.dart';
 
 import 'bindings.dart';
 
+class NativeOperationException implements Exception {
+  const NativeOperationException(this.operation, this.message);
+
+  final String operation;
+  final String message;
+
+  @override
+  String toString() => 'NativeOperationException($operation): $message';
+}
+
 /// Native library wrapper for Safe Disk FFI operations.
 ///
 /// Architecture:
@@ -61,7 +71,10 @@ class NativeLib {
   /// Checks result and throws on error.
   void _checkResult(Map<String, dynamic> data, String operation) {
     if (data['success'] != true) {
-      throw Exception(data['error'] ?? '$operation failed');
+      throw NativeOperationException(
+        operation,
+        data['error']?.toString() ?? '$operation failed',
+      );
     }
   }
 
@@ -199,6 +212,90 @@ class NativeLib {
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secFileDelete');
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Atomically renames a file or directory without replacing a target.
+  void secRename(int rootID, String oldPath, String newPath) {
+    final oldPathPtr = oldPath.toNativeUtf8();
+    final newPathPtr = newPath.toNativeUtf8();
+    try {
+      final resultPtr = _bindings.secRename(rootID, oldPathPtr, newPathPtr);
+      final result = _ptrToString(resultPtr);
+      final data = _parseJson(result);
+      _checkResult(data, 'secRename');
+    } finally {
+      calloc.free(oldPathPtr);
+      calloc.free(newPathPtr);
+    }
+  }
+
+  /// Copies and re-encrypts one logical entry between open roots.
+  void secCopyEntry(
+    int srcRootID,
+    String srcPath,
+    int dstRootID,
+    String dstPath, {
+    bool overwrite = false,
+  }) {
+    final srcPathPtr = srcPath.toNativeUtf8();
+    final dstPathPtr = dstPath.toNativeUtf8();
+    try {
+      final resultPtr = _bindings.secCopyEntry(
+        srcRootID,
+        srcPathPtr,
+        dstRootID,
+        dstPathPtr,
+        overwrite ? 1 : 0,
+      );
+      final data = _parseJson(_ptrToString(resultPtr));
+      _checkResult(data, 'secCopyEntry');
+    } finally {
+      calloc.free(srcPathPtr);
+      calloc.free(dstPathPtr);
+    }
+  }
+
+  Future<void> secCopyEntryInBackground(
+    int srcRootID,
+    String srcPath,
+    int dstRootID,
+    String dstPath, {
+    bool overwrite = false,
+  }) {
+    return Isolate.run(() {
+      NativeLib.instance.secCopyEntry(
+        srcRootID,
+        srcPath,
+        dstRootID,
+        dstPath,
+        overwrite: overwrite,
+      );
+    }, debugName: 'safe-disk-copy-entry');
+  }
+
+  void secCreateEmptyFile(int rootID, String path) {
+    _runCreateEntry(
+        _bindings.secCreateEmptyFile, rootID, path, 'secCreateEmptyFile');
+  }
+
+  void secCreateDirectory(int rootID, String path) {
+    _runCreateEntry(
+        _bindings.secCreateDirectory, rootID, path, 'secCreateDirectory');
+  }
+
+  void _runCreateEntry(
+    SecCreateEntryDart nativeFunction,
+    int rootID,
+    String path,
+    String operation,
+  ) {
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final data = _parseJson(_ptrToString(nativeFunction(rootID, pathPtr)));
+      _checkResult(data, operation);
     } finally {
       calloc.free(pathPtr);
     }
@@ -374,12 +471,21 @@ class NativeLib {
     }
   }
 
-  void secTransferV3ImportFile(int rootID, String srcPath, String destPath) {
+  void secTransferV3ImportFile(
+    int rootID,
+    String srcPath,
+    String destPath, {
+    bool overwrite = false,
+  }) {
     final srcPathPtr = srcPath.toNativeUtf8();
     final destPathPtr = destPath.toNativeUtf8();
     try {
-      final resultPtr =
-          _bindings.secTransferV3ImportFile(rootID, srcPathPtr, destPathPtr);
+      final resultPtr = _bindings.secTransferV3ImportFile(
+        rootID,
+        srcPathPtr,
+        destPathPtr,
+        overwrite ? 1 : 0,
+      );
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secTransferV3ImportFile');
@@ -394,6 +500,7 @@ class NativeLib {
     String srcPath,
     String destPath,
     void Function(TransferProgressEvent progress) onProgress, {
+    bool overwrite = false,
     TransferCancellationToken? cancellationToken,
   }) {
     return _runTransferInBackground(
@@ -402,18 +509,27 @@ class NativeLib {
       srcPath: srcPath,
       destPath: destPath,
       operation: 'secTransferV3ImportFileWithProgress',
+      overwrite: overwrite,
       onProgress: onProgress,
       cancellationToken: cancellationToken,
     );
   }
 
   void secTransferV3ImportDirectory(
-      int rootID, String srcPath, String destPath) {
+    int rootID,
+    String srcPath,
+    String destPath, {
+    bool overwrite = false,
+  }) {
     final srcPathPtr = srcPath.toNativeUtf8();
     final destPathPtr = destPath.toNativeUtf8();
     try {
       final resultPtr = _bindings.secTransferV3ImportDirectory(
-          rootID, srcPathPtr, destPathPtr);
+        rootID,
+        srcPathPtr,
+        destPathPtr,
+        overwrite ? 1 : 0,
+      );
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secTransferV3ImportDirectory');
@@ -428,6 +544,7 @@ class NativeLib {
     String srcPath,
     String destPath,
     void Function(TransferProgressEvent progress) onProgress, {
+    bool overwrite = false,
     TransferCancellationToken? cancellationToken,
   }) {
     return _runTransferInBackground(
@@ -436,6 +553,7 @@ class NativeLib {
       srcPath: srcPath,
       destPath: destPath,
       operation: 'secTransferV3ImportDirectoryWithProgress',
+      overwrite: overwrite,
       onProgress: onProgress,
       cancellationToken: cancellationToken,
     );
@@ -515,6 +633,7 @@ class NativeLib {
     required String destPath,
     required String operation,
     required void Function(TransferProgressEvent progress) onProgress,
+    bool overwrite = false,
     TransferCancellationToken? cancellationToken,
   }) async {
     final messages = ReceivePort();
@@ -534,6 +653,7 @@ class NativeLib {
           'destPath': destPath,
           'operation': operation,
           'operationID': operationID,
+          'overwrite': overwrite,
         },
         onExit: messages.sendPort,
         debugName: 'safe-disk-transfer-$kind',
@@ -618,6 +738,58 @@ class NativeLib {
           destPathPtr, callback.nativeFunction);
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
+      _checkResult(data, operation);
+    } finally {
+      callback.close();
+      calloc.free(operationIDPtr);
+      calloc.free(srcPathPtr);
+      calloc.free(destPathPtr);
+    }
+  }
+
+  void _runImportTransferWithProgress(
+    int rootID,
+    String srcPath,
+    String destPath,
+    String operationID,
+    bool overwrite,
+    SecTransferV3ImportWithCallbackDart nativeFunction,
+    String operation,
+    void Function(TransferProgressEvent progress) onProgress,
+  ) {
+    final srcPathPtr = srcPath.toNativeUtf8();
+    final destPathPtr = destPath.toNativeUtf8();
+    final operationIDPtr = operationID.toNativeUtf8();
+    late final NativeCallable<NativeProgressCallbackC> callback;
+    callback = NativeCallable<NativeProgressCallbackC>.isolateLocal(
+      (
+        Pointer<Utf8> currentFile,
+        int filesCompleted,
+        int filesTotal,
+        int isComplete,
+        Pointer<Utf8> errorMessage,
+      ) {
+        onProgress(TransferProgressEvent(
+          currentFile: currentFile == nullptr ? '' : currentFile.toDartString(),
+          completedFiles: filesCompleted,
+          totalFiles: filesTotal,
+          isComplete: isComplete != 0,
+          errorMessage:
+              errorMessage == nullptr ? null : errorMessage.toDartString(),
+        ));
+      },
+    );
+
+    try {
+      final resultPtr = nativeFunction(
+        operationIDPtr,
+        rootID,
+        srcPathPtr,
+        destPathPtr,
+        overwrite ? 1 : 0,
+        callback.nativeFunction,
+      );
+      final data = _parseJson(_ptrToString(resultPtr));
       _checkResult(data, operation);
     } finally {
       callback.close();
@@ -712,6 +884,7 @@ void _transferWorkerMain(Map<String, Object> request) {
   final destPath = request['destPath']! as String;
   final operation = request['operation']! as String;
   final operationID = request['operationID']! as String;
+  final overwrite = request['overwrite']! as bool;
   final native = NativeLib.instance;
 
   void report(TransferProgressEvent progress) {
@@ -724,20 +897,22 @@ void _transferWorkerMain(Map<String, Object> request) {
   try {
     switch (kind) {
       case _TransferWorkerKind.importFile:
-        native._runTransferWithProgress(
+        native._runImportTransferWithProgress(
             rootID,
             srcPath,
             destPath,
             operationID,
+            overwrite,
             native._bindings.secTransferV3ImportFileWithCallback,
             operation,
             report);
       case _TransferWorkerKind.importDirectory:
-        native._runTransferWithProgress(
+        native._runImportTransferWithProgress(
             rootID,
             srcPath,
             destPath,
             operationID,
+            overwrite,
             native._bindings.secTransferV3ImportDirectoryWithCallback,
             operation,
             report);

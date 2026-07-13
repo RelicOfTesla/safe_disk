@@ -1,600 +1,171 @@
-# Safe Disk TODO List
+# Safe Disk 活跃任务清单
 
-> 本文档记录所有待办任务和已完成任务，按优先级分类
+> 本文件只保留未达到 100% 的任务。已完成并有自动化实际功能测试证明的任务见 [completed/TASKS_COMPLETED.md](completed/TASKS_COMPLETED.md)。
 >
-> 注意：这里包含历史完成记录，不等于当前活跃代码状态。请以 [CODE_AUDIT_STATUS.md](CODE_AUDIT_STATUS.md) 为准，尤其是 Flutter UI 和 FFI 相关条目。
-
-**相关文档**：
-- [FEATURES.md](FEATURES.md) - 功能规划
-- [ROADMAP.md](ROADMAP.md) - 开发路线图
-
----
-
-## 📊 优先级说明
-
-- **P0（紧急）**：必须立即处理，影响安全或核心功能
-- **P1（高）**：尽快处理，影响用户体验或代码质量
-- **P2（中）**：后续改进，性能优化和功能增强
-- **P3（低）**：锦上添花，平台扩展和可选功能
-
----
-
-## 🔴 P0 - 紧急任务
-
-### [已修复] 新 root 的 KDF 与 salt 不确定
-
-**问题**：未显式指定 KDF 时曾从无序 registry map 取首项，可能随机选择到 HKDF；`CreateRootConfigQuick` 同时使用静态 salt，使相同密码跨 root 派生相同主密钥。
-
-**修复（2026-07-12）**：
-- [x] 默认算法固定为 `aes-ctr + none + argon2id`
-- [x] 四种 KDF 新 root 均使用独立随机 salt
-- [x] HKDF 非静态模式修复为真实随机 salt
-- [x] 打开 root 严格按配置 factory，不再猜测缺失字段
-- [x] sec 测试覆盖全部 KDF salt 隔离，Dart 真 FFI 覆盖 CLI/FFI 默认与跨入口 salt 隔离
-
-### [已修复] Flutter import 后错误密码可进入空目录
-
-**问题**：`OpenRootQuick` 只派生 key、不认证密码；错误 key 导致文件名解密失败，walker 跳过失败项，Flutter 因而显示空目录。
-
-**修复（2026-07-10）**：
-- [x] sec 创建 root 时写入版本化随机 challenge + HMAC-SHA256 password verifier
-- [x] sec 打开 root 时先常量时间认证密码，再构造 root
-- [x] 无 verifier 的旧配置失败关闭，不做不可靠自动迁移
-- [x] FFI 失败时不分配 rootID、不泄漏 `RootStore` 对象
-- [x] sec 覆盖全部已注册 KDF；CLI、FFI、Dart 真库覆盖错误密码
-- [x] Dart 真库精确覆盖“目录 import 后关闭，错误密码重开失败，正确密码仍可读取内容”
-- [x] CLI/Dart 创建目录双向互通测试同时覆盖错误密码拒绝
-
-### [CLI/Transfer V3] 补齐 create、安全密码输入和未完成操作感知
-
-**优先级**：1（最高）
-
-**背景**：CLI 当前只有 `version/list/import/export` 基础能力，缺少创建 root、安全密码输入、打开 root 时的 unfinished operation 检查。完整设计见 [CLI_DESIGN.md](CLI_DESIGN.md) 和 [TRANSFER_DESIGN.md](TRANSFER_DESIGN.md)。
-
-**底层前置任务**：
-- [x] 删除活跃 `sec_transfer/v2`、旧 task 公共接口和 FFI/Dart v1/v2 兼容符号；历史仅保留在受保护 archive
-- [x] V3 实现未注册时返回 `ErrTransferV3NotRegistered`，不在公共 API 边界 panic
-- [x] 重新设计 `sec_transfer` V3，不兼容 v1/v2 task/progress 持久化模型
-- [x] import/export 增加 operation marker：开始写入，成功清理，中断后可被 open root 发现
-- [x] import/export 只做运行时进度 callback，不做进度持久化和断点续传
-- [x] convert 增加 phase marker：creating_work、copying_to_work、verifying_work、renaming_root_to_backup、renaming_work_to_root、completed、needs_attention
-- [x] convert 使用 work/backup 同级目录切换模型，底层复用 import/export 全量复制
-- [x] 实现 unfinished operation query，供 CLI/FFI 在 open root 时调用
-- [x] 完善 convert recover，根据 phase 和 root/work/backup 实际存在状态继续、重跑或报告人工处理
-
-**CLI 任务**：
-- [x] CLI 入口改为完整算法注册，使用 `crypto_all` 和 transfer V3 实现
-- [x] 实现统一密码读取 helper：`--password`、`--password-env`、`--password-stdin`、隐藏交互输入
-- [x] 实现统一 root open helper：绝对路径规范化、`FindRootConfig`、`OpenRootQuick`、unfinished operation 检查
-- [x] 增加 `create --path /abs/root`
-- [x] `create` 默认只允许不存在目录或空目录；已存在非空目录默认拒绝
-- [x] 交互式非空目录 create 可提示是否原地加密，非交互模式必须拒绝
-- [x] 增加 `create --in-place`，使用 convert work/backup 目录切换模型
-- [x] `import/export` 接入 V3 import/export API 和 `--unfinished=ask|rerun|clean|skip`
-- [x] 增加 `--json` JSON Lines 输出
-- [x] 明确不新增单独 `recover/resume` 命令，unfinished operation 处理由 open root 流程触发
-
-**验收标准**：
-- [x] CLI 创建的 root 可被 FFI/Flutter 打开
-- [x] FFI/Flutter 创建的 root 可被 CLI 打开
-- [x] 不同算法配置的 root 可被 CLI 打开
-- [x] 中断 import/export 后，再次执行 CLI 命令能发现 operation marker，并可全量重跑/清理/跳过
-- [x] 中断 convert 的 copy/verify/rename 阶段后，再次 open root 能按 phase 给出恢复或人工处理建议
-- [x] convert 成功后 backup 默认保留，不自动删除
-- [x] 密码不出现在日志、进度、JSON 输出中
-- [x] 完整实践测试矩阵覆盖 create、import/export、progress、unfinished operation、安全输入和兼容性
-  - [x] sec/walker/transfer/CLI/FFI/Dart 覆盖 `aes-gcm-name` 文件名/目录名加密场景
-  - [x] Dart FFI 集成测试覆盖 root create/open、quick read/write、V3 import/export、unfinished marker
-  - [x] CLI `import/export --json` 覆盖 JSON Lines started/progress/completed 事件
-  - [x] FFI/Dart 覆盖 V3 runtime progress callback，Dart 通过 `NativeCallable` 接收完成事件和文件计数
-  - [x] FFI Go 与 Dart FFI 集成测试覆盖 CLI-created root 由 FFI/Dart 写读并由 CLI export、FFI/Dart-created root 由 CLI import/export 使用
-  - [x] Transfer V3 测试覆盖 convert encrypt 成功后 backup 目录保留且 marker 清理
-  - [x] CLI 集成测试覆盖 create/import/list/export 普通输出和 JSON 输出不泄漏密码
-  - [x] CLI 单元/集成测试覆盖非空目录 create 交互确认逻辑、非交互拒绝和 JSON 模式拒绝提示污染
-  - [x] Flutter/Dart 全量 analyze 无 error/warning，真实 Dart FFI 集成测试通过
-
-### [BUG] UI 新创建的加密目录，侧边栏与解密栏标题为一段 json 字符串
-
-**优先级**：1（最高）
-
-**问题**：创建加密目录后，侧边栏和解密栏显示的不是目录名，而是一段 JSON 字符串
-
-**影响**：严重影响用户体验
-
-**状态**：已修复。UI 创建目录不再把 FFI 返回 JSON 当作目录配置/标题来源，创建和解锁流程已切到 rootID FFI 模型；新增 `SidebarWidget` 测试确保侧边栏显示 path basename 而不是 config JSON。
-
-**验收标准**：
-- [x] 侧边栏显示正确的目录名
-- [x] 解密栏显示正确的目录名
-
----
-
-## 🟡 P1 - 高优先级任务
-
-### [已废弃/非主线] 旧 TransferService V2 进度持久化方案
-
-**状态**：已从活跃源码和 FFI/Dart 公共面删除。当前 import/export/convert 只使用 Transfer V3，历史实现仅保留在受保护 archive 供审计。
-
-**历史背景**：旧 TransferService 曾计划支持断电恢复、幂等性、数据安全。
-
-**旧核心设计**（详见 V2 文档，已不作为实现目标）：
-- 进度持久化：`_progress_files.json`
-- 原子化文件替换：`rename -> rename -> update progress -> remove temp`
-- 断电恢复：启动时检查进度文件，清理临时文件
-
-**旧流程**（Import/Export 统一，已不作为实现目标）：
-```
-Step 1: 扫描所有文件，保存 -> _progress_files.json
-Step 2: 加密/解密文件
-Step 3: 安全替换（原子操作）：rename(a.txt -> a.txt.raw), rename(a.txt.enc -> a.txt)
-Step 4: 保存进度（更新 _progress_files.json）← 先更新进度
-Step 5: 清理临时文件：remove(a.txt.raw) ← 后删除临时文件
-Step 6: 返回 Step 2 处理下一个文件
-```
-
-**结论**：
-- [x] 不实现旧 `ImportDirectoryAsync/ExportDirectoryAsync` 进度持久化方案
-- [x] 不恢复旧 `_progress_files.json` 断点续传模型
-- [x] import/export 未完成状态只通过 operation marker 感知，下次打开 root 后由用户选择全量重跑/清理/跳过
-
----
-
-## 🟡 P1 - 高优先级任务
-
-### 用户体验改进
-
-- [ ] **安全记事本自动保存时间间隔可选**（优先级：中）
-  - 默认不保存
-  - 可选时间间隔：30秒、3分钟、10分钟、30分钟、2小时
-  - 添加设置选项框
-
-- [x] **统一加密目录入口**：侧边栏改成打开/创建按钮，去掉右上角和启动页的重复按钮 ✅ 2026-04-03
-  - 侧边栏："打开加密目录" → "打开/创建加密目录"
-  - 去掉右上角的打开/创建加密目录按钮
-  - 去掉启动页中间的打开加密目录按钮
-  - 记得更新相关测试
-  - 修改文件：lib/widgets/sidebar.dart, lib/pages/home_page.dart, test/widgets/sidebar_test.dart
-  - 编译成功，测试通过，功能正常
-
-- [x] **首次使用缺少引导** ✅ 2026-04-03
-  - 已创建 `WelcomeGuideDialog` 欢迎引导对话框
-  - 引导内容包括：欢迎信息、加密目录介绍、核心功能、安全提示
-  - 已添加首次使用检测逻辑（检查是否已打开过加密目录）
-  - 已添加"跳过"和"不再显示"选项
-  - 修改文件：`lib/pages/dialogs.dart`, `lib/pages/home_page.dart`, `lib/services/directory_persistence_service.dart`
-  - Flutter 应用编译成功
-- [x] 错误提示不够友好 ✅ 2026-04-03
-  - 已创建错误提示常量文件：`lib/utils/error_messages.dart`
-    - 定义 ErrorType 枚举（20+ 种错误类型）
-    - 定义 ErrorMessage 类（标题、描述、建议操作、是否严重）
-    - 定义 ErrorMessages 工具类（获取错误提示、完整信息等）
-  - 已创建错误提示组件：`lib/widgets/error_dialog.dart`, `lib/widgets/enhanced_snackbar.dart`
-  - 已修改 `lib/widgets/copyable_snackbar.dart`，添加 ErrorSnackBar 和 ErrorHelper
-  - 已修改 `lib/pages/home_page.dart` 中的所有错误提示
-  - 已修改 `lib/pages/dialogs.dart` 中的所有错误提示
-  - 已修改 `lib/widgets/secure_notepad.dart` 中的所有错误提示
-  - 所有错误提示均包含：清晰的标题、详细的描述、建议操作
-  - Flutter 应用编译成功
-- [x] 进度显示缺失 ✅ 2026-04-03
-  - 已创建进度显示组件：`lib/widgets/progress_dialog.dart`
-    - ProgressInfo 类：包含当前进度、总数、文件名、状态、预计剩余时间
-    - ProgressDialog 组件：显示进度条、百分比、文件名、已处理数量、取消按钮
-    - ProgressController 控制器：用于更新进度、取消操作、预估剩余时间
-    - ProgressHelper 工具类：显示/隐藏进度对话框
-  - 已修改 `lib/pages/home_page.dart`：
-    - 新增 `_countFilesInDirectory()` 方法：计算目录中文件总数
-    - 修改 `_exportDirectory()` 方法：使用 ProgressDialog 显示导出进度
-    - 修改 `_exportDirectoryRecursive()` 方法：添加进度更新和取消检查
-    - 修改 `_batchExport()` 方法：使用 ProgressDialog 显示批量导出进度
-  - 功能特性：
-    - ✅ 进度条显示百分比
-    - ✅ 显示当前处理的文件名
-    - ✅ 显示已处理文件数/总文件数
-    - ✅ 预计剩余时间（可选）
-    - ✅ 目录导出已接纯运行时 cancel ABI；取消清理临时文件、不提交部分目标并保留 unfinished marker（2026-07-10）
-    - ✅ V3 目录进度通过 worker isolate 转发，不阻塞 UI（2026-07-10 真实 FFI 测试验证）
-  - Flutter 应用编译成功
-
-- [x] **Transfer V3 运行时取消**（2026-07-10）
-  - [x] 只维护进程内 operation cancel handle，不引入 task/progress 持久化
-  - [x] Go 在扫描、复制和原子提交前检查 context，结束后清理 handle
-  - [x] FFI/Dart 暴露 cancel；测试覆盖 callback 生命周期、marker 保留、重复取消和 UI 拒绝过早关闭
-- [x] **Flutter 目录导入入口接入 Transfer V3**（2026-07-10）
-  - [x] 所选目录作为当前加密目录的子目录导入，已有目标需确认合并覆盖
-  - [x] 接入 worker isolate 进度与纯运行时取消
-  - [x] 拒绝选择当前加密 root 或其子目录；V3 排除嵌套 root 和保留空目录
-  - [x] sec/FFI/Dart/widget 测试覆盖加密目录名、空目录、符号链接拒绝和目标路径
-- [x] 创建新加密目录后，没有添加到侧边栏 ✅ 2026-04-03
-  - 修改 `_createEncryptedDirectory()` 方法，成功后自动调用 `_loadDirectory(selectedPath)`
-  - 自动打开新创建的加密目录，从而自动添加到侧边栏
-  - 修改文件：`lib/pages/home_page.dart`
-  - Flutter 应用编译成功
-- [x] 创建加密目录/导入加密目录可以合并成一个按钮 ✅ 2026-04-03
-  - 判断目录是否已存在 `_cryption.json`，自动选择创建或导入模式
-  - 已实现 `_openOrCreateEncryptedDirectory()` 方法
-  - 已提取 `_createEncryptedDirectoryWithPath()` 方法，接受路径参数
-  - 编译成功，功能正常
-- [x] 删除侧边栏加密目录时，应弹窗让用户选择是否删除磁盘目录 ✅ 2026-04-03
-  - 已创建 DeleteDirectoryDialog 删除确认对话框
-  - 已修改 _closeDirectory 方法，添加删除确认逻辑
-  - 用户可以选择：仅从侧边栏移除、同时删除磁盘目录、取消
-  - 删除磁盘目录失败时会显示错误提示
-  - 修改文件：lib/pages/dialogs.dart, lib/pages/home_page.dart
-  - Flutter 应用编译成功
-- [x] 顶部目录导航栏乱了 ✅ 2026-04-03
-  - **问题**：`_buildBreadcrumb()` 方法被调用了两次，导致面包屑导航显示重复
-  - **原因**：在 `_buildBody()` 和 `_buildFileBrowser()` 中都调用了 `_buildBreadcrumb()`
-  - **修复**：从 `_buildFileBrowser()` 中移除重复的 `_buildBreadcrumb()` 调用
-  - **修改文件**：`lib/pages/home_page.dart`
-  - **编译结果**：Flutter 应用编译成功，无错误
-
-### 代码质量
-
-- [x] Dart/Flutter 代码质量 Review ✅ 2026-07-10
-  - [x] 修复所有 warning 和 info 级别的问题（9/9 warning，26/43 info）
-  - [x] 配置 `analysis_options.yaml` 规则集
-  - [x] 使用 `dart format` 统一代码格式
-  - [x] 添加必要的注释和文档
-  - [x] 检查 Widget 使用是否合理
-  - [x] 检查性能问题（不必要的 rebuild）
-  - [x] 使用 const constructor 优化
-  - [x] 检查是否有敏感信息硬编码
-  - [x] 清理剩余 info 级别问题；当前 `dart analyze` 为 0 issue（2026-07-10）
-
-- [x] 测试覆盖率达到 60%+ ⚠️ 部分完成 2026-04-03
-  - **目标**：60%
-  - **实际**：37.4%（+6.9%）
-  - [x] 添加 mocktail 测试依赖
-  - [x] 添加 secure_notepad.dart 测试（0% → 62.7%）
-  - [x] 添加 secure_image_viewer.dart 测试（0% → 88.4%）
-  - [ ] 未达成目标，需要继续添加测试
-
-- [x] Go 核心库优化 ✅ 2026-04-03
-  - [x] 更完善的错误处理 ✅ 2026-04-03
-    - 新建 native/errors/errors.go 统一错误处理模块
-    - 修改 native/crypto/、native/service/、native/config/ 包使用新错误类型
-    - 修改 native/ffi_sec_fs 添加错误包装和上下文
-    - 新建 docs/reference/error_handling.md 错误处理文档
-  - [x] 统一 JSON 响应格式（jsonSuccessResponse/jsonErrorResponse） ✅ 2026-04-03
-    - 新建 native/service/result.go 统一响应格式模块
-    - 定义 JSONResponse 统一响应结构
-    - 实现 jsonSuccess/jsonError/jsonSuccessWithData/jsonSuccessWithID 等辅助函数
-    - 修改 native/ffi_sec_fs 使用新响应格式
-    - 修改 native/service/encryption_service.go 使用新响应格式
-    - 所有测试通过，功能正常
-  - [x] GenerateEncryptionConfig 提取到 service 供 CLI 复用 ✅ 2026-04-03
-    - Commit: da6f582d
-    - 提取 GenerateEncryptionConfig 到 service 层
-    - CLI 和 FFI 均可复用
-
-- [x] FFI 增加目录异步加解密功能 ✅ 2026-04-03
-  - Commit: fe2ba2c
-  - 实现 encryptDir/decryptDir(srcDir, targetDir, tempKeyID, callback)
-  - 支持复用，CLI 也可调用
-  - srcDir==targetDir 时原子安全
-
-- [x] 密钥派生测试覆盖率优化 ✅ 2026-04-03
-  - **目标**：提升 native/crypto 密钥派生相关函数测试覆盖率
-  - **结果**：覆盖率 79.9%，全部测试通过
-  - **新增测试文件**：`native/crypto/key_derive_test.go`（替代旧的 key_derivation_test.go）
-  - **测试覆盖**：
-    - DeriveKeyFromPasswordPBKDF2
-    - VerifyPasswordPBKDF2
-    - GenerateRandomSalt
-    - GenerateEncryptionConfig
-    - 等密钥派生核心函数
-  - **修改文件**：native/crypto/key_derive_test.go
-
-- [ ] Go 核心库优化
-
----
-
-## 🟢 P2 - 中优先级任务
-
-### 性能优化
-
-
-#### 大文件增量加密优化
-- [x] **实现增量加密 FFI 接口** ✅ 2026-04-03
-  - 新增 FFI 函数：IncrementalEncryptorCreate/AddBlock/Finalize/Close
-  - 新增 FFI 函数：IncrementalDecryptorOpen/DecryptBlock/DecryptRange/DecryptAll/Close
-  - 新增 FFI 函数：IncrementalDecryptorVerifyBlockIntegrity/VerifyIntegrity/GetBlockInfo/GetAllBlockInfo
-  - 新增 FFI 函数：IsIncrementalFile/GetIncrementalFileInfo
-  - 新增 Flutter FFI 绑定：lib/native/bindings.dart (+150 行)
-  - 新增 Flutter 端 API：lib/native/native_lib.dart (+172 行)
-  - 新增 Go 层 FFI 实现：native/ffi_sec_fs (+471 行)
-  - 新增文档：docs/design/FFI_INCREMENTAL_ENCRYPTION.md
-  - 新增测试：test/incremental_encrypt_ffi_test.dart
-
-- [x] **实现 Flutter 端 UI 集成** ✅ 2026-04-03
-  - 新增结果类：lib/models/ffi_results.dart (+247 行)
-    - IncrementalEncryptorResult、IncrementalDecryptorResult
-    - IncrementalBlockResult、IncrementalBlockInfo
-    - IsIncrementalResult、IncrementalFileHeader 等
-  - 新增服务层：lib/services/incremental_encrypt_service.dart (+735 行)
-    - IncrementalEncryptor：流式加密器，支持分块加密
-    - IncrementalDecryptor：流式解密器，支持随机访问解密
-    - IncrementalEncryptService：高级服务接口
-  - 新增单元测试：test/services/incremental_encrypt_service_test.dart
-  - 支持进度回调和错误处理
-  - 支持大文件流式加密/解密，内存占用有界
-  - Commit: e75c6e9
-
-- [x] **性能测试和优化** ✅ 2026-04-03
-  - 新增性能测试：native/crypto/incremental_encrypt_bench_test.go
-  - 新增性能测试：test/performance/incremental_encrypt_perf_test.dart
-  - 新增性能报告：docs/archive/performance_report.md
-  - 测试结果：
-    - 加密吞吐量：167 MB/s (100MB 文件)
-    - 解密吞吐量：659 MB/s (100MB 文件)
-    - 随机访问延迟：35-90 µs (P50-P95)
-    - 存储开销：0.16%
-  - 优化建议：调整默认块大小至 256KB-512KB
-
-- [ ] **增量加密**：100MB 已加密文件，随机在 5 个位置添加/编辑/删除 1-2000byte 数据，再保存时文件修改量低于 8MB
-  - 测试要求：创建 100MB 测试文件，验证修改量
-  - 目标：避免全文件重新加密
-- [ ] **随机定位快速解密**：支持任意位置定位的快速解密
-  - 测试要求：测试随机位置解密性能
-  - 目标：O(1) 或 O(log n) 定位复杂度
-
-- [ ] **重构 stream 设计**：允许重构掉原来 V2 的 stream 设计，允许不兼容
-  - 可以重新设计加密文件格式
-  - 优先满足增量加密和随机定位需求
-
-- [ ] 大文件流式解密（避免内存溢出）
-### UI性能优化
-- [ ] 文件列表虚拟滚动（处理超大目录）
-- [ ] 内存占用优化
-- [ ] 启动速度优化
-- [ ] 批量加密解密任务后台安全处理
-
-### 功能增强
-
-- [ ] 剪贴板复制/粘贴
-- [ ] 软件内右键菜单增强
-- [ ] 设置界面
-- [ ] 批量操作（批量导出、批量删除）
-- [ ] 文件排序（按名称、大小、日期）
-- [ ] 文件过滤（按类型）
-- [ ] 数据恢复功能（可选密码提示）
-- [ ] 备份恢复功能
-
-### UI 增强
-
-- [ ] 拖拽上传
-- [ ] 主题定制（暗色/亮色模式）
-
-### 数据管理
-
-- [ ] **迭代次数（iterN）应动态调整**
-  - 根据当前安全标准自动推荐最小迭代次数（如PBKDF2推荐100000+）
-  - 根据硬件性能自动调整（测试加密时间，确保用户体验）
-  - 提供安全等级选项（快速/标准/高安全）
-## 代码模块化
-- [ ] 拆解代码
-  
-## 其他文档
--  [ ] FEATURES.md
--  [ ] ROADMAP.md
-
----
-
-## 🔵 P3 - 低优先级任务
-
-### 平台扩展
-
-- [ ] macOS 平台支持
-- [ ] Windows 平台优化
-- [ ] 安装包制作（Windows .exe, Linux .deb/.rpm）
-
-### 功能增强
-
-- [ ] 多语言支持（中文、英文）
-- [ ] 快捷键支持
-- [ ] 触摸屏优化
-- [ ] _cryption.json 文件名可设置自定义
-- [ ] 仿 Windows/Ubuntu 文件管理器界面
-- [ ] 快捷清单、收藏夹功能
-- [ ] 多标签页浏览
-- [ ] 文件预览窗口
-- [ ] 密钥缓存 N 小时自动清除
-- [ ] 拖拽上传
-
-### 文档完善
-
-- [ ] API 文档（Go 库）
-- [ ] 架构文档
-- [ ] 贡献指南
-- [ ] 开发者文档
-
-### 优化
-- [ ] 图片缩略图预览
-- [ ] 图片缩略图缓存
-
----
-
-## ✅ 已完成任务
-
-> 以下任务已完成，保留作为历史记录
-
-### 2026-04-06
-
-- [x] **架构重构：统一配置传递** ✅ 2026-04-06
-  - **目标**：统一配置传递方式，避免硬编码和重复配置
-  - **实现**：
-    - `name.NewContext(..., config.WithPrefix("name"))`
-    - `data.NewContext(..., config.WithPrefix("data"))`
-    - `IKeyDeriver.LoadKey(..., config.WithPrefix("key"))`
-    - 内部 factory 选择：`{algorithmName}Impl.NewContext(..., config.WithPrefix("{algorithmName}"))`
-  - **修改文件**：crypto_name/interface.go, crypto_data/interface.go, crypto_key/interface.go
-  - **Commit**: 27b2051
-
-- [x] **架构重构：路径类型安全强制** ✅ 2026-04-06
-  - **目标**：TransferService 内禁止 `path string`，遵从四种路径类型强制要求
-  - **实现**：
-    - 定义 `ExternalPath` 类型（外部文件系统路径）
-    - Export 方法：`srcPath RelativeViewPath`, `destPath ExternalPath`
-    - Import 方法：`srcPath ExternalPath`, `destPath RelativeViewPath`
-  - **修改文件**：sec_transfer/define.go, sec_transfer/transfer.go, ffi_sec_fs/ffi.go
-  - **Commit**: 117da20
-
-- [x] **架构重构：修复过度设计** ✅ 2026-04-06
-  - **问题**：ffi_comm 和 ffi_stores 是不必要的间接层
-  - **解决**：合并 ffi_comm 和 ffi_stores 到 ffi_sec_fs
-  - **删除**：ffi_comm/, ffi_stores/ 目录
-  - **新增**：ffi_sec_fs/response.go, ffi_sec_fs/idstore.go, ffi_sec_fs/stores.go
-  - **Commit**: b452578
-
-- [x] **架构重构：移动 sec_transfer 到 sec_fs** ✅ 2026-04-06
-  - **目标**：简化模块结构，sec_transfer 是 sec_fs 的一部分
-  - **实现**：移动 `native/sec_transfer` → `native/sec_fs/sec_transfer`
-  - **更新导入**：`safe_disk/native/sec_transfer` → `safe_disk/native/sec_fs/sec_transfer`
-  - **Commit**: aee3f8d
-
-### 2026-04-03
-
-- [x] **图片浏览器功能实现** ✅ 2026-04-03
-  - **核心特性**：
-    - ✅ 支持格式：JPG/JPEG/PNG/GIF/BMP/WebP
-    - ✅ 内存中解密显示（不写临时文件）
-    - ✅ 缩放（手势、按钮、快捷键）
-    - ✅ 翻页（导航按钮、手势、快捷键）
-    - ✅ 旋转功能
-    - ✅ 快捷键支持（← → 翻页，+ - 缩放，R 旋转，N 重置，ESC 关闭）
-    - ✅ 手势支持（双击重置，滑动翻页，捏合缩放）
-    - ✅ 安全内存清零（关闭时和切换图片时）
-  - **修改文件**：
-    - lib/widgets/secure_image_viewer.dart（完全重写，新增所有功能）
-    - lib/pages/home_page.dart（传递 directoryPath 和 fileService 参数）
-  - **新增文件**：
-    - docs/archive/secure_image_viewer_report.md（实现报告）
-  - **测试**：Flutter 应用编译成功
-
-- [x] **安全记事本功能实现** ✅ 2026-04-03
-  - **核心特性**：
-    - ✅ Flutter 渲染文本（防木马探测）
-    - ✅ 基础文本编辑
-    - ✅ 撤销/重做（最多50步）
-    - ✅ 查找/替换
-    - ✅ 自动加密保存（30秒）
-    - ✅ 部分文本复制
-    - ✅ 内存中处理，不写临时文件
-    - ✅ 关闭后清零内存（通过 FFI 调用 Go MemZero）
-  - **修改文件**：
-    - native/ffi_sec_fs/exports.go（添加 ClearSecureMemory FFI 函数）
-    - lib/native/bindings.dart（添加 clearSecureMemory 绑定）
-    - lib/native/native_lib.dart（添加 clearSecureMemory 调用接口）
-    - lib/widgets/secure_notepad.dart（实现完整的安全记事本功能）
-  - **新增文件**：
-    - test/secure_notepad_test.dart（单元测试）
-    - docs/usage/secure_notepad_usage.md（使用文档）
-  - **未实现**：行号显示/跳转（可选功能）
-
-- [x] **底部弹出的错误提示，应当可以点击复制** ✅ 2026-04-03
-- [x] **Dart/Flutter 代码质量 Review - 安全性检查** ✅ 2026-04-03
-- [x] **密码输入可能被记录（CLI 模式）** ✅ 2026-04-03（已验证安全）
-- [x] **创建加密目录功能缺失** ✅ 2026-04-03（已添加按钮，需要添加 FFI 绑定）
-
-### 2026-04-02
-
-- [x] **打开加密目录应当使用目录选择器** ✅ 2026-04-02（使用 `getDirectoryPath()` 替代文本输入）
-- [x] **[BUG] 目录导出菜单缺失** ✅ 2026-04-02（添加了目录导出功能，支持递归导出）
-- [x] **多级目录导航不支持快捷跳转到2级3级等子级目录** ✅ 2026-04-02（添加了路径导航栏 breadcrumb）
-- [x] **[BUG] 有两个search按钮** ✅ 2026-04-02（删除了重复的搜索按钮）
-- [x] **[BUG] 树形UI界面缺少显示文件** ✅ 2026-04-02（修改了树形UI，现在可以显示文件和目录）
-- [x] **输入错误密码后，密码输入框应保持焦点，方便继续输入** ✅ 2026-04-02
-- [x] **侧边栏打开目录应记录，关闭重开后自动恢复** ✅ 2026-04-02
-- [x] **侧边栏应有"固定"功能，固定后点击内容区域不自动隐藏** ✅ 2026-04-02
-- [x] **文件搜索功能** ✅ 2026-04-02
-
-### 安全问题修复
-
-- [x] **🚨 CLI 无法解密 UI 的加密目录** ✅ 2026-04-03
-  - **问题**：`safedisk-cli export` 命令执行失败
-  - **原因**：CLI 工具使用旧架构，与 UI 的新架构不兼容
-  - **解决方案**：更新 CLI 工具到新版架构设计（tempKeyID 机制）
-  - **修复**：在 `LoadCryptionJSON` 中添加向后兼容逻辑，将旧版 `check` 字段映射到新版 `EncryptedChallengeId` 字段
-
-- [x] **[严重] UI 和 CLI 加密/解密不兼容** ✅ 2026-04-02
-  - UI 创建的目录打不开（密码错误）
-  - UI 创建的，CLI 也解密不了
-  - CLI 创建的，UI 也打不开
-  - **根本原因**：UI 的 `generateCheckValuePBKDF2` 方法缺少 `challengeId` 参数
-  - **修复**：添加 `challengeId` 参数到 FFI 接口，UI 调用时传递正确的值
-  - **字段重命名**：`check` → `encryptedChallengeId`, `checkIdentifier` → `challengeId`
-
-- [x] **🚨 高危泄密风险：严禁在内部解密时保存临时文件到硬盘** ✅ 2026-04-03
-  - **规定**：除了用户主动点击"导出解密"功能外，其他所有内部操作严禁将临时解密文件保存到本地硬盘
-  - **解决方案**：所有解密操作必须在内存中完成，使用 `Uint8List` 或内存流
-
-### 技术债务清理
-
-- [x] **🔴 高优先级：密钥派生应使用标准 PBKDF2/Argon2，而非自定义 HMAC 迭代** ✅ 2026-04-02
-- [x] **🔴 高优先级：密钥派生应添加盐值（Salt）支持** ✅ 2026-04-02
-- [x] **🔴 高优先级：VerifyPassword 不应硬编码检查值** ✅ 2026-04-02
-  - 每个加密目录现在有独立的随机挑战值标识符 `challengeId`
-- [x] 使用 `dart analyze` 检查代码规范问题 ✅ 2026-04-03
-- [x] 修复所有 error 级别的问题 ✅ 2026-04-03
-- [x] 检查并移除未使用的 import ✅ 2026-04-03
-- [x] 检查并移除未使用的变量和函数 ✅ 2026-04-03
-- [x] 优化代码结构，减少重复代码 ✅ 2026-04-03（架构重构）
-- [x] 优化 State 管理 ✅ 2026-04-03（CryptoService 无状态化）
-- [x] 检查密码输入框是否使用 obscureText ✅ 2026-04-03
-- [x] **[严重] ConvertRootAsync 加密/解密后文件被删除** ✅ 2026-04-17
-  - **问题**：ConvertRootAsync 加密/解密转换后，文件不存在
-  - **根本原因**：`encryptFileInPlace` 和 `decryptFileInPlace` 在处理文件备份时有逻辑错误
-  - **encryptFileInPlace 问题**：
-    - 当磁盘上有明文文件时，`root.Stat("file1.txt")` 返回成功
-    - 备份明文文件：`root.Rename("file1.txt", "file1.txt.bak")`
-    - 重命名加密文件：`root.Rename("file1.txt.tmp", "file1.txt")`
-    - 删除备份：`root.DeleteFile("file1.txt.bak")`
-    - **错误**：`os.Remove(srcPath)` 又删除了加密文件！
-  - **decryptFileInPlace 问题**：
-    - 当磁盘上有加密文件时，`os.Stat("file1.txt")` 返回成功
-    - 备份加密文件：`os.Rename("file1.txt", "file1.txt.bak")`
-    - 重命名明文文件：`os.Rename("file1.txt.tmp", "file1.txt")`
-    - 删除备份：`os.Remove("file1.txt.bak")`
-    - **错误**：`root.DeleteFile("file1.txt")` 又删除了明文文件！
-  - **修复**：只有当没有备份时，才删除原始文件
-  - **历史文件**：旧 `native/sec_fs/sec_transfer/v2/atomic_file.go` 已随 v2 从活跃源码删除
-  - **验证**：加密/解密功能正常，文件存在且内容正确
-
----
-
-## 📝 任务依赖关系
-
-1. **大文件流式解密** 依赖 **FFI 异步加解密功能**
-2. **文件列表虚拟滚动** 需要先完成 **文件排序/过滤功能**
-3. **图片缩略图预览** 依赖 **图片缩略图缓存**
-4. **数据恢复功能** 依赖 **备份恢复功能**
-
----
-
-## 🎯 建议执行顺序
-
-**第一批（P0）**：安全问题 + 核心功能稳定性
-1. 修复内存清零问题（5-8 天）
-2. 优化大文件/大目录性能（6-10 天 + 3-5 天）
-
-**第二批（P1）**：用户体验改进
-1. 添加首次使用引导
-2. 优化错误提示和进度显示
-3. 修复侧边栏和导航栏问题
-4. 完成代码质量检查和测试覆盖
-
-**第三批（P2）**：性能优化和功能增强
-1. 实现流式解密和虚拟滚动
-2. 添加剪贴板和右键菜单支持
-3. 完善设置界面和批量操作
-
-**第四批（P3）**：平台扩展和锦上添花
-1. macOS 支持和安装包制作
-2. 多语言和主题定制
-3. 文档完善
-
-**总预计工作量**：14-23 天
-
----
-
-**最后更新**: 2026-04-03
+> 审计日期：2026-07-14。状态以当前代码、公开入口和测试为准，不继承历史勾选。
+
+## 进度口径
+
+| 进度 | 判定 |
+|---:|---|
+| 0% | 尚未开始，没有可执行代码 |
+| 10% | 只有需求或设计 |
+| 30% | 已有接口/骨架，主路径不可用 |
+| 50% | 主路径部分可用，缺关键边界 |
+| 70% | 已接入主要调用层，仍有明显缺口 |
+| 90% | 实现基本完整，但缺自动化实际功能测试、平台验收或剩余边界 |
+| 100% | 验收范围全部实现，公开入口可用，并有自动化实际功能测试 |
+
+规则：
+
+- 新增功能需求或 bug 修复必须先登记到本文件，写明验收条件和初始状态，再开始修改业务代码；实现、测试和文档同步完成后才允许提高进度或迁入完成档案。
+- 没有自动化实际功能测试的任务最高 90%。
+- 单元测试、mock service 和静态分析不能单独证明跨层功能完成。
+- “设计完成”只代表设计任务，可为 100%；不代表设计中的产品功能完成。
+- 任务到 100% 后必须从本文件移入完成档案，不能继续留在活跃清单。
+
+## 本轮 Flutter 桌面 UI 任务（2026-07-13）
+
+| ID | 任务 | 类型 | 当前进度 | 当前证据与剩余验收 |
+|---|---|---|---:|---|
+| UI-01 | 目录浏览器空白区域右键菜单 | 功能 | 95% | list/grid 均使用独立空白 sliver，已覆盖新建/粘贴/刷新、与条目菜单隔离及网格鼠标次键事件；还缺真实桌面窗口鼠标 E2E |
+| UI-02 | 新建文件与新建目录 | 功能 | 95% | sec/FFI/Dart/UI 已接通，同名独占创建、中文加密名与真库测试通过；还缺 Windows/macOS 名称与打包库实测 |
+| UI-03 | 首次打开属性卡顿 | Bug | 90% | 属性链路确认无 FFI/磁盘调用；右键菜单与属性面板均取消过渡，属性值改用普通文本避免首次选择管线初始化，并以真实次键事件验证下一帧可见；还缺真实桌面首次帧时间对比 |
+| UI-04 | 显式展示应用内剪贴板状态 | UX | 90% | 已显示待粘贴条目、粘贴/清除入口，成功后清空，取消冲突时保留；还缺真实桌面可用性验收 |
+| UI-05 | 设置页宽屏布局 | UX | 90% | 1080 最大宽度、宽屏双栏和窄屏单栏已有 widget 测试；还缺真实桌面缩放比与超长翻译验收 |
+| UI-06 | 设置项真实生效，优先修复主题 | Bug/功能 | 92% | 主题、删除确认、记事本安全草稿间隔、默认只读与默认剪贴板监视均已接真实状态；实时预览/持久化、主窗口和子窗口默认值测试通过；还缺桌面系统主题切换 E2E |
+| UI-07 | 设置未保存离开确认 | Bug | 90% | PopScope 与标题栏返回均接入取消/放弃/保存，已有路由 widget 测试；还缺三桌面平台窗口关闭键 E2E |
+| UI-08 | 记事本等内容多窗口 | 功能/设计 | 90% | 安全记事本和图片查看器均已接原生子 engine、host/client token 通道、root lease、请求超时/失败页和异常回收；Linux X11 已手工验证两类真实子窗口及正文/PNG 读取，widget 覆盖右键入口和关闭回收；还缺 Windows/macOS 实机、同文件双窗口真实冲突和异常退出自动化 E2E |
+| UI-09 | 右键条目选中高亮 | Bug | 90% | 列表与网格在次键按下时均应用独立高亮，已有 widget 断言；还缺桌面焦点/键盘菜单语义 E2E |
+| UI-10 | 关闭 root 目录 | 功能/Bug | 95% | 已拆为结束会话、移除历史、物理删除目录三种明确操作；未保存内容/活动写入会阻断，物理删除要求输入目录名二次确认；已有真实临时目录删除测试；还缺三平台自动化桌面 E2E |
+
+建议实施顺序：`UI-01 → UI-02 → UI-09 → UI-04 → UI-10 → UI-03 → UI-05 → UI-06 → UI-07 → UI-08`。其中 UI-08 必须先完成跨平台设计，不与普通页面内多标签混为一谈。
+
+## 本轮 Flutter 桌面 UI 任务（2026-07-14）
+
+| ID | 任务 | 类型 | 当前进度 | 当前证据与剩余验收 |
+|---|---|---|---:|---|
+| UI-11 | 关闭 root 改为仅结束会话 | Bug | 95% | “结束会话”只关闭 rootID 和会话剪贴板引用，侧边栏历史及持久化记录保留；另两项分别显式移除历史和删除实体目录，不再混用语义；原生内容窗口纳入 lease、脏状态和主动关闭联动；还缺 Windows/macOS 实机及自动化桌面 E2E |
+| UI-12 | 安全记事本短文本剪贴板监视与快速清空 | 功能/安全 | 90% | 仅在显式开启和页面存活时轮询，预览限制为 160 个字符且不持久化，支持快速清空；并发读取有代次保护，widget 已覆盖截断、停止和清空；还缺 Linux/Windows/macOS 系统剪贴板实机验收 |
+| UI-13 | 记事本定时保存改为安全草稿恢复 | 功能/数据安全 | 97% | 定时器只通过 root 加密接口写同逻辑目录的内部草稿，不覆盖原文件；原生子窗口也经 host broker 读写草稿；真实 FFI 异常恢复、加密文件名及远程 service/widget 测试通过；还缺断电故障注入和原生双窗口编辑 E2E |
+| UI-14 | 增强列表/网格右键选中可见性 | Bug/UX | 90% | list 使用高对比背景和左侧指示条，grid 使用背景、粗边框及阴影；亮/暗主题均有 widget 样式断言；还缺真实桌面焦点、键盘菜单及高对比模式 E2E |
+| UI-15 | list/grid/tree 浏览模式重新设计 | 设计/功能 | 90% | 中文设计已固定：list/grid 是内容表示，tree 是独立导航器；宽屏常驻侧栏、窄屏临时面板及目录过滤已有 widget 测试；还缺深层懒加载错误、超大目录和桌面缩放验收 |
+| UI-16 | 区分当前目录筛选与全 root 搜索 | 设计/Bug | 90% | 当前入口已明确为“筛选当前目录”；Go up、面包屑、tree 和打开目录会清空筛选，回车保持焦点；widget 已覆盖关键导航；真正递归搜索仍是后续独立任务 |
+| UI-17 | 应用内文件剪贴板状态栏重设计 | UX | 90% | 已移除顶部重复粘贴入口；状态条按宽窄布局显示来源/目标、唯一粘贴入口和清除入口，成功后消失；widget 已覆盖 44px 紧凑布局及单入口；还缺真实桌面可用性验收 |
+
+建议实施顺序：`UI-11 → UI-13 → UI-12 → UI-14 → UI-15 → UI-16 → UI-17`。UI-13 先固定草稿命名、恢复与清理语义；UI-15/UI-16 先完成设计决策，不直接在现有互斥开关上叠加补丁。
+
+## 本轮 Flutter 桌面 UI 任务（2026-07-14，第二批）
+
+| ID | 任务 | 类型 | 当前进度 | 当前证据与剩余验收 |
+|---|---|---|---:|---|
+| UI-18 | 设置记事本默认只读与默认监视剪贴板 | 功能/安全 | 95% | 两个开关已独立持久化，新打开的页面内及原生窗口读取相同默认值；只读可显式切换编辑，监视继续遵守短文本、不持久化和销毁即停止；service、设置页、记事本与原生窗口测试通过；还缺三平台系统剪贴板实测 |
+| UI-19 | Linux 原生记事本窗口关闭闪退 | Bug/平台 | 95% | 已确认插件错误移除 implicit view，并采用仓库内受控补丁分离 engine 销毁与 `FlView` 包装对象回收；host 先完成消息响应再关闭窗口，子窗口 dispose 不再向失效 messenger 发消息；`GDK_SYNCHRONIZE=1` 下连续创建/关闭五轮通过，无 `FlutterEngineRemoveView`、失效 messenger 或 GLX BadAccess；仍有一次 compositor shader 警告，且待用户标题栏关闭复验 |
+| UI-20 | 侧边栏关闭按钮改为三种 root 处理 | 功能/数据安全 | 95% | 已提供仅结束会话、结束并移除历史、结束并移除历史且删除目录三项；前两项不触碰磁盘，第三项要求输入目录名二次确认；三条路径统一处理窗口/写入阻断和会话剪贴板，已有持久化断言及真实临时目录递归删除测试；还缺桌面交互 E2E |
+| UI-21 | 首次打开文件属性仍卡顿 | Bug/性能 | 90% | 已复核属性数据只来自现有 entry，不触发 FFI/磁盘读取；菜单和属性面板均无过渡，普通文本避免首次 selection 初始化；真实次键事件回归验证选择属性后下一帧可见；还缺 Linux 桌面实际首帧时间对比 |
+
+实施顺序：`UI-19 → UI-20 → UI-18 → UI-21`。UI-19 涉及进程稳定性优先；UI-20 的物理删除必须与“仅结束会话”和“移除历史”严格分离。
+
+## 本轮 Flutter 桌面 UI 任务（2026-07-14，第三批）
+
+| ID | 任务 | 类型 | 当前进度 | 当前证据与剩余验收 |
+|---|---|---|---:|---|
+| UI-22 | Windows 10 文字显示发糊 | Bug/平台/可访问性 | 80% | runner 已是 PerMonitorV2；主窗口、记事本和图片子窗口改用统一平台主题，Windows 使用 Segoe UI 并为中文指定 Microsoft YaHei UI/YaHei/SimSun 回退，亮暗主题选择有测试；还缺 Win10 100%/125%/150% 缩放比截图与肉眼对比，不能仅凭主题测试断言清晰度完成 |
+| UI-23 | Windows 创建新加密目录失败 | Bug/正确性 | 85% | 已定位构建脚本生成 `libffi_sec_fs.dll` 而 Dart 加载 `ffi_sec_fs.dll` 的确定不一致；现统一规范名、CMake bundle 缺失即失败、Dart 只从 exe 同目录绝对加载，避免 PATH 旧库；不存在目录可创建，非空目录在密码/FFI 前明确拒绝且原内容不变；Windows 构建脚本和 sec_fs 交叉编译通过；还缺 Win10 新 bundle 下不存在/空目录、盘符与权限拒绝实测 |
+| UI-24 | 设置“报告详细错误信息”与安全诊断日志 | 功能/安全 | 95% | 默认关闭的详细错误开关已持久化并纳入设置保存/放弃事务；开启后 Snackbar/Dialog 展示并复制错误类型、操作阶段和脱敏底层消息；密码、环境密码、token/key 隐藏，主目录缩写且单次限 4096 字；原生错误保留操作名；首版明确不写明文磁盘日志；单元/widget 与全量回归通过；还缺 Win10 真实创建失败详情复制验收 |
+
+实施顺序：`UI-24 → UI-23 → UI-22`。UI-24 先建立安全、可测试的错误证据通道，UI-23 再按真实错误链定位；UI-22 最后统一平台字体主题并进行 Windows 构建验证。三项均不得以 Linux widget 测试替代 Win10 实机验收。
+
+## 本轮 Flutter 桌面 UI 任务（2026-07-14，第四批）
+
+| ID | 任务 | 类型 | 当前进度 | 当前证据与剩余验收 |
+|---|---|---|---:|---|
+| UI-25 | 批量粘贴名称冲突支持“全部应用”与结果摘要 | 功能/数据安全/UX | 95% | 已实现单项取消/保留/替换及批次全部保留/全部替换；策略仅存在于一次粘贴调用中，全部替换不会绕过同一条目和类型不兼容检查；取消保留当前与未处理项，失败项保留重试，成功项立即移出剪贴板；结果面板显示总数、成功、跳过、失败、未处理、剩余和截断失败详情；widget 覆盖批量 copy/cut、取消、部分失败和同批次名称，service 覆盖跨 root 文件 copy→delete、后半失败及目录拒绝；还缺真实桌面大批次与跨 root 页面 E2E |
+
+实施顺序：`冲突决策模型 → 批次执行状态 → 结果摘要 → widget/真实 FFI 回归`。目录跨 root 移动仍保持明确拒绝，不能借“全部应用”绕过底层缺失的递归删除能力。
+
+## 本轮 Flutter 桌面 UI 任务（2026-07-14，第五批）
+
+| ID | 任务 | 类型 | 当前进度 | 当前证据与剩余验收 |
+|---|---|---|---:|---|
+| UI-26 | 图片查看器真实格式、动画语义与资源上限 | 功能/安全/稳定性 | 95% | JPEG/PNG/GIF/BMP/WebP 已用真实有效样例通过 Flutter codec 探测和 widget 渲染，GIF 识别两帧并保留自动播放语义；统一格式事实源已移除错误的 SVG 声明；主窗口按已知大小于解密前拒绝 64 MiB 超限，未知大小解密后复核并清零，codec 元数据在 100 MP 前拒绝；加载代次阻止旧结果覆盖且清零旧缓冲，MemoryImage cache 主动逐出；图片子窗口 lease 持久应用相同字节上限并限制为只读，broker 替换/关闭时清零自有副本；真实 FFI 已验证中文加密目录中的 WebP 列表、解密和渲染；还缺三平台真实窗口键盘/手势 E2E 与超大图片压力测试 |
+
+实施顺序：`资源策略与元数据探测 → 主窗口加载状态机 → 子窗口 broker 边界 → 真实格式/竞态回归`。首版不做超大图分块解码；超过边界应明确拒绝，不能依赖 OOM 或平台 codec 崩溃作为限制机制。
+
+## 本轮 Flutter 桌面 UI 任务（2026-07-14，第六批）
+
+| ID | 任务 | 类型 | 当前进度 | 当前证据与剩余验收 |
+|---|---|---|---:|---|
+| UI-27 | Windows 向上导航与 root 面包屑语义 | Bug/跨平台 | 85% | 已新增宿主平台无关的逻辑路径规范化、父目录、basename 和 root 边界判断；`FileService` 不再用 Windows `File.parent` 处理已规范为 `/` 的 UI 路径，面包屑同时兼容盘符、反斜杠且只显示 root 名；unit/widget 已覆盖首次向上、盘符、相似前缀越界；还缺 Win10 真实深层目录和别名面包屑实测 |
+| UI-28 | 侧边栏 root 右键菜单与显示别名 | 功能/UX | 85% | 侧边栏右键已提供设置/清除显示别名及会话与目录操作入口；中文别名限制 64 字符并独立持久化，物理路径、历史路径和 `_cryption.json` 不变，tooltip 保留真实路径；已有右键、清除及重启存储 unit/widget；还缺同名 root 的完整桌面交互与别名后解锁实测 |
+| UI-29 | 未知后缀默认使用安全记事本浏览 | 功能/安全 | 85% | 除已识别图片外均回退安全记事本，bat/脚本/常见源码列为已知文本；无后缀和未知后缀在主窗口与子窗口首次强制只读，用户可显式切换；UTF-8 非法由严格 decoder 拒绝，NUL 内容明确按二进制拒绝；已有策略、菜单和 controller 测试，还缺真实加密 root 的未知后缀双窗口 E2E 与后续十六进制查看器 |
+| UI-30 | 文件属性弹窗首次打开卡顿 | Bug/性能 | 75% | 已确认属性内容只读现有 node 元数据，不调用 FFI/磁盘；右键菜单、属性路由均无动画，属性 UI 进一步改成零 elevation/零 shader 阴影的轻量 Material 覆盖层，widget 证明选择属性后下一帧可见；仍需 Ubuntu profile/timeline 前后帧耗时和用户机器实测，不能仅凭 widget 测试宣称完全解决 |
+| UI-31 | Ubuntu 新窗口记事本关闭闪退回归 | P0 Bug/平台/稳定性 | 90% | 已彻底移除 `window_manager` 依赖，Linux 子 engine 只使用 `desktop_multi_window` 内部 registrar，关闭改为先回复 method call、再在 GTK idle 销毁；最终真实 GUI smoke 连续 5 轮创建/关闭/lease 释放并正常退出，无 invalid cast、BadAccess、失效 messenger 或断连；每轮仍有一次非致命 compositor shader warning，且需用户按 `./run.sh` 标题栏关闭复验和 Windows 回归 |
+| UI-32 | 新记事本窗口黑屏与二次尺寸变化 | Bug/启动体验 | 85% | 标题和 960×720 初始尺寸已进入三平台原生 `WindowConfiguration`，窗口隐藏创建，Dart 数据加载并产生首帧后才一次 show；移除了子窗口启动后的 window_manager setTitle/setSize/center 二次调整；Linux smoke 通过，还缺 Win/Linux 视觉录制和 create→first-frame→show 时间数据 |
+| UI-33 | 创建加密 root 的高级加密参数 | 功能/安全/配置 | 90% | 已删除 FFI 从未解析的伪 `mutable` 开关；默认推荐 `aes-ctr + aes-gcm-name + argon2id + 1000ms`，高级区开放 sec `crypto_all` 中适合新密码 root 的 AES-CTR/AES-XTS/ChaCha20、AES-GCM 名称/none、Argon2id/scrypt/PBKDF2 和受限强度，RC4/HKDF 仅保留旧 root 兼容；options JSON 不含密码；真实 FFI 已逐族创建、写入、关闭并重开三组组合；还缺 Windows 与 CLI 对每个公开笛卡尔组合的完整矩阵 |
+| UI-34 | 主界面与记事本桌面快捷键 | 功能/可访问性 | 90% | 主界面焦点域已接入 F2（单选或右键目标重命名）、F5 刷新、Ctrl+V 安全剪贴板粘贴，并修复右键菜单关闭后快捷键域未恢复焦点；记事本接入 Ctrl+F、Ctrl+S、Enter/Shift+Enter 与 Escape；无目标/无安全剪贴板时不执行，文本控件优先处理自身输入；主界面和记事本键盘级 widget 均通过，还缺 Windows/Linux 实机键位与菜单提示验收 |
+| UI-35 | 安全记事本查找焦点、失焦与高亮 | Bug/UX/可访问性 | 90% | Ctrl+F/按钮打开后聚焦查询框，Enter/Shift+Enter 循环前后匹配，正文 selection 明确选中当前项并显示 `当前/总数`，查询修改使计数失效，无匹配提示，Escape 关闭并恢复编辑器焦点；主/子窗口复用同一 widget，键盘级 widget 已验证 1/2→2/2 selection；还缺三平台真实窗口视觉可见性验收 |
+
+实施顺序：`UI-31 → UI-32 → UI-27 → UI-29 → UI-34 → UI-35 → UI-28 → UI-30 → UI-33`。进程崩溃优先于体验优化；UI-27 先统一逻辑路径模型再修按钮；UI-29 必须先加二进制保护；UI-33 必须以 sec 已注册算法和真实互通测试为配置来源。
+
+## P0 正确性与数据安全
+
+| 任务 | 进度 | 当前证据 | 到 100% 还缺什么 |
+|---|---:|---|---|
+| secure root walker 错误语义与资源上限 | 55% | backing entry 分批读取；已有加密名称、并发、关闭测试 | 不得静默吞掉名称解密/entry info 错误；待处理目录工作集需硬上限；补超宽、超深和损坏 backing entry 实测 |
+| Windows durability 与跨进程锁 | 60% | Windows lock 实现和交叉编译路径存在；文件 Sync 已实现 | 真实 Windows 上验证目录 metadata flush、LockFileEx 竞争、进程退出释放、rename/占用句柄故障 |
+| Flutter 正确密码打开后目录可见性 | 85% | 有错误/正确密码 widget 流程和真实 FFI 密码/import 测试 | 增加自动化桌面端整页 E2E：真实动态库、真实文件选择结果、侧边栏点击、目录列表渲染和重启重开 |
+| 本地并发符号链接替换防护 | 35% | 有词法 containment 和 import 符号链接拒绝 | 使用 dirfd/openat 或等价方案消除检查与打开间竞态；补攻击进程实测 |
+
+## P1 核心基础设施
+
+| 任务 | 进度 | 当前证据 | 到 100% 还缺什么 |
+|---|---:|---|---|
+| sec_fs 完整错误传播与损坏数据策略 | 82% | 密码认证、路径约束、key 生命周期、metadata、权限均有测试 | 统一 walker/crypto 损坏错误；确定 corruption tolerance 边界；真实损坏 root 端到端验收 |
+| Transfer V3 平台完整性 | 88% | 原子 temp/backup、marker、取消、convert phase/recovery、真实 kill checkpoint 测试 | Windows 故障测试、walker 上限、源并发修改策略；明确字节进度/限速是否进入当前版本 |
+| CLI 产品命令集 | 82% | create/list/import/export、JSON Lines、安全密码来源、unfinished 处理有真实子进程测试 | 实现并实测 info；决定并实现或明确取消 passwd；补真实 TTY 隐藏输入、Windows 路径与打包后二进制测试 |
+| FFI/Dart 完整绑定面 | 88% | root/file/dir、Transfer V3 callback/cancel、真实动态库互通测试存在 | per-operation durability options ABI；损坏 marker/配置、worker isolate 退出、Windows 动态库实测矩阵 |
+| Flutter Transfer UI 闭环 | 89% | HomePage widget 测试覆盖解锁、文件/目录 import 冲突、单文件/批量导出冲突决策、失败恢复和 unfinished rerun；底层文件导出默认拒绝覆盖 | 真实桌面 E2E、目录导出冲突/取消/重开完整链路、错误信息分层和可访问性 |
+| 测试矩阵与持续集成 | 76% | Go 多 module、CLI 子进程、FFI C ABI、Dart 真库和 widget 测试已存在 | 固化 Linux CI；增加 Windows/macOS runner、桌面 E2E、故障注入、资源上限和覆盖率基线 |
+| 文档真实性与分类 | 80% | 主体中文，设计/审计/历史已分层；本轮重做任务百分比 | 清理 ARCHITECTURE/CLI/FEATURES 的旧 V2 描述和失效命令；增加文档链接检查 |
+
+## P2 产品功能
+
+| 任务 | 进度 | 当前证据 | 到 100% 还缺什么 |
+|---|---:|---|---|
+| 安全记事本 | 94% | 状态/controller 与 UI 分区已拆分；编辑、加密草稿、剪贴板监视、broker 冲突及远程子窗口均有测试，Linux 已实测原生窗口 | 补三平台桌面键盘/关闭/系统剪贴板 E2E、大文件策略和可验证内存边界 |
+| 图片浏览器 | 92% | JPEG/PNG/GIF/BMP/WebP 真实 codec 与渲染、GIF 动画识别、缩放旋转、键盘翻页、重试、64 MiB/100 MP 资源边界、异步竞态清零和只读子窗口 lease 均有自动化测试；真实 FFI 验证中文加密目录 WebP，Linux 已实测跨 engine PNG | 三平台真实窗口键盘/手势 E2E、超大图片内存压力与平台 codec 差异验收 |
+| Stream V3/增量编辑 | 15% | 有设计文档；Dart 活跃入口明确返回 unsupported | 确定格式、完整性和崩溃一致性模型，完成 sec/FFI/Dart/UI 实现及随机编辑实际测试 |
+| 大目录 UI 虚拟化 | 10% | 只有需求 | 虚拟列表、分页/增量 walker API、10 万 entry 自动化性能测试 |
+| 自动锁定与密钥缓存超时 | 20% | 有 root close/key 清理基础 | 生命周期策略、前后台切换、超时清理、真实 UI/FFI 验收 |
+| KDF 成本动态校准 | 15% | 当前迭代/参数由配置与默认值决定 | 按设备目标耗时校准、参数上限、防 DoS 和跨设备测试 |
+| 设置界面 | 92% | 宽窄布局、主题实时预览/持久化、删除确认、记事本安全草稿间隔、默认只读/剪贴板监视和未保存返回已有应用/widget 测试 | 真实桌面系统主题切换、窗口关闭键、系统剪贴板和缩放比 E2E |
+| 文件排序/过滤/批量操作 | 92% | 当前目录筛选、目录优先排序、批量文件复制/剪切/粘贴/导出/删除已实现；批量冲突支持仅此项/全部应用，取消、失败和未处理项保留重试，并有结构化结果面板 | 超大目录分页排序、真实桌面大批次与跨 root 页面 E2E；全 root 搜索另立任务 |
+| 主界面右键菜单 | 98% | 应用内单项及批量文件复制/粘贴、剪切/移动、冲突询问、跨 root 重加密、图片新窗口和右键选择/批量导出/删除已有测试；跨 root 文件移动有真实 FFI 验证 | 跨 root 目录移动与系统剪贴板互通；三平台鼠标 E2E、键盘菜单键、焦点和读屏测试 |
+| 剪贴板 | 78% | 应用内文件剪贴板支持有序多条复制/剪切队列、同 root rename 移动和跨 root 文件 copy→delete；逐项成功后移除，失败、取消和未处理项保留；批量冲突策略与结果摘要已有回归；记事本短文本监视已实现 | 跨 root 目录移动、系统文件剪贴板安全边界、分平台实现和桌面自动化测试 |
+| 拖放 | 0% | 拖放仍为规划，拖放文件应当支持方向设置，默认为单向外到内，内到外需要设置开启  | 应规划|
+| 备份恢复与可选密码提示 | 0% | 无活跃实现 | 先定义威胁模型和加密格式，再实现与测试 |
+| 安全记事本草稿间隔与只读模式 | 92% | 间隔设置已接入加密草稿而非原文件；默认只读、默认剪贴板监视、编辑切换、恢复与状态保护有主/子窗口测试 | 保存冲突、快捷键、系统剪贴板、进程级崩溃与跨平台桌面实测 |
+| 第三方工具安全文件交接 | 5% | 只有 FUSE/memfd/临时文件方向讨论 | 威胁模型、平台方案、权限隔离、生命周期和泄漏测试 |
+
+## P3 发布与平台
+
+| 任务 | 进度 | 当前证据 | 到 100% 还缺什么 |
+|---|---:|---|---|
+| Windows 产品验收 | 20% | 有交叉编译和部分平台代码 | Windows runner、GUI/CLI/FFI 实机测试、安装包、升级/卸载 |
+| macOS 支持 | 0% | 无当前验收证据 | 构建、签名、公证、FFI 和 UI 实测 |
+| Linux 安装包 | 15% | 可开发运行 | deb/rpm 或其他发布格式、desktop 集成、干净环境安装测试 |
+| 多语言与可访问性 | 5% | 中文 UI 为主 | i18n 资源、键盘导航、读屏和对比度测试 |
+| 多标签页、预览与快捷键 | 5% | 零散组件/快捷键存在 | 统一导航状态、预览安全边界和桌面实际测试 |
+| 可配置 config 文件名 | 0% | 当前固定 `_cryption.json` | 评估发现机制、冲突与兼容成本；决定取消或实现 |
+| API/开发者/贡献文档 | 30% | 已有设计与使用文档 | Go API reference、构建/测试/贡献流程及链接自动检查 |
+| 发布安全审计 | 10% | 有局部安全测试和设计说明 | 威胁模型冻结、依赖审计、模糊测试、发布构建复现、第三方评审 |
+
+## 本轮验证状态
+
+- 2026-07-14 Flutter UI 回归：`flutter analyze --no-pub` 零问题；默认入口 Linux debug 构建通过；真实 FFI 动态库下完整 `flutter test --no-pub` 共 130 项通过，覆盖 root 三种关闭语义、记事本默认项、属性首击、批量粘贴冲突/取消/部分失败、五种图片 codec/资源边界/只读子窗口 lease、中文加密目录 WebP 实际渲染、错误详情开关/脱敏、Windows 字体主题、不存在与非空 root 路径语义，以及既有 CLI/Dart FFI 互通和多窗口协议回归。
+- 2026-07-14 Windows 静态/交叉验证：构建脚本 Windows DLL 规范名单测通过，`scripts/build.go` 和 sec_fs 测试二进制均通过 Windows amd64 交叉编译；当前 Linux 环境没有 Windows runner toolchain/Wine，因此这些证据不替代 Win10 bundle 与界面实测。
+- 2026-07-14 Linux X11 实测：同一进程成功创建独立主窗口与安全记事本、图片查看器子 Flutter engine；另以 `GDK_SYNCHRONIZE=1` 连续创建/关闭五个记事本原生窗口，进程正常退出且无 implicit view 移除、engine 销毁后 messenger 或 GLX BadAccess 错误。仍观察到一次 compositor shader 上下文警告，且该自动化路径不能替代用户标题栏关闭复验、Windows/macOS 与完整桌面 E2E。
+- 已通过：Transfer V3 定向测试；Go 四个 workspace module 的完整测试；Go vet；Transfer/CLI/FFI race；Go 1.25 Windows 交叉编译；真实 Dart FFI 集成测试。
+- “Transfer V3 路径流式消费”已按上述证据迁入完成档案；secure walker 工作集硬上限仍是独立未完成任务。
+- Flutter 手工观察不能替代自动化实际功能测试，但应转成回归用例后再提升进度。

@@ -1,1 +1,1 @@
-./scripts/build_and_run.sh
+./scripts/run.sh

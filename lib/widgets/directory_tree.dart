@@ -47,6 +47,7 @@ class _DirectoryTreeWidgetState extends State<DirectoryTreeWidget> {
         offset: offset,
         limit: widget.pageSize,
       );
+      final directories = items.where((item) => item.isDirectory).toList();
 
       // Check if there are more items to load
       // We can't know for sure without counting, so we check if we got a full page
@@ -54,10 +55,10 @@ class _DirectoryTreeWidgetState extends State<DirectoryTreeWidget> {
 
       setState(() {
         if (loadMore) {
-          _rootItems.addAll(items);
+          _rootItems.addAll(directories);
           _currentOffset = offset;
         } else {
-          _rootItems = items;
+          _rootItems = directories;
           _currentOffset = 0;
         }
         _hasMore = hasMore;
@@ -152,16 +153,17 @@ class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
         offset: offset,
         limit: widget.pageSize,
       );
+      final directories = items.where((item) => item.isDirectory).toList();
 
       // Check if there are more items to load
       final hasMore = items.length >= widget.pageSize;
 
       setState(() {
         if (loadMore) {
-          _children.addAll(items);
+          _children.addAll(directories);
           _currentOffset = offset;
         } else {
-          _children = items;
+          _children = directories;
           _currentOffset = 0;
           _isExpanded = true;
           _hasLoadedChildren = true;

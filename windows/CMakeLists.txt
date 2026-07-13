@@ -75,6 +75,17 @@ set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
+# scripts/build.go creates the canonical Windows FFI library here before the
+# Flutter build. Install it beside the executable so dart:ffi cannot resolve a
+# stale copy from PATH.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ffi_sec_fs.dll")
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/ffi_sec_fs.dll"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}" COMPONENT Runtime)
+else()
+  message(FATAL_ERROR
+    "ffi_sec_fs.dll is missing. Run scripts\\build_and_run.bat before building Flutter.")
+endif()
+
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   COMPONENT Runtime)
 

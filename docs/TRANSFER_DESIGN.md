@@ -183,6 +183,28 @@ marker 使用“写临时 JSON -> 同步临时文件 -> rename -> 同步 active/
 
 平台边界：Linux/Unix 使用打开目录后 `Sync` 的方式提交目录项。Windows 目前只保证文件数据 `Sync`，目录 metadata flush 仍为 best effort；因此 Windows 下名为 `full` 的策略尚未达到与 Linux/Unix 等价的掉电保证。
 
+## 大目录执行模型
+
+Transfer 的“流式”必须按层次描述，不能只因为单文件使用 `io.Copy` 就宣称目录操作内存有界。
+
+当前代码实现结论：
+
+- 单文件内容通过固定缓冲区复制和 hash，不把完整文件读入内存；
+- 目录 import/export 使用“计数遍 + 执行遍”，不再保存全部文件路径和目录路径；
+- convert verification 使用双向逐项校验，不再保存 source/work 两份 path-to-digest manifest；
+- `filepath.WalkDir` 不保存整树，但会受递归深度和单目录条目数影响；
+- secure root walker 每次只读取 100 个 backing entries，但会保存尚未遍历的子目录。目录宽度很大时，该待处理栈仍可能随目录数增长，因此仅改 Transfer 消费方式还不能宣称端到端存在固定硬上限。
+
+当前执行模型：
+
+1. **计数遍**：只统计文件数，不保存路径，用于保持现有 `TotalFiles` 精确语义。取消或扫描错误发生在该阶段时，不创建目标内容，保留 operation marker 供下次全量重跑。
+2. **执行遍**：再次遍历；遇到目录立即创建，遇到文件立即原子 import/export。内存中只保留当前路径、当前文件 copy buffer、walker 工作集和进度计数，不保存整树文件列表。
+3. **校验遍**：convert 不再构建两份 manifest。先从 expected 方向逐项检查 actual 是否存在、类型是否一致、文件摘要是否一致；再从 actual 方向逐项统计 unexpected entry。报告只保存总数和每类最多 16 条稳定样本。
+
+两遍扫描是有意的兼容取舍：它保留 CLI/FFI/Dart 已使用的精确 `TotalFiles`，代价是目录元数据读取两次。Transfer 不提供源快照；若源在计数遍与执行遍之间变化，最终 `DoneFiles` 可以与最初 `TotalFiles` 不同，普通 import/export 按实际第二遍结果执行，convert 还会在 rename 前通过全树校验阻止不一致 work 切换。进度仍不持久化，失败后仍是全量重跑。
+
+初始实现保持单 worker 顺序复制。并发 worker、I/O 限速和字节级进度必须建立在明确的资源预算与回调兼容语义上，不与本轮路径内存优化捆绑。只有 secure root walker 的待处理目录也改为受控工作集，并完成超宽/超深目录测试后，文档才可声明端到端目录遍历具有硬内存上限。
+
 ## Import
 
 ### 单文件
@@ -201,14 +223,15 @@ copy 或 close 失败时删除 temp。正式 rename 失败时尝试从 backup �
 ### 目录
 
 1. 拒绝源目录本身是加密 root。
-2. 全量扫描普通目录。
+2. 第一遍流式扫描并统计文件总数，不保存路径。
 3. 拒绝符号链接。
 4. 跳过 `.transfer_v3`、`_cryption.json`、work/backup 名称和嵌套加密 root。
-5. 先创建目标目录与空目录。
-6. 逐文件复用单文件原子导入。
+5. 第二遍遇到目录立即创建，保留空目录。
+6. 遇到文件立即复用单文件原子导入，不保存整树列表。
 7. 成功后删除 marker。
 
 `aes-gcm-name` 下文件名和目录名都通过 root view path 转换，不直接拼 store path。
+用户点文件和点目录（例如 `.env`）参与 import/export；root walker 显式包含隐藏项后，再按保留名称过滤 `.transfer_v3` 及其子树、配置和 work/backup 条目，不能用“隐藏”替代内部对象边界。
 
 ## Export
 
@@ -223,10 +246,10 @@ copy 或 close 失败时删除 temp。正式 rename 失败时尝试从 backup �
 
 ### 目录
 
-1. 使用 root walker 按 view path 扫描。
-2. 保留空目录。
+1. 第一遍使用 root walker 按 view path 统计文件总数，不保存路径。
+2. 第二遍遇到目录立即创建，保留空目录。
 3. 拒绝符号链接。
-4. 逐文件复用单文件原子导出。
+4. 遇到文件立即复用单文件原子导出，不保存整树列表。
 5. 成功后删除 marker。
 
 ## 覆盖语义
@@ -234,9 +257,11 @@ copy 或 close 失败时删除 temp。正式 rename 失败时尝试从 backup �
 请求包含 `Overwrite`：
 
 - `false`：目标存在时返回错误
-- `true`：通过 temp + backup + rename 替换
+- `true`：文件通过 temp + backup + rename 替换；目录采用合并语义，替换同名文件但保留目标独有内容
 
-Flutter 目录导入在目标目录已存在时先交互确认；CLI/FFI 的调用方必须显式决定策略。V3 不实现隐式 skip 列表或逐文件冲突 task。
+Flutter 文件和目录 import 在顶层目标已存在时先交互确认，提供取消、保留两者和显式替换；默认传入 `Overwrite=false`。目录 import 即使源目录为空，也会在顶层目标存在且未授权覆盖时拒绝，不依赖遍历过程中偶然遇到文件冲突。FFI import ABI 显式携带 overwrite 位，不再硬编码覆盖。CLI/FFI 的其他调用方同样必须明确决定策略。V3 不实现隐式 skip 列表或逐文件冲突 task。
+
+import marker 保存本次 `overwrite` 决策和 `destination_initially_existed`。用户选择全量重跑时沿用原决策；若目标在首次运行前不存在，重跑可以合并覆盖该 operation 自己留下的部分目录/文件。缺少后一个字段的旧 marker 不允许据此升级为覆盖，仍按显式 `overwrite` 处理。
 
 ## 元数据与创建权限
 
@@ -307,6 +332,16 @@ convert marker 记录：
 
 验证沿用 import 对普通源的过滤语义：跳过 `.transfer_v3`、配置文件、convert work/backup 名称和嵌套加密 root。该机制不是文件系统快照；同权限外部进程在验证完成后、rename 前继续修改源仍属于尚未解决的并发篡改场景。
 
+内容不一致时不能只返回第一条字符串错误。V3 生成结构化 `verification` 报告并写回 convert marker：
+
+- expected/actual 目录数和文件数；
+- missing/unexpected 目录总数与稳定排序样本；
+- missing/unexpected 文件总数与稳定排序样本；
+- digest mismatch 总数与稳定排序样本；
+- 每类最多保存前 16 条路径，超出时设置 `truncated=true`，避免 marker 无上限增长。
+
+报告写入后 marker 使用 `phase=needs_attention`、`status=failed`。source、work 和 marker 全部保留，不进入 rename，也不由 recovery 自动删除。扫描失败、权限错误或 context cancel 不伪造成内容差异报告，仍保留原 phase 和底层错误供重跑诊断。
+
 ### Recovery
 
 `RecoverConvert` 同时检查 marker phase 与 root/work/backup 实际存在状态：
@@ -316,8 +351,11 @@ convert marker 记录：
 - root 不存在、work/backup 存在：完成 `work -> root`
 - root/backup 存在、work 不存在：切换已经完成，清理 marker 并返回 completed
 - 状态矛盾或无法唯一判断：返回 needs_attention，不猜测、不删除目录
+- `needs_attention` 且带 verification 报告：返回差异计数与样本位置，保留 source/work/backup，要求用户检查后重新完整 convert
 
 恢复前必须验证 marker：op id 只能包含字母、数字、`-`、`_`，`root` 必须等于当前恢复目标，`work/backup` 必须严格由 `root + op id` 派生。存在多个不同 convert op id 时直接返回 `needs_attention`。marker 内容不可信，禁止据其任意删除或 rename 路径。
+
+人工处理顺序：先确认 marker 中 root/work/backup 都是预期路径，再读取 verification 计数和样本；不得手工把未验证 work rename 为 root。若原 root 完整且 backup 不存在，可保留或复制 work 供排查，随后清理该次 convert 状态并从原 root 全量重跑。若 root 已缺失或 backup 已出现，不自动删除任何目录，先离线备份三者。
 
 ## CLI 映射
 
@@ -383,6 +421,7 @@ Dart 使用 worker isolate 执行同步 C ABI，通过消息转发进度，避�
 - 导出临时文件 sync 失败时保留原目标、清理 temp 并保留 marker
 - rename 后目录 sync 失败时保留 marker，要求后续完整重跑
 - 请求级 durability override 不污染 manager 默认值，CLI `full/none/data` create/import/export 互通及非法值无副作用拒绝
+- convert 多类别差异计数、稳定排序、每类 16 条截断、marker JSON 持久化与 recovery 不删除 work
 
 ## 尚未完成
 
@@ -391,8 +430,8 @@ Dart 使用 worker isolate 执行同步 C ABI，通过消息转发进度，避�
 - Windows 目录 metadata flush 的等价实现与掉电故障验证
 - Windows rename/占用句柄专项故障注入
 - Windows `LockFileEx` 运行时竞争与进程退出释放测试（当前仅有实现和 API 签名核对）
-- 更完整的 convert 校验报告与人工处理指引
-- 超大目录扫描的内存上限、并发 worker、限速与字节级进度
+- secure root walker 待处理目录的硬上限，以及超宽/超深目录资源测试
+- 并发 worker、I/O 限速与字节级进度
 
 ## 明确不做
 

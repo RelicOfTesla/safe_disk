@@ -28,6 +28,7 @@ class DirectoryService {
     int rootID,
     String srcPath,
     String destPath, {
+    bool overwrite = false,
     void Function(DirectoryTransferProgress progress)? onProgress,
     DirectoryTransferCancellationToken? cancellationToken,
   }) async {
@@ -36,6 +37,7 @@ class DirectoryService {
       srcPath,
       destPath,
       (event) => onProgress?.call(_fromNativeProgress(event)),
+      overwrite: overwrite,
       cancellationToken: cancellationToken?._native,
     );
   }
@@ -70,6 +72,7 @@ class DirectoryService {
     int rootID,
     String srcPath,
     String destPath, {
+    bool overwrite = false,
     void Function(DirectoryTransferProgress progress)? onProgress,
     DirectoryTransferCancellationToken? cancellationToken,
   }) async {
@@ -78,6 +81,7 @@ class DirectoryService {
       srcPath,
       destPath,
       (event) => onProgress?.call(_fromNativeProgress(event)),
+      overwrite: overwrite,
       cancellationToken: cancellationToken?._native,
     );
   }
@@ -120,6 +124,8 @@ class DirectoryService {
     final entryKind = _requiredMarkerString(marker, 'entry_kind');
     final src = marker['src'] as String? ?? '';
     final dst = marker['dst'] as String? ?? '';
+    final overwrite = marker['overwrite'] == true ||
+        marker['destination_initially_existed'] == false;
     if (entryKind != 'file' && entryKind != 'directory') {
       throw StateError('Unfinished operation $opID has invalid entry_kind');
     }
@@ -139,11 +145,15 @@ class DirectoryService {
     await cleanUnfinishedOperation(rootID, opID);
     if (type == 'import' && entryKind == 'file') {
       return importFile(rootID, src, dst,
-          onProgress: onProgress, cancellationToken: cancellationToken);
+          overwrite: overwrite,
+          onProgress: onProgress,
+          cancellationToken: cancellationToken);
     }
     if (type == 'import') {
       return importDirectory(rootID, src, dst,
-          onProgress: onProgress, cancellationToken: cancellationToken);
+          overwrite: overwrite,
+          onProgress: onProgress,
+          cancellationToken: cancellationToken);
     }
     if (entryKind == 'file') {
       return exportFile(rootID, src, dst,

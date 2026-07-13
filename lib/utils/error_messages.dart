@@ -31,6 +31,9 @@ enum ErrorType {
   /// 创建加密目录失败
   createEncryptedDirectoryFailed,
 
+  /// 创建加密目录要求空目录
+  createEncryptedDirectoryRequiresEmpty,
+
   /// 导入文件失败
   importFileFailed,
 
@@ -144,6 +147,11 @@ class ErrorMessages {
       title: '创建加密目录失败',
       description: '无法创建新的加密目录。',
       suggestion: '请检查目录权限和磁盘空间，然后重试。',
+    ),
+    ErrorType.createEncryptedDirectoryRequiresEmpty: ErrorMessage(
+      title: '目录不是空目录',
+      description: '新加密目录只能创建在不存在或内容为空的目录中。',
+      suggestion: '请选择新的路径或空目录；已有内容需要先导入，不能直接作为新 root 初始化。',
     ),
 
     // 文件操作相关

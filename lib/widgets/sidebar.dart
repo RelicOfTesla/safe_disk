@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/cryption_config.dart';
+import '../models/logical_path.dart';
+
+enum SidebarDirectoryAction { setAlias, clearAlias, directoryActions }
 
 /// Sidebar widget for displaying opened directories
 class SidebarWidget extends StatelessWidget {
@@ -9,6 +12,7 @@ class SidebarWidget extends StatelessWidget {
   final VoidCallback onOpenDirectory;
   final void Function(EncryptedDirectory) onCloseDirectory;
   final void Function(EncryptedDirectory) onSwitchDirectory;
+  final void Function(EncryptedDirectory) onRenameDirectory;
   final Future<void> Function(bool) onTogglePin;
 
   const SidebarWidget({
@@ -19,6 +23,7 @@ class SidebarWidget extends StatelessWidget {
     required this.onOpenDirectory,
     required this.onCloseDirectory,
     required this.onSwitchDirectory,
+    required this.onRenameDirectory,
     required this.onTogglePin,
   });
 
@@ -106,32 +111,82 @@ class SidebarWidget extends StatelessWidget {
                     final dir = openedDirs[index];
                     final isSelected = currentDir?.path == dir.path;
 
-                    return ListTile(
-                      leading: Icon(
-                        Icons.folder,
-                        color: dir.isVerified ? Colors.green : Colors.orange,
-                      ),
-                      title: Text(
-                        dir.path.split('/').last,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        dir.isVerified ? 'Verified' : 'Not verified',
-                        style: TextStyle(
-                          color: dir.isVerified ? Colors.green : Colors.orange,
+                    final displayName =
+                        dir.displayAlias?.trim().isNotEmpty == true
+                            ? dir.displayAlias!
+                            : logicalPathBasename(dir.path);
+                    return GestureDetector(
+                      onSecondaryTapDown: (details) async {
+                        final action = await showMenu<SidebarDirectoryAction>(
+                          context: context,
+                          position: RelativeRect.fromLTRB(
+                            details.globalPosition.dx,
+                            details.globalPosition.dy,
+                            details.globalPosition.dx,
+                            details.globalPosition.dy,
+                          ),
+                          items: [
+                            const PopupMenuItem(
+                              value: SidebarDirectoryAction.setAlias,
+                              child: Text('设置显示别名'),
+                            ),
+                            if (dir.displayAlias != null)
+                              const PopupMenuItem(
+                                value: SidebarDirectoryAction.clearAlias,
+                                child: Text('清除显示别名'),
+                              ),
+                            const PopupMenuDivider(),
+                            const PopupMenuItem(
+                              value: SidebarDirectoryAction.directoryActions,
+                              child: Text('会话与目录操作'),
+                            ),
+                          ],
+                        );
+                        if (!context.mounted || action == null) return;
+                        switch (action) {
+                          case SidebarDirectoryAction.setAlias:
+                            onRenameDirectory(dir);
+                          case SidebarDirectoryAction.clearAlias:
+                            onRenameDirectory(
+                              dir.copyWith(clearDisplayAlias: true),
+                            );
+                          case SidebarDirectoryAction.directoryActions:
+                            onCloseDirectory(dir);
+                        }
+                      },
+                      child: Tooltip(
+                        message: dir.path,
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.folder,
+                            color:
+                                dir.isVerified ? Colors.green : Colors.orange,
+                          ),
+                          title: Text(
+                            displayName,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            dir.isVerified ? 'Verified' : 'Not verified',
+                            style: TextStyle(
+                              color:
+                                  dir.isVerified ? Colors.green : Colors.orange,
+                            ),
+                          ),
+                          selected: isSelected,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: () => onCloseDirectory(dir),
+                            tooltip: '目录操作',
+                          ),
+                          onTap: () {
+                            if (!drawerPinned && Navigator.canPop(context)) {
+                              Navigator.pop(context);
+                            }
+                            onSwitchDirectory(dir);
+                          },
                         ),
                       ),
-                      selected: isSelected,
-                      trailing: IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () => onCloseDirectory(dir),
-                      ),
-                      onTap: () {
-                        if (!drawerPinned && Navigator.canPop(context)) {
-                          Navigator.pop(context);
-                        }
-                        onSwitchDirectory(dir);
-                      },
                     );
                   },
                 ),

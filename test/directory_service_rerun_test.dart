@@ -14,15 +14,46 @@ void main() {
           'dst': type == 'export' ? '/plain/output' : 'inside/destination',
         });
 
+        final overwriteSuffix = type == 'import' ? ':false' : '';
         expect(service.calls, [
           'clean:7:old-op',
           '$type:$entryKind:7:'
               '${type == 'export' ? 'inside/path' : '/plain/source'}:'
-              '${type == 'export' ? '/plain/output' : 'inside/destination'}',
+              '${type == 'export' ? '/plain/output' : 'inside/destination'}'
+              '$overwriteSuffix',
         ]);
       });
     }
   }
+
+  test('preserves explicit overwrite policy when rerunning import', () async {
+    final service = _RecordingDirectoryService();
+    await service.rerunUnfinishedOperation(7, {
+      'op_id': 'old-op',
+      'type': 'import',
+      'entry_kind': 'file',
+      'src': '/plain/source',
+      'dst': 'inside/destination',
+      'overwrite': true,
+    });
+
+    expect(service.calls.last, endsWith(':true'));
+  });
+
+  test('reruns over partial output only when destination was initially absent',
+      () async {
+    final service = _RecordingDirectoryService();
+    await service.rerunUnfinishedOperation(7, {
+      'op_id': 'old-op',
+      'type': 'import',
+      'entry_kind': 'directory',
+      'src': '/plain/source',
+      'dst': 'inside/destination',
+      'destination_initially_existed': false,
+    });
+
+    expect(service.calls.last, endsWith(':true'));
+  });
 
   test('rejects a legacy marker before cleaning it', () async {
     final service = _RecordingDirectoryService();
@@ -50,15 +81,17 @@ class _RecordingDirectoryService extends DirectoryService {
   @override
   Future<void> importFile(int rootID, String srcPath, String destPath,
       {void Function(DirectoryTransferProgress progress)? onProgress,
+      bool overwrite = false,
       DirectoryTransferCancellationToken? cancellationToken}) async {
-    calls.add('import:file:$rootID:$srcPath:$destPath');
+    calls.add('import:file:$rootID:$srcPath:$destPath:$overwrite');
   }
 
   @override
   Future<void> importDirectory(int rootID, String srcPath, String destPath,
       {void Function(DirectoryTransferProgress progress)? onProgress,
+      bool overwrite = false,
       DirectoryTransferCancellationToken? cancellationToken}) async {
-    calls.add('import:directory:$rootID:$srcPath:$destPath');
+    calls.add('import:directory:$rootID:$srcPath:$destPath:$overwrite');
   }
 
   @override

@@ -93,7 +93,7 @@ FFI 层的职责是把 Go 后端能力稳定、安全地暴露给 Flutter，而�
 
 - Root：`sec_root_open`、`sec_root_close`、`sec_create_root_config`
 - File：`sec_file_open`、`sec_file_read`、`sec_file_write`、`sec_file_seek`、`sec_file_truncate`、`sec_file_close`
-- Root 级文件操作：`sec_file_delete`、`sec_file_exists`、`sec_mkdir_all`、`sec_read_dir`
+- Root 级文件操作：`sec_file_delete`、`sec_file_exists`、`sec_rename`、`sec_copy_entry`、`sec_mkdir_all`、`sec_read_dir`
 - Quick 操作：`sec_quick_read_file`、`sec_quick_write_file`
 - Transfer V3：`sec_transfer_v3_import_file`、`sec_transfer_v3_import_directory`、`sec_transfer_v3_export_file`、`sec_transfer_v3_export_directory`
 - Transfer V3 状态：`sec_transfer_v3_list_unfinished`、`sec_transfer_v3_clean_unfinished`
@@ -111,6 +111,10 @@ FFI 层的职责是把 Go 后端能力稳定、安全地暴露给 Flutter，而�
 - `sec_free_string`
 - Transfer V3 import/export、unfinished marker、convert/recover
 - Transfer V3 runtime operation callback 与 cancel handle
+
+`sec_copy_entry(srcRootID, srcPath, dstRootID, dstPath, overwrite)` 复制逻辑条目。文件内容通过源 root 解密并由目标 root 重新加密，支持不同密码和算法配置的两个已打开 root；目录递归复制，覆盖时合并目录并原子替换同名文件。该操作不创建持久化 task，Dart 在 worker isolate 中执行。
+
+Transfer V3 的 import 同步 ABI 和 callback ABI 均显式携带 `overwrite` 整数位。Dart 默认传 `0`；只有 UI 完成冲突询问并选择替换后才传 `1`。
 
 当前 Dart 已绑定 V3 import/export、unfinished marker、convert recover/convert root。尚未绑定：
 
@@ -162,6 +166,8 @@ FFI 不自行实现密码算法，也不能通过“列目录是否为空”判�
 Transfer V3 的 C ABI 当前固定使用 `full` durability。Go 公共 request 和 CLI 虽支持 per-operation `none/data/full`，FFI 不提供 process-wide setter，避免多个 Dart isolate 或并发 operation 相互覆盖全局落盘策略。若后续需要开放，应新增每次调用显式携带 options 的 ABI，并保留现有函数的 `full` 默认语义。
 
 import/export 不再创建 `ITask`，也不返回 `task_id`。
+
+convert 内容校验失败时，unfinished marker 的 JSON 包含结构化 `verification`：目录/文件期望与实际数量、missing/unexpected/digest mismatch 总数、每类最多 16 条排序样本和 `truncated`。FFI 不根据这些路径自动执行删除或 rename，只负责原样返回给 Dart 展示和人工处理。
 
 1. Flutter 调用 V3 transfer 函数，Go 注册一次性 runtime cancel handle。
 2. Go 等待该 root 的跨进程 OS lock；等待期间可通过 `sec_transfer_v3_cancel` 取消。
@@ -234,6 +240,7 @@ FFI shared library 也必须完成同样的自举，否则 standalone shared lib
 - `native/ffi_sec_fs` 的构建入口必须注册完整算法集；当前已使用 `crypto_all`。
 - `native/ffi_sec_fs` 的构建入口必须 blank import `sec_transfer/v3`。
 - 自举依赖应集中放在 FFI 入口文件或专门的 `init.go` 中。
+- Windows C ABI 产物规范名为 `ffi_sec_fs.dll`；构建脚本、CMake bundle 与 Dart loader 必须一致。Dart 只从 `safe_disk.exe` 同目录绝对加载，禁止回退到 `PATH`，避免误用旧 ABI 动态库。
 
 ## Transfer 设计
 
@@ -260,17 +267,17 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 - Flutter `DirectoryService` 已接通 V3 目录 import/export；有无 progress listener 都不会在调用 isolate 上同步执行传输。
 - Flutter `HomePage` 验证 root 后会查询 unfinished import/export marker，并提示用户清理或跳过。
 - FFI shared library 已注册 V3；`sec_transfer/v2` 活跃源码和旧 task 公共接口已删除。
-- Dart FFI 集成测试已覆盖真实 shared library 下的 root create/open、quick read/write、V3 import/export、runtime progress callback、调用 isolate 非阻塞、listener 异常、native 失败 marker 清理，以及 `aes-gcm-name` 文件名/目录名加密。
+- Dart FFI 集成测试已覆盖真实 shared library 下的 root create/open、quick read/write、文件/目录原子重命名、跨密码加密 root 复制、copy/import 目标冲突保护、V3 import/export、runtime progress callback、调用 isolate 非阻塞、listener 异常、native 失败 marker 清理，以及 `aes-gcm-name` 文件名/目录名加密。
 - Go FFI 边界测试覆盖 quick write 与 V3 import 的 `../` 路径逃逸拒绝，并断言 root 外不产生文件。
 - Go FFI 与 Dart FFI 集成测试已覆盖 CLI 创建 root 后由 FFI/Dart 写读并由 CLI export、FFI/Dart 创建 root 后由 CLI import/export 使用。
 - 运行时 progress callback 通过 `sec_transfer_v3_*_with_callback` C ABI 传递 V3 `ProgressEvent`；Dart worker isolate 在同步 C 调用期间持有 `NativeCallable`，通过 `SendPort` 把事件转发给调用 isolate。
 - Dart progress listener 抛错时不会提前销毁 native callback；worker 会先等 native 调用结束，再把 listener 错误交还调用方。
 - FFI 提供一次性 runtime operation handle；`sec_transfer_v3_cancel` 只触发进程内 `context.CancelFunc`，操作结束立即移除，不保存 task 或进度。
 - Flutter 目录导出 UI 已接真实取消；handle 尚未 active 时拒绝关闭进度框，取消成功后保留 unfinished marker 供下次打开时清理或全量重跑。
-- Flutter 已提供独立目录导入入口：所选普通目录作为当前加密目录的子目录导入，支持合并覆盖确认、进度和真实取消。
+- Flutter 已提供独立文件/目录导入入口：顶层同名冲突可取消、保留两者或显式替换；目录替换采用合并并替换同名文件语义，同时支持进度和真实取消。
 - Flutter 打开 root 时可选择 unfinished operation 全量重跑；Dart service 先校验 `type/entry_kind/src/dst`，再清理旧 marker 并调用对应文件/目录 import/export，页面显示运行时进度并支持取消。
-- `HomePage` 已支持 service 与文件/目录选择器注入，整页 widget 测试覆盖未认证 root 不提前列目录、错误密码后重试、文件字节导入、目录合并确认和 transfer 失败后关闭进度框。
-- 文件导入直接读取 `XFile` 字节，不再假定选择器一定返回可由 `dart:io File` 打开的本地路径。
+- `HomePage` 已支持 service 与文件/目录选择器注入，整页 widget 测试覆盖未认证 root 不提前列目录、错误密码后重试、文件 import 默认拒绝覆盖、文件显式替换、目录合并确认和 transfer 失败后关闭进度框。
+- 文件导入使用选择器返回的本地绝对路径进入 Transfer V3，不再在 Dart 主 isolate 中一次性读取完整文件字节。
 - 空目录 FFI 响应固定为 JSON `[]`，Dart 绑定同时兼容历史 `null`；真实 FFI 测试覆盖加密目录名下的空目录往返。
 
 ## 增量加密接口

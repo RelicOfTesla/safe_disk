@@ -297,6 +297,7 @@ safe-disk info --path /abs/encrypted/root/or/file
 - 仅用于 convert marker。
 - 按 phase 和 root/work/backup 实际状态继续目录切换或完成状态收敛。
 - 无法判断时标记 `needs_attention` 并输出具体路径。
+- verification 失败时同时输出 missing/unexpected/digest mismatch 总数、是否截断和样本路径；不得只显示“校验失败”。
 
 ### skip 行为
 

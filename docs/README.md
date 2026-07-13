@@ -12,6 +12,7 @@
 6. [CLI 设计文档](CLI_DESIGN.md)
 7. [开发路线图](ROADMAP.md)
 8. [任务列表](TODO.md)
+9. [已完成任务](completed/TASKS_COMPLETED.md)
 
 ## 当前状态与项目管理
 
@@ -19,9 +20,10 @@
 |------|------|------|
 | [CODE_AUDIT_STATUS.md](CODE_AUDIT_STATUS.md) | 当前代码真实状态 | 当前有效 |
 | [REQUIREMENTS.md](REQUIREMENTS.md) | 需求、威胁模型、功能范围 | 当前有效，需结合代码审计 |
-| [ROADMAP.md](ROADMAP.md) | 阶段规划 | 规划文档，不等同于实现状态 |
-| [TODO.md](TODO.md) | 功能任务列表 | 混有历史记录，需结合代码审计 |
-| [FEATURES.md](FEATURES.md) | 功能规划清单 | 规划文档，部分历史勾选不可靠 |
+| [ROADMAP.md](ROADMAP.md) | 阶段规划 | 统一百分比，只保留未完成阶段 |
+| [TODO.md](TODO.md) | 活跃功能任务 | 统一百分比，不包含 100% 项 |
+| [FEATURES.md](FEATURES.md) | 活跃功能规划 | 统一百分比，不包含 100% 项 |
+| [completed/TASKS_COMPLETED.md](completed/TASKS_COMPLETED.md) | 已完成任务 | 仅包含有自动化实际功能证据的 100% 项 |
 
 ## 架构与设计
 
@@ -32,6 +34,9 @@
 | [TRANSFER_DESIGN.md](TRANSFER_DESIGN.md) | sec_transfer 批量任务、恢复与原子迁移设计 | 当前有效 |
 | [CLI_DESIGN.md](CLI_DESIGN.md) | CLI 命令与底层 sec 配合设计 | 当前有效 |
 | [FFI_DESIGN.md](FFI_DESIGN.md) | Flutter 与 Go 的 FFI 边界设计 | 当前有效 |
+| [design/MULTI_WINDOW_DESIGN.md](design/MULTI_WINDOW_DESIGN.md) | Flutter 内容多窗口、root lease 与保存冲突设计 | 设计完成，功能未实现 |
+| [design/FILE_BROWSER_DESIGN.md](design/FILE_BROWSER_DESIGN.md) | list/grid 内容视图、tree 目录导航与当前目录筛选设计 | 当前有效 |
+| [design/ERROR_REPORTING_DESIGN.md](design/ERROR_REPORTING_DESIGN.md) | 错误分层、详细报告开关、脱敏与 Windows FFI bundle 诊断 | 当前有效，Win10 实机验收未完成 |
 | [reference/error_handling.md](reference/error_handling.md) | Go 错误处理机制 | 参考文档，需补中文化 |
 
 ## 使用说明
@@ -40,17 +45,18 @@
 |------|------|------|
 | [CLI.md](CLI.md) | CLI 使用说明 | 当前有效，已降级过度完成声明 |
 | [FAQ.md](FAQ.md) | 常见问题 | 可用，但需要按当前 UI 状态复核 |
-| [usage/secure_notepad_usage.md](usage/secure_notepad_usage.md) | 安全记事本使用说明 | 历史/目标功能说明，当前 UI 未完成 |
+| [usage/secure_notepad_usage.md](usage/secure_notepad_usage.md) | 安全记事本使用与实现说明 | 当前有效，包含安全声明边界与剩余验收 |
 
 ## 专项设计与重构资料
 
 | 文档 | 用途 | 状态 |
 |------|------|------|
 | [archive/ARCHITECTURE_REFACTOR_PLAN_V2.md](archive/ARCHITECTURE_REFACTOR_PLAN_V2.md) | 架构重构设计历史 | 历史参考 |
-| [TODO_REFACTOR.md](TODO_REFACTOR.md) | 重构任务列表 | 历史与待办混合，需复核 |
+| [TODO_REFACTOR.md](TODO_REFACTOR.md) | 活跃重构任务 | 统一百分比，不包含 100% 项 |
+| [completed/REFACTOR_COMPLETED.md](completed/REFACTOR_COMPLETED.md) | 已完成重构 | 100% 重构及验收边界 |
 | [archive/CRYPTO_PACKAGE_REFACTOR_ANALYSIS.md](archive/CRYPTO_PACKAGE_REFACTOR_ANALYSIS.md) | crypto 包重构分析 | 历史分析 |
 | [design/STREAM_V3_DESIGN.md](design/STREAM_V3_DESIGN.md) | Stream V3 格式设计 | 设计文档 |
-| [design/STREAM_V3_ROADMAP.md](design/STREAM_V3_ROADMAP.md) | Stream V3 实施路线 | 规划文档 |
+| [design/STREAM_V3_ROADMAP.md](design/STREAM_V3_ROADMAP.md) | Stream V3 实施路线 | 已按实际代码重审为百分比 |
 | [design/FFI_INCREMENTAL_ENCRYPTION.md](design/FFI_INCREMENTAL_ENCRYPTION.md) | 增量加密 FFI 设计 | 设计文档，不是实现证明 |
 
 ## 历史报告

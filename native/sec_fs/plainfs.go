@@ -247,11 +247,14 @@ func (p *PlainFS) Rename(oldPath RelativeViewPath, newPath RelativeViewPath) err
 		return ErrRootClosed
 	}
 
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	if p.closed {
 		return ErrRootClosed
+	}
+	if oldPath == newPath {
+		return nil
 	}
 
 	oldFullPath, err := p.resolvePath(string(oldPath))
@@ -261,6 +264,21 @@ func (p *PlainFS) Rename(oldPath RelativeViewPath, newPath RelativeViewPath) err
 	newFullPath, err := p.resolvePath(string(newPath))
 	if err != nil {
 		return err
+	}
+	if _, err := os.Lstat(newFullPath); err == nil {
+		return NewPairPathError(
+			"rename",
+			newPath,
+			FullStorePath(newFullPath),
+			ErrFileAlreadyExists,
+		)
+	} else if !os.IsNotExist(err) {
+		return NewPairPathError(
+			"stat_rename_target",
+			newPath,
+			FullStorePath(newFullPath),
+			err,
+		)
 	}
 
 	err = os.Rename(oldFullPath, newFullPath)

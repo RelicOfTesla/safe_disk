@@ -278,10 +278,13 @@ func (r *secRootImpl) Rename(oldPath RelativeViewPath, newPath RelativeViewPath)
 	if r == nil {
 		return ErrRootClosed
 	}
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.closed {
 		return ErrRootClosed
+	}
+	if oldPath == newPath {
+		return nil
 	}
 
 	// Convert view paths to store paths (encrypt file names) and validate
@@ -293,6 +296,11 @@ func (r *secRootImpl) Rename(oldPath RelativeViewPath, newPath RelativeViewPath)
 	_, newFullPath, err := viewPathToStorePathCheck(r.rootPathInfo, newPath, r.nameCryptor, false)
 	if err != nil {
 		return err
+	}
+	if _, err := os.Lstat(string(newFullPath)); err == nil {
+		return NewPairPathError("rename", newPath, newFullPath, ErrFileAlreadyExists)
+	} else if !os.IsNotExist(err) {
+		return NewPairPathError("stat_rename_target", newPath, newFullPath, err)
 	}
 
 	err = os.Rename(string(oldFullPath), string(newFullPath))

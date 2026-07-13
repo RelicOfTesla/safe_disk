@@ -3,6 +3,7 @@ package sec_transfer_v3
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,6 +91,15 @@ func TestV3ImportExportWithEncryptedNames(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(plain, "目录", "文件.txt"), []byte("encrypted names"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.MkdirAll(filepath.Join(plain, ".隐藏目录"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(plain, ".env"), []byte("hidden file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(plain, ".隐藏目录", ".秘密"), []byte("hidden nested file"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	password := "test-password"
 	if _, _, err := sec_fs.CreateRootConfigQuick(
@@ -115,6 +125,9 @@ func TestV3ImportExportWithEncryptedNames(t *testing.T) {
 	if !root.FileExists("目录/文件.txt") {
 		t.Fatal("expected imported file to be visible through encrypted name root")
 	}
+	if !root.FileExists(".env") || !root.FileExists(".隐藏目录/.秘密") {
+		t.Fatal("expected hidden imported files to be visible through encrypted name root")
+	}
 	if containsDiskName(t, rootPath, "目录") || containsDiskName(t, rootPath, "文件.txt") {
 		t.Fatal("plain directory or file name leaked to store path")
 	}
@@ -129,6 +142,53 @@ func TestV3ImportExportWithEncryptedNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertFileContent(t, filepath.Join(out, "目录", "文件.txt"), "encrypted names")
+	assertFileContent(t, filepath.Join(out, ".env"), "hidden file")
+	assertFileContent(t, filepath.Join(out, ".隐藏目录", ".秘密"), "hidden nested file")
+}
+
+func TestV3ImportDirectoryCancellationDuringCountDoesNotCreateDestination(t *testing.T) {
+	tmp := t.TempDir()
+	plain := filepath.Join(tmp, "plain")
+	rootPath := filepath.Join(tmp, "root")
+	if err := os.MkdirAll(plain, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(plain, "a.txt"), []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(rootPath), "password", defaultCreateRootOptions()...); err != nil {
+		t.Fatal(err)
+	}
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(rootPath), "password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	err = New().ImportDirectory(ctx, sec_transfer.ImportDirectoryRequest{
+		Source:    sec_fs.FullStorePath(plain),
+		DestRoot:  root,
+		Dest:      "not-created",
+		Overwrite: true,
+	}, func(event sec_transfer.ProgressEvent) {
+		if event.DoneFiles == 0 && event.TotalFiles == 0 && !event.Complete {
+			cancel()
+		}
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected count pass cancellation, got %v", err)
+	}
+	if _, statErr := root.Stat("not-created"); !os.IsNotExist(statErr) {
+		t.Fatalf("count pass created destination: %v", statErr)
+	}
+	markers, listErr := New().ListUnfinishedOperations(context.Background(), rootPath)
+	if listErr != nil {
+		t.Fatal(listErr)
+	}
+	if len(markers) != 1 || markers[0].Type != sec_transfer.OperationImport {
+		t.Fatalf("expected canceled import marker, got %+v", markers)
+	}
 }
 
 func TestV3ImportExportPreservesEmptyEncryptedDirectories(t *testing.T) {
@@ -339,6 +399,9 @@ func TestV3ImportFailureLeavesMarkerAndCleanRemovesIt(t *testing.T) {
 	if markers[0].EntryKind != sec_transfer.EntryKindFile {
 		t.Fatalf("unexpected marker entry kind: %s", markers[0].EntryKind)
 	}
+	if markers[0].DestinationInitiallyExisted == nil || *markers[0].DestinationInitiallyExisted {
+		t.Fatalf("marker lost initially-absent destination state: %#v", markers[0])
+	}
 	if err := manager.CleanUnfinishedImportExport(context.Background(), rootPath, markers[0].OpID); err != nil {
 		t.Fatal(err)
 	}
@@ -348,6 +411,49 @@ func TestV3ImportFailureLeavesMarkerAndCleanRemovesIt(t *testing.T) {
 	}
 	if len(markers) != 0 {
 		t.Fatalf("expected markers to be cleaned, got %d", len(markers))
+	}
+}
+
+func TestV3ImportDirectoryRejectsExistingEmptyDestinationWithoutOverwrite(t *testing.T) {
+	tmp := t.TempDir()
+	sourcePath := filepath.Join(tmp, "source")
+	rootPath := filepath.Join(tmp, "root")
+	if err := os.MkdirAll(sourcePath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := sec_fs.CreateRootConfigQuick(
+		sec_fs.FullStorePath(rootPath),
+		"directory-conflict-password",
+		defaultCreateRootOptions()...,
+	); err != nil {
+		t.Fatal(err)
+	}
+	root, err := sec_fs.OpenRootQuick(
+		sec_fs.FullStorePath(rootPath),
+		"directory-conflict-password",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	if err := root.MkdirAll("existing"); err != nil {
+		t.Fatal(err)
+	}
+
+	err = New().ImportDirectory(context.Background(), sec_transfer.ImportDirectoryRequest{
+		Source:   sec_fs.FullStorePath(sourcePath),
+		DestRoot: root,
+		Dest:     "existing",
+	}, nil)
+	if err == nil || !strings.Contains(err.Error(), "destination exists") {
+		t.Fatalf("existing empty directory error = %v", err)
+	}
+	markers, markerErr := New().ListUnfinishedOperations(context.Background(), rootPath)
+	if markerErr != nil {
+		t.Fatal(markerErr)
+	}
+	if len(markers) != 1 || markers[0].DestinationInitiallyExisted == nil || !*markers[0].DestinationInitiallyExisted {
+		t.Fatalf("marker lost initially-existing destination state: %#v", markers)
 	}
 }
 
@@ -660,8 +766,93 @@ func TestV3ConvertVerificationStopsRenameWhenSourceChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(markers) != 1 || markers[0].Phase != phaseVerifyingWork {
-		t.Fatalf("expected verifying_work marker, got %+v", markers)
+	if len(markers) != 1 || markers[0].Phase != phaseNeedsAttention || markers[0].Status != "failed" {
+		t.Fatalf("expected failed needs_attention marker, got %+v", markers)
+	}
+	if markers[0].Verification == nil || markers[0].Verification.DigestMismatchCount != 1 ||
+		len(markers[0].Verification.DigestMismatches) != 1 || markers[0].Verification.DigestMismatches[0] != "a.txt" {
+		t.Fatalf("verification report was not persisted: %+v", markers[0].Verification)
+	}
+	result, recoverErr := New().RecoverConvert(context.Background(), rootPath)
+	if recoverErr != nil {
+		t.Fatal(recoverErr)
+	}
+	if result.Action != sec_transfer.RecoverActionNeedsAttention || !strings.Contains(result.Message, "digest_mismatches=1") ||
+		!strings.Contains(result.Message, "digest_mismatch=a.txt") {
+		t.Fatalf("unexpected verification recovery result: %+v", result)
+	}
+	if !pathExists(works[0]) {
+		t.Fatal("recovery deleted work for a verification failure")
+	}
+	markers, err = listMarkers(rootPath)
+	if err != nil || len(markers) != 1 {
+		t.Fatalf("recovery removed verification marker: markers=%+v err=%v", markers, err)
+	}
+}
+
+func TestVerificationDifferenceSamplesRemainBoundedAndSorted(t *testing.T) {
+	var samples []string
+	count := 0
+	for index := verificationPathSampleLimit + 9; index >= 0; index-- {
+		addVerificationDifference(&samples, &count, fmt.Sprintf("path-%02d", index))
+	}
+	if count != verificationPathSampleLimit+10 {
+		t.Fatalf("unexpected difference count: %d", count)
+	}
+	if len(samples) != verificationPathSampleLimit {
+		t.Fatalf("samples are not bounded: %d", len(samples))
+	}
+	for index, path := range samples {
+		expected := fmt.Sprintf("path-%02d", index)
+		if path != expected {
+			t.Fatalf("samples are not stable and sorted: got %q at %d, want %q", path, index, expected)
+		}
+	}
+}
+
+func TestStreamingVerificationReportsBoundedUnexpectedTree(t *testing.T) {
+	tmp := t.TempDir()
+	rootPath := filepath.Join(tmp, "root")
+	plainPath := filepath.Join(tmp, "plain")
+	if err := os.MkdirAll(plainPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for index := verificationPathSampleLimit + 3; index >= 0; index-- {
+		if err := os.MkdirAll(filepath.Join(plainPath, fmt.Sprintf("dir-%02d", index)), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(plainPath, fmt.Sprintf("file-%02d", index)), []byte("extra"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(rootPath), "password", defaultCreateRootOptions()...); err != nil {
+		t.Fatal(err)
+	}
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(rootPath), "password")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+
+	err = verifyRootAndPlain(context.Background(), root, plainPath)
+	var mismatch *treeVerificationError
+	if !errors.As(err, &mismatch) {
+		t.Fatalf("expected tree verification error, got %v", err)
+	}
+	report := mismatch.Report()
+	if report.UnexpectedDirectoryCount != verificationPathSampleLimit+4 ||
+		report.UnexpectedFileCount != verificationPathSampleLimit+4 || !report.Truncated {
+		t.Fatalf("unexpected streaming verification report: %+v", report)
+	}
+	if len(report.UnexpectedDirectories) != verificationPathSampleLimit ||
+		len(report.UnexpectedFiles) != verificationPathSampleLimit {
+		t.Fatalf("streaming report samples are not bounded: %+v", report)
+	}
+	for index := 0; index < verificationPathSampleLimit; index++ {
+		if report.UnexpectedDirectories[index] != fmt.Sprintf("dir-%02d", index) ||
+			report.UnexpectedFiles[index] != fmt.Sprintf("file-%02d", index) {
+			t.Fatalf("streaming report samples are not stable: %+v", report)
+		}
 	}
 }
 

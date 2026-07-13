@@ -10,154 +10,233 @@ import (
 	"sort"
 
 	"safe_disk/native/sec_fs"
+	"safe_disk/native/sec_fs/sec_transfer"
 )
 
-type treeManifest struct {
-	dirs  map[string]struct{}
-	files map[string][sha256.Size]byte
+const verificationPathSampleLimit = 16
+
+type treeVerificationError struct {
+	report sec_transfer.VerificationReport
+}
+
+func (e *treeVerificationError) Error() string {
+	first := firstVerificationDifference(e.report)
+	return fmt.Sprintf("%s (missing_dirs=%d unexpected_dirs=%d missing_files=%d unexpected_files=%d digest_mismatches=%d truncated=%t)",
+		first,
+		e.report.MissingDirectoryCount,
+		e.report.UnexpectedDirectoryCount,
+		e.report.MissingFileCount,
+		e.report.UnexpectedFileCount,
+		e.report.DigestMismatchCount,
+		e.report.Truncated,
+	)
+}
+
+func (e *treeVerificationError) Report() sec_transfer.VerificationReport {
+	return e.report
 }
 
 func verifyPlainAndRoot(ctx context.Context, plainPath string, root sec_fs.ISecRoot) error {
-	plainManifest, err := buildPlainManifest(ctx, plainPath)
+	report := sec_transfer.VerificationReport{}
+	err := walkPlainEntries(ctx, plainPath, false, func(path, relativePath string, isDir bool) error {
+		viewPath := sec_fs.RelativeViewPath(manifestPath(relativePath))
+		if isDir {
+			report.ExpectedDirectories++
+			info, err := root.Stat(viewPath)
+			if os.IsNotExist(err) || (err == nil && !info.IsDir()) {
+				addVerificationDifference(&report.MissingDirectories, &report.MissingDirectoryCount, string(viewPath))
+				return nil
+			}
+			return err
+		}
+
+		report.ExpectedFiles++
+		info, err := root.Stat(viewPath)
+		if os.IsNotExist(err) || (err == nil && info.IsDir()) {
+			addVerificationDifference(&report.MissingFiles, &report.MissingFileCount, string(viewPath))
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		plainDigest, err := hashPlainFile(ctx, path)
+		if err != nil {
+			return err
+		}
+		rootDigest, err := hashRootFile(ctx, root, viewPath)
+		if err != nil {
+			return err
+		}
+		if plainDigest != rootDigest {
+			addVerificationDifference(&report.DigestMismatches, &report.DigestMismatchCount, string(viewPath))
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("read plain source manifest: %w", err)
+		return fmt.Errorf("verify plain source entries: %w", err)
 	}
-	rootManifest, err := buildRootManifest(ctx, root)
+	err = walkRootEntries(ctx, root, "", false, func(viewPath sec_fs.RelativeViewPath, isDir bool) error {
+		path := filepath.Join(plainPath, filepath.FromSlash(string(viewPath)))
+		if isDir {
+			report.ActualDirectories++
+			info, err := os.Stat(path)
+			if os.IsNotExist(err) || (err == nil && !info.IsDir()) {
+				addVerificationDifference(&report.UnexpectedDirectories, &report.UnexpectedDirectoryCount, manifestPath(string(viewPath)))
+				return nil
+			}
+			return err
+		}
+
+		report.ActualFiles++
+		info, err := os.Stat(path)
+		if os.IsNotExist(err) || (err == nil && info.IsDir()) {
+			addVerificationDifference(&report.UnexpectedFiles, &report.UnexpectedFileCount, manifestPath(string(viewPath)))
+			return nil
+		}
+		return err
+	})
 	if err != nil {
-		return fmt.Errorf("read encrypted work manifest: %w", err)
+		return fmt.Errorf("verify encrypted work entries: %w", err)
 	}
-	return compareTreeManifests(plainManifest, rootManifest)
+	return verificationReportError(report)
 }
 
 func verifyRootAndPlain(ctx context.Context, root sec_fs.ISecRoot, plainPath string) error {
-	rootManifest, err := buildRootManifest(ctx, root)
-	if err != nil {
-		return fmt.Errorf("read encrypted source manifest: %w", err)
-	}
-	plainManifest, err := buildPlainManifest(ctx, plainPath)
-	if err != nil {
-		return fmt.Errorf("read plain work manifest: %w", err)
-	}
-	return compareTreeManifests(rootManifest, plainManifest)
-}
+	report := sec_transfer.VerificationReport{}
+	err := walkRootEntries(ctx, root, "", false, func(viewPath sec_fs.RelativeViewPath, isDir bool) error {
+		relativePath := manifestPath(string(viewPath))
+		path := filepath.Join(plainPath, filepath.FromSlash(relativePath))
+		if isDir {
+			report.ExpectedDirectories++
+			info, err := os.Stat(path)
+			if os.IsNotExist(err) || (err == nil && !info.IsDir()) {
+				addVerificationDifference(&report.MissingDirectories, &report.MissingDirectoryCount, relativePath)
+				return nil
+			}
+			return err
+		}
 
-func buildPlainManifest(ctx context.Context, rootPath string) (treeManifest, error) {
-	files, dirs, err := collectPlainEntries(ctx, rootPath, false)
+		report.ExpectedFiles++
+		info, err := os.Stat(path)
+		if os.IsNotExist(err) || (err == nil && info.IsDir()) {
+			addVerificationDifference(&report.MissingFiles, &report.MissingFileCount, relativePath)
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		rootDigest, err := hashRootFile(ctx, root, viewPath)
+		if err != nil {
+			return err
+		}
+		plainDigest, err := hashPlainFile(ctx, path)
+		if err != nil {
+			return err
+		}
+		if rootDigest != plainDigest {
+			addVerificationDifference(&report.DigestMismatches, &report.DigestMismatchCount, relativePath)
+		}
+		return nil
+	})
 	if err != nil {
-		return treeManifest{}, err
+		return fmt.Errorf("verify encrypted source entries: %w", err)
 	}
-	manifest := newTreeManifest()
-	for _, dir := range dirs {
-		rel, err := filepath.Rel(rootPath, dir)
-		if err != nil {
-			return treeManifest{}, err
+	err = walkPlainEntries(ctx, plainPath, false, func(_ string, relativePath string, isDir bool) error {
+		viewPath := sec_fs.RelativeViewPath(manifestPath(relativePath))
+		if isDir {
+			report.ActualDirectories++
+			info, err := root.Stat(viewPath)
+			if os.IsNotExist(err) || (err == nil && !info.IsDir()) {
+				addVerificationDifference(&report.UnexpectedDirectories, &report.UnexpectedDirectoryCount, string(viewPath))
+				return nil
+			}
+			return err
 		}
-		manifest.dirs[manifestPath(rel)] = struct{}{}
-	}
-	for _, path := range files {
-		if err := ctx.Err(); err != nil {
-			return treeManifest{}, err
-		}
-		rel, err := filepath.Rel(rootPath, path)
-		if err != nil {
-			return treeManifest{}, err
-		}
-		file, err := os.Open(path)
-		if err != nil {
-			return treeManifest{}, err
-		}
-		digest, hashErr := hashReader(ctx, file)
-		closeErr := file.Close()
-		if hashErr != nil {
-			return treeManifest{}, hashErr
-		}
-		if closeErr != nil {
-			return treeManifest{}, closeErr
-		}
-		manifest.files[manifestPath(rel)] = digest
-	}
-	return manifest, nil
-}
 
-func buildRootManifest(ctx context.Context, root sec_fs.ISecRoot) (treeManifest, error) {
-	files, dirs, err := collectRootEntries(ctx, root, "", false)
-	if err != nil {
-		return treeManifest{}, err
-	}
-	manifest := newTreeManifest()
-	for _, dir := range dirs {
-		manifest.dirs[manifestPath(string(dir))] = struct{}{}
-	}
-	for _, path := range files {
-		if err := ctx.Err(); err != nil {
-			return treeManifest{}, err
+		report.ActualFiles++
+		info, err := root.Stat(viewPath)
+		if os.IsNotExist(err) || (err == nil && info.IsDir()) {
+			addVerificationDifference(&report.UnexpectedFiles, &report.UnexpectedFileCount, string(viewPath))
+			return nil
 		}
-		file, err := root.OpenFile(path, os.O_RDONLY)
-		if err != nil {
-			return treeManifest{}, err
-		}
-		digest, hashErr := hashReader(ctx, file)
-		closeErr := file.Close()
-		if hashErr != nil {
-			return treeManifest{}, hashErr
-		}
-		if closeErr != nil {
-			return treeManifest{}, closeErr
-		}
-		manifest.files[manifestPath(string(path))] = digest
-	}
-	return manifest, nil
-}
-
-func compareTreeManifests(expected treeManifest, actual treeManifest) error {
-	if err := comparePathSets("directory", expected.dirs, actual.dirs); err != nil {
 		return err
+	})
+	if err != nil {
+		return fmt.Errorf("verify plain work entries: %w", err)
 	}
-	expectedFiles := make(map[string]struct{}, len(expected.files))
-	actualFiles := make(map[string]struct{}, len(actual.files))
-	for path := range expected.files {
-		expectedFiles[path] = struct{}{}
-	}
-	for path := range actual.files {
-		actualFiles[path] = struct{}{}
-	}
-	if err := comparePathSets("file", expectedFiles, actualFiles); err != nil {
-		return err
-	}
-	paths := make([]string, 0, len(expected.files))
-	for path := range expected.files {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
-	for _, path := range paths {
-		if expected.files[path] != actual.files[path] {
-			return fmt.Errorf("file digest mismatch: %s", path)
-		}
-	}
-	return nil
+	return verificationReportError(report)
 }
 
-func comparePathSets(kind string, expected map[string]struct{}, actual map[string]struct{}) error {
-	missing := setDifference(expected, actual)
-	if len(missing) > 0 {
-		return fmt.Errorf("missing %s in work tree: %s", kind, missing[0])
+func hashPlainFile(ctx context.Context, path string) ([sha256.Size]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return [sha256.Size]byte{}, err
 	}
-	extra := setDifference(actual, expected)
-	if len(extra) > 0 {
-		return fmt.Errorf("unexpected %s in work tree: %s", kind, extra[0])
+	digest, hashErr := hashReader(ctx, file)
+	closeErr := file.Close()
+	if hashErr != nil {
+		return [sha256.Size]byte{}, hashErr
 	}
-	return nil
+	return digest, closeErr
 }
 
-func setDifference(left map[string]struct{}, right map[string]struct{}) []string {
-	result := make([]string, 0)
-	for path := range left {
-		if _, ok := right[path]; !ok {
-			result = append(result, path)
+func hashRootFile(ctx context.Context, root sec_fs.ISecRoot, path sec_fs.RelativeViewPath) ([sha256.Size]byte, error) {
+	file, err := root.OpenFile(path, os.O_RDONLY)
+	if err != nil {
+		return [sha256.Size]byte{}, err
+	}
+	digest, hashErr := hashReader(ctx, file)
+	closeErr := file.Close()
+	if hashErr != nil {
+		return [sha256.Size]byte{}, hashErr
+	}
+	return digest, closeErr
+}
+
+func addVerificationDifference(samples *[]string, count *int, path string) {
+	*count++
+	path = manifestPath(path)
+	if len(*samples) < verificationPathSampleLimit {
+		*samples = append(*samples, path)
+		sort.Strings(*samples)
+		return
+	}
+	if path >= (*samples)[len(*samples)-1] {
+		return
+	}
+	(*samples)[len(*samples)-1] = path
+	sort.Strings(*samples)
+}
+
+func verificationReportError(report sec_transfer.VerificationReport) error {
+	report.Truncated = report.MissingDirectoryCount > len(report.MissingDirectories) ||
+		report.UnexpectedDirectoryCount > len(report.UnexpectedDirectories) ||
+		report.MissingFileCount > len(report.MissingFiles) ||
+		report.UnexpectedFileCount > len(report.UnexpectedFiles) ||
+		report.DigestMismatchCount > len(report.DigestMismatches)
+	if report.MissingDirectoryCount == 0 && report.UnexpectedDirectoryCount == 0 &&
+		report.MissingFileCount == 0 && report.UnexpectedFileCount == 0 && report.DigestMismatchCount == 0 {
+		return nil
+	}
+	return &treeVerificationError{report: report}
+}
+
+func firstVerificationDifference(report sec_transfer.VerificationReport) string {
+	for _, difference := range []struct {
+		paths  []string
+		prefix string
+	}{
+		{report.MissingDirectories, "missing directory in work tree"},
+		{report.UnexpectedDirectories, "unexpected directory in work tree"},
+		{report.MissingFiles, "missing file in work tree"},
+		{report.UnexpectedFiles, "unexpected file in work tree"},
+		{report.DigestMismatches, "file digest mismatch"},
+	} {
+		if len(difference.paths) > 0 {
+			return difference.prefix + ": " + difference.paths[0]
 		}
 	}
-	sort.Strings(result)
-	return result
+	return "tree verification failed"
 }
 
 func hashReader(ctx context.Context, reader io.Reader) ([sha256.Size]byte, error) {
@@ -168,13 +247,6 @@ func hashReader(ctx context.Context, reader io.Reader) ([sha256.Size]byte, error
 	var digest [sha256.Size]byte
 	copy(digest[:], hash.Sum(nil))
 	return digest, nil
-}
-
-func newTreeManifest() treeManifest {
-	return treeManifest{
-		dirs:  make(map[string]struct{}),
-		files: make(map[string][sha256.Size]byte),
-	}
 }
 
 func manifestPath(path string) string {

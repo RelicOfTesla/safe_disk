@@ -96,10 +96,14 @@ func transferV3ConvertRoot(rootPath string, password string, kind string, callba
 }
 
 func TransferV3ImportFile_FFI(rootID int64, srcPath string, destPath string) string {
-	return transferV3ImportFile(context.Background(), rootID, srcPath, destPath, nil)
+	return transferV3ImportFileWithPolicy(context.Background(), rootID, srcPath, destPath, false, nil)
 }
 
 func transferV3ImportFile(ctx context.Context, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+	return transferV3ImportFileWithPolicy(ctx, rootID, srcPath, destPath, false, callback)
+}
+
+func transferV3ImportFileWithPolicy(ctx context.Context, rootID int64, srcPath string, destPath string, overwrite bool, callback sec_transfer.V3ProgressCallback) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
@@ -109,7 +113,7 @@ func transferV3ImportFile(ctx context.Context, rootID int64, srcPath string, des
 		Source:    sec_fs.FullStorePath(srcPath),
 		DestRoot:  entry.Root,
 		Dest:      sec_fs.RelativeViewPath(destPath),
-		Overwrite: true,
+		Overwrite: overwrite,
 	}, callback); err != nil {
 		return errorResponse(err)
 	}
@@ -117,10 +121,14 @@ func transferV3ImportFile(ctx context.Context, rootID int64, srcPath string, des
 }
 
 func TransferV3ImportDirectory_FFI(rootID int64, srcPath string, destPath string) string {
-	return transferV3ImportDirectory(context.Background(), rootID, srcPath, destPath, nil)
+	return transferV3ImportDirectoryWithPolicy(context.Background(), rootID, srcPath, destPath, false, nil)
 }
 
 func transferV3ImportDirectory(ctx context.Context, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+	return transferV3ImportDirectoryWithPolicy(ctx, rootID, srcPath, destPath, false, callback)
+}
+
+func transferV3ImportDirectoryWithPolicy(ctx context.Context, rootID int64, srcPath string, destPath string, overwrite bool, callback sec_transfer.V3ProgressCallback) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
@@ -130,7 +138,7 @@ func transferV3ImportDirectory(ctx context.Context, rootID int64, srcPath string
 		Source:    sec_fs.FullStorePath(srcPath),
 		DestRoot:  entry.Root,
 		Dest:      sec_fs.RelativeViewPath(destPath),
-		Overwrite: true,
+		Overwrite: overwrite,
 	}, callback); err != nil {
 		return errorResponse(err)
 	}
@@ -179,15 +187,15 @@ func transferV3ExportDirectory(ctx context.Context, rootID int64, srcPath string
 	return Success()
 }
 
-func TransferV3ImportFileWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+func TransferV3ImportFileWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, overwrite bool, callback sec_transfer.V3ProgressCallback) string {
 	return runtimeOperations.run(operationID, func(ctx context.Context) string {
-		return transferV3ImportFile(ctx, rootID, srcPath, destPath, callback)
+		return transferV3ImportFileWithPolicy(ctx, rootID, srcPath, destPath, overwrite, callback)
 	})
 }
 
-func TransferV3ImportDirectoryWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+func TransferV3ImportDirectoryWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, overwrite bool, callback sec_transfer.V3ProgressCallback) string {
 	return runtimeOperations.run(operationID, func(ctx context.Context) string {
-		return transferV3ImportDirectory(ctx, rootID, srcPath, destPath, callback)
+		return transferV3ImportDirectoryWithPolicy(ctx, rootID, srcPath, destPath, overwrite, callback)
 	})
 }
 
@@ -635,6 +643,65 @@ func DeleteFile_FFI(rootID int64, path string) string {
 		return errorResponse(err)
 	}
 
+	return Success()
+}
+
+// Rename_FFI atomically renames a file or directory inside a secure root.
+func Rename_FFI(rootID int64, oldPath string, newPath string) string {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+
+	if err := entry.Root.Rename(
+		sec_fs.RelativeViewPath(oldPath),
+		sec_fs.RelativeViewPath(newPath),
+	); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
+}
+
+func CopyEntry_FFI(srcRootID int64, srcPath string, dstRootID int64, dstPath string, overwrite bool) string {
+	srcEntry, ok := RootStore.Get(srcRootID)
+	if !ok {
+		return errorResponseStr("source root not found")
+	}
+	dstEntry, ok := RootStore.Get(dstRootID)
+	if !ok {
+		return errorResponseStr("destination root not found")
+	}
+	if err := sec_fs.CopyEntry(
+		srcEntry.Root,
+		sec_fs.RelativeViewPath(srcPath),
+		dstEntry.Root,
+		sec_fs.RelativeViewPath(dstPath),
+		overwrite,
+	); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
+}
+
+func CreateEmptyFile_FFI(rootID int64, path string) string {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+	if err := sec_fs.CreateEmptyFile(entry.Root, sec_fs.RelativeViewPath(path)); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
+}
+
+func CreateDirectory_FFI(rootID int64, path string) string {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+	if err := sec_fs.CreateDirectory(entry.Root, sec_fs.RelativeViewPath(path)); err != nil {
+		return errorResponse(err)
+	}
 	return Success()
 }
 

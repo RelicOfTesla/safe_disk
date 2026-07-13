@@ -1,10 +1,12 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class DirectoryPersistenceService {
   static const String _keyOpenedDirs = 'opened_directories';
   static const String _keyDrawerPinned = 'drawer_pinned';
   static const String _keyWelcomeShown = 'welcome_shown';
   static const String _keyNeverShowWelcome = 'never_show_welcome';
+  static const String _keyDirectoryAliases = 'directory_aliases';
 
   /// Save opened directory paths
   Future<void> saveOpenedDirectories(List<String> paths) async {
@@ -16,6 +18,31 @@ class DirectoryPersistenceService {
   Future<List<String>> loadOpenedDirectories() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(_keyOpenedDirs) ?? [];
+  }
+
+  Future<Map<String, String>> loadDirectoryAliases() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = prefs.getString(_keyDirectoryAliases);
+    if (encoded == null) return {};
+    try {
+      final value = jsonDecode(encoded);
+      if (value is! Map<String, dynamic>) return {};
+      return value.map((key, alias) => MapEntry(key, alias as String));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> saveDirectoryAlias(String path, String? alias) async {
+    final aliases = await loadDirectoryAliases();
+    final normalizedAlias = alias?.trim();
+    if (normalizedAlias == null || normalizedAlias.isEmpty) {
+      aliases.remove(path);
+    } else {
+      aliases[path] = normalizedAlias;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyDirectoryAliases, jsonEncode(aliases));
   }
 
   /// Clear all saved directories

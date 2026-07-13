@@ -1,0 +1,276 @@
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/models/view_mode.dart';
+import 'package:safe_disk/services/file_service.dart';
+import 'package:safe_disk/widgets/directory_tree.dart';
+import 'package:safe_disk/widgets/file_browser.dart';
+
+void main() {
+  testWidgets('Windows 路径直接支持面包屑和向上导航', (tester) async {
+    var upCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FileBrowser(
+            items: const [],
+            currentPath: r'C:\safe\私密盘\源码',
+            rootPath: r'C:\safe\私密盘',
+            viewMode: ViewMode.list,
+            isSelectMode: false,
+            selectedFiles: const {},
+            fileService: _TreeFileService(),
+            onNavigateToDirectory: (_) {},
+            onNavigateUp: () => upCount++,
+            onOpenItem: (_) {},
+            onItemLongPress: (_) {},
+            onItemSecondaryTap: (_, __) {},
+            onBackgroundSecondaryTap: (_) {},
+            onViewModeChanged: (_) {},
+            onToggleSelectMode: (_) {},
+            onSelectionToggle: (_, __) {},
+            onSelectAll: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('私密盘'), findsOneWidget);
+    expect(find.text(r'C:\safe\私密盘'), findsNothing);
+    await tester.tap(find.byTooltip('返回上级目录'));
+    expect(upCount, 1);
+  });
+
+  testWidgets('current-directory filter keeps focus and clears on navigation',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('筛选当前目录'));
+    await tester.pumpAndSettle();
+    final filter = find.byKey(const Key('current-directory-filter'));
+    await tester.enterText(filter, 'alpha');
+    await tester.pump();
+    expect(find.text('alpha.txt'), findsOneWidget);
+    expect(find.text('beta.txt'), findsNothing);
+
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isTrue,
+    );
+
+    await tester.tap(find.byTooltip('返回上级目录'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(filter).controller?.text, isEmpty);
+    expect(find.text('beta.txt'), findsOneWidget);
+  });
+
+  testWidgets('tree is a side navigator on wide layouts and a sheet on narrow',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('显示目录导航'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('directory-tree-pane')), findsOneWidget);
+    expect(find.text('alpha.txt'), findsOneWidget);
+    expect(find.text('tree-folder'), findsOneWidget);
+    expect(find.text('tree-file.bin'), findsNothing);
+
+    await tester.binding.setSurfaceSize(const Size(600, 800));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('显示目录导航'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('directory-tree-pane')), findsNothing);
+    expect(find.byType(DirectoryTreeWidget), findsOneWidget);
+  });
+
+  testWidgets('grid empty area handles a secondary click as background',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pumpAndSettle();
+
+    final background = find.byKey(const Key('directory-browser-background'));
+    final gesture = await tester.startGesture(
+      tester.getCenter(background),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pump();
+
+    expect(find.text('background-clicks: 1'), findsOneWidget);
+    expect(find.text('item-clicks: 0'), findsOneWidget);
+  });
+
+  testWidgets('list and grid share the selected sort order', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('file-sort-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('名称：Z 到 A').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('beta.txt')).dy,
+      lessThan(tester.getTopLeft(find.text('alpha.txt')).dy),
+    );
+    expect(find.byTooltip('排序：名称：Z 到 A'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('beta.txt')).dx,
+      lessThan(tester.getTopLeft(find.text('alpha.txt')).dx),
+    );
+  });
+
+  for (final brightness in [Brightness.light, Brightness.dark]) {
+    testWidgets('right-click highlight is explicit in ${brightness.name} mode',
+        (tester) async {
+      final scheme = ColorScheme.fromSeed(
+        seedColor: Colors.teal,
+        brightness: brightness,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(colorScheme: scheme),
+          home: const _BrowserHarness(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      Future<void> rightClick() async {
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.text('alpha.txt')),
+          kind: PointerDeviceKind.mouse,
+          buttons: kSecondaryMouseButton,
+        );
+        await gesture.up();
+        await tester.pump();
+      }
+
+      await rightClick();
+      final listHighlight = tester.widget<AnimatedContainer>(
+        find
+            .ancestor(
+              of: find.byKey(const ValueKey('file-list-/root/sub/alpha.txt')),
+              matching: find.byType(AnimatedContainer),
+            )
+            .first,
+      );
+      final listDecoration = listHighlight.decoration! as BoxDecoration;
+      expect((listDecoration.border! as Border).left.width, 4);
+      expect(
+        tester
+            .widget<Material>(find.byKey(
+                const ValueKey('file-list-material-/root/sub/alpha.txt')))
+            .color,
+        scheme.primaryContainer,
+      );
+
+      await tester.tap(find.byTooltip('网格视图'));
+      await tester.pumpAndSettle();
+      await rightClick();
+      final gridCard = tester.widget<Card>(
+        find.byKey(const ValueKey('file-grid-/root/sub/alpha.txt')),
+      );
+      expect(gridCard.color, scheme.primaryContainer);
+      expect((gridCard.shape! as RoundedRectangleBorder).side.width, 2.5);
+    });
+  }
+}
+
+class _BrowserHarness extends StatefulWidget {
+  const _BrowserHarness();
+
+  @override
+  State<_BrowserHarness> createState() => _BrowserHarnessState();
+}
+
+class _BrowserHarnessState extends State<_BrowserHarness> {
+  String currentPath = '/root/sub';
+  ViewMode viewMode = ViewMode.list;
+  int backgroundClicks = 0;
+  int itemClicks = 0;
+
+  final items = [
+    FileSystemNode(
+      name: 'alpha.txt',
+      path: '/root/sub/alpha.txt',
+      isDirectory: false,
+    ),
+    FileSystemNode(
+      name: 'beta.txt',
+      path: '/root/sub/beta.txt',
+      isDirectory: false,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          FileBrowser(
+            items: items,
+            currentPath: currentPath,
+            rootPath: '/root',
+            viewMode: viewMode,
+            isSelectMode: false,
+            selectedFiles: const {},
+            fileService: _TreeFileService(),
+            onNavigateToDirectory: (path) => setState(() => currentPath = path),
+            onNavigateUp: () => setState(() => currentPath = '/root'),
+            onOpenItem: (_) {},
+            onItemLongPress: (_) {},
+            onItemSecondaryTap: (_, __) => setState(() => itemClicks++),
+            onBackgroundSecondaryTap: (_) => setState(() => backgroundClicks++),
+            onViewModeChanged: (mode) => setState(() => viewMode = mode),
+            onToggleSelectMode: (_) {},
+            onSelectionToggle: (_, __) {},
+            onSelectAll: () {},
+          ),
+          IgnorePointer(
+            child: Column(
+              children: [
+                Text('background-clicks: $backgroundClicks'),
+                Text('item-clicks: $itemClicks'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TreeFileService extends FileService {
+  @override
+  Future<List<FileSystemNode>> listCurrentDirectory(
+    String path, {
+    int offset = 0,
+    int? limit,
+  }) async {
+    return [
+      FileSystemNode(
+        name: 'tree-folder',
+        path: '$path/tree-folder',
+        isDirectory: true,
+      ),
+      FileSystemNode(
+        name: 'tree-file.bin',
+        path: '$path/tree-file.bin',
+        isDirectory: false,
+      ),
+    ];
+  }
+}

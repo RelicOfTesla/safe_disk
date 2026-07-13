@@ -56,6 +56,104 @@ func TestTransferV3FFIRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRenameFFIRenamesEncryptedEntriesWithoutReplacing(t *testing.T) {
+	rootPath := filepath.Join(t.TempDir(), "root")
+	assertSuccess(t, CreateRootConfig_FFI(
+		rootPath,
+		"pw",
+		`{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`,
+	))
+	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+
+	assertSuccess(t, QuickWriteFile_FFI(rootID, "原文件.txt", []byte("source")))
+	assertSuccess(t, QuickWriteFile_FFI(rootID, "目标.txt", []byte("target")))
+	if response := Rename_FFI(rootID, "原文件.txt", "目标.txt"); jsonSuccess(response) {
+		t.Fatalf("rename unexpectedly replaced its target: %s", response)
+	}
+	assertSuccess(t, Rename_FFI(rootID, "原文件.txt", "新文件.txt"))
+	if jsonSuccess(QuickReadFile_FFI(rootID, "原文件.txt")) {
+		t.Fatal("old view path still exists after rename")
+	}
+	renamed := assertSuccess(t, QuickReadFile_FFI(rootID, "新文件.txt"))
+	encoded := renamed["data"].(map[string]interface{})["data"].(string)
+	if encoded == "" {
+		t.Fatal("renamed file returned empty data")
+	}
+}
+
+func TestCopyEntryFFICopiesAcrossEncryptedRootsAndRequiresOverwrite(t *testing.T) {
+	openRoot := func(path, password string) int64 {
+		t.Helper()
+		assertSuccess(t, CreateRootConfig_FFI(
+			path,
+			password,
+			`{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`,
+		))
+		response := assertSuccess(t, OpenRoot_FFI(path, password, ""))
+		return int64(response["data"].(map[string]interface{})["root_id"].(float64))
+	}
+
+	tmp := t.TempDir()
+	sourceID := openRoot(filepath.Join(tmp, "source"), "source-password")
+	destinationID := openRoot(filepath.Join(tmp, "destination"), "destination-password")
+	defer CloseRoot_FFI(sourceID)
+	defer CloseRoot_FFI(destinationID)
+
+	assertSuccess(t, QuickWriteFile_FFI(sourceID, "目录/中文.txt", []byte("new")))
+	assertSuccess(t, QuickWriteFile_FFI(destinationID, "副本/中文.txt", []byte("old")))
+	if response := CopyEntry_FFI(sourceID, "目录", destinationID, "副本", false); jsonSuccess(response) {
+		t.Fatalf("copy unexpectedly replaced a destination: %s", response)
+	}
+	assertSuccess(t, CopyEntry_FFI(sourceID, "目录", destinationID, "副本", true))
+	response := assertSuccess(t, QuickReadFile_FFI(destinationID, "副本/中文.txt"))
+	if response["data"].(map[string]interface{})["data"].(string) == "" {
+		t.Fatal("copied encrypted file returned empty data")
+	}
+}
+
+func TestCreateEntryFFICreatesEncryptedNamesWithoutReplacing(t *testing.T) {
+	rootPath := filepath.Join(t.TempDir(), "root")
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`))
+	rootResponse := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResponse["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+
+	assertSuccess(t, CreateDirectory_FFI(rootID, "新目录"))
+	assertSuccess(t, CreateEmptyFile_FFI(rootID, "新目录/空文件.txt"))
+	if response := CreateDirectory_FFI(rootID, "新目录"); jsonSuccess(response) {
+		t.Fatalf("directory collision unexpectedly succeeded: %s", response)
+	}
+	if response := CreateEmptyFile_FFI(rootID, "新目录/空文件.txt"); jsonSuccess(response) {
+		t.Fatalf("file collision unexpectedly succeeded: %s", response)
+	}
+	response := assertSuccess(t, ReadDir_FFI(rootID, "新目录"))
+	entries := response["data"].(map[string]interface{})["entries"].([]interface{})
+	if len(entries) != 1 || entries[0].(map[string]interface{})["name"] != "空文件.txt" {
+		t.Fatalf("unexpected created entries: %#v", entries)
+	}
+}
+
+func TestTransferV3ImportFFIRequiresExplicitOverwrite(t *testing.T) {
+	tmp := t.TempDir()
+	rootPath := filepath.Join(tmp, "root")
+	sourcePath := filepath.Join(tmp, "source.txt")
+	if err := os.WriteFile(sourcePath, []byte("new"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`))
+	rootResponse := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResponse["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+	assertSuccess(t, QuickWriteFile_FFI(rootID, "冲突.txt", []byte("old")))
+
+	if response := transferV3ImportFileWithPolicy(context.Background(), rootID, sourcePath, "冲突.txt", false, nil); jsonSuccess(response) {
+		t.Fatalf("import unexpectedly replaced destination: %s", response)
+	}
+	assertSuccess(t, transferV3ImportFileWithPolicy(context.Background(), rootID, sourcePath, "冲突.txt", true, nil))
+}
+
 func TestTransferV3FFICleanRejectsPathTraversalOperationID(t *testing.T) {
 	rootPath := filepath.Join(t.TempDir(), "root")
 	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
@@ -187,6 +285,7 @@ func TestTransferV3FFICancelRuntimeOperation(t *testing.T) {
 			rootID,
 			plain,
 			"",
+			false,
 			func(event sec_transfer.ProgressEvent) {
 				if !event.Complete {
 					once.Do(func() { close(started) })
@@ -249,6 +348,7 @@ func TestTransferV3FFICancelWhileWaitingForRootLock(t *testing.T) {
 	go func() {
 		firstResult <- TransferV3ImportFileWithOperation_FFI(
 			"ffi-lock-holder", rootID, firstSource, "first.txt",
+			false,
 			func(event sec_transfer.ProgressEvent) {
 				if !event.Complete {
 					once.Do(func() { close(firstStarted) })
@@ -266,7 +366,7 @@ func TestTransferV3FFICancelWhileWaitingForRootLock(t *testing.T) {
 	secondResult := make(chan string, 1)
 	go func() {
 		secondResult <- TransferV3ImportFileWithOperation_FFI(
-			"ffi-lock-waiter", rootID, secondSource, "second.txt", nil,
+			"ffi-lock-waiter", rootID, secondSource, "second.txt", false, nil,
 		)
 	}()
 	deadline := time.Now().Add(5 * time.Second)

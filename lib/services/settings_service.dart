@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Settings service for Safe Disk application
-/// 
+///
 /// Manages user preferences and application settings:
 /// - Default password iteration strength (key derivation time)
 /// - Session TTL (key cache time)
@@ -16,6 +16,11 @@ class SettingsService {
   static const String _keyShowFileExtensions = 'show_file_extensions';
   static const String _keyConfirmBeforeDelete = 'confirm_before_delete';
   static const String _keyAutoCloseSession = 'auto_close_session';
+  static const String _keyNotepadAutoSaveSeconds = 'notepad_auto_save_seconds';
+  static const String _keyNotepadDefaultReadOnly = 'notepad_default_read_only';
+  static const String _keyNotepadDefaultMonitorClipboard =
+      'notepad_default_monitor_clipboard';
+  static const String _keyDetailedErrorReports = 'detailed_error_reports';
 
   // Default values
   static const int defaultKeyStrengthMs = 1000; // 1 second
@@ -24,22 +29,28 @@ class SettingsService {
   static const bool defaultShowFileExtensions = true;
   static const bool defaultConfirmBeforeDelete = true;
   static const bool defaultAutoCloseSession = false;
+  static const int defaultNotepadAutoSaveSeconds = 30;
+  static const bool defaultNotepadReadOnly = false;
+  static const bool defaultNotepadMonitorClipboard = false;
+  static const bool defaultDetailedErrorReports = false;
+
+  static const List<int> notepadAutoSaveOptions = [0, 15, 30, 60, 300];
 
   // Preset options for key strength
   static const Map<String, int> keyStrengthOptions = {
-    'fast': 500,      // 0.5 seconds - faster but less secure
+    'fast': 500, // 0.5 seconds - faster but less secure
     'balanced': 1000, // 1 second - balanced (default)
-    'strong': 2000,   // 2 seconds - stronger but slower
-    'maximum': 5000,  // 5 seconds - maximum security
+    'strong': 2000, // 2 seconds - stronger but slower
+    'maximum': 5000, // 5 seconds - maximum security
   };
 
   // Preset options for session TTL
   static const Map<String, int> sessionTTLOptions = {
-    '15min': 900,    // 15 minutes
-    '30min': 1800,   // 30 minutes
-    '1hour': 3600,   // 1 hour (default)
+    '15min': 900, // 15 minutes
+    '30min': 1800, // 30 minutes
+    '1hour': 3600, // 1 hour (default)
     '4hours': 14400, // 4 hours
-    'never': 0,      // Never expire (until app closes)
+    'never': 0, // Never expire (until app closes)
   };
 
   // Theme mode options
@@ -187,6 +198,58 @@ class SettingsService {
     await prefs.setBool(_keyAutoCloseSession, autoClose);
   }
 
+  Future<int> getNotepadAutoSaveSeconds() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_keyNotepadAutoSaveSeconds) ??
+        defaultNotepadAutoSaveSeconds;
+  }
+
+  Future<void> setNotepadAutoSaveSeconds(int seconds) async {
+    if (!notepadAutoSaveOptions.contains(seconds)) {
+      throw ArgumentError.value(seconds, 'seconds', '不支持的自动保存间隔');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keyNotepadAutoSaveSeconds, seconds);
+  }
+
+  Future<bool> getNotepadDefaultReadOnly() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyNotepadDefaultReadOnly) ?? defaultNotepadReadOnly;
+  }
+
+  Future<void> setNotepadDefaultReadOnly(bool readOnly) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyNotepadDefaultReadOnly, readOnly);
+  }
+
+  Future<bool> getNotepadDefaultMonitorClipboard() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyNotepadDefaultMonitorClipboard) ??
+        defaultNotepadMonitorClipboard;
+  }
+
+  Future<void> setNotepadDefaultMonitorClipboard(bool monitor) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyNotepadDefaultMonitorClipboard, monitor);
+  }
+
+  Future<bool> getDetailedErrorReports() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyDetailedErrorReports) ??
+        defaultDetailedErrorReports;
+  }
+
+  Future<void> setDetailedErrorReports(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyDetailedErrorReports, enabled);
+  }
+
+  String getNotepadAutoSaveDisplayName(int seconds) {
+    if (seconds == 0) return '关闭';
+    if (seconds < 60) return '$seconds 秒';
+    return '${seconds ~/ 60} 分钟';
+  }
+
   // ==================== Reset to Defaults ====================
 
   /// Reset all settings to defaults
@@ -197,5 +260,9 @@ class SettingsService {
     await setShowFileExtensions(defaultShowFileExtensions);
     await setConfirmBeforeDelete(defaultConfirmBeforeDelete);
     await setAutoCloseSession(defaultAutoCloseSession);
+    await setNotepadAutoSaveSeconds(defaultNotepadAutoSaveSeconds);
+    await setNotepadDefaultReadOnly(defaultNotepadReadOnly);
+    await setNotepadDefaultMonitorClipboard(defaultNotepadMonitorClipboard);
+    await setDetailedErrorReports(defaultDetailedErrorReports);
   }
 }

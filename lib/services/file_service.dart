@@ -1,7 +1,10 @@
 import 'dart:typed_data';
 import 'dart:io';
 
+import '../models/secure_image_policy.dart';
+import '../models/logical_path.dart';
 import 'crypto_service.dart';
+import 'secure_notepad_draft_store.dart';
 
 /// Represents a file or directory node in the encrypted file system.
 class FileSystemNode {
@@ -117,7 +120,7 @@ class FileService {
   /// Checks if a file is an image based on extension.
   bool isImage(String filename) {
     final ext = filename.split('.').last.toLowerCase();
-    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].contains(ext);
+    return isSupportedImageFormat(ext);
   }
 
   /// Checks if a file is a text file based on extension.
@@ -169,8 +172,12 @@ class FileService {
 
     final relativePath = _cryptoService.relativePathForRoot(rootID, path);
     final entries = await _cryptoService.listDir(rootID, relativePath);
-    final page =
-        limit == null ? entries.skip(offset) : entries.skip(offset).take(limit);
+    final visibleEntries = entries.where(
+      (entry) => !SecureNotepadDraftStore.isDraftName(entry.name),
+    );
+    final page = limit == null
+        ? visibleEntries.skip(offset)
+        : visibleEntries.skip(offset).take(limit);
     return page.map((entry) {
       final childRelativePath =
           relativePath.isEmpty ? entry.name : '$relativePath/${entry.name}';
@@ -190,15 +197,44 @@ class FileService {
       return null;
     }
     final rootPath = _cryptoService.rootPathForID(rootID);
-    if (rootPath == null || path == rootPath) {
+    if (rootPath == null ||
+        normalizeLogicalPath(path) == normalizeLogicalPath(rootPath)) {
       return null;
     }
-    return File(path).parent.path;
+    final parent = logicalParentPath(path);
+    if (parent == null || !isSameOrDescendantLogicalPath(parent, rootPath)) {
+      return null;
+    }
+    return parent;
   }
 
   Future<void> exportFile(
-      FileSystemNode item, String exportPath, String tempKeyID) async {
+    FileSystemNode item,
+    String exportPath,
+    String tempKeyID, {
+    bool overwrite = false,
+  }) async {
     final data = _cryptoService.decryptFileToData(item.path, tempKeyID);
-    await File(exportPath).writeAsBytes(data);
+    final destination = File(exportPath);
+    if (overwrite) {
+      await destination.writeAsBytes(data, flush: true);
+      return;
+    }
+
+    var created = false;
+    try {
+      await destination.create(exclusive: true);
+      created = true;
+      await destination.writeAsBytes(data, flush: true);
+    } catch (_) {
+      if (created) {
+        try {
+          await destination.delete();
+        } catch (_) {
+          // Preserve the original export failure if cleanup also fails.
+        }
+      }
+      rethrow;
+    }
   }
 }

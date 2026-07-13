@@ -21,7 +21,7 @@ extern const char *_GoStringPtr(_GoString_ s);
 /* Start of preamble from import "C" comments.  */
 
 
-#line 8 "exports.go"
+#line 9 "exports.go"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -107,28 +107,28 @@ extern char* sec_file_write(int64_t fileID, char* data, int size);
 extern char* sec_file_seek(int64_t fileID, int64_t offset, int whence);
 extern char* sec_file_truncate(int64_t fileID, int64_t size);
 extern char* sec_file_delete(int64_t rootID, char* path);
+extern char* sec_rename(int64_t rootID, char* oldPath, char* newPath);
+extern char* sec_copy_entry(int64_t srcRootID, char* srcPath, int64_t dstRootID, char* dstPath, int overwrite);
+extern char* sec_create_empty_file(int64_t rootID, char* path);
+extern char* sec_create_directory(int64_t rootID, char* path);
 extern char* sec_file_exists(int64_t rootID, char* path);
 extern char* sec_mkdir_all(int64_t rootID, char* path);
 extern char* sec_read_dir(int64_t rootID, char* path);
 extern char* sec_quick_read_file(int64_t rootID, char* path);
 extern char* sec_quick_write_file(int64_t rootID, char* path, char* data, int size);
 extern void sec_free_string(char* s);
-extern char* sec_export_directory_async(int64_t rootID, char* srcPath, char* destPath);
-extern char* sec_import_directory_async(int64_t rootID, char* srcPath, char* destPath);
-extern char* sec_export_file_async(int64_t rootID, char* srcPath, char* destPath);
-extern char* sec_import_file_async(int64_t rootID, char* srcPath, char* destPath);
-extern char* action_task_get_progress(char* taskID);
-extern char* action_task_close(char* taskID);
-extern char* sec_export_directory_async_with_callback(int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
-extern char* sec_import_directory_async_with_callback(int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
-extern char* sec_export_file_async_with_callback(int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
-extern char* sec_import_file_async_with_callback(int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
+extern char* sec_clear_secure_memory(void* data, int size);
+extern char* sec_transfer_v3_import_file_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, int overwrite, CProgressCallback callback);
+extern char* sec_transfer_v3_import_directory_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, int overwrite, CProgressCallback callback);
+extern char* sec_transfer_v3_export_file_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
+extern char* sec_transfer_v3_export_directory_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
+extern char* sec_transfer_v3_cancel(char* operationID);
 extern char* sec_transfer_v3_list_unfinished(int64_t rootID);
 extern char* sec_transfer_v3_clean_unfinished(int64_t rootID, char* opID);
 extern char* sec_transfer_v3_recover_convert(char* rootPath);
 extern char* sec_transfer_v3_convert_root(char* rootPath, char* password, char* kind);
-extern char* sec_transfer_v3_import_file(int64_t rootID, char* srcPath, char* destPath);
-extern char* sec_transfer_v3_import_directory(int64_t rootID, char* srcPath, char* destPath);
+extern char* sec_transfer_v3_import_file(int64_t rootID, char* srcPath, char* destPath, int overwrite);
+extern char* sec_transfer_v3_import_directory(int64_t rootID, char* srcPath, char* destPath, int overwrite);
 extern char* sec_transfer_v3_export_file(int64_t rootID, char* srcPath, char* destPath);
 extern char* sec_transfer_v3_export_directory(int64_t rootID, char* srcPath, char* destPath);
 

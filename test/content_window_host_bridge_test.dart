@@ -1,0 +1,313 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/services/content_window_host_bridge.dart';
+import 'package:safe_disk/services/crypto_service.dart';
+import 'package:safe_disk/services/document_session_broker.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('opens a native window without exposing root IDs or file paths',
+      () async {
+    final crypto = _BridgeCryptoService('initial');
+    final broker = DocumentSessionBroker(cryptoService: crypto);
+    final lease = broker.open(
+      rootSessionID: 'root-secret',
+      path: '/private/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(
+      broker: broker,
+      platform: platform,
+    );
+    addTearDown(bridge.dispose);
+
+    expect(await bridge.openNotepad(lease), isTrue);
+    expect(platform.opened, hasLength(1));
+    final request = platform.opened.single;
+    expect(request.keys, {'token', 'documentID', 'title'});
+    expect(request.values, isNot(contains('root-secret')));
+    expect(request.values, isNot(contains('/private/note.txt')));
+  });
+
+  test('window requests content, draft, dirty state and close through broker',
+      () async {
+    final crypto = _BridgeCryptoService('initial');
+    final broker = DocumentSessionBroker(cryptoService: crypto);
+    final lease = broker.open(
+      rootSessionID: '7',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(
+      broker: broker,
+      platform: platform,
+    );
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(lease);
+
+    final read = await platform.call('document.read', {
+      'token': lease.token,
+    }) as Map;
+    expect(utf8.decode(read['content'] as Uint8List), 'initial');
+
+    await platform.call('document.setDirty', {
+      'token': lease.token,
+      'dirty': true,
+    });
+    expect(broker.summarizeRoot('7').hasDirtyWindows, isTrue);
+
+    final draft = Uint8List.fromList(utf8.encode('recovery'));
+    await platform.call('document.draftWrite', {
+      'token': lease.token,
+      'content': draft,
+    });
+    expect(
+      utf8.decode(await platform.call('document.draftRead', {
+        'token': lease.token,
+      }) as Uint8List),
+      'recovery',
+    );
+    await platform.call('document.draftDelete', {'token': lease.token});
+    expect(
+      await platform.call('document.draftRead', {'token': lease.token}),
+      isNull,
+    );
+
+    final saved = await platform.call('document.save', {
+      'token': lease.token,
+      'revision': read['revision'],
+      'content': Uint8List.fromList(utf8.encode('from native window')),
+    }) as Map;
+    expect(saved['revision'], isNot(read['revision']));
+    expect(crypto.content, 'from native window');
+
+    await platform.call('document.closed', {'token': lease.token});
+    expect(broker.containsToken(lease.token), isFalse);
+  });
+
+  test('releases a lease when a native window disappears unexpectedly',
+      () async {
+    final broker = DocumentSessionBroker(
+      cryptoService: _BridgeCryptoService('initial'),
+    );
+    final lease = broker.open(
+      rootSessionID: '7',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(
+      broker: broker,
+      platform: platform,
+    );
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(lease);
+
+    platform.alive.add({lease.token});
+    await Future<void>.delayed(Duration.zero);
+    platform.alive.add({});
+    await Future<void>.delayed(Duration.zero);
+
+    expect(broker.containsToken(lease.token), isFalse);
+  });
+
+  test('requests native windows to close before releasing root leases',
+      () async {
+    final broker = DocumentSessionBroker(
+      cryptoService: _BridgeCryptoService('initial'),
+    );
+    final lease = broker.open(
+      rootSessionID: '7',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(
+      broker: broker,
+      platform: platform,
+    );
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(lease);
+
+    await bridge.closeRootWindows('7');
+
+    expect(platform.closedTokens, {lease.token});
+    expect(broker.containsToken(lease.token), isFalse);
+  });
+
+  test('opens an image window through the same capability boundary', () async {
+    final crypto = _BridgeCryptoService('image-bytes');
+    final broker = DocumentSessionBroker(cryptoService: crypto);
+    final lease = broker.open(
+      rootSessionID: 'root-secret',
+      path: '/private/image.png',
+      displayName: 'image.png',
+      maxContentBytes: 11,
+      readOnly: true,
+    );
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(
+      broker: broker,
+      platform: platform,
+    );
+    addTearDown(bridge.dispose);
+
+    expect(await bridge.openImage(lease), isTrue);
+    expect(platform.openedImages.single, {
+      'token': lease.token,
+      'documentID': lease.documentID,
+      'title': 'image.png',
+    });
+
+    await expectLater(
+      platform.call('document.save', {
+        'token': lease.token,
+        'revision': lease.snapshot.revision,
+        'content': Uint8List.fromList([1]),
+      }),
+      throwsA(
+        isA<PlatformException>().having(
+          (error) => error.code,
+          'code',
+          'read_only',
+        ),
+      ),
+    );
+
+    crypto.content = 'image-bytes-expanded';
+    await expectLater(
+      platform.call('document.read', {'token': lease.token}),
+      throwsA(
+        isA<PlatformException>().having(
+          (error) => error.code,
+          'code',
+          'content_too_large',
+        ),
+      ),
+    );
+  });
+
+  test('parses only versioned notepad window arguments', () {
+    final valid = jsonEncode({
+      'version': 1,
+      'kind': 'secure_notepad',
+      'token': 'token',
+      'documentID': 'document',
+      'title': 'note.txt',
+    });
+    expect(
+      DesktopMultiWindowPlatform.tryParseArguments(valid)?.title,
+      'note.txt',
+    );
+    final image = DesktopMultiWindowPlatform.tryParseArguments(jsonEncode({
+      'version': 1,
+      'kind': 'secure_image',
+      'token': 'token',
+      'documentID': 'document',
+      'title': 'image.png',
+    }));
+    expect(image?.kind, DesktopMultiWindowPlatform.imageWindowKind);
+    expect(
+      DesktopMultiWindowPlatform.tryParseArguments(
+        jsonEncode({'version': 2, 'kind': 'secure_notepad'}),
+      ),
+      isNull,
+    );
+    expect(DesktopMultiWindowPlatform.tryParseArguments('not-json'), isNull);
+  });
+}
+
+class _FakeContentWindowPlatform implements ContentWindowPlatform {
+  final List<Map<String, String>> opened = [];
+  final List<Map<String, String>> openedImages = [];
+  final StreamController<Set<String>> alive =
+      StreamController<Set<String>>.broadcast();
+  ContentWindowCallHandler? handler;
+  Set<String> closedTokens = {};
+
+  @override
+  Stream<Set<String>> get aliveTokens => alive.stream;
+
+  @override
+  Future<bool> openNotepad({
+    required String token,
+    required String documentID,
+    required String title,
+  }) async {
+    opened.add({
+      'token': token,
+      'documentID': documentID,
+      'title': title,
+    });
+    return true;
+  }
+
+  @override
+  Future<bool> openImage({
+    required String token,
+    required String documentID,
+    required String title,
+  }) async {
+    openedImages.add({
+      'token': token,
+      'documentID': documentID,
+      'title': title,
+    });
+    return true;
+  }
+
+  @override
+  Future<void> closeTokens(Set<String> tokens) async {
+    closedTokens = {...tokens};
+  }
+
+  @override
+  Future<void> setHostHandler(ContentWindowCallHandler? handler) async {
+    this.handler = handler;
+  }
+
+  Future<Object?> call(String method, Object? arguments) {
+    return handler!(MethodCall(method, arguments));
+  }
+}
+
+class _BridgeCryptoService extends CryptoService {
+  _BridgeCryptoService(this.content);
+
+  String content;
+  Uint8List? draft;
+
+  @override
+  Uint8List decryptFileToData(String path, String tempKeyID) {
+    if (path.contains('.__safedisk_notepad_draft_')) return draft!;
+    return Uint8List.fromList(utf8.encode(content));
+  }
+
+  @override
+  Future<void> writeFileBySession(
+    String path,
+    String tempKeyID,
+    List<int> data,
+  ) async {
+    if (path.contains('.__safedisk_notepad_draft_')) {
+      draft = Uint8List.fromList(data);
+    } else {
+      content = utf8.decode(data);
+    }
+  }
+
+  @override
+  Future<bool> fileExistsBySession(String path, String tempKeyID) async {
+    return !path.contains('.__safedisk_notepad_draft_') || draft != null;
+  }
+
+  @override
+  Future<void> deleteFileBySession(String path, String tempKeyID) async {
+    draft = null;
+  }
+}

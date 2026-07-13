@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/error_messages.dart';
+import '../services/error_reporting_service.dart';
+import '../utils/error_diagnostics.dart';
 
 /// A SnackBar with a copy button for error messages
 class CopyableSnackBar extends SnackBar {
@@ -43,18 +45,35 @@ class ErrorSnackBar extends SnackBar {
     super.key,
     required ErrorType errorType,
     String? originalError,
+    String? operation,
     super.duration = const Duration(seconds: 6),
   }) : super(
-          content: _buildContent(errorType, originalError),
+          content: _buildContent(errorType, originalError, operation),
           backgroundColor: ErrorMessages.isCritical(errorType)
               ? Colors.red[700]
               : Colors.orange[700],
           behavior: SnackBarBehavior.floating,
         );
 
-  static Widget _buildContent(ErrorType errorType, String? originalError) {
+  static Widget _buildContent(
+    ErrorType errorType,
+    String? originalError,
+    String? operation,
+  ) {
     final error = ErrorMessages.getError(errorType);
-    final fullMessage = ErrorMessages.getFullMessage(errorType);
+    final details = ErrorReportingService.detailedErrorsEnabled &&
+            originalError != null &&
+            originalError.isNotEmpty
+        ? ErrorDiagnostics.build(
+            type: errorType,
+            originalError: originalError,
+            operation: operation,
+          )
+        : null;
+    final fullMessage = [
+      ErrorMessages.getFullMessage(errorType),
+      if (details != null) details,
+    ].join('\n\n');
 
     return Row(
       children: [
@@ -105,6 +124,16 @@ class ErrorSnackBar extends SnackBar {
                   ],
                 ),
               ],
+              if (details != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  details,
+                  key: const Key('error-technical-details'),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                ),
+              ],
             ],
           ),
         ),
@@ -132,6 +161,7 @@ class ErrorHelper {
     BuildContext context, {
     required ErrorType errorType,
     String? originalError,
+    String? operation,
     Duration duration = const Duration(seconds: 6),
   }) {
     if (!context.mounted) return;
@@ -140,6 +170,7 @@ class ErrorHelper {
       ErrorSnackBar(
         errorType: errorType,
         originalError: originalError,
+        operation: operation,
         duration: duration,
       ),
     );

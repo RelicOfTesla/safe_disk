@@ -99,15 +99,18 @@ func (m *Manager) importFile(ctx context.Context, req sec_transfer.ImportFileReq
 		return err
 	}
 	rootPath := string(req.DestRoot.GetRootPath())
+	destinationInitiallyExisted := req.DestRoot.FileExists(req.Dest)
 	opID := newOpID("import")
 	marker := sec_transfer.OperationMarker{
-		OpID:      opID,
-		Type:      sec_transfer.OperationImport,
-		EntryKind: sec_transfer.EntryKindFile,
-		Status:    "running",
-		Src:       string(req.Source),
-		Dst:       string(req.Dest),
-		Root:      rootPath,
+		OpID:                        opID,
+		Type:                        sec_transfer.OperationImport,
+		EntryKind:                   sec_transfer.EntryKindFile,
+		Status:                      "running",
+		Src:                         string(req.Source),
+		Dst:                         string(req.Dest),
+		Overwrite:                   req.Overwrite,
+		DestinationInitiallyExisted: &destinationInitiallyExisted,
+		Root:                        rootPath,
 	}
 	if err := m.writeMarker(rootPath, marker); err != nil {
 		return err
@@ -140,23 +143,31 @@ func (m *Manager) importDirectory(ctx context.Context, req sec_transfer.ImportDi
 		return err
 	}
 	rootPath := string(req.DestRoot.GetRootPath())
+	destinationInitiallyExisted := req.DestRoot.FileExists(req.Dest)
 	opID := newOpID("import")
 	marker := sec_transfer.OperationMarker{
-		OpID:      opID,
-		Type:      sec_transfer.OperationImport,
-		EntryKind: sec_transfer.EntryKindDirectory,
-		Status:    "running",
-		Src:       string(req.Source),
-		Dst:       string(req.Dest),
-		Root:      rootPath,
+		OpID:                        opID,
+		Type:                        sec_transfer.OperationImport,
+		EntryKind:                   sec_transfer.EntryKindDirectory,
+		Status:                      "running",
+		Src:                         string(req.Source),
+		Dst:                         string(req.Dest),
+		Overwrite:                   req.Overwrite,
+		DestinationInitiallyExisted: &destinationInitiallyExisted,
+		Root:                        rootPath,
 	}
 	if err := m.writeMarker(rootPath, marker); err != nil {
 		return err
 	}
 	report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, CurrentPath: string(req.Source)})
-	files, dirs, err := collectPlainEntries(ctx, string(req.Source), req.SkipRecursive)
+	total, err := countPlainFiles(ctx, string(req.Source), req.SkipRecursive)
 	if err != nil {
 		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, Error: err, Complete: true})
+		return err
+	}
+	if string(req.Dest) != "" && !req.Overwrite && req.DestRoot.FileExists(req.Dest) {
+		err := fmt.Errorf("destination exists: %s", req.Dest)
+		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, TotalFiles: total, Error: err, Complete: true})
 		return err
 	}
 	if string(req.Dest) != "" {
@@ -165,37 +176,24 @@ func (m *Manager) importDirectory(ctx context.Context, req sec_transfer.ImportDi
 			return err
 		}
 	}
-	for _, dir := range dirs {
-		if err := ctx.Err(); err != nil {
-			report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, Error: err, Complete: true})
-			return err
-		}
-		rel, err := filepath.Rel(string(req.Source), dir)
-		if err != nil {
-			return err
-		}
-		if err := m.mkdirAllRoot(req.DestRoot, joinView(req.Dest, rel)); err != nil {
-			report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, Error: err, Complete: true})
-			return err
-		}
-	}
-	for i, file := range files {
-		if err := ctx.Err(); err != nil {
-			report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, Error: err, Complete: true})
-			return err
-		}
-		rel, err := filepath.Rel(string(req.Source), file)
-		if err != nil {
-			return err
-		}
+	var done int64
+	err = walkPlainEntries(ctx, string(req.Source), req.SkipRecursive, func(path, rel string, isDir bool) error {
 		dest := joinView(req.Dest, rel)
-		if err := m.importOne(ctx, opID, file, req.DestRoot, dest, req.Overwrite, cb, int64(len(files)), int64(i)); err != nil {
-			report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, Error: err, Complete: true})
+		if isDir {
+			return m.mkdirAllRoot(req.DestRoot, dest)
+		}
+		if err := m.importOne(ctx, opID, path, req.DestRoot, dest, req.Overwrite, cb, total, done); err != nil {
 			return err
 		}
-		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, TotalFiles: int64(len(files)), DoneFiles: int64(i + 1), CurrentPath: file})
+		done++
+		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, TotalFiles: total, DoneFiles: done, CurrentPath: path})
+		return nil
+	})
+	if err != nil {
+		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, TotalFiles: total, DoneFiles: done, Error: err, Complete: true})
+		return err
 	}
-	report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, TotalFiles: int64(len(files)), DoneFiles: int64(len(files)), Complete: true})
+	report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationImport, TotalFiles: total, DoneFiles: done, Complete: true})
 	return m.removeMarker(rootPath, opID)
 }
 
@@ -272,7 +270,7 @@ func (m *Manager) exportDirectory(ctx context.Context, req sec_transfer.ExportDi
 		return err
 	}
 	report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, CurrentPath: string(req.Source)})
-	files, dirs, err := collectRootEntries(ctx, req.SourceRoot, req.Source, req.SkipRecursive)
+	total, err := countRootFiles(ctx, req.SourceRoot, req.Source, req.SkipRecursive)
 	if err != nil {
 		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, Error: err, Complete: true})
 		return err
@@ -281,32 +279,26 @@ func (m *Manager) exportDirectory(ctx context.Context, req sec_transfer.ExportDi
 		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, Error: err, Complete: true})
 		return err
 	}
-	for _, dir := range dirs {
-		if err := ctx.Err(); err != nil {
-			report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, Error: err, Complete: true})
-			return err
-		}
-		rel := relativeToViewBase(req.Source, dir)
-		if err := m.mkdirAllPath(filepath.Join(string(req.Dest), rel), sec_fs.SecureDirMode); err != nil {
-			report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, Error: err, Complete: true})
-			return err
-		}
-	}
-	for i, src := range files {
-		if err := ctx.Err(); err != nil {
-			report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, Error: err, Complete: true})
-			return err
-		}
+	var done int64
+	err = walkRootEntries(ctx, req.SourceRoot, req.Source, req.SkipRecursive, func(src sec_fs.RelativeViewPath, isDir bool) error {
 		rel := relativeToViewBase(req.Source, src)
 		dest := filepath.Join(string(req.Dest), rel)
-		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, TotalFiles: int64(len(files)), DoneFiles: int64(i), CurrentPath: string(src)})
+		if isDir {
+			return m.mkdirAllPath(dest, sec_fs.SecureDirMode)
+		}
+		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, TotalFiles: total, DoneFiles: done, CurrentPath: string(src)})
 		if err := m.exportOne(ctx, opID, req.SourceRoot, src, dest, req.Overwrite); err != nil {
-			report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, Error: err, Complete: true})
 			return err
 		}
-		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, TotalFiles: int64(len(files)), DoneFiles: int64(i + 1), CurrentPath: string(src)})
+		done++
+		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, TotalFiles: total, DoneFiles: done, CurrentPath: string(src)})
+		return nil
+	})
+	if err != nil {
+		report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, TotalFiles: total, DoneFiles: done, Error: err, Complete: true})
+		return err
 	}
-	report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, TotalFiles: int64(len(files)), DoneFiles: int64(len(files)), Complete: true})
+	report(cb, sec_transfer.ProgressEvent{OpID: opID, Type: sec_transfer.OperationExport, TotalFiles: total, DoneFiles: done, Complete: true})
 	return m.removeMarker(rootPath, opID)
 }
 
@@ -464,41 +456,54 @@ func (m *Manager) exportFileAtomic(ctx context.Context, root sec_fs.ISecRoot, sr
 	return m.removePath(backup)
 }
 
-func collectPlainEntries(ctx context.Context, root string, skipRecursive bool) (files []string, dirs []string, err error) {
+type plainEntryVisitor func(path string, relativePath string, isDir bool) error
+
+func countPlainFiles(ctx context.Context, root string, skipRecursive bool) (int64, error) {
+	var count int64
+	err := walkPlainEntries(ctx, root, skipRecursive, func(_ string, _ string, isDir bool) error {
+		if !isDir {
+			count++
+		}
+		return nil
+	})
+	return count, err
+}
+
+func walkPlainEntries(ctx context.Context, root string, skipRecursive bool, visit plainEntryVisitor) error {
 	if err := ctx.Err(); err != nil {
-		return nil, nil, err
+		return err
 	}
 	if hasRootConfig(root) {
-		return nil, nil, fmt.Errorf("source is an encrypted root: %s", root)
+		return fmt.Errorf("source is an encrypted root: %s", root)
 	}
 	if skipRecursive {
 		entries, err := os.ReadDir(root)
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
 		for _, entry := range entries {
 			if err := ctx.Err(); err != nil {
-				return nil, nil, err
+				return err
 			}
 			if shouldSkipPlainName(entry.Name()) {
 				continue
 			}
 			path := filepath.Join(root, entry.Name())
 			if entry.Type()&os.ModeSymlink != 0 {
-				return nil, nil, fmt.Errorf("symbolic links are not supported: %s", path)
+				return fmt.Errorf("symbolic links are not supported: %s", path)
 			}
 			if entry.IsDir() {
 				if hasRootConfig(path) {
 					continue
 				}
-				dirs = append(dirs, path)
-			} else {
-				files = append(files, path)
+			}
+			if err := visit(path, entry.Name(), entry.IsDir()); err != nil {
+				return err
 			}
 		}
-		return files, dirs, nil
+		return nil
 	}
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
@@ -521,13 +526,13 @@ func collectPlainEntries(ctx context.Context, root string, skipRecursive bool) (
 			if hasRootConfig(path) {
 				return filepath.SkipDir
 			}
-			dirs = append(dirs, path)
-			return nil
 		}
-		files = append(files, path)
-		return nil
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		return visit(path, rel, d.IsDir())
 	})
-	return files, dirs, err
 }
 
 func hasRootConfig(path string) bool {
@@ -535,32 +540,48 @@ func hasRootConfig(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-func collectRootEntries(ctx context.Context, root sec_fs.ISecRoot, base sec_fs.RelativeViewPath, skipRecursive bool) (files []sec_fs.RelativeViewPath, dirs []sec_fs.RelativeViewPath, err error) {
+type rootEntryVisitor func(path sec_fs.RelativeViewPath, isDir bool) error
+
+func countRootFiles(ctx context.Context, root sec_fs.ISecRoot, base sec_fs.RelativeViewPath, skipRecursive bool) (int64, error) {
+	var count int64
+	err := walkRootEntries(ctx, root, base, skipRecursive, func(_ sec_fs.RelativeViewPath, isDir bool) error {
+		if !isDir {
+			count++
+		}
+		return nil
+	})
+	return count, err
+}
+
+func walkRootEntries(ctx context.Context, root sec_fs.ISecRoot, base sec_fs.RelativeViewPath, skipRecursive bool, visit rootEntryVisitor) error {
 	if err := ctx.Err(); err != nil {
-		return nil, nil, err
+		return err
 	}
-	var opts []sec_fs.WalkOption
+	opts := []sec_fs.WalkOption{sec_fs.WithIncludeHidden()}
 	if !skipRecursive {
 		opts = append(opts, sec_fs.WithRecursive())
 	}
 	walker, err := root.WalkDir(base, opts...)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 	defer walker.Close()
 	for {
 		if err := ctx.Err(); err != nil {
-			return nil, nil, err
+			return err
 		}
 		entry, err := walker.Next()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return nil, nil, err
+			return err
+		}
+		if shouldSkipRootPath(base, entry.GetRelativeViewPath()) {
+			continue
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
-			return nil, nil, fmt.Errorf("symbolic links are not supported: %s", entry.GetRelativeViewPath())
+			return fmt.Errorf("symbolic links are not supported: %s", entry.GetRelativeViewPath())
 		}
 		rel := entry.GetRelativeViewPath()
 		baseDir := strings.TrimSuffix(string(base), "/")
@@ -571,13 +592,21 @@ func collectRootEntries(ctx context.Context, root sec_fs.ISecRoot, base sec_fs.R
 		if skipRecursive && entryDir != baseDir {
 			continue
 		}
-		if entry.IsDir() {
-			dirs = append(dirs, rel)
-		} else {
-			files = append(files, rel)
+		if err := visit(rel, entry.IsDir()); err != nil {
+			return err
 		}
 	}
-	return files, dirs, nil
+	return nil
+}
+
+func shouldSkipRootPath(base sec_fs.RelativeViewPath, path sec_fs.RelativeViewPath) bool {
+	relativePath := filepath.ToSlash(relativeToViewBase(base, path))
+	for _, name := range strings.Split(relativePath, "/") {
+		if shouldSkipPlainName(name) {
+			return true
+		}
+	}
+	return false
 }
 
 func relativeToViewBase(base sec_fs.RelativeViewPath, entry sec_fs.RelativeViewPath) string {

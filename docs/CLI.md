@@ -1,11 +1,11 @@
 # Safe Disk CLI - 命令行工具
 
-> 这是 CLI 使用说明，不是实现完成证明。当前可用能力以代码审计状态为准。
+> 这是 CLI 使用说明。命令进度按 [TODO.md](TODO.md) 的统一口径审计；100% 的核心命令验收边界见 [completed/TASKS_COMPLETED.md](completed/TASKS_COMPLETED.md)。
 
 ## 概述
 
 独立的 Go 命令行工具，用于加密/解密目录，支持批量操作和脚本集成。
-当前已确认的命令主要是 `version`、`list`、`export`、`import`；`create`、`info`、`passwd` 仍需按代码逐项核实，不能直接视为已完成。
+当前已确认的命令是 `version`、`create`、`list`、`export`、`import`；`info`、`passwd` 尚未注册。
 
 目标命令语义、`create`、原地加密、安全密码输入、异步任务恢复和测试规划见 [CLI_DESIGN.md](CLI_DESIGN.md)。本文只描述当前使用方式。
 
@@ -173,15 +173,14 @@ safe-disk export -p "$PASS" -s /encrypted/secret.txt | less
 
 ## 实现状态
 
-- [x] `version` — 版本信息
-- [x] `list` — 列出加密目录内容
-- [x] `export` — 导出解密
-- [x] `import` — 导入加密
-- [ ] `create` — 创建加密目录（未实现）
-- [ ] `info` — 查看加密目录信息（未实现）
-- [ ] `passwd` — 修改密码（未实现）
+已完成的 `version/create/list/import/export` 已移入 [完成档案](completed/TASKS_COMPLETED.md)，本节只保留未完成命令。
+
+| 命令 | 进度 | 当前证据 |
+|---|---:|---|
+| `info` | 20% | 未在 root command 注册 |
+| `passwd` | 10% | 未在 root command 注册，且需要先解决当前 key/格式模型 |
 
 ## 代码审计提示
 
-- `export` 的单文件 stdout 输出在代码里存在，但目录 stdout 导出是否满足文档说法，需要按实现逐项确认。
-- `import.go` 里仍有创建目录的 TODO 分支，不能把“能导入”自动等同于“能自动创建根目录”。
+- `export` 的 stdout 仅适用于单文件；目录导出必须使用绝对目标目录。
+- 创建 root 使用独立 `create`；`import` 只向已经存在且可认证的 root 导入。

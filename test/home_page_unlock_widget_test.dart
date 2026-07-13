@@ -1,16 +1,54 @@
-import 'dart:typed_data';
-
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe_disk/models/cryption_config.dart';
+import 'package:safe_disk/models/secure_image_policy.dart';
 import 'package:safe_disk/pages/home_page.dart';
 import 'package:safe_disk/services/crypto_service.dart';
+import 'package:safe_disk/services/content_window_host_bridge.dart';
 import 'package:safe_disk/services/directory_persistence_service.dart';
 import 'package:safe_disk/services/directory_service.dart';
 import 'package:safe_disk/services/file_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('opens settings from the main toolbar', (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final persistenceService = _FakePersistenceService(rootPath);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: persistenceService,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('安全草稿保存间隔'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('安全草稿保存间隔'), findsOneWidget);
+    expect(find.text('30 秒'), findsWidgets);
+  });
+
   testWidgets('sidebar root is read only after password authentication',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
@@ -53,6 +91,1176 @@ void main() {
     expect(fileService.listCalls, 1);
     expect(find.text('visible.txt'), findsOneWidget);
     expect(find.text('无法读取目录内容。'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    expect(cryptoService.closedRootIDs, [7]);
+  });
+
+  testWidgets('secondary click opens the file context menu', (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('使用安全记事本编辑'), findsOneWidget);
+    expect(find.text('导出解密文件'), findsOneWidget);
+    expect(find.text('删除文件'), findsOneWidget);
+    expect(find.text('打开目录'), findsNothing);
+
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pumpAndSettle();
+
+    final gridGesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gridGesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('使用安全记事本编辑'), findsOneWidget);
+    expect(find.text('导出解密文件'), findsOneWidget);
+    expect(
+      tester
+          .widget<Card>(
+            find.byKey(const ValueKey('file-grid-/visible.txt')),
+          )
+          .color,
+      isNotNull,
+    );
+    final selectedGridCard = tester.widget<Card>(
+      find.byKey(const ValueKey('file-grid-/visible.txt')),
+    );
+    expect((selectedGridCard.shape! as RoundedRectangleBorder).side.width, 2.5);
+
+    await tester.tap(find.text('使用安全记事本编辑'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('secure-notepad-editor')), findsOneWidget);
+    expect(find.text('右键菜单测试内容'), findsOneWidget);
+  });
+
+  testWidgets('image context menu opens a capability-based native window',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final platform = _FakeContentWindowPlatform();
+    addTearDown(platform.dispose);
+    final image = FileSystemNode(
+      name: '照片.png',
+      path: '/照片.png',
+      isDirectory: false,
+      size: 128,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService, items: [image]),
+        persistenceService: _FakePersistenceService(rootPath),
+        contentWindowPlatform: platform,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('照片.png')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在新窗口中查看'));
+    await tester.pumpAndSettle();
+
+    expect(platform.openedImages, hasLength(1));
+    expect(platform.openedImages.single['title'], '照片.png');
+    expect(platform.openedImages.single.values, isNot(contains('7')));
+    expect(platform.openedImages.single.values, isNot(contains('/照片.png')));
+  });
+
+  testWidgets('oversized image is rejected before opening a native window',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final platform = _FakeContentWindowPlatform();
+    addTearDown(platform.dispose);
+    final image = FileSystemNode(
+      name: '超大图片.png',
+      path: '/超大图片.png',
+      isDirectory: false,
+      size: kMaxSecureImageEncodedBytes + 1,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService, items: [image]),
+        persistenceService: _FakePersistenceService(rootPath),
+        contentWindowPlatform: platform,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('超大图片.png')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在新窗口中查看'));
+    await tester.pumpAndSettle();
+
+    expect(platform.openedImages, isEmpty);
+    expect(cryptoService.decryptedPaths, isEmpty);
+    expect(find.byType(SnackBar), findsOneWidget);
+  });
+
+  testWidgets('file context menu enters selection mode and batch exports',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+        selectDirectory: () async => '/outside/export',
+        exportTargetExists: (_) async => false,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('选择'));
+    await tester.pumpAndSettle();
+    expect(find.text('已选择 1 项'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('更多批量操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导出所选文件'));
+    await tester.pumpAndSettle();
+
+    expect(fileService.exportCalls, [
+      (
+        name: 'visible.txt',
+        path: '/outside/export/visible.txt',
+        sessionID: '7',
+      ),
+    ]);
+    expect(find.text('已选择 1 项'), findsNothing);
+  });
+
+  testWidgets('batch delete keeps failed files selected for retry',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(
+      rootPath,
+      deleteFailures: {'/failed.txt'},
+    );
+    final fileService = _FakeFileService(cryptoService, items: [
+      FileSystemNode(
+        name: 'success.txt',
+        path: '/success.txt',
+        isDirectory: false,
+      ),
+      FileSystemNode(
+        name: 'failed.txt',
+        path: '/failed.txt',
+        isDirectory: false,
+      ),
+    ]);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('success.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('选择'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('failed.txt'));
+    await tester.pump();
+    expect(find.text('已选择 2 项'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('更多批量操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除所选文件'));
+    await tester.pumpAndSettle();
+    expect(find.text('确认批量删除'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '删除所选文件'));
+    await tester.pumpAndSettle();
+
+    expect(
+      cryptoService.deletedFiles.map((entry) => entry.path).toSet(),
+      {'/success.txt', '/failed.txt'},
+    );
+    expect(find.text('已选择 1 项'), findsOneWidget);
+    expect(
+      tester
+          .widget<ListTile>(
+            find.byKey(const ValueKey('file-list-/failed.txt')),
+          )
+          .selected,
+      isTrue,
+    );
+  });
+
+  testWidgets('selected files enter one clipboard queue and paste in order',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(420, 700));
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService, items: [
+      FileSystemNode(
+        name: 'first.txt',
+        path: '/first.txt',
+        isDirectory: false,
+      ),
+      FileSystemNode(
+        name: 'second.txt',
+        path: '/second.txt',
+        isDirectory: false,
+      ),
+    ]);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.menu));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('first.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('选择'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('second.txt'));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('复制所选文件'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('first.txt 等 2 项'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('粘贴到当前目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('目标已存在'), findsOneWidget);
+    await tester.tap(find.text('全部保留两者'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.copyCalls, [
+      (
+        sourcePath: '/first.txt',
+        sourceSessionID: '7',
+        destinationPath: '$rootPath/first - 副本.txt',
+        destinationSessionID: '7',
+        overwrite: false,
+      ),
+      (
+        sourcePath: '/second.txt',
+        sourceSessionID: '7',
+        destinationPath: '$rootPath/second - 副本.txt',
+        destinationSessionID: '7',
+        overwrite: false,
+      ),
+    ]);
+    expect(find.text('批量粘贴完成'), findsOneWidget);
+    expect(find.text('成功：2'), findsOneWidget);
+    expect(find.text('失败：0'), findsOneWidget);
+    expect(find.text('剪贴板剩余：0'), findsOneWidget);
+    expect(find.byKey(const Key('file-clipboard-status')), findsNothing);
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('batch paste cancellation keeps every unprocessed clipboard item',
+      (tester) async {
+    final (:cryptoService, :fileService) = await _openTwoFileVault(tester);
+    await _selectTwoEntries(tester, clipboardAction: '复制所选文件');
+
+    await tester.tap(find.byTooltip('粘贴到当前目录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.copyCalls, isEmpty);
+    expect(fileService.listCalls, 2);
+    expect(find.text('批量粘贴已取消'), findsOneWidget);
+    expect(find.text('未处理：2'), findsOneWidget);
+    expect(find.text('剪贴板剩余：2'), findsOneWidget);
+    expect(find.byKey(const Key('file-clipboard-status')), findsOneWidget);
+  });
+
+  testWidgets('batch paste reports partial failure and leaves it retryable',
+      (tester) async {
+    final (:cryptoService, :fileService) = await _openTwoFileVault(
+      tester,
+      copyFailures: const {'/second.txt'},
+    );
+    await _selectTwoEntries(tester, clipboardAction: '复制所选文件');
+
+    await tester.tap(find.byTooltip('粘贴到当前目录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('全部保留两者'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.copyCalls, hasLength(2));
+    expect(fileService.listCalls, 2);
+    expect(find.text('批量粘贴部分完成'), findsOneWidget);
+    expect(find.text('成功：1'), findsOneWidget);
+    expect(find.text('失败：1'), findsOneWidget);
+    expect(find.text('剪贴板剩余：1'), findsOneWidget);
+    expect(find.textContaining('copy failed'), findsOneWidget);
+    expect(find.byKey(const Key('file-clipboard-status')), findsOneWidget);
+  });
+
+  testWidgets('batch cut applies keep-both policy once and renames each item',
+      (tester) async {
+    final (:cryptoService, :fileService) = await _openTwoFileVault(tester);
+    await _selectTwoEntries(tester, clipboardAction: '剪切所选文件');
+
+    await tester.tap(find.byTooltip('移动到当前目录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('全部保留两者'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.renameCalls, [
+      (
+        oldPath: '/first.txt',
+        newPath: '$_twoFileRootPath/first - 副本.txt',
+        sessionID: '7',
+      ),
+      (
+        oldPath: '/second.txt',
+        newPath: '$_twoFileRootPath/second - 副本.txt',
+        sessionID: '7',
+      ),
+    ]);
+    expect(cryptoService.copyCalls, isEmpty);
+    expect(fileService.listCalls, 2);
+    expect(find.text('批量移动完成'), findsOneWidget);
+    expect(find.text('成功：2'), findsOneWidget);
+    expect(find.byKey(const Key('file-clipboard-status')), findsNothing);
+  });
+
+  testWidgets('context-menu export confirms plaintext before selecting target',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService);
+    var saveLocationRequests = 0;
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+        selectSaveLocation: (suggestedName) async {
+          saveLocationRequests++;
+          expect(suggestedName, 'visible.txt');
+          return const FileSaveLocation('/tmp/exported-visible.txt');
+        },
+        exportTargetExists: (_) async => false,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导出解密文件'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('确认导出明文'), findsOneWidget);
+    expect(saveLocationRequests, 0);
+
+    await tester.tap(find.text('继续导出'));
+    await tester.pumpAndSettle();
+
+    expect(saveLocationRequests, 1);
+    expect(fileService.exportCalls, [
+      (
+        name: 'visible.txt',
+        path: '/tmp/exported-visible.txt',
+        sessionID: '7',
+      ),
+    ]);
+
+    final deleteGesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await deleteGesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除文件'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('确认删除文件'), findsOneWidget);
+    expect(cryptoService.deletedFiles, isEmpty);
+
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.deletedFiles, [
+      (path: '/visible.txt', sessionID: '7'),
+    ]);
+  });
+
+  testWidgets(
+      'file export requires an explicit decision for an existing target',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final exportDirectory =
+        Directory.systemTemp.createTempSync('safe-disk-ui-export-');
+    addTearDown(() => exportDirectory.deleteSync(recursive: true));
+    final target = File('${exportDirectory.path}/visible.txt');
+    target.writeAsStringSync('existing');
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+        selectSaveLocation: (_) async => FileSaveLocation(target.path),
+        exportTargetExists: (_) async => true,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导出解密文件'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('继续导出'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('目标已存在'), findsOneWidget);
+    expect(fileService.exportCalls, isEmpty);
+    await tester.tap(find.text('替换'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(fileService.exportCalls.single.path, target.path);
+    expect(fileService.exportOverwriteFlags, [true]);
+  });
+
+  testWidgets('delete confirmation setting changes the actual delete flow',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'confirm_before_delete': false});
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除文件'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('确认删除文件'), findsNothing);
+    expect(cryptoService.deletedFiles, [
+      (path: '/visible.txt', sessionID: '7'),
+    ]);
+  });
+
+  testWidgets('context menu copies metadata, shows properties and refreshes',
+      (tester) async {
+    Map<String, dynamic>? clipboardData;
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        clipboardData = Map<String, dynamic>.from(
+          call.arguments! as Map<dynamic, dynamic>,
+        );
+      }
+      if (call.method == 'Clipboard.getData') return clipboardData;
+      return null;
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    Future<void> openContextMenu() async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('visible.txt')),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    await openContextMenu();
+    await tester.tap(find.text('复制名称（明文）'));
+    await tester.pumpAndSettle();
+    expect(clipboardData?['text'], 'visible.txt');
+
+    await openContextMenu();
+    await tester.tap(find.text('复制逻辑路径（明文）'));
+    await tester.pumpAndSettle();
+    expect(clipboardData?['text'], '/visible.txt');
+
+    await openContextMenu();
+    await tester.tap(find.text('属性'));
+    await tester.pumpAndSettle();
+    expect(find.text('逻辑路径：'), findsOneWidget);
+    expect(find.text('/visible.txt'), findsOneWidget);
+    expect(find.text('7 B'), findsWidgets);
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+
+    expect(fileService.listCalls, 1);
+    await openContextMenu();
+    await tester.tap(find.text('刷新'));
+    await tester.pumpAndSettle();
+    expect(fileService.listCalls, 2);
+  });
+
+  testWidgets('context menu renames through the active root session',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('重命名'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('重命名文件'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, 'renamed.txt');
+    await tester.tap(find.text('重命名'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.renameCalls, [
+      (
+        oldPath: '/visible.txt',
+        newPath: '/renamed.txt',
+        sessionID: '7',
+      ),
+    ]);
+    expect(fileService.listCalls, 2);
+  });
+
+  testWidgets('desktop F5, Ctrl+V and F2 shortcuts use the active file context',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    expect(fileService.listCalls, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+    await tester.pumpAndSettle();
+    expect(fileService.listCalls, 2);
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('复制'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(find.text('目标已存在'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f2);
+    await tester.pumpAndSettle();
+    expect(find.text('重命名文件'), findsOneWidget);
+  });
+
+  testWidgets('copy and paste asks before a same-name destination',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1000, 700));
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('复制'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('visible.txt'), findsWidgets);
+    expect(find.byKey(const Key('file-clipboard-status')), findsOneWidget);
+    expect(
+      tester.getSize(find.byKey(const Key('file-clipboard-status'))).height,
+      44,
+    );
+    expect(find.textContaining('应用内剪贴板 ·'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(const Size(600, 700));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('待粘贴 · visible.txt'), findsOneWidget);
+    expect(find.byTooltip('粘贴到当前目录'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('粘贴到当前目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('目标已存在'), findsOneWidget);
+    expect(find.text('替换'), findsNothing);
+    expect(cryptoService.copyCalls, isEmpty);
+
+    await tester.tap(find.text('保留两者'));
+    await tester.pumpAndSettle();
+    expect(cryptoService.copyCalls, [
+      (
+        sourcePath: '/visible.txt',
+        sourceSessionID: '7',
+        destinationPath: '$rootPath/visible - 副本.txt',
+        destinationSessionID: '7',
+        overwrite: false,
+      ),
+    ]);
+    expect(fileService.listCalls, 2);
+    expect(find.byKey(const Key('file-clipboard-status')), findsNothing);
+  });
+
+  testWidgets('same-root cut uses rename after conflict keeps both',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('剪切'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('待移动 · visible.txt'), findsOneWidget);
+    await tester.tap(find.byTooltip('移动到当前目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('目标已存在'), findsOneWidget);
+    expect(find.text('替换'), findsNothing);
+    await tester.tap(find.text('保留两者'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.renameCalls, [
+      (
+        oldPath: '/visible.txt',
+        newPath: '$rootPath/visible - 副本.txt',
+        sessionID: '7',
+      ),
+    ]);
+    expect(cryptoService.copyCalls, isEmpty);
+    expect(cryptoService.deletedFiles, isEmpty);
+    expect(find.byKey(const Key('file-clipboard-status')), findsNothing);
+  });
+
+  testWidgets('blank-area menu creates entries and item menu stays separate',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final itemGesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await itemGesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('新建文件'), findsNothing);
+    expect(
+      tester
+          .widget<ListTile>(
+            find.byKey(const ValueKey('file-list-/visible.txt')),
+          )
+          .selected,
+      isTrue,
+    );
+    final selectedListContainer = tester.widget<AnimatedContainer>(
+      find
+          .ancestor(
+            of: find.byKey(const ValueKey('file-list-/visible.txt')),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first,
+    );
+    final selectedDecoration =
+        selectedListContainer.decoration! as BoxDecoration;
+    expect((selectedDecoration.border! as Border).left.width, 4);
+    expect(
+      tester
+          .widget<Material>(
+              find.byKey(const ValueKey('file-list-material-/visible.txt')))
+          .color,
+      isNot(Colors.transparent),
+    );
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pumpAndSettle();
+
+    final browser = find.byKey(const Key('directory-browser-background'));
+    final browserBox = tester.getRect(browser);
+    expect(browserBox.height, greaterThan(100));
+    final blankGesture = await tester.startGesture(
+      browserBox.center,
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await blankGesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('新建文件'), findsOneWidget);
+    expect(find.text('新建目录'), findsOneWidget);
+    expect(find.text('刷新'), findsOneWidget);
+
+    await tester.tap(find.text('新建文件'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('create-entry-name')),
+      '新文件.txt',
+    );
+    await tester.tap(find.text('创建'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.createdFiles, [
+      (path: '$rootPath/新文件.txt', sessionID: '7'),
+    ]);
+
+    final secondBlankGesture = await tester.startGesture(
+      tester.getCenter(
+        find.byKey(const Key('directory-browser-background')),
+      ),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await secondBlankGesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新建目录'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('create-entry-name')),
+      '新目录',
+    );
+    await tester.tap(find.text('创建'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.createdDirectories, [
+      (path: '$rootPath/新目录', sessionID: '7'),
+    ]);
+  });
+
+  testWidgets('ending the current root session keeps history and relocks it',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final persistenceService = _FakePersistenceService(rootPath);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: persistenceService,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('关闭当前加密目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('目录操作'), findsOneWidget);
+    expect(find.textContaining('保留侧边栏历史'), findsOneWidget);
+
+    await tester.tap(find.text('仅结束会话'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(cryptoService.deletedFiles, isEmpty);
+    expect(persistenceService.savedDirectoryLists, isEmpty);
+    expect(find.text('vault'), findsOneWidget);
+    expect(find.text('Enter password for:'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+    expect(cryptoService.openedPasswords, [
+      'correct-password',
+      'correct-password',
+    ]);
+    expect(find.text('visible.txt'), findsOneWidget);
+  });
+
+  testWidgets('sidebar can end a session and remove only its history',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final persistenceService = _FakePersistenceService(rootPath);
+    var deleteCalls = 0;
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: persistenceService,
+        deleteRootDirectory: (_) async {
+          deleteCalls++;
+        },
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('目录操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('结束会话并移除历史'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(deleteCalls, 0);
+    expect(persistenceService.savedDirectoryLists, [<String>[]]);
+    expect(find.text('vault'), findsNothing);
+  });
+
+  testWidgets('deleting a root requires its exact name and removes history',
+      (tester) async {
+    final root = Directory.systemTemp.createTempSync('safe-disk-root-delete-');
+    File('${root.path}/encrypted-entry').writeAsStringSync('ciphertext');
+    addTearDown(() {
+      if (root.existsSync()) root.deleteSync(recursive: true);
+    });
+    final rootPath = root.path;
+    final rootName =
+        root.uri.pathSegments.where((segment) => segment.isNotEmpty).last;
+    final cryptoService = _FakeCryptoService(rootPath);
+    final persistenceService = _FakePersistenceService(rootPath);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: persistenceService,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(rootName));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('目录操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('结束会话、移除历史并删除目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('永久删除本地目录'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, '永久删除目录'),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.enterText(
+      find.byKey(const Key('root-delete-confirmation')),
+      rootName,
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, '永久删除目录'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      final deadline = DateTime.now().add(const Duration(seconds: 2));
+      while (persistenceService.savedDirectoryLists.isEmpty &&
+          DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(root.existsSync(), isFalse);
+    expect(persistenceService.savedDirectoryLists, [<String>[]]);
+    expect(find.text(rootName), findsNothing);
+  });
+
+  testWidgets('file import conflict can cancel or explicitly replace',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final source = XFile.fromData(
+      Uint8List.fromList([9, 8, 7]),
+      path: '/outside/visible.txt',
+      name: 'visible.txt',
+    );
+    final cryptoService = _FakeCryptoService(rootPath);
+    final directoryService = _FakeDirectoryService();
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: directoryService,
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+        selectFile: (_) async => source,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Import File'));
+    await tester.pumpAndSettle();
+    expect(find.text('目标已存在'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(directoryService.importFileCalls, isEmpty);
+
+    await tester.tap(find.byTooltip('Import File'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('替换'));
+    await tester.pumpAndSettle();
+    expect(directoryService.importFileCalls, [
+      (
+        rootID: 7,
+        source: '/outside/visible.txt',
+        destination: 'visible.txt',
+        overwrite: true,
+      ),
+    ]);
   });
 
   testWidgets('directory import waits for merge confirmation', (tester) async {
@@ -92,11 +1300,16 @@ void main() {
     expect(find.text('目标已存在'), findsOneWidget);
     expect(directoryService.importCalls, isEmpty);
 
-    await tester.tap(find.text('继续导入'));
+    await tester.tap(find.text('合并并替换'));
     await tester.pumpAndSettle();
 
     expect(directoryService.importCalls, [
-      (rootID: 7, source: '/outside/incoming', destination: 'incoming'),
+      (
+        rootID: 7,
+        source: '/outside/incoming',
+        destination: 'incoming',
+        overwrite: true,
+      ),
     ]);
   });
 
@@ -132,7 +1345,8 @@ void main() {
       (
         rootID: 7,
         source: '/outside/new-directory',
-        destination: 'new-directory'
+        destination: 'new-directory',
+        overwrite: false,
       ),
     ]);
     expect(find.text('正在准备导入...'), findsNothing);
@@ -140,7 +1354,7 @@ void main() {
     expect(find.textContaining('无法将目录导入到加密目录。'), findsOneWidget);
   });
 
-  testWidgets('file picker import writes selected bytes to current root',
+  testWidgets('file picker import uses V3 without implicit overwrite',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
     final source = XFile.fromData(
@@ -150,11 +1364,12 @@ void main() {
     );
     final cryptoService = _FakeCryptoService(rootPath);
     final fileService = _FakeFileService(cryptoService);
+    final directoryService = _FakeDirectoryService();
 
     await tester.pumpWidget(MaterialApp(
       home: HomePage(
         cryptoService: cryptoService,
-        directoryService: _FakeDirectoryService(),
+        directoryService: directoryService,
         fileService: fileService,
         persistenceService: _FakePersistenceService(rootPath),
         selectFile: (groups) async {
@@ -173,11 +1388,11 @@ void main() {
     await tester.tap(find.byTooltip('Import File'));
     await tester.pumpAndSettle();
 
-    expect(cryptoService.fileWrites, hasLength(1));
-    final write = cryptoService.fileWrites.single;
-    expect(write.path, '$rootPath/selected.txt');
-    expect(write.sessionID, '7');
-    expect(write.bytes, orderedEquals([1, 2, 3, 4]));
+    final import = directoryService.importFileCalls.single;
+    expect(import.rootID, 7);
+    expect(import.source, 'selected.txt');
+    expect(import.destination, 'selected.txt');
+    expect(import.overwrite, isFalse);
     expect(fileService.listCalls, 2);
   });
 
@@ -221,13 +1436,96 @@ void main() {
   });
 }
 
+const _twoFileRootPath = '/tmp/safe-disk-home-test/two-file-vault';
+
+Future<
+    ({
+      _FakeCryptoService cryptoService,
+      _FakeFileService fileService,
+    })> _openTwoFileVault(
+  WidgetTester tester, {
+  Set<String> copyFailures = const {},
+}) async {
+  final cryptoService = _FakeCryptoService(
+    _twoFileRootPath,
+    copyFailures: copyFailures,
+  );
+  final fileService = _FakeFileService(cryptoService, items: [
+    FileSystemNode(
+      name: 'first.txt',
+      path: '/first.txt',
+      isDirectory: false,
+    ),
+    FileSystemNode(
+      name: 'second.txt',
+      path: '/second.txt',
+      isDirectory: false,
+    ),
+  ]);
+  await tester.pumpWidget(MaterialApp(
+    home: HomePage(
+      cryptoService: cryptoService,
+      directoryService: _FakeDirectoryService(),
+      fileService: fileService,
+      persistenceService: _FakePersistenceService(_twoFileRootPath),
+    ),
+  ));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('two-file-vault'));
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField), 'correct-password');
+  await tester.tap(find.text('Unlock'));
+  await tester.pumpAndSettle();
+  return (cryptoService: cryptoService, fileService: fileService);
+}
+
+Future<void> _selectTwoEntries(
+  WidgetTester tester, {
+  required String clipboardAction,
+}) async {
+  final gesture = await tester.startGesture(
+    tester.getCenter(find.text('first.txt')),
+    kind: PointerDeviceKind.mouse,
+    buttons: kSecondaryMouseButton,
+  );
+  await gesture.up();
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('选择'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('second.txt'));
+  await tester.pump();
+  await tester.tap(find.byTooltip(clipboardAction));
+  await tester.pumpAndSettle();
+}
+
 class _FakeCryptoService extends CryptoService {
-  _FakeCryptoService(this.rootPath);
+  _FakeCryptoService(
+    this.rootPath, {
+    this.deleteFailures = const {},
+    this.copyFailures = const {},
+  });
 
   final String rootPath;
+  final Set<String> deleteFailures;
+  final Set<String> copyFailures;
   final List<String> openedPasswords = [];
+  final List<String> decryptedPaths = [];
+  final List<int> closedRootIDs = [];
+  final List<({String path, String sessionID})> deletedFiles = [];
+  final List<({String oldPath, String newPath, String sessionID})> renameCalls =
+      [];
+  final List<
+      ({
+        String sourcePath,
+        String sourceSessionID,
+        String destinationPath,
+        String destinationSessionID,
+        bool overwrite,
+      })> copyCalls = [];
   final List<({String path, String sessionID, List<int> bytes})> fileWrites =
       [];
+  final List<({String path, String sessionID})> createdFiles = [];
+  final List<({String path, String sessionID})> createdDirectories = [];
 
   @override
   CryptionConfig loadConfig(String rootPath) => CryptionConfig({
@@ -243,6 +1541,84 @@ class _FakeCryptoService extends CryptoService {
       throw StateError('invalid password');
     }
     return 7;
+  }
+
+  @override
+  String relativePathForRoot(int rootID, String path) {
+    if (rootID != 7) throw StateError('Root $rootID is not open');
+    if (path == rootPath) return '';
+    if (path.startsWith('$rootPath/')) {
+      return path.substring(rootPath.length + 1);
+    }
+    return path.startsWith('/') ? path.substring(1) : path;
+  }
+
+  @override
+  void closeRoot(int rootID) {
+    closedRootIDs.add(rootID);
+  }
+
+  @override
+  Uint8List decryptFileToData(String path, String tempKeyID) {
+    decryptedPaths.add(path);
+    return Uint8List.fromList(utf8.encode('右键菜单测试内容'));
+  }
+
+  @override
+  Future<void> deleteFileBySession(String path, String tempKeyID) async {
+    deletedFiles.add((path: path, sessionID: tempKeyID));
+    if (deleteFailures.contains(path)) {
+      throw StateError('delete failed');
+    }
+  }
+
+  @override
+  Future<void> renameBySession(
+    String oldPath,
+    String newPath,
+    String tempKeyID,
+  ) async {
+    renameCalls.add((
+      oldPath: oldPath,
+      newPath: newPath,
+      sessionID: tempKeyID,
+    ));
+  }
+
+  @override
+  Future<void> copyBySession({
+    required String sourcePath,
+    required String sourceSessionID,
+    required String destinationPath,
+    required String destinationSessionID,
+    bool overwrite = false,
+  }) async {
+    copyCalls.add((
+      sourcePath: sourcePath,
+      sourceSessionID: sourceSessionID,
+      destinationPath: destinationPath,
+      destinationSessionID: destinationSessionID,
+      overwrite: overwrite,
+    ));
+    if (copyFailures.contains(sourcePath)) {
+      throw StateError('copy failed');
+    }
+  }
+
+  @override
+  Future<void> createEmptyFileBySession(
+    String path,
+    String tempKeyID,
+  ) async {
+    createdFiles.add((path: path, sessionID: tempKeyID));
+  }
+
+  @override
+  Future<void> createDirectoryBySession(
+    String path,
+    String tempKeyID,
+  ) async {
+    createdDirectories.add((path: path, sessionID: tempKeyID));
   }
 
   @override
@@ -275,6 +1651,8 @@ class _FakeFileService extends FileService {
         super(cryptoService: cryptoService);
 
   int listCalls = 0;
+  final List<({String name, String path, String sessionID})> exportCalls = [];
+  final List<bool> exportOverwriteFlags = [];
   final List<FileSystemNode> items;
 
   @override
@@ -286,6 +1664,21 @@ class _FakeFileService extends FileService {
     listCalls++;
     return items;
   }
+
+  @override
+  Future<void> exportFile(
+    FileSystemNode item,
+    String exportPath,
+    String tempKeyID, {
+    bool overwrite = false,
+  }) async {
+    exportOverwriteFlags.add(overwrite);
+    exportCalls.add((
+      name: item.name,
+      path: exportPath,
+      sessionID: tempKeyID,
+    ));
+  }
 }
 
 class _FakeDirectoryService extends DirectoryService {
@@ -294,8 +1687,20 @@ class _FakeDirectoryService extends DirectoryService {
   final String? importError;
   final List<Map<String, dynamic>> unfinishedMarkers;
   final List<Map<String, dynamic>> rerunCalls = [];
-  final List<({int rootID, String source, String destination})> importCalls =
-      [];
+  final List<
+      ({
+        int rootID,
+        String source,
+        String destination,
+        bool overwrite,
+      })> importCalls = [];
+  final List<
+      ({
+        int rootID,
+        String source,
+        String destination,
+        bool overwrite,
+      })> importFileCalls = [];
 
   @override
   Future<List<Map<String, dynamic>>> listUnfinishedOperations(
@@ -323,6 +1728,7 @@ class _FakeDirectoryService extends DirectoryService {
     int rootID,
     String srcPath,
     String destPath, {
+    bool overwrite = false,
     void Function(DirectoryTransferProgress progress)? onProgress,
     DirectoryTransferCancellationToken? cancellationToken,
   }) async {
@@ -330,6 +1736,7 @@ class _FakeDirectoryService extends DirectoryService {
       rootID: rootID,
       source: srcPath,
       destination: destPath,
+      overwrite: overwrite,
     ));
     final error = importError;
     if (error != null) {
@@ -341,12 +1748,30 @@ class _FakeDirectoryService extends DirectoryService {
       completedFiles: 1,
     ));
   }
+
+  @override
+  Future<void> importFile(
+    int rootID,
+    String srcPath,
+    String destPath, {
+    bool overwrite = false,
+    void Function(DirectoryTransferProgress progress)? onProgress,
+    DirectoryTransferCancellationToken? cancellationToken,
+  }) async {
+    importFileCalls.add((
+      rootID: rootID,
+      source: srcPath,
+      destination: destPath,
+      overwrite: overwrite,
+    ));
+  }
 }
 
 class _FakePersistenceService extends DirectoryPersistenceService {
   _FakePersistenceService(this.rootPath);
 
   final String rootPath;
+  final List<List<String>> savedDirectoryLists = [];
 
   @override
   Future<List<String>> loadOpenedDirectories() async => [rootPath];
@@ -358,8 +1783,49 @@ class _FakePersistenceService extends DirectoryPersistenceService {
   Future<bool> isFirstTimeUser() async => false;
 
   @override
-  Future<void> saveOpenedDirectories(List<String> paths) async {}
+  Future<void> saveOpenedDirectories(List<String> paths) async {
+    savedDirectoryLists.add(List<String>.from(paths));
+  }
 
   @override
   Future<void> saveDrawerPinned(bool pinned) async {}
+}
+
+class _FakeContentWindowPlatform implements ContentWindowPlatform {
+  final StreamController<Set<String>> _alive =
+      StreamController<Set<String>>.broadcast();
+  final List<Map<String, String>> openedImages = [];
+
+  @override
+  Stream<Set<String>> get aliveTokens => _alive.stream;
+
+  @override
+  Future<bool> openImage({
+    required String token,
+    required String documentID,
+    required String title,
+  }) async {
+    openedImages.add({
+      'token': token,
+      'documentID': documentID,
+      'title': title,
+    });
+    return true;
+  }
+
+  @override
+  Future<bool> openNotepad({
+    required String token,
+    required String documentID,
+    required String title,
+  }) async =>
+      false;
+
+  @override
+  Future<void> closeTokens(Set<String> tokens) async {}
+
+  @override
+  Future<void> setHostHandler(ContentWindowCallHandler? handler) async {}
+
+  Future<void> dispose() => _alive.close();
 }

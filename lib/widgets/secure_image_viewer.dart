@@ -1,24 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import '../models/secure_image_policy.dart';
 import '../services/crypto_service.dart';
 import '../services/file_service.dart';
 import '../models/cryption_config.dart';
 
-/// Supported image formats
-const Set<String> kSupportedImageFormats = {
-  'jpg',
-  'jpeg',
-  'png',
-  'gif',
-  'bmp',
-  'webp',
-};
-
-/// Check if a file extension is a supported image format
-bool isSupportedImageFormat(String? extension) {
-  if (extension == null) return false;
-  return kSupportedImageFormats.contains(extension.toLowerCase());
-}
+export '../models/secure_image_policy.dart'
+    show kSupportedImageFormats, isSupportedImageFormat;
 
 /// Secure image viewer for viewing encrypted images.
 ///
@@ -38,6 +27,10 @@ class SecureImageViewer extends StatefulWidget {
 
   /// File service for listing directory contents
   final FileService? fileService;
+  final VoidCallback? onClosed;
+  final int maxEncodedBytes;
+  final int maxDecodedPixels;
+  final SecureImageInspector imageInspector;
 
   const SecureImageViewer({
     super.key,
@@ -46,6 +39,10 @@ class SecureImageViewer extends StatefulWidget {
     required this.tempKeyID,
     this.directoryPath,
     this.fileService,
+    this.onClosed,
+    this.maxEncodedBytes = kMaxSecureImageEncodedBytes,
+    this.maxDecodedPixels = kMaxSecureImageDecodedPixels,
+    this.imageInspector = inspectSecureImage,
   });
 
   @override
@@ -54,8 +51,11 @@ class SecureImageViewer extends StatefulWidget {
 
 class _SecureImageViewerState extends State<SecureImageViewer> {
   Uint8List? _imageData;
+  MemoryImage? _imageProvider;
+  SecureImageMetadata? _metadata;
   bool _isLoading = true;
   String? _errorMessage;
+  int _loadGeneration = 0;
 
   // Image viewing state
   final TransformationController _transformController =
@@ -78,20 +78,28 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
 
   @override
   void dispose() {
+    _loadGeneration++;
     // Securely clear image data from memory
     _secureClearMemory();
     _transformController.dispose();
     _focusNode.dispose();
+    widget.onClosed?.call();
     super.dispose();
   }
 
   /// Securely clear sensitive image data from memory
   void _secureClearMemory() {
+    final provider = _imageProvider;
+    _imageProvider = null;
+    if (provider != null) {
+      PaintingBinding.instance.imageCache.evict(provider, includeLive: true);
+    }
     if (_imageData != null) {
       // Fill with zeros to securely clear the memory
       _imageData!.fillRange(0, _imageData!.length, 0);
       _imageData = null;
     }
+    _metadata = null;
   }
 
   /// Load list of image files in the directory for navigation
@@ -103,20 +111,17 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
     try {
       final items =
           await widget.fileService!.listCurrentDirectory(widget.directoryPath!);
-
-      // Filter only supported image files
-      _imageFiles = items.where((item) {
+      final imageFiles = items.where((item) {
         return !item.isDirectory && isSupportedImageFormat(item.extension);
       }).toList();
-
-      // Find current file index
-      _currentIndex =
-          _imageFiles.indexWhere((f) => f.path == widget.file.encryptedPath);
-
-      // Update UI to show navigation controls
-      if (mounted) {
-        setState(() {});
-      }
+      final currentIndex = imageFiles.indexWhere(
+        (file) => file.path == widget.file.encryptedPath,
+      );
+      if (!mounted) return;
+      setState(() {
+        _imageFiles = imageFiles;
+        _currentIndex = currentIndex;
+      });
     } catch (e) {
       debugPrint('Failed to load image list: $e');
     }
@@ -124,33 +129,55 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
 
   /// Load and decrypt the current image
   Future<void> _loadImage() async {
+    final generation = ++_loadGeneration;
+    Uint8List? loadedData;
     try {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-
-      // Decrypt image file
-      final data = widget.cryptoService.decryptFileToData(
-        widget.file.encryptedPath,
-        widget.tempKeyID,
-      );
-
-      if (data.isNotEmpty) {
+      _secureClearMemory();
+      if (mounted) {
         setState(() {
-          _imageData = data;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Failed to decrypt image: empty result';
+          _isLoading = true;
+          _errorMessage = null;
+          _rotation = 0;
         });
       }
+      _transformController.value = Matrix4.identity();
+
+      validateSecureImageEncodedSize(
+        _currentOriginalSize,
+        maxBytes: widget.maxEncodedBytes,
+      );
+      await Future<void>.delayed(Duration.zero);
+      if (!mounted || generation != _loadGeneration) return;
+
+      loadedData = widget.cryptoService.decryptFileToData(
+        _currentEncryptedPath,
+        widget.tempKeyID,
+      );
+      final metadata = await widget.imageInspector(
+        loadedData,
+        maxBytes: widget.maxEncodedBytes,
+        maxPixels: widget.maxDecodedPixels,
+      );
+      if (!mounted || generation != _loadGeneration) {
+        loadedData.fillRange(0, loadedData.length, 0);
+        return;
+      }
+      final provider = MemoryImage(loadedData);
+      setState(() {
+        _imageData = loadedData;
+        _imageProvider = provider;
+        _metadata = metadata;
+        _isLoading = false;
+      });
+      loadedData = null;
     } catch (e) {
+      loadedData?.fillRange(0, loadedData.length, 0);
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to load image: $e';
+        _errorMessage = e is SecureImagePolicyException
+            ? '无法加载图片：${e.message}'
+            : '无法加载图片：图片解密失败或内容无效';
       });
     }
   }
@@ -159,7 +186,6 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   Future<void> _previousImage() async {
     if (_imageFiles.isEmpty || _currentIndex <= 0) return;
 
-    _secureClearMemory();
     _currentIndex--;
     await _loadImageByIndex(_currentIndex);
   }
@@ -168,7 +194,6 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   Future<void> _nextImage() async {
     if (_imageFiles.isEmpty || _currentIndex >= _imageFiles.length - 1) return;
 
-    _secureClearMemory();
     _currentIndex++;
     await _loadImageByIndex(_currentIndex);
   }
@@ -177,38 +202,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   Future<void> _loadImageByIndex(int index) async {
     if (index < 0 || index >= _imageFiles.length) return;
 
-    final file = _imageFiles[index];
-
-    try {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-
-      final data = widget.cryptoService.decryptFileToData(
-        file.path,
-        widget.tempKeyID,
-      );
-
-      if (data.isNotEmpty) {
-        setState(() {
-          _imageData = data;
-          _isLoading = false;
-        });
-        // Update app bar title
-        setState(() {});
-      } else {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Failed to decrypt image';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Failed to load image: $e';
-      });
-    }
+    await _loadImage();
   }
 
   void _resetView() {
@@ -229,14 +223,16 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
     final matrix = _transformController.value;
     final scale = matrix.getMaxScaleOnAxis();
     final newScale = (scale * 1.2).clamp(0.1, 10.0);
-    _transformController.value = Matrix4.identity()..scale(newScale);
+    _transformController.value = Matrix4.identity()
+      ..scaleByDouble(newScale, newScale, newScale, 1);
   }
 
   void _zoomOut() {
     final matrix = _transformController.value;
     final scale = matrix.getMaxScaleOnAxis();
     final newScale = (scale / 1.2).clamp(0.1, 10.0);
-    _transformController.value = Matrix4.identity()..scale(newScale);
+    _transformController.value = Matrix4.identity()
+      ..scaleByDouble(newScale, newScale, newScale, 1);
   }
 
   /// Handle keyboard shortcuts
@@ -283,10 +279,29 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
     return widget.file.name;
   }
 
+  String get _currentEncryptedPath {
+    if (_imageFiles.isNotEmpty &&
+        _currentIndex >= 0 &&
+        _currentIndex < _imageFiles.length) {
+      return _imageFiles[_currentIndex].path;
+    }
+    return widget.file.encryptedPath;
+  }
+
+  int? get _currentOriginalSize {
+    if (_imageFiles.isNotEmpty &&
+        _currentIndex >= 0 &&
+        _currentIndex < _imageFiles.length) {
+      return _imageFiles[_currentIndex].size;
+    }
+    return widget.file.originalSize;
+  }
+
   @override
   Widget build(BuildContext context) {
     return KeyboardListener(
       focusNode: _focusNode,
+      autofocus: true,
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
         appBar: AppBar(
@@ -303,29 +318,38 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
                   ),
                 ),
               ),
+            if (_metadata?.isAnimated ?? false)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Chip(
+                  avatar: const Icon(Icons.animation, size: 16),
+                  label: Text('动画 · ${_metadata!.frameCount} 帧'),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             // Zoom in
             IconButton(
               icon: const Icon(Icons.zoom_in),
               onPressed: _zoomIn,
-              tooltip: 'Zoom in (+)',
+              tooltip: '放大 (+)',
             ),
             // Zoom out
             IconButton(
               icon: const Icon(Icons.zoom_out),
               onPressed: _zoomOut,
-              tooltip: 'Zoom out (-)',
+              tooltip: '缩小 (-)',
             ),
             // Reset view
             IconButton(
               icon: const Icon(Icons.fit_screen),
               onPressed: _resetView,
-              tooltip: 'Reset view (N)',
+              tooltip: '重置视图 (N)',
             ),
             // Rotate
             IconButton(
               icon: const Icon(Icons.rotate_right),
               onPressed: _rotateImage,
-              tooltip: 'Rotate (R)',
+              tooltip: '顺时针旋转 (R)',
             ),
           ],
         ),
@@ -348,7 +372,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
           IconButton(
             icon: const Icon(Icons.navigate_before),
             onPressed: _currentIndex > 0 ? _previousImage : null,
-            tooltip: 'Previous (←)',
+            tooltip: '上一张 (←)',
           ),
           // Image counter
           Text(
@@ -360,7 +384,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
             icon: const Icon(Icons.navigate_next),
             onPressed:
                 _currentIndex < _imageFiles.length - 1 ? _nextImage : null,
-            tooltip: 'Next (→)',
+            tooltip: '下一张 (→)',
           ),
         ],
       ),
@@ -389,15 +413,15 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadImage,
-              child: const Text('Retry'),
+              child: const Text('重试'),
             ),
           ],
         ),
       );
     }
 
-    if (_imageData == null) {
-      return const Center(child: Text('No image data'));
+    if (_imageData == null || _imageProvider == null) {
+      return const Center(child: Text('没有可显示的图片数据'));
     }
 
     return GestureDetector(
@@ -416,14 +440,18 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
       },
       child: Center(
         child: InteractiveViewer(
+          key: const Key('secure-image-interactive-viewer'),
           transformationController: _transformController,
           minScale: 0.1,
           maxScale: 10.0,
           child: Transform.rotate(
+            key: const Key('secure-image-rotation'),
             angle: _rotation * 3.14159265359 / 180,
-            child: Image.memory(
-              _imageData!,
+            child: Image(
+              key: const Key('secure-image-content'),
+              image: _imageProvider!,
               fit: BoxFit.contain,
+              gaplessPlayback: false,
               errorBuilder: (context, error, stackTrace) {
                 return Center(
                   child: Column(
@@ -432,17 +460,17 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
                       const Icon(Icons.broken_image,
                           size: 48, color: Colors.grey),
                       const SizedBox(height: 16),
-                      const Text('Failed to display image'),
+                      const Text('无法显示图片'),
                       const SizedBox(height: 8),
                       Text(
-                        'The file may be corrupted or not a valid image format.',
+                        '文件可能已损坏，或不是受支持的图片格式。',
                         style: Theme.of(context).textTheme.bodySmall,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _loadImage,
-                        child: const Text('Retry'),
+                        child: const Text('重试'),
                       ),
                     ],
                   ),

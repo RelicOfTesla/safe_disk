@@ -1,473 +1,382 @@
 import 'dart:async';
-import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../services/crypto_service.dart';
+
+import '../controllers/secure_notepad_controller.dart';
 import '../models/cryption_config.dart';
+import '../services/crypto_service.dart';
+import '../services/document_session_broker.dart';
+import '../services/system_text_clipboard.dart';
 import '../utils/error_messages.dart';
-import '../widgets/copyable_snackbar.dart';
-import '../native/native_lib.dart';
+import 'copyable_snackbar.dart';
+import 'secure_notepad_sections.dart';
 
-/// Security-focused notepad for editing encrypted text files.
-/// Features:
-/// - Flutter-rendered text (no system input boxes)
-/// - Undo/Redo support
-/// - Auto-save with encryption
-/// - Secure memory clearing on close
-/// - Partial text copy support
+/// Edits a text file through an open encrypted-root session.
+///
+/// Sensitive document state and editor behavior live in
+/// [SecureNotepadController]; this widget only coordinates navigation and
+/// presentation.
 class SecureNotepad extends StatefulWidget {
-  final EncryptedFile file;
-  final CryptoService cryptoService;
-  final String tempKeyID;
-  final VoidCallback? onSaved;
-
   const SecureNotepad({
     super.key,
     required this.file,
     required this.cryptoService,
     required this.tempKeyID,
     this.onSaved,
+    this.autoSaveInterval = const Duration(seconds: 30),
+    this.initiallyReadOnly = false,
+    this.initiallyMonitorClipboard = false,
+    this.systemClipboard = const FlutterSystemTextClipboard(),
+    this.clipboardMonitorInterval = const Duration(seconds: 1),
+    this.documentBroker,
+    this.documentLease,
+    this.onDirtyChanged,
+    this.onClosed,
   });
+
+  final EncryptedFile file;
+  final CryptoService cryptoService;
+  final String tempKeyID;
+  final VoidCallback? onSaved;
+  final Duration autoSaveInterval;
+  final bool initiallyReadOnly;
+  final bool initiallyMonitorClipboard;
+  final SystemTextClipboard systemClipboard;
+  final Duration clipboardMonitorInterval;
+  final DocumentSessionBroker? documentBroker;
+  final DocumentLease? documentLease;
+  final ValueChanged<bool>? onDirtyChanged;
+  final VoidCallback? onClosed;
 
   @override
   State<SecureNotepad> createState() => _SecureNotepadState();
 }
 
-class _SecureNotepadState extends State<SecureNotepad> {
-  late final TextEditingController _controller;
-  late final FocusNode _focusNode;
-
-  // Undo/Redo support
-  final List<String> _undoStack = [];
-  final List<String> _redoStack = [];
-  static const int _maxHistorySize = 50;
-  String _lastText = '';
-  bool _isUndoRedo = false;
-
-  // State management
-  bool _isLoading = true;
-  bool _isSaving = false;
-  bool _hasChanges = false;
-  bool _isInitializing = true;
-  String? _errorMessage;
-
-  // Auto-save
-  Timer? _autoSaveTimer;
-  static const Duration _autoSaveDelay = Duration(seconds: 30);
-
-  // Find/Replace (optional feature)
+class _SecureNotepadState extends State<SecureNotepad>
+    with WidgetsBindingObserver {
+  late final SecureNotepadController _controller;
   bool _showFindReplace = false;
-  final TextEditingController _findController = TextEditingController();
-  final TextEditingController _replaceController = TextEditingController();
-  int _findIndex = -1;
+  bool _monitorClipboard = false;
+  String? _clipboardPreview;
+  String? _clipboardError;
+  Timer? _clipboardTimer;
+  bool _clipboardReadActive = false;
+  int _clipboardGeneration = 0;
+  final FocusNode _findFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController();
-    _focusNode = FocusNode();
-    _loadFile();
-    _startAutoSaveTimer();
+    _controller = SecureNotepadController(
+      file: widget.file,
+      cryptoService: widget.cryptoService,
+      tempKeyID: widget.tempKeyID,
+      autoSaveInterval: widget.autoSaveInterval,
+      initiallyReadOnly: widget.initiallyReadOnly,
+      onSaved: widget.onSaved,
+      documentBroker: widget.documentBroker,
+      documentLease: widget.documentLease,
+      onDirtyChanged: widget.onDirtyChanged,
+    )..addListener(_onControllerChanged);
+    WidgetsBinding.instance.addObserver(this);
+    _monitorClipboard = widget.initiallyMonitorClipboard;
+    if (_monitorClipboard) _startClipboardTimer();
+    _loadDocument();
+  }
+
+  Future<void> _loadDocument() async {
+    await _controller.load();
+    if (!mounted || !_controller.hasRecoveryDraft) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showDraftRecoveryDialog();
+    });
+  }
+
+  Future<void> _showDraftRecoveryDialog() async {
+    final action = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('发现安全草稿'),
+        content: const Text(
+          '发现上次未完成编辑的加密草稿。是否恢复到编辑器？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, 'discard'),
+            child: const Text('放弃草稿'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, 'restore'),
+            child: const Text('恢复草稿'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'restore') {
+      _controller.restoreRecoveryDraft();
+      _controller.focusNode.requestFocus();
+    } else {
+      final discarded = await _controller.discardDraft();
+      if (!discarded && mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: _controller.draftError,
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
-    _autoSaveTimer?.cancel();
-    _secureClear();
-    _findController.dispose();
-    _replaceController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _clipboardTimer?.cancel();
+    _findFocusNode.dispose();
+    _controller
+      ..removeListener(_onControllerChanged)
+      ..dispose();
+    widget.onClosed?.call();
     super.dispose();
   }
 
-  /// Securely clear all sensitive data from memory
-  Future<void> _secureClear() async {
-    // Clear controller
-    final text = _controller.text;
-    _controller.clear();
-
-    // Clear undo/redo stacks
-    for (final item in _undoStack) {
-      await _clearSecureString(item);
-    }
-    _undoStack.clear();
-
-    for (final item in _redoStack) {
-      await _clearSecureString(item);
-    }
-    _redoStack.clear();
-
-    // Clear the last text
-    await _clearSecureString(_lastText);
-    await _clearSecureString(text);
-
-    // Clear find/replace controllers
-    _findController.clear();
-    _replaceController.clear();
-
-    _focusNode.dispose();
-  }
-
-  /// Clear a string from memory using native MemZero
-  Future<void> _clearSecureString(String text) async {
-    if (text.isEmpty) return;
-
-    try {
-      // Convert string to bytes and encode as base64
-      final bytes = utf8.encode(text);
-      final base64Data = base64Encode(bytes);
-
-      // Call native MemZero through FFI
-      final native = NativeLib.instance;
-      native.clearSecureMemory(base64Data);
-    } catch (_) {
-      // Best effort: VM-managed String storage cannot be cleared in place.
-    }
-  }
-
-  /// Start auto-save timer
-  void _startAutoSaveTimer() {
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer.periodic(_autoSaveDelay, (timer) {
-      if (_hasChanges && !_isSaving) {
-        _saveFile(autoSave: true);
-      }
-    });
-  }
-
-  Future<void> _loadFile() async {
-    try {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-
-      // Decrypt file content
-      final contentBytes = widget.cryptoService.decryptFileToData(
-        widget.file.encryptedPath,
-        widget.tempKeyID,
-      );
-      final content = utf8.decode(contentBytes);
-
-      if (content.isNotEmpty) {
-        _controller.text = content;
-        _lastText = content;
-        // Add initial state to undo stack
-        _undoStack.add(content);
-      }
-
-      setState(() {
-        _isLoading = false;
-        _hasChanges = false;
-      });
-
-      // Mark initialization complete after a short delay
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          setState(() {
-            _isInitializing = false;
-          });
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '文件加载失败：$e';
-      });
-    }
-  }
-
-  Future<void> _saveFile({bool autoSave = false}) async {
-    if (_isSaving) return;
-
-    try {
-      setState(() => _isSaving = true);
-
-      final contentBytes = utf8.encode(_controller.text);
-      await widget.cryptoService.writeFileBySession(
-        widget.file.encryptedPath,
-        widget.tempKeyID,
-        contentBytes,
-      );
-
-      setState(() {
-        _hasChanges = false;
-        _isSaving = false;
-      });
-
-      widget.onSaved?.call();
-
-      if (mounted && !autoSave) {
-        ErrorHelper.showSuccess(context, '文件保存成功');
-      }
-    } catch (e) {
-      setState(() => _isSaving = false);
-
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.saveFileFailed,
-          originalError: e.toString(),
-        );
-      }
-    }
-  }
-
-  /// Push current state to undo stack
-  void _pushToUndoStack(String text) {
-    if (_undoStack.isEmpty || _undoStack.last != text) {
-      _undoStack.add(text);
-
-      // Limit stack size
-      if (_undoStack.length > _maxHistorySize) {
-        _undoStack.removeAt(0);
-      }
-    }
-
-    // Clear redo stack on new change
-    _redoStack.clear();
-  }
-
-  /// Undo last change
-  void _undo() {
-    if (_undoStack.length > 1) {
-      // Save current state to redo stack
-      _redoStack.add(_controller.text);
-
-      // Pop last state from undo stack
-      final previousState = _undoStack.removeLast();
-
-      _isUndoRedo = true;
-      _controller.text = previousState;
-      _lastText = previousState;
-      _isUndoRedo = false;
-
-      setState(() {
-        _hasChanges = _undoStack.length > 1;
-      });
-    }
-  }
-
-  /// Redo last undone change
-  void _redo() {
-    if (_redoStack.isNotEmpty) {
-      // Save current state to undo stack
-      _undoStack.add(_controller.text);
-
-      // Pop last state from redo stack
-      final nextState = _redoStack.removeLast();
-
-      _isUndoRedo = true;
-      _controller.text = nextState;
-      _lastText = nextState;
-      _isUndoRedo = false;
-
-      setState(() {
-        _hasChanges = true;
-      });
-    }
-  }
-
-  /// Find text in the editor
-  void _findText() {
-    final findText = _findController.text;
-    if (findText.isEmpty) return;
-
-    final currentText = _controller.text;
-    final startIndex = _findIndex + 1;
-    final index = currentText.indexOf(findText, startIndex);
-
-    if (index != -1) {
-      setState(() {
-        _findIndex = index;
-      });
-      _controller.selection = TextSelection(
-        baseOffset: index,
-        extentOffset: index + findText.length,
-      );
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_monitorClipboard) return;
+    if (state == AppLifecycleState.resumed) {
+      _startClipboardTimer();
     } else {
-      // Not found, reset search
+      _clipboardTimer?.cancel();
+    }
+  }
+
+  void _toggleClipboardMonitor() {
+    _clipboardGeneration++;
+    setState(() {
+      _monitorClipboard = !_monitorClipboard;
+      if (!_monitorClipboard) {
+        _clipboardPreview = null;
+        _clipboardError = null;
+      }
+    });
+    if (_monitorClipboard) {
+      _startClipboardTimer();
+    } else {
+      _clipboardTimer?.cancel();
+    }
+  }
+
+  void _startClipboardTimer() {
+    _clipboardTimer?.cancel();
+    unawaited(_refreshClipboardPreview());
+    if (widget.clipboardMonitorInterval <= Duration.zero) return;
+    _clipboardTimer = Timer.periodic(
+      widget.clipboardMonitorInterval,
+      (_) => unawaited(_refreshClipboardPreview()),
+    );
+  }
+
+  Future<void> _refreshClipboardPreview() async {
+    if (!_monitorClipboard || _clipboardReadActive) return;
+    final generation = _clipboardGeneration;
+    _clipboardReadActive = true;
+    try {
+      final text = await widget.systemClipboard.readText();
+      if (!mounted ||
+          !_monitorClipboard ||
+          generation != _clipboardGeneration) {
+        return;
+      }
       setState(() {
-        _findIndex = -1;
+        _clipboardPreview = _shortClipboardText(text);
+        _clipboardError = null;
       });
+    } catch (error) {
+      if (!mounted ||
+          !_monitorClipboard ||
+          generation != _clipboardGeneration) {
+        return;
+      }
+      setState(() => _clipboardError = '无法读取剪贴板：$error');
+    } finally {
+      _clipboardReadActive = false;
+    }
+  }
+
+  Future<void> _clearSystemClipboard() async {
+    _clipboardGeneration++;
+    try {
+      await widget.systemClipboard.clear();
+      if (!mounted) return;
+      setState(() {
+        _clipboardPreview = null;
+        _clipboardError = null;
+      });
+    } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未找到匹配项')),
-        );
+        setState(() => _clipboardError = '无法清空剪贴板：$error');
       }
     }
   }
 
-  /// Replace found text
-  void _replaceText() {
-    final findText = _findController.text;
-    final replaceText = _replaceController.text;
-
-    if (findText.isEmpty || _findIndex == -1) return;
-
-    final currentText = _controller.text;
-    final newText = currentText.replaceRange(
-      _findIndex,
-      _findIndex + findText.length,
-      replaceText,
-    );
-
-    _pushToUndoStack(_controller.text);
-    _controller.text = newText;
-    _lastText = newText;
-    setState(() {
-      _hasChanges = true;
-      _findIndex = -1;
-    });
-
-    // Find next occurrence
-    _findText();
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
   }
 
-  /// Replace all occurrences
-  void _replaceAll() {
-    final findText = _findController.text;
-    final replaceText = _replaceController.text;
-
-    if (findText.isEmpty) return;
-
-    final currentText = _controller.text;
-    final count = findText.allMatches(currentText).length;
-
-    if (count == 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未找到匹配项')),
-        );
-      }
+  Future<void> _save() async {
+    final saved = await _controller.save();
+    if (!mounted) return;
+    if (saved) {
+      ErrorHelper.showSuccess(context, '文件保存成功');
       return;
     }
-
-    _pushToUndoStack(_controller.text);
-    final newText = currentText.replaceAll(findText, replaceText);
-    _controller.text = newText;
-    _lastText = newText;
-    setState(() {
-      _hasChanges = true;
-      _findIndex = -1;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已替换 $count 处')),
-      );
-    }
+    ErrorHelper.showError(
+      context,
+      errorType: ErrorType.saveFileFailed,
+      originalError: _controller.saveError,
+    );
   }
 
-  Future<bool> _onWillPop() async {
-    if (!_hasChanges) return true;
+  void _showFind() {
+    if (!_showFindReplace) setState(() => _showFindReplace = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _findFocusNode.requestFocus();
+    });
+  }
 
+  void _hideFind() {
+    if (_showFindReplace) setState(() => _showFindReplace = false);
+    _controller.focusNode.requestFocus();
+  }
+
+  Future<bool> _confirmClose() async {
+    if (!_controller.hasChanges) return true;
     final result = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('未保存的更改'),
         content: const Text('关闭前是否保存更改？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, 'cancel'),
+            onPressed: () => Navigator.pop(dialogContext, 'cancel'),
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, 'no'),
+            onPressed: () => Navigator.pop(dialogContext, 'discard'),
             child: const Text('不保存'),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'yes'),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, 'save'),
             child: const Text('保存'),
           ),
         ],
       ),
     );
+    if (result == 'discard') return _controller.discardDraft();
+    if (result != 'save') return false;
 
-    if (result == 'yes') {
-      await _saveFile();
-      if (mounted) Navigator.of(context).pop();
-      return true;
-    } else if (result == 'no') {
-      if (mounted) Navigator.of(context).pop();
-      return true;
-    } else {
-      return false;
+    final saved = await _controller.save();
+    if (!saved && mounted) {
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.saveFileFailed,
+        originalError: _controller.saveError,
+      );
     }
+    return saved;
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_hasChanges,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        await _onWillPop();
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            _showFind,
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
+          unawaited(_save());
+        },
+        const SingleActivator(LogicalKeyboardKey.escape): _hideFind,
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.file.name),
-          actions: [
-            // Undo button
-            IconButton(
-              icon: const Icon(Icons.undo),
-              onPressed: _undoStack.length > 1 ? _undo : null,
-              tooltip: '撤销',
-            ),
-            // Redo button
-            IconButton(
-              icon: const Icon(Icons.redo),
-              onPressed: _redoStack.isNotEmpty ? _redo : null,
-              tooltip: '重做',
-            ),
-            // Find/Replace toggle
-            IconButton(
-              icon: Icon(_showFindReplace ? Icons.search_off : Icons.search),
-              onPressed: () {
-                setState(() {
-                  _showFindReplace = !_showFindReplace;
-                  if (!_showFindReplace) {
-                    _findIndex = -1;
-                  }
-                });
-              },
-              tooltip: _showFindReplace ? '隐藏查找/替换' : '查找/替换',
-            ),
-            // Save button
-            if (_hasChanges)
+      child: PopScope(
+        canPop: !_controller.hasChanges,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (didPop) return;
+          final shouldClose = await _confirmClose();
+          if (!context.mounted || !shouldClose) return;
+          Navigator.of(context).pop();
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(widget.file.name),
+            actions: [
               IconButton(
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save),
-                onPressed: _isSaving ? null : _saveFile,
-                tooltip: '保存',
+                icon: Icon(
+                  _controller.isReadOnly ? Icons.edit : Icons.visibility,
+                ),
+                onPressed: _controller.toggleReadOnly,
+                tooltip: _controller.isReadOnly ? '切换到编辑模式' : '切换到只读模式',
               ),
-          ],
+              IconButton(
+                icon: const Icon(Icons.undo),
+                onPressed: _controller.canUndo ? _controller.undo : null,
+                tooltip: '撤销',
+              ),
+              IconButton(
+                icon: const Icon(Icons.redo),
+                onPressed: _controller.canRedo ? _controller.redo : null,
+                tooltip: '重做',
+              ),
+              IconButton(
+                icon: Icon(_showFindReplace ? Icons.search_off : Icons.search),
+                onPressed: _showFindReplace ? _hideFind : _showFind,
+                tooltip: _showFindReplace ? '隐藏查找/替换' : '查找/替换',
+              ),
+              IconButton(
+                icon: Icon(
+                  _monitorClipboard
+                      ? Icons.content_paste_search
+                      : Icons.content_paste_outlined,
+                ),
+                onPressed: _toggleClipboardMonitor,
+                tooltip: _monitorClipboard ? '停止剪贴板监视' : '监视剪贴板',
+              ),
+              if (_controller.hasChanges)
+                IconButton(
+                  icon: _controller.isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save),
+                  onPressed: _controller.isSaving ? null : _save,
+                  tooltip: '保存',
+                ),
+            ],
+          ),
+          body: _buildBody(),
         ),
-        body: _buildBody(),
       ),
     );
   }
 
   Widget _buildBody() {
-    if (_isLoading) {
+    if (_controller.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-
-    if (_errorMessage != null) {
+    if (_controller.loadError != null) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text(_errorMessage!),
+            Text(_controller.loadError!),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadFile,
+            FilledButton(
+              onPressed: _loadDocument,
               child: const Text('重试'),
             ),
           ],
@@ -475,164 +384,57 @@ class _SecureNotepadState extends State<SecureNotepad> {
       );
     }
 
-    return Container(
-      color: Theme.of(context).colorScheme.surface,
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Find/Replace bar (optional)
-            if (_showFindReplace) _buildFindReplaceBar(),
-
-            // Status bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              ),
-              child: Row(
-                children: [
-                  if (_hasChanges)
-                    const Icon(Icons.edit, size: 16, color: Colors.orange)
-                  else
-                    const Icon(Icons.check_circle,
-                        size: 16, color: Colors.green),
-                  const SizedBox(width: 8),
-                  Text(
-                    _hasChanges ? '未保存' : '已保存',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    '撤销: ${_undoStack.length - 1}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '重做: ${_redoStack.length}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${_controller.text.length} 字符',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-
-            // Editor
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  maxLines: null,
-                  expands: true,
-                  autofocus: true,
-                  showCursor: true,
-                  enableInteractiveSelection: true,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    filled: false,
-                  ),
-                  cursorColor: Theme.of(context).colorScheme.primary,
-                  onChanged: (text) {
-                    // Ignore text changes during initialization or undo/redo
-                    if (_isInitializing || _isUndoRedo) {
-                      return;
-                    }
-
-                    // Check if text actually changed
-                    if (text != _lastText) {
-                      // Push old text to undo stack
-                      _pushToUndoStack(_lastText);
-
-                      _lastText = text;
-                      if (!_hasChanges) {
-                        setState(() => _hasChanges = true);
-                      }
-                    }
-                  },
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[\s\S]*')),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Build find/replace bar (optional feature)
-  Widget _buildFindReplaceBar() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).colorScheme.outline,
-          ),
-        ),
-      ),
-      child: Row(
+    return SafeArea(
+      child: Column(
         children: [
-          // Find field
-          Expanded(
-            child: TextField(
-              controller: _findController,
-              decoration: const InputDecoration(
-                hintText: '查找',
-                isDense: true,
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) => _findText(),
+          if (_showFindReplace)
+            SecureFindReplaceBar(
+              readOnly: _controller.isReadOnly,
+              onFind: _controller.find,
+              onReplace: _controller.replaceSelection,
+              onReplaceAll: _controller.replaceAll,
+              focusNode: _findFocusNode,
+              onClose: _hideFind,
             ),
-          ),
-          const SizedBox(width: 8),
-          // Find button
-          IconButton(
-            icon: const Icon(Icons.arrow_downward),
-            onPressed: _findText,
-            tooltip: '查找下一个',
-          ),
-
-          const SizedBox(width: 16),
-
-          // Replace field
-          Expanded(
-            child: TextField(
-              controller: _replaceController,
-              decoration: const InputDecoration(
-                hintText: '替换',
-                isDense: true,
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                border: OutlineInputBorder(),
-              ),
+          if (_monitorClipboard)
+            SecureClipboardMonitorBar(
+              preview: _clipboardPreview,
+              error: _clipboardError,
+              onRefresh: _refreshClipboardPreview,
+              onClear: _clearSystemClipboard,
+              onClose: _toggleClipboardMonitor,
             ),
+          SecureNotepadStatusBar(
+            hasChanges: _controller.hasChanges,
+            isSaving: _controller.isSaving,
+            isReadOnly: _controller.isReadOnly,
+            undoCount: _controller.undoCount,
+            redoCount: _controller.redoCount,
+            characterCount: _controller.characterCount,
+            saveError: _controller.saveError,
+            isSavingDraft: _controller.isSavingDraft,
+            hasDraftBackup: _controller.hasDraftBackup,
+            draftError: _controller.draftError,
           ),
-          const SizedBox(width: 8),
-          // Replace button
-          IconButton(
-            icon: const Icon(Icons.find_replace),
-            onPressed: _replaceText,
-            tooltip: '替换',
-          ),
-          // Replace all button
-          IconButton(
-            icon: const Icon(Icons.sync),
-            onPressed: _replaceAll,
-            tooltip: '全部替换',
+          Expanded(
+            child: SecureTextEditor(
+              controller: _controller.textController,
+              focusNode: _controller.focusNode,
+              readOnly: _controller.isReadOnly,
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+String? _shortClipboardText(String? value) {
+  if (value == null || value.isEmpty) return null;
+  final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (compact.isEmpty) return null;
+  const maxRunes = 160;
+  final runes = compact.runes.toList();
+  if (runes.length <= maxRunes) return compact;
+  return '${String.fromCharCodes(runes.take(maxRunes))}…';
 }

@@ -57,6 +57,27 @@ typedef SecFileDeleteC = Pointer<Utf8> Function(
 typedef SecFileDeleteDart = Pointer<Utf8> Function(
     int rootID, Pointer<Utf8> path);
 
+// sec_rename: (rootID, oldPath, newPath) -> JSON string
+typedef SecRenameC = Pointer<Utf8> Function(
+    Int64 rootID, Pointer<Utf8> oldPath, Pointer<Utf8> newPath);
+typedef SecRenameDart = Pointer<Utf8> Function(
+    int rootID, Pointer<Utf8> oldPath, Pointer<Utf8> newPath);
+
+// sec_copy_entry: (srcRootID, srcPath, dstRootID, dstPath, overwrite) -> JSON
+typedef SecCopyEntryC = Pointer<Utf8> Function(
+    Int64 srcRootID,
+    Pointer<Utf8> srcPath,
+    Int64 dstRootID,
+    Pointer<Utf8> dstPath,
+    Int32 overwrite);
+typedef SecCopyEntryDart = Pointer<Utf8> Function(int srcRootID,
+    Pointer<Utf8> srcPath, int dstRootID, Pointer<Utf8> dstPath, int overwrite);
+
+typedef SecCreateEntryC = Pointer<Utf8> Function(
+    Int64 rootID, Pointer<Utf8> path);
+typedef SecCreateEntryDart = Pointer<Utf8> Function(
+    int rootID, Pointer<Utf8> path);
+
 // sec_file_exists: (rootID, path) -> JSON string
 typedef SecFileExistsC = Pointer<Utf8> Function(
     Int64 rootID, Pointer<Utf8> path);
@@ -113,15 +134,15 @@ typedef SecTransferV3ConvertRootC = Pointer<Utf8> Function(
 typedef SecTransferV3ConvertRootDart = Pointer<Utf8> Function(
     Pointer<Utf8> rootPath, Pointer<Utf8> password, Pointer<Utf8> kind);
 
-typedef SecTransferV3ImportFileC = Pointer<Utf8> Function(
-    Int64 rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath);
+typedef SecTransferV3ImportFileC = Pointer<Utf8> Function(Int64 rootID,
+    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Int32 overwrite);
 typedef SecTransferV3ImportFileDart = Pointer<Utf8> Function(
-    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath);
+    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath, int overwrite);
 
-typedef SecTransferV3ImportDirectoryC = Pointer<Utf8> Function(
-    Int64 rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath);
+typedef SecTransferV3ImportDirectoryC = Pointer<Utf8> Function(Int64 rootID,
+    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Int32 overwrite);
 typedef SecTransferV3ImportDirectoryDart = Pointer<Utf8> Function(
-    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath);
+    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath, int overwrite);
 
 typedef SecTransferV3ExportFileC = Pointer<Utf8> Function(
     Int64 rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath);
@@ -160,6 +181,21 @@ typedef SecTransferV3WithCallbackDart = Pointer<Utf8> Function(
     Pointer<Utf8> destPath,
     Pointer<NativeFunction<NativeProgressCallbackC>> callback);
 
+typedef SecTransferV3ImportWithCallbackC = Pointer<Utf8> Function(
+    Pointer<Utf8> operationID,
+    Int64 rootID,
+    Pointer<Utf8> srcPath,
+    Pointer<Utf8> destPath,
+    Int32 overwrite,
+    Pointer<NativeFunction<NativeProgressCallbackC>> callback);
+typedef SecTransferV3ImportWithCallbackDart = Pointer<Utf8> Function(
+    Pointer<Utf8> operationID,
+    int rootID,
+    Pointer<Utf8> srcPath,
+    Pointer<Utf8> destPath,
+    int overwrite,
+    Pointer<NativeFunction<NativeProgressCallbackC>> callback);
+
 typedef SecTransferV3CancelC = Pointer<Utf8> Function(
     Pointer<Utf8> operationID);
 typedef SecTransferV3CancelDart = Pointer<Utf8> Function(
@@ -181,6 +217,10 @@ class NativeBindings {
   late final SecFileSeekDart secFileSeek;
   late final SecFileTruncateDart secFileTruncate;
   late final SecFileDeleteDart secFileDelete;
+  late final SecRenameDart secRename;
+  late final SecCopyEntryDart secCopyEntry;
+  late final SecCreateEntryDart secCreateEmptyFile;
+  late final SecCreateEntryDart secCreateDirectory;
   late final SecFileExistsDart secFileExists;
   late final SecMkdirAllDart secMkdirAll;
   late final SecReadDirDart secReadDir;
@@ -196,8 +236,9 @@ class NativeBindings {
   late final SecTransferV3ImportDirectoryDart secTransferV3ImportDirectory;
   late final SecTransferV3ExportFileDart secTransferV3ExportFile;
   late final SecTransferV3ExportDirectoryDart secTransferV3ExportDirectory;
-  late final SecTransferV3WithCallbackDart secTransferV3ImportFileWithCallback;
-  late final SecTransferV3WithCallbackDart
+  late final SecTransferV3ImportWithCallbackDart
+      secTransferV3ImportFileWithCallback;
+  late final SecTransferV3ImportWithCallbackDart
       secTransferV3ImportDirectoryWithCallback;
   late final SecTransferV3WithCallbackDart secTransferV3ExportFileWithCallback;
   late final SecTransferV3WithCallbackDart
@@ -224,7 +265,19 @@ class NativeBindings {
     } else if (Platform.isMacOS) {
       return DynamicLibrary.open('libffi_sec_fs.dylib');
     } else if (Platform.isWindows) {
-      return DynamicLibrary.open('ffi_sec_fs.dll');
+      final libraryPath = File(Platform.resolvedExecutable)
+          .parent
+          .uri
+          .resolve('ffi_sec_fs.dll')
+          .toFilePath();
+      if (!File(libraryPath).existsSync()) {
+        throw StateError(
+          'Native library is missing from the application bundle: '
+          '$libraryPath. Rebuild with scripts/build_and_run.bat so ffi_sec_fs.dll '
+          'is placed beside safe_disk.exe.',
+        );
+      }
+      return DynamicLibrary.open(libraryPath);
     }
     throw UnsupportedError('Unsupported platform');
   }
@@ -252,6 +305,15 @@ class NativeBindings {
             'sec_file_truncate');
     secFileDelete = _lib!
         .lookupFunction<SecFileDeleteC, SecFileDeleteDart>('sec_file_delete');
+    secRename = _lib!.lookupFunction<SecRenameC, SecRenameDart>('sec_rename');
+    secCopyEntry =
+        _lib!.lookupFunction<SecCopyEntryC, SecCopyEntryDart>('sec_copy_entry');
+    secCreateEmptyFile = _lib!
+        .lookupFunction<SecCreateEntryC, SecCreateEntryDart>(
+            'sec_create_empty_file');
+    secCreateDirectory = _lib!
+        .lookupFunction<SecCreateEntryC, SecCreateEntryDart>(
+            'sec_create_directory');
     secFileExists = _lib!
         .lookupFunction<SecFileExistsC, SecFileExistsDart>('sec_file_exists');
     secMkdirAll =
@@ -293,10 +355,12 @@ class NativeBindings {
         SecTransferV3ExportDirectoryC,
         SecTransferV3ExportDirectoryDart>('sec_transfer_v3_export_directory');
     secTransferV3ImportFileWithCallback = _lib!.lookupFunction<
-            SecTransferV3WithCallbackC, SecTransferV3WithCallbackDart>(
+            SecTransferV3ImportWithCallbackC,
+            SecTransferV3ImportWithCallbackDart>(
         'sec_transfer_v3_import_file_with_callback');
     secTransferV3ImportDirectoryWithCallback = _lib!.lookupFunction<
-            SecTransferV3WithCallbackC, SecTransferV3WithCallbackDart>(
+            SecTransferV3ImportWithCallbackC,
+            SecTransferV3ImportWithCallbackDart>(
         'sec_transfer_v3_import_directory_with_callback');
     secTransferV3ExportFileWithCallback = _lib!.lookupFunction<
             SecTransferV3WithCallbackC, SecTransferV3WithCallbackDart>(

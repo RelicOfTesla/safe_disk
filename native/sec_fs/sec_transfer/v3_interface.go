@@ -100,19 +100,40 @@ const (
 )
 
 type OperationMarker struct {
-	Version   int           `json:"version"`
-	OpID      string        `json:"op_id"`
-	Type      OperationType `json:"type"`
-	EntryKind EntryKind     `json:"entry_kind,omitempty"`
-	Status    string        `json:"status"`
-	Phase     string        `json:"phase,omitempty"`
-	Src       string        `json:"src,omitempty"`
-	Dst       string        `json:"dst,omitempty"`
-	Root      string        `json:"root,omitempty"`
-	Work      string        `json:"work,omitempty"`
-	Backup    string        `json:"backup,omitempty"`
-	CreatedAt time.Time     `json:"created_at"`
-	UpdatedAt time.Time     `json:"updated_at"`
+	Version                     int                 `json:"version"`
+	OpID                        string              `json:"op_id"`
+	Type                        OperationType       `json:"type"`
+	EntryKind                   EntryKind           `json:"entry_kind,omitempty"`
+	Status                      string              `json:"status"`
+	Phase                       string              `json:"phase,omitempty"`
+	Src                         string              `json:"src,omitempty"`
+	Dst                         string              `json:"dst,omitempty"`
+	Overwrite                   bool                `json:"overwrite,omitempty"`
+	DestinationInitiallyExisted *bool               `json:"destination_initially_existed,omitempty"`
+	Root                        string              `json:"root,omitempty"`
+	Work                        string              `json:"work,omitempty"`
+	Backup                      string              `json:"backup,omitempty"`
+	Verification                *VerificationReport `json:"verification,omitempty"`
+	CreatedAt                   time.Time           `json:"created_at"`
+	UpdatedAt                   time.Time           `json:"updated_at"`
+}
+
+type VerificationReport struct {
+	ExpectedDirectories      int      `json:"expected_directories"`
+	ActualDirectories        int      `json:"actual_directories"`
+	ExpectedFiles            int      `json:"expected_files"`
+	ActualFiles              int      `json:"actual_files"`
+	MissingDirectories       []string `json:"missing_directories,omitempty"`
+	MissingDirectoryCount    int      `json:"missing_directory_count"`
+	UnexpectedDirectories    []string `json:"unexpected_directories,omitempty"`
+	UnexpectedDirectoryCount int      `json:"unexpected_directory_count"`
+	MissingFiles             []string `json:"missing_files,omitempty"`
+	MissingFileCount         int      `json:"missing_file_count"`
+	UnexpectedFiles          []string `json:"unexpected_files,omitempty"`
+	UnexpectedFileCount      int      `json:"unexpected_file_count"`
+	DigestMismatches         []string `json:"digest_mismatches,omitempty"`
+	DigestMismatchCount      int      `json:"digest_mismatch_count"`
+	Truncated                bool     `json:"truncated,omitempty"`
 }
 
 type ProgressEvent struct {
