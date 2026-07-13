@@ -11,7 +11,13 @@ import (
 type transferJSONReporter struct {
 	opType  sec_transfer.OperationType
 	started bool
+	failed  bool
 }
+
+type jsonReportedError struct{ err error }
+
+func (e jsonReportedError) Error() string { return e.err.Error() }
+func (e jsonReportedError) Unwrap() error { return e.err }
 
 func newTransferJSONReporter(opType sec_transfer.OperationType) *transferJSONReporter {
 	return &transferJSONReporter{opType: opType}
@@ -37,6 +43,7 @@ func (r *transferJSONReporter) reportProgress(progress sec_transfer.ProgressEven
 		})
 	}
 	if progress.Error != nil {
+		r.failed = true
 		writeJSONLine(map[string]interface{}{
 			"event": "operation_failed",
 			"op_id": progress.OpID,
@@ -66,14 +73,20 @@ func (r *transferJSONReporter) reportProgress(progress sec_transfer.ProgressEven
 }
 
 func (r *transferJSONReporter) Failed(err error) {
-	if err == nil {
+	if err == nil || r.failed {
 		return
 	}
+	r.failed = true
 	writeJSONLine(map[string]interface{}{
 		"event": "operation_failed",
 		"type":  r.opType,
 		"error": err.Error(),
 	})
+}
+
+func (r *transferJSONReporter) WrapError(err error) error {
+	r.Failed(err)
+	return jsonReportedError{err: err}
 }
 
 func writeJSONLine(event map[string]interface{}) {

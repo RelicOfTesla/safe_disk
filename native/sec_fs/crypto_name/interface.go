@@ -19,6 +19,9 @@ type INameCryptorContext interface {
 	// DecryptName decrypts an encrypted file or directory name.
 	// Returns the original name or an error.
 	DecryptName(encrypted string) (string, error)
+
+	// Close releases algorithm state and clears owned key bytes.
+	Close() error
 }
 
 // ==================== ICryptoNameFactory Interface ====================
@@ -57,6 +60,7 @@ func (c *nameCryptorContextImpl) EncryptName(name string) (string, error) {
 func (c *nameCryptorContextImpl) DecryptName(encrypted string) (string, error) {
 	return "", nil
 }
+func (c *nameCryptorContextImpl) Close() error { return nil }
 
 // cryptoNameFactoryImpl is a placeholder type for ICryptoNameFactory implementation.
 type cryptoNameFactoryImpl struct{}

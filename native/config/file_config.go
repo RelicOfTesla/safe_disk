@@ -7,6 +7,11 @@ import (
 	"sync"
 )
 
+const (
+	privateConfigFileMode os.FileMode = 0600
+	privateConfigDirMode  os.FileMode = 0700
+)
+
 // FileConfig is a persistent file-based implementation of SharedConfig.
 // It stores configuration in a JSON file and persists changes automatically.
 // Thread-safe using sync.RWMutex.
@@ -33,7 +38,7 @@ func NewFileConfig(filePath string) (*FileConfig, error) {
 
 	// Ensure directory exists
 	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, privateConfigDirMode); err != nil {
 		return nil, err
 	}
 
@@ -92,7 +97,10 @@ func (f *FileConfig) save() error {
 		return err
 	}
 
-	return os.WriteFile(f.filePath, data, 0644)
+	if err := os.WriteFile(f.filePath, data, privateConfigFileMode); err != nil {
+		return err
+	}
+	return os.Chmod(f.filePath, privateConfigFileMode)
 }
 
 // GetStr retrieves a string value by key.

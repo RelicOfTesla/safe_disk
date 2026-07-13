@@ -30,9 +30,14 @@
 - `native/ffi_sec_fs/exports.go` 导出了根目录、文件、目录、快速操作和 Transfer V3；旧 transfer/task ABI 已删除。
 - `lib/native/bindings.dart` 只绑定当前 Dart service 使用的 V3 transfer、operation callback 和 cancel 符号。
 - `lib/native/bindings.dart` 已绑定 `sec_clear_secure_memory`；Dart 字符串清理仅能清理派生 byte copy，不能证明 VM 内部 String 已原地清零。
+- sec root close 已通过强制 `IKeyInfo.Destroy` 和 `INameCryptorContext.Close` 清零可控 key slice；打开失败与 shallow clone 使用独立所有权。该结论不覆盖 Go cipher 内部不可寻址副本。
 - `native/ffi_sec_fs/ffi.go` 已解析 `configFileName` 和 `ignoreMatcher` 打开选项；`ignoreMatcher` 支持 before/after 名称与 glob pattern。
 - `native/ffi_sec_fs/stores.go` 提供 root、file 的 ID 存储；V3 transfer 不再保存 task 对象。
 - `lib/native/native_lib.dart` 在 worker isolate 内执行同步 C ABI 并持有 callback，通过 isolate 消息把进度和结果送回调用方；这不引入持久化 task。
+- Transfer V3 的 Go `Manager` 和公共 operation request 已实现 `none/data/full` durability policy，默认 `full`；CLI 已提供请求级 `--durability`，FFI 有意固定 `full` 且不使用全局 setter。Linux/Unix 会同步临时文件与目录提交点，Windows 的目录 metadata flush 仍是明确的平台缺口。
+- `ISecFile` 基础接口已包含 `Sync()`，`secRoot`、`PlainFS` 和测试 mock 由编译器统一校验；Transfer V3 不再运行时猜测文件是否支持落盘。
+- `OpenFile().Stat()` 已使用打开的 store 文件句柄返回真实 mode/mtime，同时保留解密后 size；与 root/walker 的 metadata 视图一致，且 store 文件 rename 后仍可查询。
+- 新建 sec root/config/密文与 Transfer marker/work/export 使用 `0700/0600`；Transfer 明确不传播源 owner/mode/mtime，已有 root 目录不被递归 chmod，PlainFS 保持通用明文语义。
 - `native/ffi_sec_fs/runtime_operations.go` 只保存活动 operation 的 `context.CancelFunc`，结束即删除；sec V3 在扫描、复制和原子提交前检查取消。
 
 ### Go 后端
@@ -49,7 +54,7 @@
 
 - 安全记事本已完成。
 - 图片浏览器已完成。
-- 目录导入/导出 UI 已达到完整发布级交互；当前入口、路径、service、真实 FFI 分层证据已具备，但 `HomePage` 文件选择器与合并弹窗仍缺可注入式整页测试。
+- 目录导入/导出 UI 已有可注入选择器的 `HomePage` 整页测试，覆盖未认证 root 不提前读取、错误/正确密码、文件选择导入、目录合并确认、导入异常恢复和 unfinished operation 全量重跑；这些证据只证明当前 transfer 交互闭环，不代表整个 UI 已完成。
 - 增量加密 FFI 已发布并可从 Flutter 实际使用；当前仅有明确返回 unsupported 的 Dart stub。
 - 整个 UI 已完成。
 

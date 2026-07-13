@@ -336,6 +336,9 @@ func TestV3ImportFailureLeavesMarkerAndCleanRemovesIt(t *testing.T) {
 	if markers[0].Type != sec_transfer.OperationImport {
 		t.Fatalf("unexpected marker type: %s", markers[0].Type)
 	}
+	if markers[0].EntryKind != sec_transfer.EntryKindFile {
+		t.Fatalf("unexpected marker entry kind: %s", markers[0].EntryKind)
+	}
 	if err := manager.CleanUnfinishedImportExport(context.Background(), rootPath, markers[0].OpID); err != nil {
 		t.Fatal(err)
 	}
@@ -441,6 +444,63 @@ func TestV3CancellationKeepsMarkerAndDoesNotCommitPartialFiles(t *testing.T) {
 	}
 	if len(markers) != 1 || markers[0].Type != sec_transfer.OperationExport {
 		t.Fatalf("expected one canceled export marker, got %+v", markers)
+	}
+	if markers[0].EntryKind != sec_transfer.EntryKindFile {
+		t.Fatalf("unexpected export marker entry kind: %s", markers[0].EntryKind)
+	}
+}
+
+func TestV3DirectoryMarkersRecordEntryKind(t *testing.T) {
+	tmp := t.TempDir()
+	rootPath := filepath.Join(tmp, "root")
+	password := "marker-kind-password"
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(rootPath), password, defaultCreateRootOptions()...); err != nil {
+		t.Fatal(err)
+	}
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(rootPath), password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+
+	manager := New()
+	err = manager.ImportDirectory(context.Background(), sec_transfer.ImportDirectoryRequest{
+		Source:   sec_fs.FullStorePath(filepath.Join(tmp, "missing-source")),
+		DestRoot: root,
+		Dest:     "imported",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected directory import failure")
+	}
+	assertSingleMarkerKind(t, manager, rootPath, sec_transfer.OperationImport, sec_transfer.EntryKindDirectory)
+
+	markers, err := manager.ListUnfinishedOperations(context.Background(), rootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.CleanUnfinishedImportExport(context.Background(), rootPath, markers[0].OpID); err != nil {
+		t.Fatal(err)
+	}
+
+	err = manager.ExportDirectory(context.Background(), sec_transfer.ExportDirectoryRequest{
+		SourceRoot: root,
+		Source:     "missing-directory",
+		Dest:       sec_fs.FullStorePath(filepath.Join(tmp, "exported")),
+	}, nil)
+	if err == nil {
+		t.Fatal("expected directory export failure")
+	}
+	assertSingleMarkerKind(t, manager, rootPath, sec_transfer.OperationExport, sec_transfer.EntryKindDirectory)
+}
+
+func assertSingleMarkerKind(t *testing.T, manager *Manager, rootPath string, operationType sec_transfer.OperationType, entryKind sec_transfer.EntryKind) {
+	t.Helper()
+	markers, err := manager.ListUnfinishedOperations(context.Background(), rootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(markers) != 1 || markers[0].Type != operationType || markers[0].EntryKind != entryKind {
+		t.Fatalf("unexpected unfinished marker: %+v", markers)
 	}
 }
 
@@ -803,7 +863,7 @@ func TestV3RecoverConvertContinuesRenameWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := recoverFromMarker(rootPath, marker)
+	result, err := New().recoverFromMarker(rootPath, marker)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,15 +15,15 @@ type openedRoot struct {
 	Root     sec_fs.ISecRoot
 }
 
-func openRootForPath(path string, opts passwordOptions) (*openedRoot, func(), error) {
+func openRootForPath(path string, opts passwordOptions, durability ...sec_transfer.DurabilityLevel) (*openedRoot, func(), error) {
 	password, err := readPassword(opts)
 	if err != nil {
 		return nil, nil, err
 	}
-	return openRootForPathWithPassword(path, password)
+	return openRootForPathWithPassword(path, password, durability...)
 }
 
-func openRootForPathWithPassword(path string, password string) (*openedRoot, func(), error) {
+func openRootForPathWithPassword(path string, password string, durability ...sec_transfer.DurabilityLevel) (*openedRoot, func(), error) {
 	if path == "" {
 		return nil, nil, fmt.Errorf("path is required")
 	}
@@ -50,7 +50,11 @@ func openRootForPathWithPassword(path string, password string) (*openedRoot, fun
 	cleanup := func() {
 		_ = root.Close()
 	}
-	if err := handleUnfinished(rootPath, root); err != nil {
+	level := sec_transfer.DurabilityFull
+	if len(durability) > 0 {
+		level = durability[0]
+	}
+	if err := handleUnfinished(rootPath, root, level); err != nil {
 		cleanup()
 		return nil, nil, err
 	}

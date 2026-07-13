@@ -44,6 +44,8 @@ CLI 需要负责：
 - CLI 不再围绕 `sec_transfer/v2` 的 `TaskStatus`、`LoadTasks`、`ResumeAllTasks`、`Pause/Resume/Rollback` 设计。
 - import/export 不做持久化进度和断点续传。
 - 未完成 import/export 只保留 operation marker，用于下次打开 root 时提示全量重跑或清理。
+- import/export/create in-place 支持 `--durability=none|data|full`，默认 `full`；该值只影响本次 operation，不写入 marker。
+- CLI 新建 root、convert work 和导出对象采用 `0700/0600` 安全权限；不保留源 owner/mode/mtime，也不递归修改已存在目录权限。
 - convert 使用 phase marker 和目录切换恢复，不复用 v2 task 模型。
 
 后续实现应继续以 [TRANSFER_DESIGN.md](TRANSFER_DESIGN.md) 中的 operation marker 和 convert phase marker 为准。
@@ -340,7 +342,9 @@ Files imported: 80
 - `import --json` 和 `export --json` 已接入 V3 runtime callback。
 - `create --in-place --json` 已接入 convert runtime callback。
 - 普通 `create --path` 不涉及 transfer 进度，当前仍输出人类可读创建结果。
-- 仍未实现统一结构化错误输出；参数错误、密码错误等命令启动前错误仍由 Cobra/CLI 返回普通错误文本。
+- JSON 模式已有统一错误出口：参数缺失、密码错误、open-root 失败和 transfer 运行时失败均输出单行 `operation_failed` JSON，不混入 Cobra `Error:` 或 usage。
+- transfer callback 已报告失败时，命令返回的 error 会带“已报告”标记，root 出口不重复输出第二条失败事件。
+- 非 JSON 模式保持人类可读 `Error: ...` 到 stderr，同样不自动打印整段 usage。
 
 ## 底层 sec 设计要求
 
@@ -490,6 +494,7 @@ import _ "safe_disk/native/sec_fs/sec_transfer/v3"
 - 人工构造或中断一个 import operation。
 - 再次 list/open root 时能发现未完成 import/export marker。
 - `--unfinished=rerun` 能全量重跑并完成。
+- `--unfinished=rerun` 严格使用 marker 的 `entry_kind=file|directory`，不通过文件系统现状猜测；缺少字段的旧 marker 在清理前失败关闭。
 - `--unfinished=clean` 能清理 marker 和安全临时文件。
 - `--unfinished=skip` 不恢复、不清理。
 - 非交互模式默认不阻塞。

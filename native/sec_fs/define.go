@@ -12,6 +12,11 @@ import (
 	"safe_disk/native/config"
 )
 
+const (
+	SecureFileMode os.FileMode = 0600
+	SecureDirMode  os.FileMode = 0700
+)
+
 // ==================== Core Interfaces ====================
 
 // ISecFile defines the interface for a secure file with encryption support.
@@ -27,6 +32,9 @@ type ISecFile interface {
 
 	// Truncate changes the size of the file.
 	Truncate(size int64) error
+
+	// Sync commits the current contents of the file to stable storage.
+	Sync() error
 }
 
 // ISecFilePlus extends ISecFile with additional metadata and utility methods.
@@ -44,9 +52,6 @@ type ISecFilePlus interface {
 
 	// IsClosed returns true if the file has been closed.
 	IsClosed() bool
-
-	// Sync commits the current contents of the file to stable storage.
-	Sync() error
 }
 
 // ISecRoot defines the interface for a secure root directory.

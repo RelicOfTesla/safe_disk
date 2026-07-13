@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"safe_disk/native/sec_fs"
 	"safe_disk/native/sec_fs/sec_transfer"
 )
 
@@ -44,6 +45,10 @@ func validateOpID(opID string) error {
 }
 
 func writeMarker(rootPath string, marker sec_transfer.OperationMarker) error {
+	return New().writeMarker(rootPath, marker)
+}
+
+func (m *Manager) writeMarker(rootPath string, marker sec_transfer.OperationMarker) error {
 	if err := validateOpID(marker.OpID); err != nil {
 		return err
 	}
@@ -56,8 +61,13 @@ func writeMarker(rootPath string, marker sec_transfer.OperationMarker) error {
 	}
 	marker.UpdatedAt = now
 
-	if err := os.MkdirAll(activeDir(rootPath), 0755); err != nil {
+	if err := os.MkdirAll(activeDir(rootPath), sec_fs.SecureDirMode); err != nil {
 		return fmt.Errorf("create transfer marker dir: %w", err)
+	}
+	for _, path := range []string{filepath.Join(rootPath, baseDirName), activeDir(rootPath)} {
+		if err := os.Chmod(path, sec_fs.SecureDirMode); err != nil {
+			return fmt.Errorf("protect transfer marker dir: %w", err)
+		}
 	}
 
 	data, err := json.MarshalIndent(marker, "", "  ")
@@ -67,17 +77,51 @@ func writeMarker(rootPath string, marker sec_transfer.OperationMarker) error {
 
 	path := markerPath(rootPath, marker.OpID)
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0644); err != nil {
+	file, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, sec_fs.SecureFileMode)
+	if err != nil {
 		return fmt.Errorf("write marker: %w", err)
+	}
+	if err := file.Chmod(sec_fs.SecureFileMode); err != nil {
+		_ = file.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("protect marker: %w", err)
+	}
+	_, writeErr := file.Write(data)
+	if writeErr != nil {
+		_ = file.Close()
+		_ = os.Remove(tmp)
+		return fmt.Errorf("write marker: %w", writeErr)
+	}
+	syncErr := m.syncOSFile(file)
+	closeErr := file.Close()
+	if syncErr != nil || closeErr != nil {
+		_ = os.Remove(tmp)
+		if syncErr != nil {
+			return fmt.Errorf("sync marker: %w", syncErr)
+		}
+		return fmt.Errorf("close marker: %w", closeErr)
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("commit marker: %w", err)
 	}
+	if err := m.syncDir(activeDir(rootPath)); err != nil {
+		return fmt.Errorf("sync marker directory: %w", err)
+	}
+	if err := m.syncDir(filepath.Join(rootPath, baseDirName)); err != nil {
+		return fmt.Errorf("sync marker base directory: %w", err)
+	}
+	if err := m.syncDir(rootPath); err != nil {
+		return fmt.Errorf("sync marker root directory: %w", err)
+	}
 	return nil
 }
 
 func removeMarker(rootPath, opID string) error {
+	return New().removeMarker(rootPath, opID)
+}
+
+func (m *Manager) removeMarker(rootPath, opID string) error {
 	if err := validateOpID(opID); err != nil {
 		return err
 	}
@@ -85,7 +129,13 @@ func removeMarker(rootPath, opID string) error {
 	if os.IsNotExist(err) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	if err := m.syncDir(activeDir(rootPath)); err != nil {
+		return fmt.Errorf("sync marker directory: %w", err)
+	}
+	return nil
 }
 
 func readMarker(path string) (sec_transfer.OperationMarker, error) {

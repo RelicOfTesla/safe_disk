@@ -148,6 +148,7 @@ type keyInfo struct {
 }
 
 func (k *keyInfo) GetKey() []byte { return k.key }
+func (k *keyInfo) Destroy()       { crypto_hkdf.ClearKey(k.key); k.key = nil }
 
 // ==================== Compile-time Interface Verification ====================
 

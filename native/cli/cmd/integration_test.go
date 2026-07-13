@@ -65,6 +65,7 @@ func TestUnfinishedImportRerunOnOpenRoot(t *testing.T) {
 		Version:   3,
 		OpID:      "test-import-rerun",
 		Type:      sec_transfer.OperationImport,
+		EntryKind: sec_transfer.EntryKindFile,
 		Status:    "running",
 		Src:       sourceFile,
 		Dst:       "restored.txt",
@@ -101,6 +102,45 @@ func TestUnfinishedImportRerunOnOpenRoot(t *testing.T) {
 		t.Fatalf("Rerun imported content mismatch: got %q want %q", string(got[:n]), string(want))
 	}
 	assertNoTestMarker(t, encryptedDir, "test-import-rerun")
+}
+
+func TestUnfinishedRerunRejectsLegacyMarkerWithoutEntryKind(t *testing.T) {
+	tmpDir := t.TempDir()
+	encryptedDir := filepath.Join(tmpDir, "encrypted")
+	password := "legacy-marker-password"
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(encryptedDir), password); err != nil {
+		t.Fatal(err)
+	}
+	sourceFile := filepath.Join(tmpDir, "source.txt")
+	if err := os.WriteFile(sourceFile, []byte("must not import"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	const opID = "legacy-import-rerun"
+	writeTestMarker(t, encryptedDir, sec_transfer.OperationMarker{
+		Version: 3, OpID: opID, Type: sec_transfer.OperationImport,
+		Status: "running", Src: sourceFile, Dst: "restored.txt", Root: encryptedDir,
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	})
+
+	cmd := exec.Command("../safe-disk-test", "list",
+		"--password", password, "--path", encryptedDir, "--unfinished", "rerun")
+	output, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "entry_kind") {
+		t.Fatalf("expected entry_kind rejection, err=%v output=%s", err, output)
+	}
+	markerPath := filepath.Join(encryptedDir, ".transfer_v3", "active", opID+".json")
+	if _, err := os.Stat(markerPath); err != nil {
+		t.Fatalf("legacy marker was removed after rejected rerun: %v", err)
+	}
+
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(encryptedDir), password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	if root.FileExists("restored.txt") {
+		t.Fatal("legacy marker rerun created a destination")
+	}
 }
 
 func TestCLIImportExportWithEncryptedNames(t *testing.T) {
@@ -222,14 +262,16 @@ func TestCLIDoesNotLeakPasswordInCommandOutput(t *testing.T) {
 
 	output := runCLIAndRequireSuccess(t, "create",
 		"--path", rootPath,
-		"--password", password)
+		"--password", password,
+		"--durability", "full")
 	assertOutputDoesNotContain(t, output, password)
 
 	output = runCLIAndRequireSuccess(t, "import",
 		"--json",
 		"--password", password,
 		"--source", plainPath,
-		"--dest", filepath.Join(rootPath, "inside.txt"))
+		"--dest", filepath.Join(rootPath, "inside.txt"),
+		"--durability", "none")
 	assertOutputDoesNotContain(t, output, password)
 	assertJSONEvents(t, output, "import")
 
@@ -242,9 +284,37 @@ func TestCLIDoesNotLeakPasswordInCommandOutput(t *testing.T) {
 		"--json",
 		"--password", password,
 		"--source", filepath.Join(rootPath, "inside.txt"),
-		"--dest", exportPath)
+		"--dest", exportPath,
+		"--durability", "data")
 	assertOutputDoesNotContain(t, output, password)
 	assertJSONEvents(t, output, "export")
+}
+
+func TestCLIRejectsInvalidDurabilityBeforeCreatingPath(t *testing.T) {
+	rootPath := filepath.Join(t.TempDir(), "must-not-exist")
+	cmd := exec.Command("../safe-disk-test", "create",
+		"--path", rootPath,
+		"--password", "password",
+		"--durability", "invalid")
+	output, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "invalid --durability") {
+		t.Fatalf("expected invalid durability error, err=%v output=%s", err, output)
+	}
+	if _, statErr := os.Stat(rootPath); !os.IsNotExist(statErr) {
+		t.Fatalf("invalid durability created root path: %v", statErr)
+	}
+}
+
+func TestParseDurability(t *testing.T) {
+	for _, value := range []string{"none", "data", "full"} {
+		level, err := parseDurability(value)
+		if err != nil || string(level) != value {
+			t.Fatalf("parseDurability(%q) = %q, %v", value, level, err)
+		}
+	}
+	if _, err := parseDurability(""); err == nil {
+		t.Fatal("expected empty durability to be rejected by CLI")
+	}
 }
 
 func TestCreateNonEmptyDirectoryRequiresExplicitInPlaceInNonInteractiveMode(t *testing.T) {
@@ -309,6 +379,60 @@ func TestCreateNonEmptyDirectoryJSONRequiresExplicitInPlace(t *testing.T) {
 	}
 }
 
+func TestJSONStartupErrorIsSingleStructuredEvent(t *testing.T) {
+	cmd := exec.Command("../safe-disk-test", "import", "--json")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected missing source error, output: %s", output)
+	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected one JSON error line, got %d: %s", len(lines), output)
+	}
+	var event map[string]interface{}
+	if err := json.Unmarshal([]byte(lines[0]), &event); err != nil {
+		t.Fatalf("error output is not JSON: %v output=%s", err, output)
+	}
+	if event["event"] != "operation_failed" || !strings.Contains(event["error"].(string), "source path is required") {
+		t.Fatalf("unexpected JSON error: %+v", event)
+	}
+	if strings.Contains(string(output), "Error:") || strings.Contains(string(output), "Usage:") {
+		t.Fatalf("JSON error was polluted by Cobra output: %s", output)
+	}
+}
+
+func TestJSONWrongPasswordIsSingleStructuredEvent(t *testing.T) {
+	tmpDir := t.TempDir()
+	rootPath := filepath.Join(tmpDir, "root")
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(rootPath), "correct-password"); err != nil {
+		t.Fatal(err)
+	}
+	sourcePath := filepath.Join(tmpDir, "source.txt")
+	if err := os.WriteFile(sourcePath, []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("../safe-disk-test", "import", "--json",
+		"--src", sourcePath, "--dest", rootPath, "--password", "wrong-password")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected wrong password error, output: %s", output)
+	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("expected one JSON error line, got %d: %s", len(lines), output)
+	}
+	var event map[string]interface{}
+	if err := json.Unmarshal([]byte(lines[0]), &event); err != nil {
+		t.Fatalf("error output is not JSON: %v output=%s", err, output)
+	}
+	if event["event"] != "operation_failed" || event["error"] == "" {
+		t.Fatalf("unexpected JSON error: %+v", event)
+	}
+	if strings.Contains(string(output), "Error:") || strings.Contains(string(output), "Usage:") {
+		t.Fatalf("JSON error was polluted by Cobra output: %s", output)
+	}
+}
+
 func TestUnfinishedExportRerunOnOpenRoot(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "safe-disk-rerun-export-*")
 	if err != nil {
@@ -348,6 +472,7 @@ func TestUnfinishedExportRerunOnOpenRoot(t *testing.T) {
 		Version:   3,
 		OpID:      "test-export-rerun",
 		Type:      sec_transfer.OperationExport,
+		EntryKind: sec_transfer.EntryKindFile,
 		Status:    "running",
 		Src:       "inside.txt",
 		Dst:       destFile,

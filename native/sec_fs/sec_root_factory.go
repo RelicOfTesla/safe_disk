@@ -325,7 +325,7 @@ func createRootConfig(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, opti
 	}
 
 	// Ensure root directory exists
-	if err := os.MkdirAll(string(rootPath), 0755); err != nil {
+	if err := os.MkdirAll(string(rootPath), SecureDirMode); err != nil {
 		return nil, NewFullStorePathError("mkdir", rootPath, err)
 	}
 
@@ -380,12 +380,15 @@ func createRootConfig(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, opti
 		deriver, err := deriverFactory.NewDeriver(cfg)
 		if err == nil {
 			// Create a new key to generate and save parameters
-			_, err = deriver.NewKey(&crypto_hkdf.MakeKeyParams{
+			generatedKey, keyErr := deriver.NewKey(&crypto_hkdf.MakeKeyParams{
 				Password:      "", // Empty password for parameter generation
 				StaticSalt:    true,
 				KeyStrengthMs: opts.KeyStrengthMs,
 			}, cfg)
-			if err != nil {
+			if generatedKey != nil {
+				generatedKey.Destroy()
+			}
+			if keyErr != nil {
 				// Non-fatal: parameters may already exist
 			}
 		}
@@ -393,8 +396,11 @@ func createRootConfig(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, opti
 
 	// Create nameCryptor and save its parameters if available
 	if nameFactory != nil {
-		_, err = nameFactory.NewContext(keyInfo, cfg)
-		if err != nil {
+		nameContext, contextErr := nameFactory.NewContext(keyInfo, cfg)
+		if nameContext != nil {
+			defer nameContext.Close()
+		}
+		if contextErr != nil {
 			// Non-fatal: name encryption may work with defaults
 		}
 	}
@@ -439,7 +445,7 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 	}
 
 	// Ensure root directory exists
-	if err := os.MkdirAll(string(rootPath), 0755); err != nil {
+	if err := os.MkdirAll(string(rootPath), SecureDirMode); err != nil {
 		return nil, "", NewFullStorePathError("mkdir", rootPath, err)
 	}
 
@@ -518,17 +524,20 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 	if err != nil {
 		return nil, "", NewConfigError("key_derivation", "failed to create key", err)
 	}
-
-	// Create nameCryptor and save its parameters if available
-	if nameFactory != nil && keyInfo != nil {
-		_, err = nameFactory.NewContext(keyInfo, cfg)
-		if err != nil {
-			// Non-fatal: name encryption may work with defaults
-		}
-	}
-
 	if keyInfo == nil {
 		return nil, "", NewConfigError("key_derivation", "derived key is required", ErrInvalidConfig)
+	}
+	defer keyInfo.Destroy()
+
+	// Create nameCryptor and save its parameters if available
+	if nameFactory != nil {
+		nameContext, contextErr := nameFactory.NewContext(keyInfo, cfg)
+		if nameContext != nil {
+			defer nameContext.Close()
+		}
+		if contextErr != nil {
+			// Non-fatal: name encryption may work with defaults
+		}
 	}
 	if err := writePasswordVerifier(cfg, keyInfo.GetKey()); err != nil {
 		return nil, "", err
@@ -590,17 +599,29 @@ func OpenRootQuick(rootPath FullStorePath, inputPassword string, options ...Open
 	if err != nil {
 		return nil, NewConfigError("key_derivation", "failed to derive key", err)
 	}
+	if keyInfo == nil {
+		return nil, NewConfigError("key_derivation", "derived key is required", ErrInvalidConfig)
+	}
 	if err := verifyPassword(cfg, keyInfo.GetKey()); err != nil {
+		keyInfo.Destroy()
 		return nil, err
 	}
 
 	// Open root with derived keyInfo
-	return openRoot(rootPath, keyInfo, cfg, options...)
+	root, err := openRoot(rootPath, keyInfo, cfg, options...)
+	if err != nil {
+		keyInfo.Destroy()
+		return nil, err
+	}
+	return root, nil
 }
 
 // openRoot opens a secure root with pre-derived keyInfo.
 // This is an internal function that requires keyInfo to be pre-derived.
 func openRoot(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig, options ...OpenOption) (ISecRoot, error) {
+	if keyInfo == nil {
+		return nil, NewConfigError("keyInfo", "keyInfo is required", nil)
+	}
 	// Apply options
 	opts := applyOpenOptions(options...)
 
@@ -633,7 +654,11 @@ func openRoot(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, cfg config.S
 	}
 
 	// Create root using newRoot
-	return newRoot(rootPath, keyInfo, nameCryptor, dataFactory, cfg, opts.ignoreMatcher)
+	root, err := newRoot(rootPath, keyInfo, nameCryptor, dataFactory, cfg, opts.ignoreMatcher)
+	if err != nil && nameCryptor != nil {
+		_ = nameCryptor.Close()
+	}
+	return root, err
 }
 
 // newRoot creates a new ISecRoot with explicitly provided components.
@@ -682,7 +707,7 @@ func newRoot(
 	}
 
 	// Ensure root directory exists
-	if err := os.MkdirAll(string(rootPath), 0755); err != nil {
+	if err := os.MkdirAll(string(rootPath), SecureDirMode); err != nil {
 		return nil, NewFullStorePathError("mkdir", rootPath, err)
 	}
 
@@ -896,18 +921,17 @@ func CloneRootShallow(root ISecRoot) (ISecRoot, error) {
 		return nil, ErrRootClosed
 	}
 
-	// Create a new root object with the same configuration
-	// This is a shallow clone - the same directory, same configuration
-	cloned := &secRootImpl{
-		fileDataFactory: impl.fileDataFactory,
-		rootPathInfo:    impl.rootPathInfo,
-		keyInfo:         impl.keyInfo,
-		cfg:             impl.cfg,
-		closed:          false,
-		nameCryptor:     impl.nameCryptor,
-		ignoreMatcher:   impl.ignoreMatcher,
+	keyCopy := crypto_hkdf.NewKeyInfoCopy(impl.keyInfo.GetKey())
+	cloned, err := openRoot(
+		FullStorePath(impl.rootPathInfo.Encode()),
+		keyCopy,
+		impl.cfg,
+		WithIgnoreMatcher(impl.ignoreMatcher),
+	)
+	if err != nil {
+		keyCopy.Destroy()
+		return nil, err
 	}
-
 	return cloned, nil
 }
 
@@ -947,7 +971,7 @@ func CloneRoot(root ISecRoot, targetPath FullStorePath, password string) (ISecRo
 	srcPath := impl.rootPathInfo.Encode()
 
 	// Create target directory
-	if err := os.MkdirAll(string(targetPath), 0755); err != nil {
+	if err := os.MkdirAll(string(targetPath), SecureDirMode); err != nil {
 		return nil, fmt.Errorf("failed to create target directory: %w", err)
 	}
 

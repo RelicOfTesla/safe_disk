@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"safe_disk/native/sec_fs"
 	"safe_disk/native/sec_fs/sec_transfer"
@@ -11,7 +10,7 @@ import (
 
 var unfinishedPolicy string
 
-func handleUnfinished(rootPath sec_fs.FullStorePath, root sec_fs.ISecRoot) error {
+func handleUnfinished(rootPath sec_fs.FullStorePath, root sec_fs.ISecRoot, durability sec_transfer.DurabilityLevel) error {
 	if unfinishedPolicy == "" || unfinishedPolicy == "skip" {
 		return nil
 	}
@@ -46,7 +45,7 @@ func handleUnfinished(rootPath sec_fs.FullStorePath, root sec_fs.ISecRoot) error
 			if marker.Type != sec_transfer.OperationImport && marker.Type != sec_transfer.OperationExport {
 				return fmt.Errorf("cannot rerun unfinished %s operation automatically; use convert recovery", marker.Type)
 			}
-			if err := rerunImportExportMarker(manager, rootPath, root, marker); err != nil {
+			if err := rerunImportExportMarker(manager, rootPath, root, marker, durability); err != nil {
 				return err
 			}
 		}
@@ -56,49 +55,54 @@ func handleUnfinished(rootPath sec_fs.FullStorePath, root sec_fs.ISecRoot) error
 	}
 }
 
-func rerunImportExportMarker(manager sec_transfer.V3Transfer, rootPath sec_fs.FullStorePath, root sec_fs.ISecRoot, marker sec_transfer.OperationMarker) error {
-	if marker.Src == "" || marker.Dst == "" {
-		return fmt.Errorf("unfinished operation %s cannot rerun without src/dst", marker.OpID)
+func rerunImportExportMarker(manager sec_transfer.V3Transfer, rootPath sec_fs.FullStorePath, root sec_fs.ISecRoot, marker sec_transfer.OperationMarker, durability sec_transfer.DurabilityLevel) error {
+	if marker.EntryKind != sec_transfer.EntryKindFile && marker.EntryKind != sec_transfer.EntryKindDirectory {
+		return fmt.Errorf("unfinished operation %s cannot rerun without a valid entry_kind", marker.OpID)
 	}
-	fmt.Printf("Rerunning unfinished operation: %s type=%s\n", marker.OpID, marker.Type)
+	if marker.Type == sec_transfer.OperationImport && marker.Src == "" {
+		return fmt.Errorf("unfinished import %s cannot rerun without src", marker.OpID)
+	}
+	if marker.Type == sec_transfer.OperationExport && marker.Dst == "" {
+		return fmt.Errorf("unfinished export %s cannot rerun without dst", marker.OpID)
+	}
+	if marker.EntryKind == sec_transfer.EntryKindFile && marker.Dst == "" {
+		return fmt.Errorf("unfinished file operation %s cannot rerun without dst", marker.OpID)
+	}
+	fmt.Printf("Rerunning unfinished operation: %s type=%s entry_kind=%s\n", marker.OpID, marker.Type, marker.EntryKind)
 	if err := manager.CleanUnfinishedImportExport(context.Background(), string(rootPath), marker.OpID); err != nil {
 		return fmt.Errorf("failed to clean stale marker before rerun %s: %w", marker.OpID, err)
 	}
+	var err error
 	switch marker.Type {
 	case sec_transfer.OperationImport:
-		info, err := os.Stat(marker.Src)
-		if err != nil {
-			return fmt.Errorf("failed to stat import source for rerun %s: %w", marker.OpID, err)
-		}
-		if info.IsDir() {
+		if marker.EntryKind == sec_transfer.EntryKindDirectory {
 			err = manager.ImportDirectory(context.Background(), sec_transfer.ImportDirectoryRequest{
-				Source:    sec_fs.FullStorePath(marker.Src),
-				DestRoot:  root,
-				Dest:      sec_fs.RelativeViewPath(marker.Dst),
-				Overwrite: true,
+				Source:     sec_fs.FullStorePath(marker.Src),
+				DestRoot:   root,
+				Dest:       sec_fs.RelativeViewPath(marker.Dst),
+				Overwrite:  true,
+				Durability: durability,
 			}, progressPrinter("Importing"))
 		} else {
 			err = manager.ImportFile(context.Background(), sec_transfer.ImportFileRequest{
-				Source:    sec_fs.FullStorePath(marker.Src),
-				DestRoot:  root,
-				Dest:      sec_fs.RelativeViewPath(marker.Dst),
-				Overwrite: true,
+				Source:     sec_fs.FullStorePath(marker.Src),
+				DestRoot:   root,
+				Dest:       sec_fs.RelativeViewPath(marker.Dst),
+				Overwrite:  true,
+				Durability: durability,
 			}, progressPrinter("Importing"))
 		}
 		if err != nil {
 			return fmt.Errorf("failed to rerun import %s: %w", marker.OpID, err)
 		}
 	case sec_transfer.OperationExport:
-		info, err := root.Stat(sec_fs.RelativeViewPath(marker.Src))
-		if err != nil {
-			return fmt.Errorf("failed to stat export source for rerun %s: %w", marker.OpID, err)
-		}
-		if info.IsDir() {
+		if marker.EntryKind == sec_transfer.EntryKindDirectory {
 			err = manager.ExportDirectory(context.Background(), sec_transfer.ExportDirectoryRequest{
 				SourceRoot: root,
 				Source:     sec_fs.RelativeViewPath(marker.Src),
 				Dest:       sec_fs.FullStorePath(marker.Dst),
 				Overwrite:  true,
+				Durability: durability,
 			}, progressPrinter("Exporting"))
 		} else {
 			err = manager.ExportFile(context.Background(), sec_transfer.ExportFileRequest{
@@ -106,6 +110,7 @@ func rerunImportExportMarker(manager sec_transfer.V3Transfer, rootPath sec_fs.Fu
 				Source:     sec_fs.RelativeViewPath(marker.Src),
 				Dest:       sec_fs.FullStorePath(marker.Dst),
 				Overwrite:  true,
+				Durability: durability,
 			}, progressPrinter("Exporting"))
 		}
 		if err != nil {

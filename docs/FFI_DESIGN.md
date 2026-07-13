@@ -159,6 +159,8 @@ FFI 不自行实现密码算法，也不能通过“列目录是否为空”判�
 
 ### Transfer V3 生命周期
 
+Transfer V3 的 C ABI 当前固定使用 `full` durability。Go 公共 request 和 CLI 虽支持 per-operation `none/data/full`，FFI 不提供 process-wide setter，避免多个 Dart isolate 或并发 operation 相互覆盖全局落盘策略。若后续需要开放，应新增每次调用显式携带 options 的 ABI，并保留现有函数的 `full` 默认语义。
+
 import/export 不再创建 `ITask`，也不返回 `task_id`。
 
 1. Flutter 调用 V3 transfer 函数，Go 注册一次性 runtime cancel handle。
@@ -211,7 +213,7 @@ import/export 不再创建 `ITask`，也不返回 `task_id`。
 当前缺口：
 
 - `ClearSecureMemory` 已通过 `sec_clear_secure_memory` 和 Dart `NativeLib.clearSecureBytes/clearSecureMemory` 暴露；字符串清理属于 best-effort，只能清理 UTF-8 byte copy，不能保证 Dart `String` 对象原地清零。
-- Go 后端并非所有敏感对象 close 时都执行清零。
+- Go sec root close 已关闭 name cryptor 并销毁 KDF keyInfo，失败打开与 shallow clone 也有独立生命周期测试；但标准库 cipher 内部展开状态和 Dart `String` 仍不能声称可完全清零。
 
 ## 注册与自举
 
@@ -243,6 +245,7 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 
 - Flutter 可以导入普通目录到加密 root。
 - Flutter 可以导出加密目录到普通文件系统。
+- unfinished marker 通过 `entry_kind` 明确区分文件与目录，UI 不从路径或存在性猜测重跑类型。
 - 支持文件和目录。
 - 支持运行时 callback 进度回调。
 - 支持查询未完成 import/export operation marker。
@@ -265,12 +268,10 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 - FFI 提供一次性 runtime operation handle；`sec_transfer_v3_cancel` 只触发进程内 `context.CancelFunc`，操作结束立即移除，不保存 task 或进度。
 - Flutter 目录导出 UI 已接真实取消；handle 尚未 active 时拒绝关闭进度框，取消成功后保留 unfinished marker 供下次打开时清理或全量重跑。
 - Flutter 已提供独立目录导入入口：所选普通目录作为当前加密目录的子目录导入，支持合并覆盖确认、进度和真实取消。
+- Flutter 打开 root 时可选择 unfinished operation 全量重跑；Dart service 先校验 `type/entry_kind/src/dst`，再清理旧 marker 并调用对应文件/目录 import/export，页面显示运行时进度并支持取消。
+- `HomePage` 已支持 service 与文件/目录选择器注入，整页 widget 测试覆盖未认证 root 不提前列目录、错误密码后重试、文件字节导入、目录合并确认和 transfer 失败后关闭进度框。
+- 文件导入直接读取 `XFile` 字节，不再假定选择器一定返回可由 `dart:io File` 打开的本地路径。
 - 空目录 FFI 响应固定为 JSON `[]`，Dart 绑定同时兼容历史 `null`；真实 FFI 测试覆盖加密目录名下的空目录往返。
-
-收口顺序：
-
-1. 继续覆盖 `HomePage` 文件选择器、合并确认和异常恢复的完整 widget 测试。
-2. 增加 UI 级 unfinished operation 全量重跑入口。
 
 ## 增量加密接口
 
@@ -292,8 +293,6 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 
 | 问题 | 影响 | 建议优先级 |
 |------|------|------------|
-| `HomePage` 缺少可注入文件选择器的完整交互测试 | 基础入口、目标路径、service 和真实 FFI 分层测试已覆盖，但完整页面状态机仍是间接证据 | P1 |
-| UI unfinished marker 仅支持清理/跳过 | 还没有 UI 级全量重跑入口 | P2 |
 | 增量加密 FFI 仅有设计文档 | 文档容易误导进度判断 | P2 |
 
 ## 验收标准

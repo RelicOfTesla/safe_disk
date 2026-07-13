@@ -13,8 +13,8 @@ import (
 	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_ctr"
 	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_xts"
 	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/chacha20"
-	"safe_disk/native/sec_fs/crypto_data/crypt_utils/random_access_adapter"
 	"safe_disk/native/sec_fs/crypto_data/algorithm_impl/rc4"
+	"safe_disk/native/sec_fs/crypto_data/crypt_utils/random_access_adapter"
 	"safe_disk/native/sec_fs/crypto_hkdf"
 )
 
@@ -463,6 +463,11 @@ type mockKeyInfo struct {
 
 func (m *mockKeyInfo) GetKey() []byte {
 	return m.key
+}
+
+func (m *mockKeyInfo) Destroy() {
+	clear(m.key)
+	m.key = nil
 }
 
 // ==================== Helper Functions ====================

@@ -33,11 +33,11 @@ func (f *fileContext) Size() int64 {
 
 // ==================== secFileImpl Implementation ====================
 
-
 // Compile-time interface verification
 var _ crypto_data.IFileContext = (*fileContext)(nil)
 var _ crypto_data.IFullFileContext = (*fileContext)(nil)
 var _ crypto_data.IFullFileContext = (*secFileImpl)(nil)
+
 // secFileImpl implements ISecFile and ISecFilePlus interfaces.
 // It delegates file operations to an IDataCryptorContext instance.
 type secFileImpl struct {
@@ -45,14 +45,15 @@ type secFileImpl struct {
 	// This field is private and all operations are delegated to it.
 	impl crypto_data.IDataCryptorContext
 
+	// storeFile provides metadata for the encrypted backing file. The cryptor
+	// context owns its I/O lifecycle; this reference is not closed separately.
+	storeFile *os.File
+
 	// relativeViewPath is the relative path from the user's perspective.
 	relativeViewPath RelativeViewPath
 
 	// fullStorePath is the full path from the storage perspective.
 	fullStorePath FullStorePath
-
-	// mode is the file mode (permissions).
-	mode os.FileMode
 
 	// closed indicates whether the file has been closed.
 	closed bool
@@ -179,11 +180,15 @@ func (f *secFileImpl) Stat() (fs.FileInfo, error) {
 		return nil, ErrFileClosed
 	}
 
-	// Create a FileInfo with current file information
+	storeInfo, err := f.storeFile.Stat()
+	if err != nil {
+		return nil, NewFullStorePathError("stat", f.fullStorePath, err)
+	}
 	info := &fileInfoImpl{
-		name: f.relativeViewPath.String(),
-		size: f.impl.Size(),
-		mode: f.mode,
+		name:    f.relativeViewPath.String(),
+		size:    f.impl.Size(),
+		mode:    storeInfo.Mode(),
+		modTime: storeInfo.ModTime(),
 	}
 
 	return info, nil
@@ -193,10 +198,19 @@ func (f *secFileImpl) Stat() (fs.FileInfo, error) {
 
 // Mode returns the file mode (permissions).
 func (f *secFileImpl) Mode() os.FileMode {
-	if f == nil {
+	if f == nil || f.storeFile == nil {
 		return 0
 	}
-	return f.mode
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	if f.closed {
+		return 0
+	}
+	info, err := f.storeFile.Stat()
+	if err != nil {
+		return 0
+	}
+	return info.Mode()
 }
 
 // RelativeViewPath returns the relative path from the user's perspective.
@@ -247,15 +261,16 @@ func (f *secFileImpl) Sync() error {
 
 // fileInfoImpl implements fs.FileInfo interface.
 type fileInfoImpl struct {
-	name string
-	size int64
-	mode os.FileMode
+	name    string
+	size    int64
+	mode    os.FileMode
+	modTime time.Time
 }
 
 func (fi *fileInfoImpl) Name() string       { return fi.name }
 func (fi *fileInfoImpl) Size() int64        { return fi.size }
 func (fi *fileInfoImpl) Mode() fs.FileMode  { return fi.mode }
-func (fi *fileInfoImpl) ModTime() time.Time { return time.Time{} }
+func (fi *fileInfoImpl) ModTime() time.Time { return fi.modTime }
 func (fi *fileInfoImpl) IsDir() bool        { return fi.mode.IsDir() }
 func (fi *fileInfoImpl) Sys() any           { return nil }
 

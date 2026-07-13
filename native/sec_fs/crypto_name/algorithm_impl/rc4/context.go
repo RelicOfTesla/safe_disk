@@ -8,6 +8,7 @@ import (
 	"safe_disk/native/config"
 	"safe_disk/native/sec_fs/crypto_hkdf"
 	"safe_disk/native/sec_fs/crypto_name"
+	"safe_disk/native/sec_fs/internal/utils"
 )
 
 // Context implements INameCryptorContext for RC4 encryption.
@@ -24,14 +25,15 @@ func NewContext(keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (*Context
 		return nil, ErrEmptyKey
 	}
 
+	ownedKey := append([]byte(nil), key...)
 	// Create RC4 cipher
-	cipher, err := rc4.NewCipher(key)
+	cipher, err := rc4.NewCipher(ownedKey)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Context{
-		key:    key,
+		key:    ownedKey,
 		cipher: cipher,
 	}, nil
 }
@@ -88,6 +90,13 @@ func (c *Context) DecryptName(encrypted string) (string, error) {
 	cipher.XORKeyStream(decrypted, decrypted)
 
 	return string(decrypted), nil
+}
+
+func (c *Context) Close() error {
+	utils.MemZero(c.key)
+	c.key = nil
+	c.cipher = nil
+	return nil
 }
 
 // Compile-time interface verification

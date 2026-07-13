@@ -153,13 +153,13 @@ func (r *secRootImpl) OpenFile(path RelativeViewPath, mode int) (ISecFile, error
 	// Ensure parent directory exists for write operations
 	if mode&os.O_WRONLY != 0 || mode&os.O_RDWR != 0 || mode&os.O_CREATE != 0 {
 		parentDir := filepath.Dir(string(fullPath))
-		if err := os.MkdirAll(parentDir, 0755); err != nil {
+		if err := os.MkdirAll(parentDir, SecureDirMode); err != nil {
 			return nil, NewFullStorePathError("mkdir", FullStorePath(parentDir), err)
 		}
 	}
 
 	// Open or create the underlying file
-	file, err := os.OpenFile(string(fullPath), mode, 0644)
+	file, err := os.OpenFile(string(fullPath), mode, SecureFileMode)
 	if err != nil {
 		return nil, NewPairPathError("open", path, fullPath, err)
 	}
@@ -174,6 +174,7 @@ func (r *secRootImpl) OpenFile(path RelativeViewPath, mode int) (ISecFile, error
 	// Create and return the secFileImpl
 	secFile := &secFileImpl{
 		impl:             cryptorContext,
+		storeFile:        file,
 		relativeViewPath: path,
 		fullStorePath:    fullPath,
 	}
@@ -192,7 +193,16 @@ func (r *secRootImpl) Close() error {
 		return nil
 	}
 	r.closed = true
-	return nil
+	var closeErr error
+	if r.nameCryptor != nil {
+		closeErr = r.nameCryptor.Close()
+		r.nameCryptor = nil
+	}
+	if r.keyInfo != nil {
+		r.keyInfo.Destroy()
+		r.keyInfo = nil
+	}
+	return closeErr
 }
 
 // DeleteFile deletes a file at the given relative view path.
@@ -258,7 +268,7 @@ func (r *secRootImpl) MkdirAll(path RelativeViewPath) error {
 		return err
 	}
 
-	return os.MkdirAll(string(fullPath), 0755)
+	return os.MkdirAll(string(fullPath), SecureDirMode)
 }
 
 // Rename renames a file or directory from oldPath to newPath.

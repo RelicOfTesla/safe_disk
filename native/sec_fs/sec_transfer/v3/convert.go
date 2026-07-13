@@ -47,10 +47,13 @@ func (m *Manager) ConvertRoot(ctx context.Context, req sec_transfer.ConvertReque
 		return err
 	}
 	defer lock.release()
-	return m.convertRoot(ctx, rootPath, req, cb)
+	return m.withDurability(req.Durability).convertRoot(ctx, rootPath, req, cb)
 }
 
 func (m *Manager) convertRoot(ctx context.Context, rootPath string, req sec_transfer.ConvertRequest, cb sec_transfer.V3ProgressCallback) error {
+	if err := m.validateDurability(); err != nil {
+		return err
+	}
 	opID := newOpID(string(req.Kind))
 	work := rootPath + ".safe_disk.work." + opID
 	backup := rootPath + ".safe_disk.backup." + opID
@@ -68,7 +71,7 @@ func (m *Manager) convertRoot(ctx context.Context, rootPath string, req sec_tran
 		Work:   work,
 		Backup: backup,
 	}
-	if err := writeMarker(rootPath, marker); err != nil {
+	if err := m.writeMarker(rootPath, marker); err != nil {
 		return err
 	}
 
@@ -82,11 +85,14 @@ func (m *Manager) convertRoot(ctx context.Context, rootPath string, req sec_tran
 }
 
 func (m *Manager) convertEncrypt(ctx context.Context, marker sec_transfer.OperationMarker, password string, overwrite bool, cb sec_transfer.V3ProgressCallback) error {
-	if err := os.MkdirAll(marker.Work, 0755); err != nil {
+	if err := m.mkdirAllPath(marker.Work, sec_fs.SecureDirMode); err != nil {
 		return err
 	}
+	if err := os.Chmod(marker.Work, sec_fs.SecureDirMode); err != nil {
+		return fmt.Errorf("protect convert work: %w", err)
+	}
 	marker.Phase = phaseCopyingToWork
-	if err := writeMarker(marker.Root, marker); err != nil {
+	if err := m.writeMarker(marker.Root, marker); err != nil {
 		return err
 	}
 	m.checkpoint(checkpointCopyingWork, marker)
@@ -110,7 +116,7 @@ func (m *Manager) convertEncrypt(ctx context.Context, marker sec_transfer.Operat
 		return err
 	}
 	marker.Phase = phaseVerifyingWork
-	if err := writeMarker(marker.Root, marker); err != nil {
+	if err := m.writeMarker(marker.Root, marker); err != nil {
 		return err
 	}
 	m.checkpoint(checkpointVerifyingWork, marker)
@@ -129,11 +135,14 @@ func (m *Manager) convertEncrypt(ctx context.Context, marker sec_transfer.Operat
 }
 
 func (m *Manager) convertDecrypt(ctx context.Context, marker sec_transfer.OperationMarker, password string, overwrite bool, cb sec_transfer.V3ProgressCallback) error {
-	if err := os.MkdirAll(marker.Work, 0755); err != nil {
+	if err := m.mkdirAllPath(marker.Work, sec_fs.SecureDirMode); err != nil {
 		return err
 	}
+	if err := os.Chmod(marker.Work, sec_fs.SecureDirMode); err != nil {
+		return fmt.Errorf("protect convert work: %w", err)
+	}
 	marker.Phase = phaseCopyingToWork
-	if err := writeMarker(marker.Root, marker); err != nil {
+	if err := m.writeMarker(marker.Root, marker); err != nil {
 		return err
 	}
 	m.checkpoint(checkpointCopyingWork, marker)
@@ -151,7 +160,7 @@ func (m *Manager) convertDecrypt(ctx context.Context, marker sec_transfer.Operat
 		return err
 	}
 	marker.Phase = phaseVerifyingWork
-	if err := writeMarker(marker.Root, marker); err != nil {
+	if err := m.writeMarker(marker.Root, marker); err != nil {
 		_ = root.Close()
 		return err
 	}
@@ -168,33 +177,33 @@ func (m *Manager) convertDecrypt(ctx context.Context, marker sec_transfer.Operat
 
 func (m *Manager) commitConvertRename(marker sec_transfer.OperationMarker) error {
 	marker.Phase = phaseRenamingRootToBackup
-	if err := writeMarker(marker.Root, marker); err != nil {
+	if err := m.writeMarker(marker.Root, marker); err != nil {
 		return err
 	}
 	m.checkpoint(checkpointBeforeRootRename, marker)
-	if err := os.Rename(marker.Root, marker.Backup); err != nil {
+	if err := m.renamePath(marker.Root, marker.Backup); err != nil {
 		return err
 	}
-	if err := writeMarker(marker.Backup, marker); err != nil {
+	if err := m.writeMarker(marker.Backup, marker); err != nil {
 		return err
 	}
 	m.checkpoint(checkpointAfterRootRename, marker)
 	marker.Phase = phaseRenamingWorkToRoot
-	if err := writeMarker(marker.Backup, marker); err != nil {
+	if err := m.writeMarker(marker.Backup, marker); err != nil {
 		return err
 	}
-	if err := os.Rename(marker.Work, marker.Root); err != nil {
+	if err := m.renamePath(marker.Work, marker.Root); err != nil {
 		return err
 	}
 	m.checkpoint(checkpointAfterWorkRename, marker)
 	marker.Phase = phaseCompleted
 	marker.Status = "completed"
-	if err := writeMarker(marker.Root, marker); err != nil {
+	if err := m.writeMarker(marker.Root, marker); err != nil {
 		return err
 	}
 	m.checkpoint(checkpointCompletedMarker, marker)
-	_ = removeMarker(marker.Root, marker.OpID)
-	_ = removeMarker(marker.Backup, marker.OpID)
+	_ = m.removeMarker(marker.Root, marker.OpID)
+	_ = m.removeMarker(marker.Backup, marker.OpID)
 	return nil
 }
 
@@ -215,6 +224,9 @@ func (m *Manager) RecoverConvert(ctx context.Context, rootPath string) (sec_tran
 }
 
 func (m *Manager) recoverConvert(ctx context.Context, absRootPath string) (sec_transfer.RecoverResult, error) {
+	if err := m.validateDurability(); err != nil {
+		return sec_transfer.RecoverResult{}, err
+	}
 	markers, err := findConvertMarkers(absRootPath)
 	if err != nil {
 		return sec_transfer.RecoverResult{}, err
@@ -236,7 +248,7 @@ func (m *Manager) recoverConvert(ctx context.Context, absRootPath string) (sec_t
 		if marker.Type != sec_transfer.OperationConvertEncrypt && marker.Type != sec_transfer.OperationConvertDecrypt {
 			continue
 		}
-		return recoverFromMarker(absRootPath, marker)
+		return m.recoverFromMarker(absRootPath, marker)
 	}
 	return sec_transfer.RecoverResult{Action: sec_transfer.RecoverActionNone, Message: "no convert marker found"}, nil
 }
@@ -277,7 +289,7 @@ func findConvertMarkers(rootPath string) ([]sec_transfer.OperationMarker, error)
 	return markers, nil
 }
 
-func recoverFromMarker(rootPath string, marker sec_transfer.OperationMarker) (sec_transfer.RecoverResult, error) {
+func (m *Manager) recoverFromMarker(rootPath string, marker sec_transfer.OperationMarker) (sec_transfer.RecoverResult, error) {
 	result := sec_transfer.RecoverResult{
 		Marker:       marker,
 		RootExists:   pathExists(marker.Root),
@@ -297,13 +309,13 @@ func recoverFromMarker(rootPath string, marker sec_transfer.OperationMarker) (se
 			return result, nil
 		}
 		if result.WorkExists {
-			if err := os.RemoveAll(marker.Work); err != nil {
+			if err := m.removeAllPath(marker.Work); err != nil {
 				result.Action = sec_transfer.RecoverActionNeedsAttention
 				result.Message = fmt.Sprintf("remove incomplete convert work: %v", err)
 				return result, nil
 			}
 		}
-		if err := removeMarker(marker.Root, marker.OpID); err != nil {
+		if err := m.removeMarker(marker.Root, marker.OpID); err != nil {
 			result.Action = sec_transfer.RecoverActionNeedsAttention
 			result.Message = fmt.Sprintf("remove incomplete convert marker: %v", err)
 			return result, nil
@@ -312,27 +324,27 @@ func recoverFromMarker(rootPath string, marker sec_transfer.OperationMarker) (se
 		result.Message = "incomplete work and marker were removed; rerun convert from the source root"
 	case phaseRenamingRootToBackup:
 		if result.RootExists && result.WorkExists && !result.BackupExists {
-			if err := os.Rename(marker.Root, marker.Backup); err != nil {
+			if err := m.renamePath(marker.Root, marker.Backup); err != nil {
 				result.Action = sec_transfer.RecoverActionNeedsAttention
 				result.Message = err.Error()
 				return result, nil
 			}
 			marker.Phase = phaseRenamingWorkToRoot
-			if err := writeMarker(marker.Backup, marker); err != nil {
+			if err := m.writeMarker(marker.Backup, marker); err != nil {
 				result.Action = sec_transfer.RecoverActionNeedsAttention
 				result.Message = err.Error()
 				return result, nil
 			}
-			return finishRecoveredWorkRename(marker, result)
+			return m.finishRecoveredWorkRename(marker, result)
 		}
 		fallthrough
 	case phaseRenamingWorkToRoot:
 		if !result.RootExists && result.WorkExists && result.BackupExists {
-			return finishRecoveredWorkRename(marker, result)
+			return m.finishRecoveredWorkRename(marker, result)
 		}
 		if result.RootExists && !result.WorkExists && result.BackupExists {
-			_ = removeMarker(marker.Root, marker.OpID)
-			_ = removeMarker(marker.Backup, marker.OpID)
+			_ = m.removeMarker(marker.Root, marker.OpID)
+			_ = m.removeMarker(marker.Backup, marker.OpID)
 			result.Action = sec_transfer.RecoverActionCompleted
 			result.Message = "root exists and backup is preserved"
 			return result, nil
@@ -340,8 +352,8 @@ func recoverFromMarker(rootPath string, marker sec_transfer.OperationMarker) (se
 		result.Action = sec_transfer.RecoverActionNeedsAttention
 		result.Message = "cannot determine safe rename recovery"
 	case phaseCompleted:
-		_ = removeMarker(marker.Root, marker.OpID)
-		_ = removeMarker(marker.Backup, marker.OpID)
+		_ = m.removeMarker(marker.Root, marker.OpID)
+		_ = m.removeMarker(marker.Backup, marker.OpID)
 		result.Action = sec_transfer.RecoverActionCompleted
 		result.Message = "convert already completed; stale markers were cleaned"
 	default:
@@ -351,14 +363,14 @@ func recoverFromMarker(rootPath string, marker sec_transfer.OperationMarker) (se
 	return result, nil
 }
 
-func finishRecoveredWorkRename(marker sec_transfer.OperationMarker, result sec_transfer.RecoverResult) (sec_transfer.RecoverResult, error) {
-	if err := os.Rename(marker.Work, marker.Root); err != nil {
+func (m *Manager) finishRecoveredWorkRename(marker sec_transfer.OperationMarker, result sec_transfer.RecoverResult) (sec_transfer.RecoverResult, error) {
+	if err := m.renamePath(marker.Work, marker.Root); err != nil {
 		result.Action = sec_transfer.RecoverActionNeedsAttention
 		result.Message = err.Error()
 		return result, nil
 	}
-	_ = removeMarker(marker.Root, marker.OpID)
-	_ = removeMarker(marker.Backup, marker.OpID)
+	_ = m.removeMarker(marker.Root, marker.OpID)
+	_ = m.removeMarker(marker.Backup, marker.OpID)
 	result.Action = sec_transfer.RecoverActionContinueRename
 	result.Message = "pending convert renames completed; backup is preserved"
 	return result, nil

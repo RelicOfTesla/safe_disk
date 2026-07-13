@@ -149,6 +149,8 @@ func (f *mockSecFile) Truncate(size int64) error {
 	return nil
 }
 
+func (f *mockSecFile) Sync() error { return nil }
+
 // mockWalker is a mock implementation of IDirWalker.
 type mockWalker struct {
 	root  *mockSecRoot

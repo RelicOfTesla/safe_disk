@@ -20,6 +20,7 @@ var (
 	importDestPath      string
 	importSkipRecursive bool
 	importJSON          bool
+	importDurability    string
 )
 
 var importCmd = &cobra.Command{
@@ -28,6 +29,10 @@ var importCmd = &cobra.Command{
 	Long:  "Import plaintext files into an encrypted root directory.",
 	Args:  cobra.MaximumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		durability, err := parseDurability(importDurability)
+		if err != nil {
+			return err
+		}
 		if _importSrcPath == "" {
 			return fmt.Errorf("source path is required")
 		}
@@ -51,7 +56,7 @@ var importCmd = &cobra.Command{
 			return fmt.Errorf("destination path is required")
 		}
 
-		opened, cleanup, err := openRootForPathWithPassword(importDestPath, password)
+		opened, cleanup, err := openRootForPathWithPassword(importDestPath, password, durability)
 		if err != nil {
 			return err
 		}
@@ -90,6 +95,7 @@ var importCmd = &cobra.Command{
 				Dest:          destRelative,
 				SkipRecursive: importSkipRecursive,
 				Overwrite:     true,
+				Durability:    durability,
 			}, callback)
 		} else {
 			fileDest := destRelative
@@ -102,18 +108,20 @@ var importCmd = &cobra.Command{
 				fmt.Printf("Importing file: %s -> %s\n", importSrcPath, importDestPath)
 			}
 			err = transferService.ImportFile(context.Background(), sec_transfer.ImportFileRequest{
-				Source:    importSrcPath,
-				DestRoot:  root,
-				Dest:      fileDest,
-				Overwrite: true,
+				Source:     importSrcPath,
+				DestRoot:   root,
+				Dest:       fileDest,
+				Overwrite:  true,
+				Durability: durability,
 			}, callback)
 		}
 
 		if err != nil {
+			wrapped := fmt.Errorf("import failed: %w", err)
 			if jsonReporter != nil {
-				jsonReporter.Failed(err)
+				return jsonReporter.WrapError(wrapped)
 			}
-			return fmt.Errorf("import failed: %w", err)
+			return wrapped
 		}
 
 		if !importJSON {
@@ -133,5 +141,6 @@ func init() {
 	importCmd.Flags().StringVarP(&importDestPath, "dest", "d", "", "Destination path (encrypted)")
 	importCmd.Flags().BoolVarP(&importSkipRecursive, "skip-recursive", "n", false, "Import directory non-recursively")
 	importCmd.Flags().BoolVar(&importJSON, "json", false, "Output JSON Lines progress events")
+	importCmd.Flags().StringVar(&importDurability, "durability", "full", durabilityFlagUsage)
 	importCmd.Flags().StringVar(&unfinishedPolicy, "unfinished", "skip", "Unfinished operation policy: skip, ask, clean, rerun")
 }

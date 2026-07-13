@@ -898,6 +898,8 @@ func (m *mockNameCryptor) DecryptName(encrypted string) (string, error) {
 	return encrypted, nil
 }
 
+func (m *mockNameCryptor) Close() error { return nil }
+
 // mockIgnoreMatcher implements IIgnoreMatcher for testing
 type mockIgnoreMatcher struct {
 	shouldIgnoreFunc1 func(encryptedName string, isDir bool) bool
@@ -932,6 +934,11 @@ type testKeyInfo struct {
 
 func (k *testKeyInfo) GetKey() []byte {
 	return k.key
+}
+
+func (k *testKeyInfo) Destroy() {
+	clear(k.key)
+	k.key = nil
 }
 
 // Compile-time interface verification for testKeyInfo
@@ -1018,6 +1025,8 @@ func (c *testAESGCMCryptor) DecryptName(encrypted string) (string, error) {
 
 	return string(plaintext), nil
 }
+
+func (c *testAESGCMCryptor) Close() error { return nil }
 
 // Compile-time interface verification for testAESGCMCryptor
 var _ crypto_name.INameCryptorContext = (*testAESGCMCryptor)(nil)

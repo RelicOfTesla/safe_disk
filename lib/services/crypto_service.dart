@@ -29,7 +29,7 @@ import '../models/cryption_config.dart';
 /// cryptoService.closeRoot(rootID);
 /// ```
 class CryptoService {
-  final NativeLib _native = NativeLib.instance;
+  NativeLib get _native => NativeLib.instance;
   static final Map<int, String> _rootPaths = {};
 
   // ==================== ROOT OPERATIONS ====================

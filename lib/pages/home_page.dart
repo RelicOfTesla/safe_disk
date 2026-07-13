@@ -22,8 +22,29 @@ import 'dialogs.dart';
 
 export '../models/view_mode.dart';
 
+enum _UnfinishedAction { skip, clean, rerun }
+
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({
+    super.key,
+    this.cryptoService,
+    this.directoryService,
+    this.fileService,
+    this.persistenceService,
+    this.selectDirectory,
+    this.selectFile,
+    this.selectSaveLocation,
+  });
+
+  final CryptoService? cryptoService;
+  final DirectoryService? directoryService;
+  final FileService? fileService;
+  final DirectoryPersistenceService? persistenceService;
+  final Future<String?> Function()? selectDirectory;
+  final Future<XFile?> Function(List<XTypeGroup> acceptedTypeGroups)?
+      selectFile;
+  final Future<FileSaveLocation?> Function(String suggestedName)?
+      selectSaveLocation;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -31,11 +52,10 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final CryptoService _cryptoService = CryptoService();
-  final DirectoryService _directoryService = DirectoryService();
+  late final CryptoService _cryptoService;
+  late final DirectoryService _directoryService;
   late final FileService _fileService;
-  final DirectoryPersistenceService _persistenceService =
-      DirectoryPersistenceService();
+  late final DirectoryPersistenceService _persistenceService;
 
   final List<EncryptedDirectory> _openedDirs = [];
   EncryptedDirectory? _currentDir;
@@ -52,7 +72,12 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _fileService = FileService(cryptoService: _cryptoService);
+    _cryptoService = widget.cryptoService ?? CryptoService();
+    _directoryService = widget.directoryService ?? DirectoryService();
+    _fileService =
+        widget.fileService ?? FileService(cryptoService: _cryptoService);
+    _persistenceService =
+        widget.persistenceService ?? DirectoryPersistenceService();
     _loadQuickList();
     _loadPersistedDirectories();
     _loadDrawerPinnedState();
@@ -220,7 +245,6 @@ class _HomePageState extends State<HomePage> {
       });
 
       await _saveOpenedDirectories();
-      await _loadCurrentPath();
 
       if (root != path && mounted) {
         ErrorHelper.showInfo(context, '已找到加密根目录：$root');
@@ -313,7 +337,7 @@ class _HomePageState extends State<HomePage> {
     }
     if (!mounted || markers.isEmpty) return;
 
-    final clean = await showDialog<bool>(
+    final action = await showDialog<_UnfinishedAction>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('发现未完成的导入/导出'),
@@ -324,18 +348,26 @@ class _HomePageState extends State<HomePage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, _UnfinishedAction.skip),
             child: const Text('暂时跳过'),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+          TextButton(
+            onPressed: () => Navigator.pop(context, _UnfinishedAction.clean),
             child: const Text('清理状态'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, _UnfinishedAction.rerun),
+            child: const Text('全量重跑'),
           ),
         ],
       ),
     );
 
-    if (clean != true) {
+    if (action == _UnfinishedAction.rerun) {
+      await _rerunUnfinishedOperations(rootID, markers);
+      return;
+    }
+    if (action != _UnfinishedAction.clean) {
       return;
     }
 
@@ -364,6 +396,66 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _rerunUnfinishedOperations(
+    int rootID,
+    List<Map<String, dynamic>> markers,
+  ) async {
+    DirectoryTransferCancellationToken? currentToken;
+    late final ProgressController progressController;
+    progressController = ProgressHelper.showProgressDialog(
+      context,
+      title: '全量重跑导入/导出',
+      total: 100,
+      status: '正在准备...',
+      onCancel: () {
+        final accepted = currentToken?.cancel() ?? false;
+        if (!accepted) {
+          progressController.update(status: '当前操作尚未可取消...');
+        }
+        return accepted;
+      },
+    );
+
+    try {
+      for (var index = 0; index < markers.length; index++) {
+        currentToken = DirectoryTransferCancellationToken();
+        progressController.update(
+          current: 0,
+          status: '正在重跑 ${index + 1}/${markers.length}...',
+        );
+        await _directoryService.rerunUnfinishedOperation(
+          rootID,
+          markers[index],
+          cancellationToken: currentToken,
+          onProgress: (progress) {
+            progressController.update(
+              current: progress.percent,
+              currentFileName: progress.currentFile,
+              status: '正在重跑 ${index + 1}/${markers.length}...',
+            );
+          },
+        );
+      }
+      if (mounted && !progressController.isCancelled) {
+        progressController.close(context);
+        ErrorHelper.showSuccess(context, '未完成导入/导出已全量重跑');
+      }
+    } catch (e) {
+      if (mounted && !progressController.isCancelled) {
+        progressController.close(context);
+      }
+      if (mounted && currentToken?.isCancelled == true) {
+        ErrorHelper.showInfo(context, '重跑已取消，未完成状态已保留');
+      } else if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: e.toString(),
+        );
+      }
+    }
+  }
+
   // ── Directory management ──────────────────────────────────────────
 
   void _switchToDirectory(EncryptedDirectory dir) {
@@ -372,7 +464,9 @@ class _HomePageState extends State<HomePage> {
       _currentPath = dir.path;
       _items = [];
     });
-    _loadCurrentPath();
+    if (dir.isVerified) {
+      _loadCurrentPath();
+    }
   }
 
   Future<void> _closeDirectory(EncryptedDirectory dir) async {
@@ -529,14 +623,15 @@ class _HomePageState extends State<HomePage> {
     if (!_validateSession()) return;
 
     const typeGroup = XTypeGroup(label: 'All Files');
-    final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
+    final XFile? file = widget.selectFile != null
+        ? await widget.selectFile!([typeGroup])
+        : await openFile(acceptedTypeGroups: [typeGroup]);
     if (file == null) return;
 
     try {
       setState(() => _isLoading = true);
 
-      final inputFile = File(file.path);
-      final plaintext = await inputFile.readAsBytes();
+      final plaintext = await file.readAsBytes();
       await _cryptoService.writeFileBySession(
         '$_currentPath/${file.name}',
         _currentDir!.tempKeyID!,
@@ -563,7 +658,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> _importDirectory() async {
     if (!_validateSession()) return;
 
-    final sourcePath = await getDirectoryPath();
+    final sourcePath = widget.selectDirectory != null
+        ? await widget.selectDirectory!()
+        : await getDirectoryPath();
     if (sourcePath == null || !mounted) return;
     if (isPathInsideDirectory(sourcePath, _currentDir!.path)) {
       ErrorHelper.showError(
@@ -661,9 +758,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> _exportFile(FileSystemNode item) async {
     if (!_validateSession()) return;
 
-    final FileSaveLocation? saveLocation = await getSaveLocation(
-      suggestedName: item.name,
-    );
+    final FileSaveLocation? saveLocation = widget.selectSaveLocation != null
+        ? await widget.selectSaveLocation!(item.name)
+        : await getSaveLocation(suggestedName: item.name);
     if (saveLocation == null) return;
 
     try {
@@ -686,7 +783,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> _exportDirectory(FileSystemNode item) async {
     if (!_validateSession()) return;
 
-    final String? exportDir = await getDirectoryPath();
+    final String? exportDir = widget.selectDirectory != null
+        ? await widget.selectDirectory!()
+        : await getDirectoryPath();
     if (exportDir == null) return;
     if (!mounted) return;
 
@@ -761,7 +860,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> _batchExport() async {
     if (!_validateSession()) return;
 
-    final String? exportDir = await getDirectoryPath();
+    final String? exportDir = widget.selectDirectory != null
+        ? await widget.selectDirectory!()
+        : await getDirectoryPath();
     if (exportDir == null) return;
     if (!mounted) return;
 

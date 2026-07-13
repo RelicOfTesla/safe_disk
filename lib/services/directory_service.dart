@@ -8,7 +8,7 @@ import 'crypto_service.dart';
 /// - Directory export/import via V3 FFI functions
 /// - Import/export runs in a worker isolate and only persists unfinished markers
 class DirectoryService {
-  final NativeLib _native = NativeLib.instance;
+  NativeLib get _native => NativeLib.instance;
   final CryptoService _cryptoService = CryptoService();
 
   // ==================== Directory Listing ====================
@@ -23,6 +23,22 @@ class DirectoryService {
   }
 
   // ==================== Directory Export/Import ====================
+
+  Future<void> importFile(
+    int rootID,
+    String srcPath,
+    String destPath, {
+    void Function(DirectoryTransferProgress progress)? onProgress,
+    DirectoryTransferCancellationToken? cancellationToken,
+  }) async {
+    await _native.secTransferV3ImportFileWithProgress(
+      rootID,
+      srcPath,
+      destPath,
+      (event) => onProgress?.call(_fromNativeProgress(event)),
+      cancellationToken: cancellationToken?._native,
+    );
+  }
 
   /// Exports a directory from secure storage to normal filesystem.
   ///
@@ -66,6 +82,22 @@ class DirectoryService {
     );
   }
 
+  Future<void> exportFile(
+    int rootID,
+    String srcPath,
+    String destPath, {
+    void Function(DirectoryTransferProgress progress)? onProgress,
+    DirectoryTransferCancellationToken? cancellationToken,
+  }) async {
+    await _native.secTransferV3ExportFileWithProgress(
+      rootID,
+      srcPath,
+      destPath,
+      (event) => onProgress?.call(_fromNativeProgress(event)),
+      cancellationToken: cancellationToken?._native,
+    );
+  }
+
   /// Lists unfinished import/export operation markers on this root.
   Future<List<Map<String, dynamic>>> listUnfinishedOperations(
       int rootID) async {
@@ -75,6 +107,58 @@ class DirectoryService {
   /// Cleans one unfinished import/export marker by operation ID.
   Future<void> cleanUnfinishedOperation(int rootID, String opID) async {
     _native.secTransferV3CleanUnfinished(rootID, opID);
+  }
+
+  Future<void> rerunUnfinishedOperation(
+    int rootID,
+    Map<String, dynamic> marker, {
+    void Function(DirectoryTransferProgress progress)? onProgress,
+    DirectoryTransferCancellationToken? cancellationToken,
+  }) async {
+    final opID = _requiredMarkerString(marker, 'op_id');
+    final type = _requiredMarkerString(marker, 'type');
+    final entryKind = _requiredMarkerString(marker, 'entry_kind');
+    final src = marker['src'] as String? ?? '';
+    final dst = marker['dst'] as String? ?? '';
+    if (entryKind != 'file' && entryKind != 'directory') {
+      throw StateError('Unfinished operation $opID has invalid entry_kind');
+    }
+    if (type != 'import' && type != 'export') {
+      throw StateError('Unfinished operation $opID has unsupported type');
+    }
+    if (type == 'import' && src.isEmpty) {
+      throw StateError('Unfinished import $opID has no source path');
+    }
+    if (type == 'export' && dst.isEmpty) {
+      throw StateError('Unfinished export $opID has no destination path');
+    }
+    if (entryKind == 'file' && dst.isEmpty) {
+      throw StateError('Unfinished file operation $opID has no destination');
+    }
+
+    await cleanUnfinishedOperation(rootID, opID);
+    if (type == 'import' && entryKind == 'file') {
+      return importFile(rootID, src, dst,
+          onProgress: onProgress, cancellationToken: cancellationToken);
+    }
+    if (type == 'import') {
+      return importDirectory(rootID, src, dst,
+          onProgress: onProgress, cancellationToken: cancellationToken);
+    }
+    if (entryKind == 'file') {
+      return exportFile(rootID, src, dst,
+          onProgress: onProgress, cancellationToken: cancellationToken);
+    }
+    return exportDirectory(rootID, src, dst,
+        onProgress: onProgress, cancellationToken: cancellationToken);
+  }
+
+  String _requiredMarkerString(Map<String, dynamic> marker, String key) {
+    final value = marker[key];
+    if (value is! String || value.isEmpty) {
+      throw StateError('Unfinished operation marker has no $key');
+    }
+    return value;
   }
 
   // ==================== Directory Management ====================

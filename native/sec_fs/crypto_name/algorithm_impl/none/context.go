@@ -28,5 +28,7 @@ func (c *Context) DecryptName(encrypted string) (string, error) {
 	return encrypted, nil
 }
 
+func (c *Context) Close() error { return nil }
+
 // Compile-time interface verification
 var _ crypto_name.INameCryptorContext = (*Context)(nil)

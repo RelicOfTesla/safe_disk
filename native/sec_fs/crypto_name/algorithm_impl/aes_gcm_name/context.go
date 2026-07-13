@@ -35,7 +35,7 @@ func NewContext(keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (*Context
 	// Note: If different algorithms need to share the same key, consider using HKDF to derive subkeys
 	var aesKey []byte
 	if len(key) == 32 {
-		aesKey = key
+		aesKey = append([]byte(nil), key...)
 	} else {
 		// Derive 32-byte key using HKDF-like approach
 		// Use SHA-256 to derive the key

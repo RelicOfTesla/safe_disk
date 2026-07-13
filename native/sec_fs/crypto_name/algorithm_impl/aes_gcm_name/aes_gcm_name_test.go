@@ -2,6 +2,7 @@
 package aes_gcm_name_test
 
 import (
+	"bytes"
 	"testing"
 
 	"safe_disk/native/config"
@@ -16,6 +17,26 @@ type mockKeyInfo struct {
 
 func (m *mockKeyInfo) GetKey() []byte {
 	return m.key
+}
+
+func (m *mockKeyInfo) Destroy() {
+	clear(m.key)
+	m.key = nil
+}
+
+func TestContextCloseDoesNotDestroySourceKey(t *testing.T) {
+	keyBytes := []byte("0123456789abcdef0123456789abcdef")
+	want := append([]byte(nil), keyBytes...)
+	context, err := aes_gcm_name.NewContext(&mockKeyInfo{key: keyBytes}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := context.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(keyBytes, want) {
+		t.Fatal("closing name context modified keyInfo-owned bytes")
+	}
 }
 
 func (m *mockKeyInfo) GetSalt() []byte {

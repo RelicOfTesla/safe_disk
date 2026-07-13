@@ -172,6 +172,7 @@ void main() {
           await directoryService.listUnfinishedOperations(rootID);
       expect(failedMarkers, hasLength(1));
       expect(failedMarkers.single['type'], 'export');
+      expect(failedMarkers.single['entry_kind'], 'directory');
       await directoryService.cleanUnfinishedOperation(
         rootID,
         failedMarkers.single['op_id']! as String,
@@ -205,10 +206,12 @@ void main() {
           await directoryService.listUnfinishedOperations(rootID);
       expect(canceledMarkers, hasLength(1));
       expect(canceledMarkers.single['type'], 'import');
-      await directoryService.cleanUnfinishedOperation(
+      expect(canceledMarkers.single['entry_kind'], 'directory');
+      await directoryService.rerunUnfinishedOperation(
         rootID,
-        canceledMarkers.single['op_id']! as String,
+        canceledMarkers.single,
       );
+      expect(native.secFileExists(rootID, '取消/large.bin'), isTrue);
 
       expect(await directoryService.listUnfinishedOperations(rootID), isEmpty);
     });

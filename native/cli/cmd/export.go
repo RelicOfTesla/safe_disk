@@ -20,6 +20,7 @@ var (
 	_exportDestPath     string
 	exportSkipRecursive bool
 	exportJSON          bool
+	exportDurability    string
 )
 
 var exportCmd = &cobra.Command{
@@ -28,6 +29,10 @@ var exportCmd = &cobra.Command{
 	Long:  "Export encrypted files to plaintext from an encrypted root directory.",
 	Args:  cobra.MaximumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		durability, err := parseDurability(exportDurability)
+		if err != nil {
+			return err
+		}
 		if exportSrcPath == "" {
 			return fmt.Errorf("source path is required")
 		}
@@ -40,7 +45,7 @@ var exportCmd = &cobra.Command{
 			Password:      exportPassword,
 			PasswordEnv:   exportPasswordEnv,
 			PasswordStdin: exportPasswordStdin,
-		})
+		}, durability)
 		if err != nil {
 			return err
 		}
@@ -88,6 +93,7 @@ var exportCmd = &cobra.Command{
 				Dest:          exportDestPath,
 				SkipRecursive: exportSkipRecursive,
 				Overwrite:     true,
+				Durability:    durability,
 			}, callback)
 		} else {
 			if outputStd {
@@ -110,15 +116,17 @@ var exportCmd = &cobra.Command{
 					Source:     fromRelative,
 					Dest:       exportDestPath,
 					Overwrite:  true,
+					Durability: durability,
 				}, callback)
 			}
 		}
 
 		if err != nil {
+			wrapped := fmt.Errorf("export failed: %w", err)
 			if jsonReporter != nil {
-				jsonReporter.Failed(err)
+				return jsonReporter.WrapError(wrapped)
 			}
-			return fmt.Errorf("export failed: %w", err)
+			return wrapped
 		}
 
 		if !outputStd && !exportJSON {
@@ -138,5 +146,6 @@ func init() {
 	exportCmd.Flags().StringVarP(&_exportDestPath, "dest", "d", "", "Destination path (plaintext)")
 	exportCmd.Flags().BoolVarP(&exportSkipRecursive, "skip-recursive", "n", false, "Export directory non-recursively")
 	exportCmd.Flags().BoolVar(&exportJSON, "json", false, "Output JSON Lines progress events")
+	exportCmd.Flags().StringVar(&exportDurability, "durability", "full", durabilityFlagUsage)
 	exportCmd.Flags().StringVar(&unfinishedPolicy, "unfinished", "skip", "Unfinished operation policy: skip, ask, clean, rerun")
 }

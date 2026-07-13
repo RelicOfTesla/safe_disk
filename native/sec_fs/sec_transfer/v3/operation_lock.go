@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"safe_disk/native/sec_fs"
 )
 
 const operationLockPollInterval = 20 * time.Millisecond
@@ -21,9 +23,13 @@ func acquireOperationLock(ctx context.Context, rootPath string) (*operationLock,
 	if err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0600)
+	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, sec_fs.SecureFileMode)
 	if err != nil {
 		return nil, fmt.Errorf("open transfer operation lock: %w", err)
+	}
+	if err := file.Chmod(sec_fs.SecureFileMode); err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("protect transfer operation lock: %w", err)
 	}
 	for {
 		locked, err := tryLockFile(file)

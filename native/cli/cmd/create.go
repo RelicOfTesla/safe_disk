@@ -23,6 +23,7 @@ var (
 	createPasswordEnv   string
 	createPasswordStdin bool
 	createJSON          bool
+	createDurability    string
 )
 
 var createCmd = &cobra.Command{
@@ -31,6 +32,10 @@ var createCmd = &cobra.Command{
 	Long:  "Create an encrypted root directory. Existing non-empty directories require --in-place.",
 	Args:  cobra.MaximumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		durability, err := parseDurability(createDurability)
+		if err != nil {
+			return err
+		}
 		if createPath == "" {
 			return fmt.Errorf("path is required")
 		}
@@ -58,7 +63,7 @@ var createCmd = &cobra.Command{
 		}
 
 		if !exists {
-			if err := os.MkdirAll(absPath, 0755); err != nil {
+			if err := os.MkdirAll(absPath, sec_fs.SecureDirMode); err != nil {
 				return err
 			}
 			return createEmptyRoot(absPath, password)
@@ -98,16 +103,18 @@ var createCmd = &cobra.Command{
 			}
 		}
 		err = transfer.ConvertRoot(context.Background(), sec_transfer.ConvertRequest{
-			Kind:      sec_transfer.ConvertKindEncrypt,
-			RootPath:  absPath,
-			Password:  password,
-			Overwrite: false,
+			Kind:       sec_transfer.ConvertKindEncrypt,
+			RootPath:   absPath,
+			Password:   password,
+			Overwrite:  false,
+			Durability: durability,
 		}, callback)
 		if err != nil {
+			wrapped := fmt.Errorf("in-place encryption failed: %w", err)
 			if jsonReporter != nil {
-				jsonReporter.Failed(err)
+				return jsonReporter.WrapError(wrapped)
 			}
-			return fmt.Errorf("in-place encryption failed: %w", err)
+			return wrapped
 		}
 		if !createJSON {
 			fmt.Println("\nCreate successful")
@@ -123,6 +130,7 @@ func init() {
 	createCmd.Flags().StringVar(&createPasswordEnv, "password-env", "", "Read password from environment variable")
 	createCmd.Flags().BoolVar(&createPasswordStdin, "password-stdin", false, "Read password from stdin")
 	createCmd.Flags().BoolVar(&createJSON, "json", false, "Output JSON Lines progress events for --in-place")
+	createCmd.Flags().StringVar(&createDurability, "durability", "full", durabilityFlagUsage)
 	rootCmd.AddCommand(createCmd)
 }
 

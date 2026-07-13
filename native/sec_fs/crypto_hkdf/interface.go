@@ -2,7 +2,10 @@
 // This package supports multiple key derivation algorithms through a registry mechanism.
 package crypto_hkdf
 
-import "safe_disk/native/config"
+import (
+	"safe_disk/native/config"
+	"safe_disk/native/sec_fs/internal/utils"
+)
 
 // ==================== MakeKeyParams ====================
 
@@ -32,6 +35,7 @@ type MakeKeyParams struct {
 }
 
 const STATIC_SALT = "SafeDisk"
+
 // ==================== IKeyInfo Interface ====================
 
 // IKeyInfo defines the interface for key information.
@@ -39,6 +43,16 @@ const STATIC_SALT = "SafeDisk"
 type IKeyInfo interface {
 	// GetKey returns the derived cryptographic key.
 	GetKey() []byte
+	// Destroy overwrites the owned key bytes and releases the reference.
+	Destroy()
+}
+
+// ClearKey overwrites a derived key owned by an IKeyInfo implementation.
+func ClearKey(key []byte) { utils.MemZero(key) }
+
+// NewKeyInfoCopy creates independently owned key material for a new lifecycle.
+func NewKeyInfoCopy(key []byte) IKeyInfo {
+	return &keyInfoImpl{key: append([]byte(nil), key...)}
 }
 
 // ==================== IKeyDeriver Interface ====================
@@ -94,6 +108,7 @@ type keyInfoImpl struct {
 }
 
 func (k *keyInfoImpl) GetKey() []byte { return k.key }
+func (k *keyInfoImpl) Destroy()       { ClearKey(k.key); k.key = nil }
 
 // keyDeriverImpl is a placeholder type for IKeyDeriver implementation.
 type keyDeriverImpl struct{}

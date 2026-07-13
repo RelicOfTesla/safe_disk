@@ -26,10 +26,11 @@ type V3Transfer interface {
 }
 
 type ImportFileRequest struct {
-	Source    sec_fs.FullStorePath
-	DestRoot  sec_fs.ISecRoot
-	Dest      sec_fs.RelativeViewPath
-	Overwrite bool
+	Source     sec_fs.FullStorePath
+	DestRoot   sec_fs.ISecRoot
+	Dest       sec_fs.RelativeViewPath
+	Overwrite  bool
+	Durability DurabilityLevel
 }
 
 type ImportDirectoryRequest struct {
@@ -38,6 +39,7 @@ type ImportDirectoryRequest struct {
 	Dest          sec_fs.RelativeViewPath
 	SkipRecursive bool
 	Overwrite     bool
+	Durability    DurabilityLevel
 }
 
 type ExportFileRequest struct {
@@ -45,6 +47,7 @@ type ExportFileRequest struct {
 	Source     sec_fs.RelativeViewPath
 	Dest       sec_fs.FullStorePath
 	Overwrite  bool
+	Durability DurabilityLevel
 }
 
 type ExportDirectoryRequest struct {
@@ -53,7 +56,17 @@ type ExportDirectoryRequest struct {
 	Dest          sec_fs.FullStorePath
 	SkipRecursive bool
 	Overwrite     bool
+	Durability    DurabilityLevel
 }
+
+// DurabilityLevel controls explicit data and metadata synchronization for one operation.
+type DurabilityLevel string
+
+const (
+	DurabilityNone DurabilityLevel = "none"
+	DurabilityData DurabilityLevel = "data"
+	DurabilityFull DurabilityLevel = "full"
+)
 
 type ConvertKind string
 
@@ -63,10 +76,11 @@ const (
 )
 
 type ConvertRequest struct {
-	Kind      ConvertKind
-	RootPath  string
-	Password  string
-	Overwrite bool
+	Kind       ConvertKind
+	RootPath   string
+	Password   string
+	Overwrite  bool
+	Durability DurabilityLevel
 }
 
 type OperationType string
@@ -78,10 +92,18 @@ const (
 	OperationConvertDecrypt OperationType = "convert_decrypt"
 )
 
+type EntryKind string
+
+const (
+	EntryKindFile      EntryKind = "file"
+	EntryKindDirectory EntryKind = "directory"
+)
+
 type OperationMarker struct {
 	Version   int           `json:"version"`
 	OpID      string        `json:"op_id"`
 	Type      OperationType `json:"type"`
+	EntryKind EntryKind     `json:"entry_kind,omitempty"`
 	Status    string        `json:"status"`
 	Phase     string        `json:"phase,omitempty"`
 	Src       string        `json:"src,omitempty"`

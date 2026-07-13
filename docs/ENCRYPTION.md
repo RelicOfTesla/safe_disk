@@ -88,6 +88,8 @@ CLI 与 FFI 入口通过 `crypto_all` 注册上述实现。`hkdf` 适用于已�
 
 确定性名称加密会泄漏同一 key 下的名称相等关系，这是稳定路径查找的现有取舍，不应描述为完全隐藏元数据。
 
+密文 store 的文件大小、目录结构规模和操作时间仍属于可观察 metadata。Transfer 不把源 owner/mode/mtime 复制到 backing file；新对象采用 `0600/0700` 安全基线。若需要恢复原始 metadata，必须使用单独的认证加密格式，不能把 backing file metadata 描述为受加密保护。
+
 `none` 会保留原始文件名；此时只加密文件内容。Flutter UI 与 CLI 当前创建入口采用该模式。
 
 ## 数据加密
@@ -142,6 +144,14 @@ CLI 与 FFI 入口通过 `crypto_all` 注册上述实现。`hkdf` 适用于已�
 - CLI 创建 root 后由 Dart 操作、Dart/FFI 创建 root 后由 CLI 操作，双向互通及错误密码拒绝均有真库测试。
 - `aes-gcm-name` 的多层目录、文件名、空目录和 transfer 往返已有测试。
 - sec root 与 Go FFI 的 quick write/V3 import 均拒绝 `../` 路径逃逸，且根外无副作用。
+
+## 密钥生命周期
+
+- `IKeyInfo` 强制实现 `Destroy()`；Argon2、PBKDF2、scrypt 和 HKDF 的 keyInfo 会覆写自身持有的 key backing slice 并置空引用。
+- `INameCryptorContext` 强制实现 `Close()`；AES-GCM name 和 RC4 name context 会清零自有 key 并释放 cipher 引用。
+- `secRootImpl.Close()` 先关闭 name context，再销毁 keyInfo；即使 name context Close 返回错误，key 仍必须清零。重复 Close 幂等。
+- root 创建/打开的 verifier 失败、factory 失败和 constructor 失败路径会销毁已派生 key。`CloneRootShallow` 使用独立 key copy 和 name context，关闭原 root 不影响 clone。
+- 这不等于进程内所有密钥副本可证明地清零：Go 标准库 cipher 的内部展开状态不可由当前代码直接覆写，且 Dart `String` 仍只能 best-effort 处理。
 
 ## 尚未完成或需要重构
 

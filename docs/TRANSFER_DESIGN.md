@@ -64,6 +64,7 @@ FFI 为活动 operation 保存一次性 `context.CancelFunc`：
 - 扫描、逐文件循环、文件 copy reader 和提交前检查 `context`
 - 取消发生在提交前时删除临时文件，不覆盖原目标
 - 取消或失败后保留 unfinished marker
+- import/export marker 记录 `entry_kind=file|directory`，供上层按原方向和原路径全量重跑；缺少该字段的旧 marker 不允许猜测类型，只能清理或跳过。
 
 ### 4. 并发协调不是 task
 
@@ -160,6 +161,28 @@ marker 只证明操作未正常完成，不证明：
 
 重新执行时仍是一次完整 import/export。
 
+## 持久化安全等级
+
+`sec_transfer_v3.New` 接受 `WithDurability`，默认等级为 `full`。公共 import/export/convert request 也包含可选 `Durability`：空值继承 manager 默认值，非空值只覆盖本次 operation，不修改进程全局状态。
+
+CLI 的 import/export/create in-place 使用 `--durability=none|data|full` 传入请求，默认 `full`。unfinished marker 不保存 durability；用户选择全量重跑时使用当前命令的 durability，而不是恢复上次策略。
+
+FFI/Dart 当前不暴露降级开关，现有 C ABI 始终使用默认 `full`。不增加 process-wide `set_durability`：这种全局 setter 会让并发 Dart operation 相互覆盖策略。若以后确有 FFI 配置需求，应新增显式 options 参数或新 ABI，而不是共享可变配置。
+
+`ISecRoot.OpenFile` 返回的基础接口 `ISecFile` 直接包含 `Sync()`；durability 数据提交由编译期接口保证，不依赖对 `ISecFilePlus` 或私有 sync 接口的运行时类型断言。
+
+三个等级的实际语义：
+
+- `none`：不主动调用文件或目录 `Sync`，仍保留 temp、backup、rename 和 marker 协议；只保证进程正常运行时的逻辑顺序，不承诺掉电持久化。
+- `data`：在 rename 前同步 import 的加密临时文件、export 的普通临时文件和 marker 临时文件；不主动同步目录 metadata。
+- `full`：包含 `data`，并在 marker 提交/删除、目录创建、文件 rename/delete、convert 目录 rename 和恢复清理后同步相关目录及父目录。
+
+marker 使用“写临时 JSON -> 同步临时文件 -> rename -> 同步 active/base/root 目录”的顺序。import/export 覆盖目标时，每次 `dest -> backup`、`temp -> dest` 和 backup 删除都是独立提交点；正式数据提交期间的 sync 失败会返回错误并保留 operation marker，后续仍按完整操作重跑，而不是尝试恢复百分比。
+
+成功路径最后删除 marker 后还会同步 active 目录。若这一次目录 sync 失败，函数返回错误，但 unlink 已经发生，当前进程中 marker 已不可见，掉电后的 marker 状态不确定；数据提交本身已经完成，不应据此回滚正式目标。
+
+平台边界：Linux/Unix 使用打开目录后 `Sync` 的方式提交目录项。Windows 目前只保证文件数据 `Sync`，目录 metadata flush 仍为 best effort；因此 Windows 下名为 `full` 的策略尚未达到与 Linux/Unix 等价的掉电保证。
+
 ## Import
 
 ### 单文件
@@ -167,7 +190,7 @@ marker 只证明操作未正常完成，不证明：
 1. 写 marker。
 2. 打开普通源文件。
 3. 在 root 内写 `<dest>.tmp.safe_disk`。
-4. copy 完成并 close。
+4. copy 完成，按 durability 策略 sync，再 close。
 5. 若目标存在，先 rename 为 `<dest>.raw.safe_disk`。
 6. temp rename 为正式目标。
 7. 删除 backup。
@@ -194,7 +217,7 @@ copy 或 close 失败时删除 temp。正式 rename 失败时尝试从 backup �
 1. 写 marker。
 2. 通过 root view path 打开加密文件。
 3. 写普通目标 `<dest>.tmp.safe_disk`。
-4. copy、close，并在需要时保存原目标 backup。
+4. copy，按 durability 策略 sync、close，并在需要时保存原目标 backup。
 5. temp rename 为正式目标。
 6. 删除 backup 和 marker。
 
@@ -214,6 +237,19 @@ copy 或 close 失败时删除 temp。正式 rename 失败时尝试从 backup �
 - `true`：通过 temp + backup + rename 替换
 
 Flutter 目录导入在目标目录已存在时先交互确认；CLI/FFI 的调用方必须显式决定策略。V3 不实现隐式 skip 列表或逐文件冲突 task。
+
+## 元数据与创建权限
+
+当前 V3 是内容与目录拓扑 Transfer，不保留源对象的 owner、permission mode 或 mtime：
+
+- owner/group 归执行进程，避免依赖特权 `chown` 和跨主机 UID/GID 映射；
+- import 不把源 mode/mtime 写到密文 backing file，避免只读/`000` 权限使 vault 无法重开，也避免额外泄漏源时间；
+- export 不伪造无法从当前加密格式可信恢复的原始 metadata；
+- 文件 mtime 是本次写入时间，不能作为源文件时间证据。
+
+新创建对象使用安全基线：密文文件、配置、operation marker、lock 和导出明文文件为 `0600`，密文目录、marker 目录、convert work 和新建导出目录为 `0700`。操作系统 `umask` 可以进一步收紧。`MkdirAll` 不修改已经存在的目录；本轮也不递归 chmod 旧 root，以免无提示接管用户已有权限。
+
+import/export 的原子替换通过新建 temp 后 rename，因此被替换的正式文件会采用新 temp 的安全 mode。若未来要支持可选 metadata restore，必须先定义经过认证加密、版本化且不与用户路径冲突的 metadata 格式；不得直接借用密文 backing file 的 mode/mtime 作为原始明文 metadata side channel。
 
 ## Convert
 
@@ -342,15 +378,20 @@ Dart 使用 worker isolate 执行同步 C ABI，通过消息转发进度，避�
 - Dart worker isolate 非阻塞、listener 异常、取消
 - CLI 创建 root 后 Dart 操作、Dart/FFI 创建 root 后 CLI 操作
 - V3 未注册或 factory 返回 nil 时返回 `ErrTransferV3NotRegistered`，不 panic
+- `none/data/full` 的文件与目录 sync 策略矩阵
+- 加密临时文件 sync 失败时不提交目标并保留 marker
+- 导出临时文件 sync 失败时保留原目标、清理 temp 并保留 marker
+- rename 后目录 sync 失败时保留 marker，要求后续完整重跑
+- 请求级 durability override 不污染 manager 默认值，CLI `full/none/data` create/import/export 互通及非法值无副作用拒绝
 
 ## 尚未完成
 
-- 权限、owner、mtime 的跨平台保留策略
-- 可配置 fsync 安全等级
+- 经过认证加密的可选 metadata restore 格式（当前明确只做安全归一化，不保留 owner/mode/mtime）
+- FFI 对 durability 等级的显式 per-operation options ABI（当前有意固定默认 `full`）
+- Windows 目录 metadata flush 的等价实现与掉电故障验证
 - Windows rename/占用句柄专项故障注入
 - Windows `LockFileEx` 运行时竞争与进程退出释放测试（当前仅有实现和 API 签名核对）
 - 更完整的 convert 校验报告与人工处理指引
-- UI 对 unfinished import/export 的“一键全量重跑”入口
 - 超大目录扫描的内存上限、并发 worker、限速与字节级进度
 
 ## 明确不做
