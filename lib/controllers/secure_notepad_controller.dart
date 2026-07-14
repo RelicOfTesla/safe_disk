@@ -8,6 +8,7 @@ import '../native/native_lib.dart';
 import '../services/crypto_service.dart';
 import '../services/document_session_broker.dart';
 import '../services/secure_notepad_draft_store.dart';
+import '../utils/encoding_detector.dart';
 
 class SecureNotepadController extends ChangeNotifier {
   SecureNotepadController({
@@ -66,6 +67,7 @@ class SecureNotepadController extends ChangeNotifier {
   String? _loadError;
   String? _saveError;
   String? _draftError;
+  String? _detectedEncoding;
 
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
@@ -77,6 +79,7 @@ class SecureNotepadController extends ChangeNotifier {
   String? get loadError => _loadError;
   String? get saveError => _saveError;
   String? get draftError => _draftError;
+  String? get detectedEncoding => _detectedEncoding;
   String get draftPath =>
       SecureNotepadDraftStore.draftPathFor(file.encryptedPath);
   bool get canUndo => _historyIndex > 0;
@@ -101,7 +104,9 @@ class SecureNotepadController extends ChangeNotifier {
       if (contentBytes.contains(0)) {
         throw const FormatException('文件包含 NUL 字节，可能是二进制文件');
       }
-      final content = utf8.decode(contentBytes);
+      final (:text: content, :encoding) =
+          await EncodingDetector.decode(contentBytes);
+      _detectedEncoding = encoding;
       _replaceText(content);
       _savedText = content;
       _history

@@ -411,6 +411,7 @@ class _SecureNotepadState extends State<SecureNotepad>
             undoCount: _controller.undoCount,
             redoCount: _controller.redoCount,
             characterCount: _controller.characterCount,
+            encoding: _controller.detectedEncoding,
             saveError: _controller.saveError,
             isSavingDraft: _controller.isSavingDraft,
             hasDraftBackup: _controller.hasDraftBackup,

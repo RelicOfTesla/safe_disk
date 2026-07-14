@@ -12,6 +12,7 @@ class SecureNotepadStatusBar extends StatelessWidget {
     required this.undoCount,
     required this.redoCount,
     required this.characterCount,
+    this.encoding,
     this.saveError,
     this.isSavingDraft = false,
     this.hasDraftBackup = false,
@@ -24,6 +25,7 @@ class SecureNotepadStatusBar extends StatelessWidget {
   final int undoCount;
   final int redoCount;
   final int characterCount;
+  final String? encoding;
   final String? saveError;
   final bool isSavingDraft;
   final bool hasDraftBackup;
@@ -75,6 +77,15 @@ class SecureNotepadStatusBar extends StatelessWidget {
           const SizedBox(width: 8),
           Text('重做: $redoCount', style: Theme.of(context).textTheme.bodySmall),
           const Spacer(),
+          if (encoding != null) ...[
+            Text(
+              encoding!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+            ),
+            const SizedBox(width: 12),
+          ],
           Text(
             '$characterCount 字符',
             style: Theme.of(context).textTheme.bodySmall,
