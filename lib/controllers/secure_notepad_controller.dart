@@ -104,9 +104,9 @@ class SecureNotepadController extends ChangeNotifier {
       if (contentBytes.contains(0)) {
         throw const FormatException('文件包含 NUL 字节，可能是二进制文件');
       }
-      final (:text: content, :encoding) =
-          await EncodingDetector.decode(contentBytes);
-      _detectedEncoding = encoding;
+      final decoded = await EncodingDetector.decode(contentBytes);
+      _detectedEncoding = decoded.encoding;
+      final content = decoded.text;
       _replaceText(content);
       _savedText = content;
       _history
