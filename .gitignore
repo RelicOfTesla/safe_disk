@@ -122,3 +122,8 @@ docs/_archived/
 .claude
 /native/ffi_sec_fs/ffi_sec_fs.h
 /windows/ffi_sec_fs.h
+
+/linux/flutter/generated_*
+/macos/Flutter/Generated*
+/windows/flutter/generated_*
+
