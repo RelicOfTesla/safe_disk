@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -217,6 +218,14 @@ func TransferV3Cancel_FFI(operationID string) string {
 
 // errorResponse creates an error JSON response.
 func errorResponse(err error) string {
+	switch {
+	case errors.Is(err, sec_fs.ErrInvalidPassword):
+		return ErrorWithCode(err.Error(), ErrorCodeInvalidPassword)
+	case errors.Is(err, sec_fs.ErrPasswordVerifierMissing):
+		return ErrorWithCode(err.Error(), ErrorCodePasswordVerifierAbsent)
+	case errors.Is(err, sec_fs.ErrInvalidConfig):
+		return ErrorWithCode(err.Error(), ErrorCodeInvalidConfig)
+	}
 	return ErrorResponse(err.Error())
 }
 

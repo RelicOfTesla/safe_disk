@@ -4,6 +4,7 @@ package crypto_hkdf
 
 import (
 	"safe_disk/native/sec_fs/internal/utils"
+	"strings"
 )
 
 // ==================== KeyDeriverRegistry ====================
@@ -76,6 +77,9 @@ func RegisterDeriverFactory(factory IDeriverFactory) error {
 // GetDeriverFactory retrieves a deriver factory from the global registry by name.
 // Returns nil if no factory with the given name is registered.
 func GetDeriverFactory(name string) IDeriverFactory {
+	if strings.EqualFold(name, "hkdf") {
+		name = "HKDF-SHA-256"
+	}
 	return globalFactoryRegistry.GetOrNilFold(name)
 }
 

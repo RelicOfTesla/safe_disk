@@ -4,6 +4,12 @@ package main
 
 import "encoding/json"
 
+const (
+	ErrorCodeInvalidPassword        = 1001
+	ErrorCodePasswordVerifierAbsent = 1002
+	ErrorCodeInvalidConfig          = 1101
+)
+
 // Response represents a standard FFI response structure.
 type Response struct {
 	Success bool        `json:"success"`

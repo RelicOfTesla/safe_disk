@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/secure_image_policy.dart';
 import '../services/file_service.dart';
+import 'property_overlay.dart';
 
 enum FileItemAction {
   open,
@@ -221,84 +222,17 @@ Future<void> showFileItemProperties({
           ? '${item.extension!.toUpperCase()} 文件'
           : '文件');
 
-  return showGeneralDialog<void>(
+  return showPropertyOverlay(
     context: context,
-    barrierDismissible: true,
-    barrierLabel: '关闭属性',
-    barrierColor: Colors.black54,
-    transitionDuration: Duration.zero,
-    pageBuilder: (dialogContext, _, __) => Center(
-      child: Material(
-        color: Theme.of(dialogContext).colorScheme.surface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: Theme.of(dialogContext).colorScheme.outlineVariant,
-          ),
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 20, 16, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('属性', style: Theme.of(dialogContext).textTheme.titleLarge),
-                const SizedBox(height: 20),
-                _PropertyRow(label: '名称', value: item.name),
-                _PropertyRow(label: '类型', value: type),
-                if (!item.isDirectory)
-                  _PropertyRow(label: '大小', value: item.formattedSize),
-                _PropertyRow(label: '修改时间', value: modifiedTime),
-                _PropertyRow(label: '逻辑路径', value: item.path),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(dialogContext),
-                    child: const Text('关闭'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ),
+    title: '属性',
+    values: [
+      PropertyValue('名称', item.name),
+      PropertyValue('类型', type),
+      if (!item.isDirectory) PropertyValue('大小', item.formattedSize),
+      PropertyValue('修改时间', modifiedTime),
+      PropertyValue('逻辑路径', item.path),
+    ],
   );
-}
-
-class _PropertyRow extends StatelessWidget {
-  const _PropertyRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 76,
-            child: Text(
-              '$label：',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value.isEmpty ? '未知' : value,
-              softWrap: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 Future<FileItemAction?> showFileItemContextMenu({

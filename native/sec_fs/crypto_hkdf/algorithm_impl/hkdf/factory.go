@@ -25,6 +25,11 @@ type Factory struct {
 	name string
 }
 
+const (
+	stableConfigGroup  = "hkdf"
+	renamedConfigGroup = "HKDF-SHA-256"
+)
+
 // NewFactory creates a new HKDF factory.
 func NewFactory() *Factory {
 	return &Factory{
@@ -42,8 +47,7 @@ func (f *Factory) NewDeriver(cfg config.SharedConfig) (crypto_hkdf.IKeyDeriver, 
 // LoadKey loads an existing key from configuration.
 // For HKDF, this reads the salt and derives a key from the IKM (password parameter).
 func (f *Factory) LoadKey(password string, cfg config.SharedConfig) (crypto_hkdf.IKeyInfo, error) {
-	// Create algorithm-specific config namespace
-	hkdfCfg := cfg.WithGroup("HKDF-SHA-256")
+	hkdfCfg := configGroupForLoad(cfg)
 
 	// Read HKDF-specific config
 	saltHex, err := hkdfCfg.GetStr("salt")
@@ -110,7 +114,7 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 
 	// Save parameters to config
 	if cfg != nil {
-		hkdfCfg := cfg.WithGroup("HKDF-SHA-256")
+		hkdfCfg := cfg.WithGroup(stableConfigGroup)
 		hkdfCfg.SetStr("salt", hex.EncodeToString(salt))
 		hkdfCfg.SetInt("key_length", keyLength)
 	}
@@ -123,6 +127,14 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 // GetName returns the unique name of this key deriver.
 func (f *Factory) GetName() string {
 	return f.name
+}
+
+func configGroupForLoad(cfg config.SharedConfig) config.SharedConfig {
+	stable := cfg.WithGroup(stableConfigGroup)
+	if _, err := stable.GetStr("salt"); err == nil {
+		return stable
+	}
+	return cfg.WithGroup(renamedConfigGroup)
 }
 
 // ==================== Helper Functions ====================

@@ -9,13 +9,22 @@ import 'package:ffi/ffi.dart';
 import 'bindings.dart';
 
 class NativeOperationException implements Exception {
-  const NativeOperationException(this.operation, this.message);
+  const NativeOperationException(this.operation, this.message, {this.code});
 
   final String operation;
   final String message;
+  final int? code;
 
   @override
-  String toString() => 'NativeOperationException($operation): $message';
+  String toString() => code == null
+      ? 'NativeOperationException($operation): $message'
+      : 'NativeOperationException($operation, code=$code): $message';
+}
+
+abstract final class NativeErrorCode {
+  static const invalidPassword = 1001;
+  static const passwordVerifierAbsent = 1002;
+  static const invalidConfig = 1101;
 }
 
 /// Native library wrapper for Safe Disk FFI operations.
@@ -74,6 +83,7 @@ class NativeLib {
       throw NativeOperationException(
         operation,
         data['error']?.toString() ?? '$operation failed',
+        code: data['code'] as int?,
       );
     }
   }

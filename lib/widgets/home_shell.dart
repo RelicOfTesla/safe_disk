@@ -29,6 +29,8 @@ class HomeShell extends StatelessWidget {
     required this.onCloseDirectory,
     required this.onSwitchDirectory,
     required this.onRenameDirectory,
+    required this.onShowRootProperties,
+    required this.onChangeRootPassword,
     required this.onToggleDrawerPin,
     required this.onUnlock,
     required this.onImportFile,
@@ -77,6 +79,8 @@ class HomeShell extends StatelessWidget {
   final ValueChanged<EncryptedDirectory> onCloseDirectory;
   final ValueChanged<EncryptedDirectory> onSwitchDirectory;
   final ValueChanged<EncryptedDirectory> onRenameDirectory;
+  final ValueChanged<EncryptedDirectory> onShowRootProperties;
+  final ValueChanged<EncryptedDirectory> onChangeRootPassword;
   final Future<void> Function(bool pinned) onToggleDrawerPin;
   final Future<bool> Function(String password) onUnlock;
   final VoidCallback onImportFile;
@@ -245,6 +249,8 @@ class HomeShell extends StatelessWidget {
         onSwitchDirectory(directory);
       },
       onRenameDirectory: onRenameDirectory,
+      onShowProperties: onShowRootProperties,
+      onChangePassword: onChangeRootPassword,
       onTogglePin: onToggleDrawerPin,
     );
   }

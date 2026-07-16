@@ -142,8 +142,10 @@ void main() {
   testWidgets('properties are built without a dialog transition frame',
       (tester) async {
     final item = _node('记录.txt');
+    final observer = _PushCountingObserver();
     await tester.pumpWidget(
       MaterialApp(
+        navigatorObservers: [observer],
         home: Builder(
           builder: (context) => TextButton(
             onPressed: () => showFileItemProperties(
@@ -155,10 +157,12 @@ void main() {
         ),
       ),
     );
+    final pushesBeforeOpen = observer.pushCount;
 
     await tester.tap(find.text('打开属性'));
     await tester.pump();
 
+    expect(observer.pushCount, pushesBeforeOpen);
     expect(find.text('属性'), findsOneWidget);
     expect(find.text('/vault/记录.txt'), findsOneWidget);
   });
@@ -201,6 +205,16 @@ void main() {
     await tester.pump();
     expect(find.text('/vault/冷启动.txt'), findsOneWidget);
   });
+}
+
+class _PushCountingObserver extends NavigatorObserver {
+  int pushCount = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushCount++;
+    super.didPush(route, previousRoute);
+  }
 }
 
 FileSystemNode _node(String name, {bool isDirectory = false}) {

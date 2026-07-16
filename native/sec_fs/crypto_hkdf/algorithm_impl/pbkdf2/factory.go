@@ -20,6 +20,11 @@ type Factory struct {
 	name string
 }
 
+const (
+	stableConfigGroup  = "pbkdf2"
+	renamedConfigGroup = "PBKDF2"
+)
+
 // NewFactory creates a new PBKDF2 factory.
 func NewFactory() *Factory {
 	return &Factory{
@@ -41,8 +46,7 @@ func (f *Factory) NewDeriver(cfg config.SharedConfig) (crypto_hkdf.IKeyDeriver, 
 // This method will further prefix with "pbkdf2_" to read PBKDF2-specific config.
 // Final config keys: "key_pbkdf2_salt", "key_pbkdf2_iterations", "key_pbkdf2_key_length".
 func (f *Factory) LoadKey(password string, cfg config.SharedConfig) (crypto_hkdf.IKeyInfo, error) {
-	// Create algorithm-specific config namespace
-	pbkdf2Cfg := cfg.WithGroup("PBKDF2")
+	pbkdf2Cfg := configGroupForLoad(cfg)
 
 	// Read PBKDF2-specific config
 	saltHex, err := pbkdf2Cfg.GetStr("salt")
@@ -118,7 +122,7 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 
 	// Save PBKDF2-specific config
 	if cfg != nil {
-		pbkdf2Cfg := cfg.WithGroup("PBKDF2")
+		pbkdf2Cfg := cfg.WithGroup(stableConfigGroup)
 		pbkdf2Cfg.SetStr("salt", hex.EncodeToString(salt))
 		pbkdf2Cfg.SetInt("iterations", iterations)
 		pbkdf2Cfg.SetInt("key_length", keyLength)
@@ -132,6 +136,14 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 // GetName returns the unique name of this key deriver.
 func (f *Factory) GetName() string {
 	return f.name
+}
+
+func configGroupForLoad(cfg config.SharedConfig) config.SharedConfig {
+	stable := cfg.WithGroup(stableConfigGroup)
+	if _, err := stable.GetStr("salt"); err == nil {
+		return stable
+	}
+	return cfg.WithGroup(renamedConfigGroup)
 }
 
 // ==================== Helper Functions ====================

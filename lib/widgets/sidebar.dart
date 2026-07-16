@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 import '../models/cryption_config.dart';
 import '../models/logical_path.dart';
 
-enum SidebarDirectoryAction { setAlias, clearAlias, directoryActions }
+enum SidebarDirectoryAction {
+  properties,
+  changePassword,
+  setAlias,
+  clearAlias,
+  directoryActions,
+}
 
 /// Sidebar widget for displaying opened directories
 class SidebarWidget extends StatelessWidget {
@@ -13,6 +19,8 @@ class SidebarWidget extends StatelessWidget {
   final void Function(EncryptedDirectory) onCloseDirectory;
   final void Function(EncryptedDirectory) onSwitchDirectory;
   final void Function(EncryptedDirectory) onRenameDirectory;
+  final void Function(EncryptedDirectory) onShowProperties;
+  final void Function(EncryptedDirectory) onChangePassword;
   final Future<void> Function(bool) onTogglePin;
 
   const SidebarWidget({
@@ -24,6 +32,8 @@ class SidebarWidget extends StatelessWidget {
     required this.onCloseDirectory,
     required this.onSwitchDirectory,
     required this.onRenameDirectory,
+    required this.onShowProperties,
+    required this.onChangePassword,
     required this.onTogglePin,
   });
 
@@ -127,6 +137,15 @@ class SidebarWidget extends StatelessWidget {
                           ),
                           items: [
                             const PopupMenuItem(
+                              value: SidebarDirectoryAction.properties,
+                              child: Text('属性'),
+                            ),
+                            const PopupMenuItem(
+                              value: SidebarDirectoryAction.changePassword,
+                              child: Text('修改密码'),
+                            ),
+                            const PopupMenuDivider(),
+                            const PopupMenuItem(
                               value: SidebarDirectoryAction.setAlias,
                               child: Text('设置显示别名'),
                             ),
@@ -144,6 +163,10 @@ class SidebarWidget extends StatelessWidget {
                         );
                         if (!context.mounted || action == null) return;
                         switch (action) {
+                          case SidebarDirectoryAction.properties:
+                            onShowProperties(dir);
+                          case SidebarDirectoryAction.changePassword:
+                            onChangePassword(dir);
                           case SidebarDirectoryAction.setAlias:
                             onRenameDirectory(dir);
                           case SidebarDirectoryAction.clearAlias:

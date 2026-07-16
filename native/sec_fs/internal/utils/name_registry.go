@@ -51,8 +51,9 @@ func (r *NameRegistry[V]) Register(factory V) error {
 		return fmt.Errorf("factory name cannot be empty")
 	}
 
-	// Check if already exists
-	if r.registry.Contains(name) {
+	// Case-insensitive lookup must remain unambiguous. Registering names that
+	// differ only by case would make legacy config resolution order-dependent.
+	if r.ContainsFold(name) {
 		return fmt.Errorf("factory with name %q already registered", name)
 	}
 
@@ -92,6 +93,22 @@ func (r *NameRegistry[V]) GetOrNilFold(name string) V {
 	r.registry.ForEach(func(key string, value V) bool {
 		if strings.EqualFold(key, name) {
 			found = value
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+// ContainsFold reports whether a case-insensitive name is registered.
+func (r *NameRegistry[V]) ContainsFold(name string) bool {
+	if r.registry.Contains(name) {
+		return true
+	}
+	found := false
+	r.registry.ForEach(func(key string, _ V) bool {
+		if strings.EqualFold(key, name) {
+			found = true
 			return false
 		}
 		return true

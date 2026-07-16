@@ -27,6 +27,8 @@ void main() {
           onCloseDirectory: (_) {},
           onSwitchDirectory: (_) {},
           onRenameDirectory: (_) {},
+          onShowProperties: (_) {},
+          onChangePassword: (_) {},
           onTogglePin: (_) async {},
         ),
       ),
@@ -54,6 +56,8 @@ void main() {
           onCloseDirectory: (_) {},
           onSwitchDirectory: (_) {},
           onRenameDirectory: (value) => renamed = value,
+          onShowProperties: (_) {},
+          onChangePassword: (_) {},
           onTogglePin: (_) async {},
         ),
       ),
@@ -67,6 +71,8 @@ void main() {
     );
     await gesture.up();
     await tester.pumpAndSettle();
+    expect(find.text('属性'), findsOneWidget);
+    expect(find.text('修改密码'), findsOneWidget);
     expect(find.text('设置显示别名'), findsOneWidget);
     await tester.tap(find.text('清除显示别名'));
     await tester.pumpAndSettle();

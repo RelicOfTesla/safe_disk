@@ -21,6 +21,7 @@ import '../services/root_close_coordinator.dart';
 import '../services/content_window_host_bridge.dart';
 import '../utils/error_messages.dart';
 import '../utils/error_diagnostics.dart';
+import '../utils/unlock_error_classifier.dart';
 import '../widgets/batch_operation_result_dialog.dart';
 import '../widgets/copyable_snackbar.dart';
 import '../widgets/secure_notepad.dart';
@@ -31,6 +32,7 @@ import '../widgets/file_item_actions.dart';
 import '../widgets/entry_conflict_dialog.dart';
 import '../widgets/directory_background_actions.dart';
 import '../widgets/root_directory_action_dialog.dart';
+import '../widgets/root_directory_properties.dart';
 import 'dialogs.dart';
 import 'settings_page.dart';
 
@@ -425,36 +427,43 @@ class _HomePageState extends State<HomePage> {
   Future<bool> _verifyPassword(String password) async {
     if (_currentDir == null) return false;
 
+    late final int rootID;
     try {
-      final rootID = _cryptoService.openRoot(_currentDir!.path, password, '');
-      await _handleUnfinishedOperations(rootID);
-
-      setState(() {
-        _currentDir = EncryptedDirectory(
-          path: _currentDir!.path,
-          config: _currentDir!.config,
-          isVerified: true,
-          tempKeyID: rootID.toString(),
-        );
-
-        final index =
-            _openedDirs.indexWhere((d) => d.path == _currentDir!.path);
-        if (index >= 0) _openedDirs[index] = _currentDir!;
-      });
-
-      final loaded = await _loadCurrentPath();
-      if (!mounted) return false;
-
-      if (loaded) {
-        ErrorHelper.showSuccess(context, '密码验证成功');
-      }
-      return true;
-    } catch (_) {
+      rootID = _cryptoService.openRoot(_currentDir!.path, password, '');
+    } catch (error) {
       if (mounted) {
-        ErrorHelper.showError(context, errorType: ErrorType.invalidPassword);
+        final presentation = classifyRootOpenError(error);
+        ErrorHelper.showError(
+          context,
+          errorType: presentation.type,
+          originalError: error.toString(),
+          operation: presentation.operation,
+        );
       }
       return false;
     }
+
+    await _handleUnfinishedOperations(rootID);
+
+    setState(() {
+      _currentDir = EncryptedDirectory(
+        path: _currentDir!.path,
+        config: _currentDir!.config,
+        isVerified: true,
+        tempKeyID: rootID.toString(),
+      );
+
+      final index = _openedDirs.indexWhere((d) => d.path == _currentDir!.path);
+      if (index >= 0) _openedDirs[index] = _currentDir!;
+    });
+
+    final loaded = await _loadCurrentPath();
+    if (!mounted) return false;
+
+    if (loaded) {
+      ErrorHelper.showSuccess(context, '密码验证成功');
+    }
+    return true;
   }
 
   Future<void> _handleUnfinishedOperations(int rootID) async {
@@ -2031,6 +2040,18 @@ class _HomePageState extends State<HomePage> {
           onCloseDirectory: _closeDirectory,
           onSwitchDirectory: _switchToDirectory,
           onRenameDirectory: _renameDirectoryAlias,
+          onShowRootProperties: (directory) {
+            unawaited(showRootDirectoryProperties(
+              context: context,
+              directory: directory,
+            ));
+          },
+          onChangeRootPassword: (directory) {
+            unawaited(showUnsupportedRootPasswordChange(
+              context: context,
+              directory: directory,
+            ));
+          },
           onToggleDrawerPin: (pinned) async {
             setState(() => _drawerPinned = pinned);
             await _persistenceService.saveDrawerPinned(pinned);

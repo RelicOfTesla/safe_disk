@@ -4,6 +4,7 @@ package crypto_name
 
 import (
 	"safe_disk/native/sec_fs/internal/utils"
+	"strings"
 )
 
 // ==================== NameFactoryRegistry ====================
@@ -31,6 +32,9 @@ func RegisterNameFactory(factory ICryptoNameFactory) error {
 // GetNameFactory retrieves a factory from the global registry by name.
 // Returns nil if no factory with the given name is registered.
 func GetNameFactory(name string) ICryptoNameFactory {
+	if strings.EqualFold(name, "aes-gcm-name") {
+		name = "AES-256-GCM"
+	}
 	return globalRegistry.GetOrNilFold(name)
 }
 

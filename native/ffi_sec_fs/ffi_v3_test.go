@@ -216,6 +216,13 @@ func TestOpenRootFFIRejectsWrongPasswordWithoutRegisteringRoot(t *testing.T) {
 	if !strings.Contains(response, "invalid password") {
 		t.Fatalf("wrong password returned an unclear error: %s", response)
 	}
+	var errorResponse Response
+	if err := json.Unmarshal([]byte(response), &errorResponse); err != nil {
+		t.Fatalf("decode wrong-password response: %v", err)
+	}
+	if errorResponse.Code != ErrorCodeInvalidPassword {
+		t.Fatalf("wrong-password code = %d, want %d", errorResponse.Code, ErrorCodeInvalidPassword)
+	}
 	if got := RootStore.Len(); got != before {
 		t.Fatalf("failed open leaked a root handle: before=%d after=%d", before, got)
 	}

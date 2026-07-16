@@ -38,9 +38,17 @@ func TestOpenRootQuickAuthenticatesPasswordForEveryKeyDeriver(t *testing.T) {
 			)
 			require.NoError(t, err)
 			group := deriver
-			if deriver == "Argon2id" {
+			switch deriver {
+			case "Argon2id":
 				group = "argon2"
+			case "HKDF-SHA-256":
+				group = "hkdf"
+			case "PBKDF2":
+				group = "pbkdf2"
 			}
+			storedDeriver, err := cfg.GetStr("sec_deriver_factory")
+			require.NoError(t, err)
+			require.Equal(t, deriver, storedDeriver)
 			firstSalt, err := cfg.WithGroup(group).GetStr("salt")
 			require.NoError(t, err)
 			secondSalt, err := secondCfg.WithGroup(group).GetStr("salt")

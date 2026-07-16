@@ -118,6 +118,28 @@ CLI 与 FFI 入口通过 `crypto_all` 注册上述实现。`hkdf` 适用于已�
 
 创建时不再从 registry map 中选择“第一个”算法：优先使用固定默认 `argon2id`；仅注册一个替代 KDF 的嵌入场景可使用该唯一实现；多个实现但默认未注册时直接返回配置错误。打开 root 时严格使用配置记录的 factory，不猜测缺失字段。
 
+## 修改密码能力
+
+当前格式**不支持安全的原地修改密码**。现有 root 使用密码经所选 KDF 直接派生
+数据和名称加密所需密钥，没有独立随机 root master key，也没有用密码派生密钥
+封装 master key 的配置记录。因此：
+
+- 只更新 password verifier 会使新密码通过认证，但无法解密既有数据；
+- 只替换 KDF salt/参数同样会改变实际加密密钥并损坏 root；
+- 保留旧 salt 并登记新 verifier 不构成改密，也不能让新旧密码得到同一密钥。
+
+当前 UI 只能展示“不支持安全原地改密”，不能提供伪改密操作。安全替代方案是用
+新密码创建新 root，再全量迁移。未来若要支持无需重加密的数据改密，格式必须先
+引入随机 master key、用途分离子密钥、经密码派生 KEK 认证加密的 master-key
+envelope，以及配置原子替换和中断恢复协议。
+
+## 算法名称与配置命名空间兼容
+
+- factory 的 canonical 名称用于注册、能力展示和新配置的算法标识；历史 root 中的小写名称仍属于磁盘格式兼容面。当前显式兼容 `aes-gcm-name → AES-256-GCM`、`hkdf → HKDF-SHA-256`，其余规范名调整按大小写兼容。
+- 算法参数的配置 namespace 不是展示名称，发布后不得随 IANA/IETF 名称调整。PBKDF2 与 HKDF 稳定写入 `pbkdf2_*`、`hkdf_*`；读取额外兼容短期版本写出的 `PBKDF2_*`、`HKDF-SHA-256_*`。
+- namespace 选择以该组的 `salt` 是否存在为准，随后所有参数只从同一组读取，禁止从新旧组混合拼装配置。
+- 注册层拒绝仅大小写不同的两个 factory，避免 case-insensitive fallback 依赖 map 遍历顺序。
+
 ## Root 路径词法安全边界
 
 `RelativeViewPath` 只能定位当前 root 内的对象。加密 root 的 view-path 操作经过 `viewPathToStorePathCheck`，`RenameByStorePath` 与 `PlainFS` 共用 `fullPathFromRelativeStorePath`；两条路径遵守相同不变量：
