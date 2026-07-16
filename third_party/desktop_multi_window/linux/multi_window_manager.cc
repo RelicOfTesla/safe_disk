@@ -103,8 +103,16 @@ std::string MultiWindowManager::Create(FlValue* args) {
   fl_dart_project_set_dart_entrypoint_arguments(
       project, const_cast<char**>(entrypoint_args));
 
-  // Create Flutter view
+  // Isolate child engines from the shared GLX context used by the main view.
+  const gchar* renderer_value = g_getenv("FLUTTER_LINUX_RENDERER");
+  g_autofree gchar* previous_renderer = g_strdup(renderer_value);
+  g_setenv("FLUTTER_LINUX_RENDERER", "software", TRUE);
   auto fl_view = fl_view_new(project);
+  if (previous_renderer == nullptr) {
+    g_unsetenv("FLUTTER_LINUX_RENDERER");
+  } else {
+    g_setenv("FLUTTER_LINUX_RENDERER", previous_renderer, TRUE);
+  }
   gtk_widget_show(GTK_WIDGET(fl_view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(fl_view));
 
