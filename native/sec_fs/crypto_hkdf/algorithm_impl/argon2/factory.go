@@ -23,7 +23,7 @@ type Factory struct {
 // NewFactory creates a new Argon2id factory.
 func NewFactory() *Factory {
 	return &Factory{
-		name: "argon2id",
+		name: "Argon2id",
 	}
 }
 

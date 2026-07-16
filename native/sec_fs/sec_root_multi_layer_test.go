@@ -34,8 +34,8 @@ import (
 // 6. All name encryption and data encryption algorithm combinations
 func TestMultiLayerDirectoryReadWrite(t *testing.T) {
 	// Define test configurations
-	nameFactories := []string{"aes-gcm-name", "none", "rc4"}
-	dataFactories := []string{"aes-ctr", "aes-xts", "chacha20", "rc4"}
+	nameFactories := []string{"AES-256-GCM", "None", "RC4"}
+	dataFactories := []string{"AES-CTR", "AES-XTS", "ChaCha20", "RC4"}
 
 	// Test all combinations
 	for _, nameFactory := range nameFactories {
@@ -170,7 +170,7 @@ func TestMultiLayerDirectoryWithLargeFiles(t *testing.T) {
 		10 * 1024 * 1024, // 10 MB
 	}
 
-	// Test with default algorithms (aes-gcm-name + aes-ctr)
+	// Test with default algorithms (AES-256-GCM + AES-CTR)
 	for _, size := range testSizes {
 		testName := fmt.Sprintf("FileSize_%dBytes", size)
 		t.Run(testName, func(t *testing.T) {
@@ -188,8 +188,8 @@ func testMultiLayerDirectoryWithLargeFile(t *testing.T, fileSize int) {
 
 	// Create encrypted root directory
 	_, _, err := sec_fs.CreateRootConfigQuick(rootPath, password,
-		sec_fs.WithNameFactory("aes-gcm-name"),
-		sec_fs.WithDataFactory("aes-ctr"),
+		sec_fs.WithNameFactory("AES-256-GCM"),
+		sec_fs.WithDataFactory("AES-CTR"),
 		sec_fs.WithKeyStrengthMs(10),
 	)
 	require.NoError(t, err, "Failed to create root config")
@@ -265,8 +265,8 @@ func TestMultiLayerDirectoryWithRandomAccess(t *testing.T) {
 
 	// Create encrypted root directory
 	_, _, err := sec_fs.CreateRootConfigQuick(rootPath, password,
-		sec_fs.WithNameFactory("aes-gcm-name"),
-		sec_fs.WithDataFactory("aes-ctr"),
+		sec_fs.WithNameFactory("AES-256-GCM"),
+		sec_fs.WithDataFactory("AES-CTR"),
 		sec_fs.WithKeyStrengthMs(10),
 	)
 	require.NoError(t, err, "Failed to create root config")
@@ -376,8 +376,8 @@ func TestMultiLayerDirectoryFileDeletion(t *testing.T) {
 
 	// Create encrypted root directory
 	_, _, err := sec_fs.CreateRootConfigQuick(rootPath, password,
-		sec_fs.WithNameFactory("aes-gcm-name"),
-		sec_fs.WithDataFactory("aes-ctr"),
+		sec_fs.WithNameFactory("AES-256-GCM"),
+		sec_fs.WithDataFactory("AES-CTR"),
 		sec_fs.WithKeyStrengthMs(10),
 	)
 	require.NoError(t, err, "Failed to create root config")

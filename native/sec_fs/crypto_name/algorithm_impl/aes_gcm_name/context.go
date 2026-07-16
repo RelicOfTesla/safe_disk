@@ -23,7 +23,7 @@ type Context struct {
 // NewContext creates a new AES-256-GCM context for name encryption.
 //
 // Expected cfg to be already grouped by caller with cfg.WithGroup("name").
-// This method will further group with cfg.WithGroup("aes-gcm-name") to read algorithm-specific config.
+// This method will further group with cfg.WithGroup("AES-256-GCM") to read algorithm-specific config.
 // Current implementation only uses IKeyInfo, but config is available for future extensions.
 func NewContext(keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConfig) (*Context, error) {
 	key := keyInfo.GetKey()

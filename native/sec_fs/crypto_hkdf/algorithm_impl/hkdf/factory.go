@@ -28,7 +28,7 @@ type Factory struct {
 // NewFactory creates a new HKDF factory.
 func NewFactory() *Factory {
 	return &Factory{
-		name: "hkdf",
+		name: "HKDF-SHA-256",
 	}
 }
 
@@ -43,7 +43,7 @@ func (f *Factory) NewDeriver(cfg config.SharedConfig) (crypto_hkdf.IKeyDeriver, 
 // For HKDF, this reads the salt and derives a key from the IKM (password parameter).
 func (f *Factory) LoadKey(password string, cfg config.SharedConfig) (crypto_hkdf.IKeyInfo, error) {
 	// Create algorithm-specific config namespace
-	hkdfCfg := cfg.WithGroup("hkdf")
+	hkdfCfg := cfg.WithGroup("HKDF-SHA-256")
 
 	// Read HKDF-specific config
 	saltHex, err := hkdfCfg.GetStr("salt")
@@ -110,7 +110,7 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 
 	// Save parameters to config
 	if cfg != nil {
-		hkdfCfg := cfg.WithGroup("hkdf")
+		hkdfCfg := cfg.WithGroup("HKDF-SHA-256")
 		hkdfCfg.SetStr("salt", hex.EncodeToString(salt))
 		hkdfCfg.SetInt("key_length", keyLength)
 	}

@@ -166,8 +166,8 @@ func TestCLIImportExportWithEncryptedNames(t *testing.T) {
 	if _, _, err := sec_fs.CreateRootConfigQuick(
 		sec_fs.FullStorePath(encryptedDir),
 		password,
-		sec_fs.WithDataFactory("aes-ctr"),
-		sec_fs.WithNameFactory("aes-gcm-name"),
+		sec_fs.WithDataFactory("AES-CTR"),
+		sec_fs.WithNameFactory("AES-256-GCM"),
 	); err != nil {
 		t.Fatalf("Failed to create encrypted root: %v", err)
 	}

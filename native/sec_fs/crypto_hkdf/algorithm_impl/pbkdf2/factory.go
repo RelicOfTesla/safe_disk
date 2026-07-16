@@ -23,7 +23,7 @@ type Factory struct {
 // NewFactory creates a new PBKDF2 factory.
 func NewFactory() *Factory {
 	return &Factory{
-		name: "pbkdf2",
+		name: "PBKDF2",
 	}
 }
 
@@ -42,7 +42,7 @@ func (f *Factory) NewDeriver(cfg config.SharedConfig) (crypto_hkdf.IKeyDeriver, 
 // Final config keys: "key_pbkdf2_salt", "key_pbkdf2_iterations", "key_pbkdf2_key_length".
 func (f *Factory) LoadKey(password string, cfg config.SharedConfig) (crypto_hkdf.IKeyInfo, error) {
 	// Create algorithm-specific config namespace
-	pbkdf2Cfg := cfg.WithGroup("pbkdf2")
+	pbkdf2Cfg := cfg.WithGroup("PBKDF2")
 
 	// Read PBKDF2-specific config
 	saltHex, err := pbkdf2Cfg.GetStr("salt")
@@ -118,7 +118,7 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 
 	// Save PBKDF2-specific config
 	if cfg != nil {
-		pbkdf2Cfg := cfg.WithGroup("pbkdf2")
+		pbkdf2Cfg := cfg.WithGroup("PBKDF2")
 		pbkdf2Cfg.SetStr("salt", hex.EncodeToString(salt))
 		pbkdf2Cfg.SetInt("iterations", iterations)
 		pbkdf2Cfg.SetInt("key_length", keyLength)

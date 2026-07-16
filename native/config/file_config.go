@@ -174,7 +174,7 @@ func (f *FileConfig) SetBool(key string, val bool) error {
 
 // WithGroup returns a new SharedConfig with the given group name as a prefix.
 // The group name will be automatically suffixed with "_" to create a namespace.
-// For example: cfg.WithGroup("pbkdf2") creates a config with prefix "pbkdf2_".
+// For example: cfg.WithGroup("PBKDF2") creates a config with prefix "pbkdf2_".
 func (f *FileConfig) WithGroup(name string) SharedConfig {
 	return NewPrefixedConfig(name+"_", f)
 }

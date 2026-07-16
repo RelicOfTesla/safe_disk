@@ -15,7 +15,7 @@ func NewFactory() crypto_data.ICryptoDataFactory {
 type factory struct{}
 
 func (f *factory) GetName() string {
-	return "aes-ctr"
+	return "AES-CTR"
 }
 
 func (f *factory) GetCapabilities() crypto_data.CryptorCapabilities {

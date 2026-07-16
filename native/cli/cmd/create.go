@@ -163,8 +163,8 @@ func errCreateNonEmptyNeedsInPlace() error {
 
 func defaultCreateRootOptions() []sec_fs.CreateRootOption {
 	return []sec_fs.CreateRootOption{
-		sec_fs.WithDataFactory("aes-ctr"),
-		sec_fs.WithNameFactory("none"),
+		sec_fs.WithDataFactory("AES-CTR"),
+		sec_fs.WithNameFactory("None"),
 	}
 }
 

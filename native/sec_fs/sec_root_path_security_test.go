@@ -11,7 +11,7 @@ import (
 )
 
 func TestRootOperationsRejectPathsOutsideRoot(t *testing.T) {
-	for _, nameFactory := range []string{"none", "aes-gcm-name"} {
+	for _, nameFactory := range []string{"None", "AES-256-GCM"} {
 		t.Run(nameFactory, func(t *testing.T) {
 			tmp := t.TempDir()
 			rootPath := filepath.Join(tmp, "root")
@@ -131,7 +131,7 @@ func TestPlainFSOperationsRejectPathsOutsideRoot(t *testing.T) {
 
 func TestRootOperationsAllowNormalizedPathsInsideRoot(t *testing.T) {
 	rootPath := filepath.Join(t.TempDir(), "root")
-	root, err := createPathSecurityRoot(rootPath, "aes-gcm-name")
+	root, err := createPathSecurityRoot(rootPath, "AES-256-GCM")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func createPathSecurityRoot(rootPath, nameFactory string) (sec_fs.ISecRoot, erro
 	_, _, err := sec_fs.CreateRootConfigQuick(
 		sec_fs.FullStorePath(rootPath),
 		"path-security-password",
-		sec_fs.WithDataFactory("aes-ctr"),
+		sec_fs.WithDataFactory("AES-CTR"),
 		sec_fs.WithNameFactory(nameFactory),
 		sec_fs.WithKeyStrengthMs(1),
 	)

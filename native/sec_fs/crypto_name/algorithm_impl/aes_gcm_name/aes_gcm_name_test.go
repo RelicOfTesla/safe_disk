@@ -45,14 +45,14 @@ func (m *mockKeyInfo) GetSalt() []byte {
 
 func TestAESGCMNameFactory(t *testing.T) {
 	// Get factory from registry
-	factory := crypto_name.GetNameFactory("aes-gcm-name")
+	factory := crypto_name.GetNameFactory("AES-256-GCM")
 	if factory == nil {
-		t.Fatal("aes-gcm-name factory not registered")
+		t.Fatal("AES-256-GCM factory not registered")
 	}
 
 	// Verify factory name
-	if factory.GetName() != "aes-gcm-name" {
-		t.Errorf("Expected factory name 'aes-gcm-name', got '%s'", factory.GetName())
+	if factory.GetName() != "AES-256-GCM" {
+		t.Errorf("Expected factory name 'AES-256-GCM', got '%s'", factory.GetName())
 	}
 }
 

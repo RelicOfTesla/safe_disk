@@ -15,7 +15,7 @@ type Factory struct {
 // NewFactory creates a new RC4 factory.
 func NewFactory() *Factory {
 	return &Factory{
-		name: "rc4",
+		name: "RC4",
 	}
 }
 

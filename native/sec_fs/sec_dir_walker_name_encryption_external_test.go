@@ -22,9 +22,9 @@ func TestSecDirWalker_EncryptedDirectoryNames(t *testing.T) {
 	_, _, err := sec_fs.CreateRootConfigQuick(
 		sec_fs.FullStorePath(rootPath),
 		password,
-		sec_fs.WithDataFactory("aes-ctr"),
-		sec_fs.WithNameFactory("aes-gcm-name"),
-		sec_fs.WithDeriverFactory("argon2id"),
+		sec_fs.WithDataFactory("AES-CTR"),
+		sec_fs.WithNameFactory("AES-256-GCM"),
+		sec_fs.WithDeriverFactory("Argon2id"),
 	)
 	require.NoError(t, err)
 	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(rootPath), password)

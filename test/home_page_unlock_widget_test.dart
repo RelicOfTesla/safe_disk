@@ -1530,8 +1530,8 @@ class _FakeCryptoService extends CryptoService {
   @override
   CryptionConfig loadConfig(String rootPath) => CryptionConfig({
         'version': '1.0',
-        'dataFactory': 'aes-ctr',
-        'nameFactory': 'aes-gcm-name',
+        'dataFactory': 'AES-CTR',
+        'nameFactory': 'AES-256-GCM',
       });
 
   @override

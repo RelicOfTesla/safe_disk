@@ -26,7 +26,7 @@ func TestTransferV3FFIRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	options := `{"dataFactory":"aes-ctr","nameFactory":"none"}`
+	options := `{"dataFactory":"AES-CTR","nameFactory":"None"}`
 	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", options))
 	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
@@ -61,7 +61,7 @@ func TestRenameFFIRenamesEncryptedEntriesWithoutReplacing(t *testing.T) {
 	assertSuccess(t, CreateRootConfig_FFI(
 		rootPath,
 		"pw",
-		`{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`,
+		`{"dataFactory":"AES-CTR","nameFactory":"AES-256-GCM"}`,
 	))
 	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
@@ -89,7 +89,7 @@ func TestCopyEntryFFICopiesAcrossEncryptedRootsAndRequiresOverwrite(t *testing.T
 		assertSuccess(t, CreateRootConfig_FFI(
 			path,
 			password,
-			`{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`,
+			`{"dataFactory":"AES-CTR","nameFactory":"AES-256-GCM"}`,
 		))
 		response := assertSuccess(t, OpenRoot_FFI(path, password, ""))
 		return int64(response["data"].(map[string]interface{})["root_id"].(float64))
@@ -115,7 +115,7 @@ func TestCopyEntryFFICopiesAcrossEncryptedRootsAndRequiresOverwrite(t *testing.T
 
 func TestCreateEntryFFICreatesEncryptedNamesWithoutReplacing(t *testing.T) {
 	rootPath := filepath.Join(t.TempDir(), "root")
-	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`))
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"AES-256-GCM"}`))
 	rootResponse := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResponse["data"].(map[string]interface{})["root_id"].(float64))
 	defer CloseRoot_FFI(rootID)
@@ -142,7 +142,7 @@ func TestTransferV3ImportFFIRequiresExplicitOverwrite(t *testing.T) {
 	if err := os.WriteFile(sourcePath, []byte("new"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`))
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"AES-256-GCM"}`))
 	rootResponse := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResponse["data"].(map[string]interface{})["root_id"].(float64))
 	defer CloseRoot_FFI(rootID)
@@ -156,7 +156,7 @@ func TestTransferV3ImportFFIRequiresExplicitOverwrite(t *testing.T) {
 
 func TestTransferV3FFICleanRejectsPathTraversalOperationID(t *testing.T) {
 	rootPath := filepath.Join(t.TempDir(), "root")
-	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"None"}`))
 	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
 	defer CloseRoot_FFI(rootID)
@@ -177,7 +177,7 @@ func TestFFIRootAndTransferRejectPathTraversal(t *testing.T) {
 	if err := os.WriteFile(sourcePath, []byte("must stay inside root"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`))
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"AES-256-GCM"}`))
 	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
 	defer CloseRoot_FFI(rootID)
@@ -205,7 +205,7 @@ func TestOpenRootFFIRejectsWrongPasswordWithoutRegisteringRoot(t *testing.T) {
 	assertSuccess(t, CreateRootConfig_FFI(
 		rootPath,
 		"correct-password",
-		`{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name","deriverFactory":"pbkdf2"}`,
+		`{"dataFactory":"AES-CTR","nameFactory":"AES-256-GCM","deriverFactory":"PBKDF2"}`,
 	))
 
 	before := RootStore.Len()
@@ -238,7 +238,7 @@ func TestTransferV3FFIProgressCallback(t *testing.T) {
 		}
 	}
 
-	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"None"}`))
 	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
 	defer CloseRoot_FFI(rootID)
@@ -270,7 +270,7 @@ func TestTransferV3FFICancelRuntimeOperation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"None"}`))
 	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
 	defer CloseRoot_FFI(rootID)
@@ -336,7 +336,7 @@ func TestTransferV3FFICancelWhileWaitingForRootLock(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"None"}`))
 	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
 	defer CloseRoot_FFI(rootID)
@@ -426,7 +426,7 @@ func TestTransferV3FFIWithEncryptedNames(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	options := `{"dataFactory":"aes-ctr","nameFactory":"aes-gcm-name"}`
+	options := `{"dataFactory":"AES-CTR","nameFactory":"AES-256-GCM"}`
 	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", options))
 	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
@@ -452,7 +452,7 @@ func TestTransferV3FFIWithEncryptedNames(t *testing.T) {
 func TestOpenRootFFIIgnoreMatcher(t *testing.T) {
 	tmp := t.TempDir()
 	rootPath := filepath.Join(tmp, "root")
-	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"None"}`))
 	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
 	assertSuccess(t, QuickWriteFile_FFI(rootID, "keep.txt", []byte("keep")))
@@ -517,7 +517,7 @@ func TestCLIAndFFICreateOpenCompatibility(t *testing.T) {
 	}
 
 	ffiRoot := filepath.Join(tmp, "ffi-root")
-	assertSuccess(t, CreateRootConfig_FFI(ffiRoot, password, `{"dataFactory":"aes-ctr","nameFactory":"none"}`))
+	assertSuccess(t, CreateRootConfig_FFI(ffiRoot, password, `{"dataFactory":"AES-CTR","nameFactory":"None"}`))
 	plainFile := filepath.Join(tmp, "plain.txt")
 	if err := os.WriteFile(plainFile, []byte("created by ffi, imported by cli"), 0644); err != nil {
 		t.Fatal(err)

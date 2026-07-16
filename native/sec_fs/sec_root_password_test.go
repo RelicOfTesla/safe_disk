@@ -14,7 +14,7 @@ import (
 )
 
 func TestOpenRootQuickAuthenticatesPasswordForEveryKeyDeriver(t *testing.T) {
-	for _, deriver := range []string{"argon2id", "hkdf", "pbkdf2", "scrypt"} {
+	for _, deriver := range []string{"Argon2id", "HKDF-SHA-256", "PBKDF2", "scrypt"} {
 		t.Run(deriver, func(t *testing.T) {
 			rootPath := sec_fs.FullStorePath(filepath.Join(t.TempDir(), "root"))
 			const password = "correct-password"
@@ -23,8 +23,8 @@ func TestOpenRootQuickAuthenticatesPasswordForEveryKeyDeriver(t *testing.T) {
 				rootPath,
 				password,
 				sec_fs.WithDeriverFactory(deriver),
-				sec_fs.WithDataFactory("aes-ctr"),
-				sec_fs.WithNameFactory("aes-gcm-name"),
+				sec_fs.WithDataFactory("AES-CTR"),
+				sec_fs.WithNameFactory("AES-256-GCM"),
 				sec_fs.WithKeyStrengthMs(1),
 			)
 			require.NoError(t, err)
@@ -32,13 +32,13 @@ func TestOpenRootQuickAuthenticatesPasswordForEveryKeyDeriver(t *testing.T) {
 				sec_fs.FullStorePath(filepath.Join(t.TempDir(), "second-root")),
 				password,
 				sec_fs.WithDeriverFactory(deriver),
-				sec_fs.WithDataFactory("aes-ctr"),
-				sec_fs.WithNameFactory("aes-gcm-name"),
+				sec_fs.WithDataFactory("AES-CTR"),
+				sec_fs.WithNameFactory("AES-256-GCM"),
 				sec_fs.WithKeyStrengthMs(1),
 			)
 			require.NoError(t, err)
 			group := deriver
-			if deriver == "argon2id" {
+			if deriver == "Argon2id" {
 				group = "argon2"
 			}
 			firstSalt, err := cfg.WithGroup(group).GetStr("salt")
@@ -80,9 +80,9 @@ func TestOpenRootQuickRejectsRootWithoutPasswordVerifier(t *testing.T) {
 	_, _, err := sec_fs.CreateRootConfigQuick(
 		rootPath,
 		password,
-		sec_fs.WithDeriverFactory("pbkdf2"),
-		sec_fs.WithDataFactory("aes-ctr"),
-		sec_fs.WithNameFactory("none"),
+		sec_fs.WithDeriverFactory("PBKDF2"),
+		sec_fs.WithDataFactory("AES-CTR"),
+		sec_fs.WithNameFactory("None"),
 	)
 	require.NoError(t, err)
 
@@ -109,9 +109,9 @@ func TestOpenRootQuickRejectsCorruptPasswordVerifier(t *testing.T) {
 	_, _, err := sec_fs.CreateRootConfigQuick(
 		rootPath,
 		password,
-		sec_fs.WithDeriverFactory("pbkdf2"),
-		sec_fs.WithDataFactory("aes-ctr"),
-		sec_fs.WithNameFactory("none"),
+		sec_fs.WithDeriverFactory("PBKDF2"),
+		sec_fs.WithDataFactory("AES-CTR"),
+		sec_fs.WithNameFactory("None"),
 	)
 	require.NoError(t, err)
 
@@ -149,9 +149,9 @@ func TestOpenRootQuickRejectsMissingOrUnknownFactories(t *testing.T) {
 			_, _, err := sec_fs.CreateRootConfigQuick(
 				rootPath,
 				"password",
-				sec_fs.WithDeriverFactory("pbkdf2"),
-				sec_fs.WithDataFactory("aes-ctr"),
-				sec_fs.WithNameFactory("none"),
+				sec_fs.WithDeriverFactory("PBKDF2"),
+				sec_fs.WithDataFactory("AES-CTR"),
+				sec_fs.WithNameFactory("None"),
 			)
 			require.NoError(t, err)
 

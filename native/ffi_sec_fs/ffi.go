@@ -446,9 +446,9 @@ func parseCreateRootOptions(optionsJSON string) []sec_fs.CreateRootOption {
 // OpenOptions format:
 //
 //	{
-//	  "dataFactory": "aes-ctr",
-//	  "nameFactory": "aes-gcm-name",
-//	  "deriverFactory": "pbkdf2",
+//	  "dataFactory": "AES-CTR",
+//	  "nameFactory": "AES-256-GCM",
+//	  "deriverFactory": "PBKDF2",
 //	  "ignoreMatcher": { ... }
 //	}
 func OpenRoot_FFI(rootPath string, password string, optionsJSON string) string {
@@ -498,9 +498,9 @@ func CloseRoot_FFI(rootID int64) string {
 // CreateRootOptions format:
 //
 //	{
-//	  "dataFactory": "aes-ctr",
-//	  "nameFactory": "aes-gcm-name",
-//	  "deriverFactory": "pbkdf2",
+//	  "dataFactory": "AES-CTR",
+//	  "nameFactory": "AES-256-GCM",
+//	  "deriverFactory": "PBKDF2",
 //	  "keyStrengthMs": 100,
 //	  "configFileName": "_cryption.json"
 //	}

@@ -13,15 +13,15 @@ import (
 
 func TestRegistersEveryImplementedAlgorithm(t *testing.T) {
 	require.ElementsMatch(t,
-		[]string{"aes-ctr", "aes-xts", "chacha20", "rc4"},
+		[]string{"AES-CTR", "AES-XTS", "ChaCha20", "RC4"},
 		crypto_data.ListFactories(),
 	)
 	require.ElementsMatch(t,
-		[]string{"aes-gcm-name", "none", "rc4"},
+		[]string{"AES-256-GCM", "None", "RC4"},
 		crypto_name.ListNameFactories(),
 	)
 	require.ElementsMatch(t,
-		[]string{"argon2id", "hkdf", "pbkdf2", "scrypt"},
+		[]string{"Argon2id", "HKDF-SHA-256", "PBKDF2", "scrypt"},
 		crypto_hkdf.ListDeriverFactories(),
 	)
 }

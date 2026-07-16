@@ -96,12 +96,12 @@ func GetAllFactories() []ContextFactory {
 	_ = chacha20.NewFactory
 	return []ContextFactory{
 		{Name: "mockFile", Factory: newMockFactory()},
-		{Name: "rc4", Factory: rc4.NewFactory()},
+		{Name: "RC4", Factory: rc4.NewFactory()},
 		//{Name: "rc4+random-access", Factory: random_access_adapter.NewFactory(rc4.NewFactory(), 4096)},
-		{Name: "aes-ctr", Factory: aes_ctr.NewFactory()},
+		{Name: "AES-CTR", Factory: aes_ctr.NewFactory()},
 		//{Name: "aes-ctr+random-access", Factory: random_access_adapter.NewFactory(aes_ctr.NewFactory(), 4096)},
-		{Name: "aes-xts", Factory: aes_xts.NewFactory()},
-		{Name: "chacha20", Factory: chacha20.NewFactory()},
+		{Name: "AES-XTS", Factory: aes_xts.NewFactory()},
+		{Name: "ChaCha20", Factory: chacha20.NewFactory()},
 		//{Name: "chacha20+random-access", Factory: random_access_adapter.NewFactory(chacha20.NewFactory(), 4096)},
 	}
 }

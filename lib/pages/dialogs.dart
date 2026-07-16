@@ -185,9 +185,9 @@ class _CreateEncryptedDirectoryDialogState
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _showAdvanced = false;
-  String _dataFactory = 'aes-ctr';
-  String _nameFactory = 'aes-gcm-name';
-  String _deriverFactory = 'argon2id';
+  String _dataFactory = 'AES-CTR';
+  String _nameFactory = 'AES-256-GCM';
+  String _deriverFactory = 'Argon2id';
   int _keyStrengthMs = 1000;
 
   @override
@@ -276,7 +276,7 @@ class _CreateEncryptedDirectoryDialogState
                     if (value != null) setState(() => _keyStrengthMs = value);
                   },
                 ),
-                if (_nameFactory == 'none')
+                if (_nameFactory == 'None')
                   const Padding(
                     padding: EdgeInsets.only(top: 12),
                     child: Text('注意：选择 none 后，文件名和目录名不会加密。'),

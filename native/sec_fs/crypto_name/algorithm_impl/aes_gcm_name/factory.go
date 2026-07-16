@@ -15,7 +15,7 @@ type Factory struct {
 // NewFactory creates a new AES-256-GCM name cryptor factory.
 func NewFactory() *Factory {
 	return &Factory{
-		name: "aes-gcm-name",
+		name: "AES-256-GCM",
 	}
 }
 

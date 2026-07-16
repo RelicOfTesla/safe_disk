@@ -16,7 +16,7 @@ func TestCloneRootShallowOwnsIndependentSensitiveState(t *testing.T) {
 	if _, _, err := sec_fs.CreateRootConfigQuick(
 		sec_fs.FullStorePath(rootPath),
 		password,
-		sec_fs.WithNameFactory("aes-gcm-name"),
+		sec_fs.WithNameFactory("AES-256-GCM"),
 	); err != nil {
 		t.Fatal(err)
 	}

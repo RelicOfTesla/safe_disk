@@ -16,6 +16,6 @@ type SharedConfig interface {
 
 	// WithGroup returns a new SharedConfig with the given group name applied to all keys.
 	// The group name will be automatically suffixed with "_" to create a namespace.
-	// Example: cfg.WithGroup("pbkdf2") creates a config with prefix "pbkdf2_".
+	// Example: cfg.WithGroup("PBKDF2") creates a config with prefix "pbkdf2_".
 	WithGroup(name string) SharedConfig
 }

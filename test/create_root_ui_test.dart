@@ -82,8 +82,8 @@ void main() {
     await tester.tap(find.text('创建'));
     await tester.pumpAndSettle();
 
-    expect(result?.nameFactory, 'aes-gcm-name');
-    expect(result?.deriverFactory, 'argon2id');
+    expect(result?.nameFactory, 'AES-256-GCM');
+    expect(result?.deriverFactory, 'Argon2id');
   });
 }
 

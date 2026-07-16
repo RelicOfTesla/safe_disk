@@ -22,7 +22,7 @@ func (f *Factory) NewContext(keyInfo crypto_hkdf.IKeyInfo, cfg config.SharedConf
 
 // GetName returns the factory name.
 func (f *Factory) GetName() string {
-	return "none"
+	return "None"
 }
 
 // Compile-time interface verification

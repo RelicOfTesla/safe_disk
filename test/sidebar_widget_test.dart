@@ -11,8 +11,8 @@ void main() {
       path: '/tmp/safe-disk-ui/root-name',
       config: CryptionConfig({
         'version': '1.0',
-        'dataFactory': 'aes-ctr',
-        'nameFactory': 'none',
+        'dataFactory': 'AES-CTR',
+        'nameFactory': 'None',
       }),
       isVerified: true,
     );

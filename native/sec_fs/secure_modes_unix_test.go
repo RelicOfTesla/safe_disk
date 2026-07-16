@@ -18,8 +18,8 @@ func TestSecureRootCreatesPrivateConfigDirectoriesAndFiles(t *testing.T) {
 	const password = "secure-mode-password"
 	if _, _, err := sec_fs.CreateRootConfigQuick(
 		sec_fs.FullStorePath(rootPath), password,
-		sec_fs.WithDataFactory("aes-ctr"),
-		sec_fs.WithNameFactory("aes-gcm-name"),
+		sec_fs.WithDataFactory("AES-CTR"),
+		sec_fs.WithNameFactory("AES-256-GCM"),
 		sec_fs.WithKeyStrengthMs(1),
 	); err != nil {
 		t.Fatal(err)
@@ -63,8 +63,8 @@ func TestSecureRootDoesNotChmodExistingRootDirectory(t *testing.T) {
 	}
 	if _, _, err := sec_fs.CreateRootConfigQuick(
 		sec_fs.FullStorePath(rootPath), "password",
-		sec_fs.WithDataFactory("aes-ctr"),
-		sec_fs.WithNameFactory("aes-gcm-name"),
+		sec_fs.WithDataFactory("AES-CTR"),
+		sec_fs.WithNameFactory("AES-256-GCM"),
 		sec_fs.WithKeyStrengthMs(1),
 	); err != nil {
 		t.Fatal(err)

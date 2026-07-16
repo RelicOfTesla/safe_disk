@@ -48,8 +48,8 @@ void main() {
       final cryptoService = CryptoService();
       const password = 'dart-ffi-password';
       final options = jsonEncode({
-        'dataFactory': 'aes-ctr',
-        'nameFactory': 'aes-gcm-name',
+        'dataFactory': 'AES-CTR',
+        'nameFactory': 'AES-256-GCM',
       });
 
       native.secCreateRootConfig(rootPath, password, options);
@@ -284,8 +284,8 @@ void main() {
       final plainSourcePath = '${tmp.path}/incoming.txt';
       await File(plainSourcePath).writeAsString('import replacement');
       final options = jsonEncode({
-        'dataFactory': 'aes-ctr',
-        'nameFactory': 'aes-gcm-name',
+        'dataFactory': 'AES-CTR',
+        'nameFactory': 'AES-256-GCM',
       });
       final crypto = CryptoService();
       crypto.createRootConfig(sourceRootPath, 'source-password', options);
@@ -402,8 +402,8 @@ void main() {
       final rootPath = '${tmp.path}/root';
       const password = 'notepad-ffi-password';
       final options = jsonEncode({
-        'dataFactory': 'aes-ctr',
-        'nameFactory': 'aes-gcm-name',
+        'dataFactory': 'AES-CTR',
+        'nameFactory': 'AES-256-GCM',
       });
       final cryptoService = CryptoService();
       cryptoService.createRootConfig(rootPath, password, options);
@@ -478,8 +478,8 @@ void main() {
         final rootPath = '${tmp.path}/root';
         const password = 'image-ffi-password';
         final options = jsonEncode({
-          'dataFactory': 'aes-ctr',
-          'nameFactory': 'aes-gcm-name',
+          'dataFactory': 'AES-CTR',
+          'nameFactory': 'AES-256-GCM',
         });
         final cryptoService = CryptoService();
         cryptoService.createRootConfig(rootPath, password, options);
@@ -568,8 +568,8 @@ void main() {
         rootPath,
         password,
         jsonEncode({
-          'dataFactory': 'aes-ctr',
-          'nameFactory': 'aes-gcm-name',
+          'dataFactory': 'AES-CTR',
+          'nameFactory': 'AES-256-GCM',
         }),
       );
 
@@ -660,7 +660,7 @@ void main() {
       final cliConfig = jsonDecode(
         await File('$cliRoot/_cryption.json').readAsString(),
       ) as Map<String, dynamic>;
-      expect(cliConfig['sec_deriver_factory'], 'argon2id');
+      expect(cliConfig['sec_deriver_factory'], 'Argon2id');
       expect(
         () => native.secRootOpen(cliRoot, 'wrong-password', ''),
         throwsA(
@@ -686,12 +686,12 @@ void main() {
       native.secCreateRootConfig(
         ffiRoot,
         password,
-        jsonEncode({'dataFactory': 'aes-ctr', 'nameFactory': 'none'}),
+        jsonEncode({'dataFactory': 'AES-CTR', 'nameFactory': 'None'}),
       );
       final ffiConfig = jsonDecode(
         await File('$ffiRoot/_cryption.json').readAsString(),
       ) as Map<String, dynamic>;
-      expect(ffiConfig['sec_deriver_factory'], 'argon2id');
+      expect(ffiConfig['sec_deriver_factory'], 'Argon2id');
       expect(
         ffiConfig['argon2_salt'],
         isNot(cliConfig['argon2_salt']),
@@ -777,9 +777,9 @@ void main() {
         rootPath,
         password,
         jsonEncode({
-          'dataFactory': 'aes-ctr',
-          'nameFactory': 'aes-gcm-name',
-          'deriverFactory': 'pbkdf2',
+          'dataFactory': 'AES-CTR',
+          'nameFactory': 'AES-256-GCM',
+          'deriverFactory': 'PBKDF2',
         }),
       );
       var rootID = native.secRootOpen(rootPath, password, '');
@@ -821,9 +821,9 @@ void main() {
       });
       final native = NativeLib.instance;
       const combinations = [
-        ('aes-ctr', 'aes-gcm-name', 'argon2id'),
-        ('aes-xts', 'none', 'pbkdf2'),
-        ('chacha20', 'aes-gcm-name', 'scrypt'),
+        ('AES-CTR', 'AES-256-GCM', 'Argon2id'),
+        ('AES-XTS', 'None', 'PBKDF2'),
+        ('ChaCha20', 'AES-256-GCM', 'scrypt'),
       ];
 
       for (final combination in combinations) {

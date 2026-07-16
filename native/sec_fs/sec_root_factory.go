@@ -26,9 +26,9 @@ const (
 
 	// Defaults are explicit so registry map iteration can never select security
 	// algorithms nondeterministically.
-	DefaultDataFactoryName    = "aes-ctr"
-	DefaultNameFactoryName    = "none"
-	DefaultDeriverFactoryName = "argon2id"
+	DefaultDataFactoryName    = "AES-CTR"
+	DefaultNameFactoryName    = "None"
+	DefaultDeriverFactoryName = "Argon2id"
 )
 
 // ==================== CreateRootOptions ====================
@@ -308,8 +308,8 @@ func FindRootConfig(startPath string, options ...OpenOption) (config.SharedConfi
 // Example:
 //
 //	cfg, err := createRootConfig("/path/to/root", keyInfo,
-//	    WithDataFactory("aes-ctr"),
-//	    WithNameFactory("aes-gcm-name"),
+//	    WithDataFactory("AES-CTR"),
+//	    WithNameFactory("AES-256-GCM"),
 //	    WithKeyStrengthMs(200),
 //	)
 func createRootConfig(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, options ...CreateRootOption) (config.SharedConfig, error) {
@@ -433,7 +433,7 @@ func createRootConfig(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, opti
 // Example:
 //
 //	cfg, rootPath, err := sec_fs.CreateRootConfigQuick("/path/to/root", "my-password",
-//	    sec_fs.WithDataFactory("aes-ctr"),
+//	    sec_fs.WithDataFactory("AES-CTR"),
 //	)
 func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...CreateRootOption) (config.SharedConfig, FullStorePath, error) {
 	// Apply options
@@ -498,14 +498,14 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 	// Determine required key length from data factory and name factory
 	// For data factory, use GetRequireMinKeyLength
 	// For name factory, we need to check if it requires a specific key length
-	// Currently, only aes-gcm-name requires 32-byte key
+	// Currently, only AES-256-GCM requires 32-byte key
 	requiredKeyLength := 0
 	if dataFactory != nil {
 		requiredKeyLength = dataFactory.GetRequireMinKeyLength()
 	}
 	// Check name factory key requirement
-	if nameFactory != nil && nameFactory.GetName() == "aes-gcm-name" {
-		// aes-gcm-name requires 32-byte key
+	if nameFactory != nil && nameFactory.GetName() == "AES-256-GCM" {
+		// AES-256-GCM requires 32-byte key
 		if requiredKeyLength < 32 {
 			requiredKeyLength = 32
 		}
