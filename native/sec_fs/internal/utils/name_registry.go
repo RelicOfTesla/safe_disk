@@ -4,6 +4,7 @@ package utils
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Namer is an interface for types that have a name.
@@ -71,6 +72,31 @@ func (r *NameRegistry[V]) Get(name string) (V, bool) {
 func (r *NameRegistry[V]) GetOrNil(name string) V {
 	factory, _ := r.registry.Get(name)
 	return factory
+}
+
+// GetOrNilFold retrieves a factory by name with case-insensitive fallback.
+// It first tries an exact match. If that fails, it iterates all registered
+// names and returns the first case-insensitive match. Returns nil if no
+// match is found at either step.
+//
+// This allows old lowercase config keys to work after a rename to IANA
+// standard casing (e.g. "aes-ctr" → "AES-CTR").
+func (r *NameRegistry[V]) GetOrNilFold(name string) V {
+	// Exact match first (fast path)
+	factory, ok := r.registry.Get(name)
+	if ok {
+		return factory
+	}
+	// Case-insensitive fallback
+	var found V
+	r.registry.ForEach(func(key string, value V) bool {
+		if strings.EqualFold(key, name) {
+			found = value
+			return false
+		}
+		return true
+	})
+	return found
 }
 
 // List returns all registered factory names.

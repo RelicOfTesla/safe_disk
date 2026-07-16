@@ -42,7 +42,7 @@ func RegisterKeyDeriver(deriver IKeyDeriver) error {
 // GetKeyDeriver retrieves a key deriver from the global registry by name.
 // Returns nil if no deriver with the given name is registered.
 func GetKeyDeriver(name string) IKeyDeriver {
-	return globalRegistry.GetOrNil(name)
+	return globalRegistry.GetOrNilFold(name)
 }
 
 // ListKeyDerivers returns all registered key deriver names in the global registry.
@@ -76,7 +76,7 @@ func RegisterDeriverFactory(factory IDeriverFactory) error {
 // GetDeriverFactory retrieves a deriver factory from the global registry by name.
 // Returns nil if no factory with the given name is registered.
 func GetDeriverFactory(name string) IDeriverFactory {
-	return globalFactoryRegistry.GetOrNil(name)
+	return globalFactoryRegistry.GetOrNilFold(name)
 }
 
 // ListDeriverFactories returns all registered deriver factory names in the global registry.

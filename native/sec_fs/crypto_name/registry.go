@@ -31,7 +31,7 @@ func RegisterNameFactory(factory ICryptoNameFactory) error {
 // GetNameFactory retrieves a factory from the global registry by name.
 // Returns nil if no factory with the given name is registered.
 func GetNameFactory(name string) ICryptoNameFactory {
-	return globalRegistry.GetOrNil(name)
+	return globalRegistry.GetOrNilFold(name)
 }
 
 // ListNameFactories returns all registered factory names in the global registry.
