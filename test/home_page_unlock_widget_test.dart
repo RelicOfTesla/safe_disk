@@ -137,6 +137,61 @@ void main() {
     expect(find.text('Enter password for:'), findsOneWidget);
   });
 
+  testWidgets('background lifecycle locks every eligible unlocked root',
+      (tester) async {
+    const firstRootPath = '/tmp/safe-disk-home-test/vault-one';
+    const secondRootPath = '/tmp/safe-disk-home-test/vault-two';
+    final cryptoService = _FakeCryptoService(
+      firstRootPath,
+      additionalRootPaths: const [secondRootPath],
+    );
+    final settings = _AutoLockSettingsService(enabled: true);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(
+          firstRootPath,
+          rootPaths: const [firstRootPath, secondRootPath],
+        ),
+        settingsService: settings,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('vault-one'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('vault-two'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    expect(settings.reads, greaterThan(0));
+    expect(cryptoService.closedRootIDs, isEmpty);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.pump();
+
+    expect(cryptoService.closedRootIDs, unorderedEquals([7, 8]));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text('Enter password for:'), findsOneWidget);
+    expect(find.text('visible.txt'), findsNothing);
+
+    await tester.tap(find.text('vault-one'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter password for:'), findsOneWidget);
+  });
+
   testWidgets('background lifecycle does not lock roots by default',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
@@ -1653,11 +1708,13 @@ Future<void> _selectTwoEntries(
 class _FakeCryptoService extends CryptoService {
   _FakeCryptoService(
     this.rootPath, {
+    this.additionalRootPaths = const [],
     this.deleteFailures = const {},
     this.copyFailures = const {},
   });
 
   final String rootPath;
+  final List<String> additionalRootPaths;
   final Set<String> deleteFailures;
   final Set<String> copyFailures;
   final List<String> openedPasswords = [];
@@ -1678,6 +1735,9 @@ class _FakeCryptoService extends CryptoService {
       [];
   final List<({String path, String sessionID})> createdFiles = [];
   final List<({String path, String sessionID})> createdDirectories = [];
+  final Map<String, int> _rootIDs = {};
+  final Map<int, String> _rootPaths = {};
+  int _nextRootID = 7;
 
   @override
   CryptionConfig loadConfig(String rootPath) => CryptionConfig({
@@ -1692,12 +1752,18 @@ class _FakeCryptoService extends CryptoService {
     if (password != 'correct-password') {
       throw StateError('invalid password');
     }
-    return 7;
+    if (rootPath != this.rootPath && !additionalRootPaths.contains(rootPath)) {
+      throw StateError('Unknown root: $rootPath');
+    }
+    final rootID = _rootIDs.putIfAbsent(rootPath, () => _nextRootID++);
+    _rootPaths[rootID] = rootPath;
+    return rootID;
   }
 
   @override
   String relativePathForRoot(int rootID, String path) {
-    if (rootID != 7) throw StateError('Root $rootID is not open');
+    final rootPath = _rootPaths[rootID];
+    if (rootPath == null) throw StateError('Root $rootID is not open');
     if (path == rootPath) return '';
     if (path.startsWith('$rootPath/')) {
       return path.substring(rootPath.length + 1);
@@ -1941,13 +2007,15 @@ class _FakeDirectoryService extends DirectoryService {
 }
 
 class _FakePersistenceService extends DirectoryPersistenceService {
-  _FakePersistenceService(this.rootPath);
+  _FakePersistenceService(this.rootPath, {List<String>? rootPaths})
+      : rootPaths = rootPaths ?? [rootPath];
 
   final String rootPath;
+  final List<String> rootPaths;
   final List<List<String>> savedDirectoryLists = [];
 
   @override
-  Future<List<String>> loadOpenedDirectories() async => [rootPath];
+  Future<List<String>> loadOpenedDirectories() async => rootPaths;
 
   @override
   Future<bool> loadDrawerPinned() async => true;
