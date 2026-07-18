@@ -34,7 +34,7 @@ Future<void> showRootDirectoryProperties({
     title: '加密目录属性',
     values: values,
     notice: const Text(
-      '属性不会显示 salt、密码 verifier 内容、密钥或其他密码材料。',
+      '属性不会显示盐值、密码校验信息、密钥或其他密码材料。',
     ),
   );
 }
@@ -48,14 +48,14 @@ Future<void> showUnsupportedRootPasswordChange({
     title: '修改密码',
     values: [
       PropertyValue('目录', directory.displayAlias ?? directory.path),
-      const PropertyValue('状态', '当前加密格式不支持安全原地改密'),
+      const PropertyValue('状态', '当前加密格式不支持在原目录中安全修改密码'),
       const PropertyValue(
         '原因',
-        '数据密钥由密码直接派生，没有可用新密码重新封装的独立 root 主密钥。',
+        '数据密钥由密码直接派生，当前格式无法用新密码重新封装。',
       ),
       const PropertyValue(
         '安全做法',
-        '使用新密码创建新 root，再通过全量导出/导入或后续 convert 功能迁移。',
+        '使用新密码创建新的加密目录，再通过完整导出和导入迁移数据。',
       ),
     ],
   );

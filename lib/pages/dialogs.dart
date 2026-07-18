@@ -279,7 +279,7 @@ class _CreateEncryptedDirectoryDialogState
                 if (_nameFactory == 'None')
                   const Padding(
                     padding: EdgeInsets.only(top: 12),
-                    child: Text('注意：选择 none 后，文件名和目录名不会加密。'),
+                    child: Text('注意：选择“不加密（None）”后，文件名和目录名不会加密。'),
                   ),
               ],
             ],

@@ -63,7 +63,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('修改密码'), findsOneWidget);
-    expect(find.text('当前加密格式不支持安全原地改密'), findsOneWidget);
+    expect(find.text('当前加密格式不支持在原目录中安全修改密码'), findsOneWidget);
     expect(find.textContaining('数据密钥由密码直接派生'), findsOneWidget);
+    expect(find.textContaining('完整导出和导入迁移数据'), findsOneWidget);
   });
 }
