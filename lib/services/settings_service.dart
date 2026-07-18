@@ -93,7 +93,11 @@ class SettingsService {
   /// Get session TTL in seconds
   Future<int> getSessionTTL() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_keySessionTTL) ?? defaultSessionTTL;
+    final seconds = prefs.getInt(_keySessionTTL);
+    if (seconds == null || sessionTTLOptions.containsValue(seconds)) {
+      return seconds ?? defaultSessionTTL;
+    }
+    return defaultSessionTTL;
   }
 
   /// Set session TTL in seconds

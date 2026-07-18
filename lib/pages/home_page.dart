@@ -178,6 +178,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _idleTracker.updateTimeout(Duration(seconds: seconds));
     _idleTimer?.cancel();
     if (_idleTracker.isEnabled) {
+      // A TTL enabled after a root was opened starts from this setting change,
+      // rather than leaving that session without a deadline or locking it on
+      // an activity timestamp the user did not choose this TTL for.
+      for (final directory in _openedDirs) {
+        final sessionID = directory.tempKeyID;
+        if (sessionID != null) _idleTracker.touch(sessionID);
+      }
       _idleTimer = Timer.periodic(
         widget.idleCheckInterval ?? const Duration(seconds: 1),
         (_) => unawaited(_lockExpiredRoots()),

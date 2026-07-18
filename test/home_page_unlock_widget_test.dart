@@ -252,6 +252,131 @@ void main() {
     expect(find.text('请输入密码以解锁：'), findsOneWidget);
   });
 
+  testWidgets('idle TTL is reset by activity in the current root',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    var now = DateTime(2026, 7, 18, 12);
+    final cryptoService = _FakeCryptoService(rootPath);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService:
+            _AutoLockSettingsService(enabled: false, ttlSeconds: 1),
+        idleCheckInterval: const Duration(milliseconds: 100),
+        idleNow: () => now,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    now = now.add(const Duration(milliseconds: 500));
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pump();
+    now = now.add(const Duration(milliseconds: 750));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(cryptoService.closedRootIDs, isEmpty);
+
+    now = now.add(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(cryptoService.closedRootIDs, [7]);
+  });
+
+  testWidgets('idle TTL keeps a root with a content window open',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    var now = DateTime(2026, 7, 18, 12);
+    final cryptoService = _FakeCryptoService(rootPath);
+    final platform = _FakeContentWindowPlatform();
+    addTearDown(platform.dispose);
+    final image = FileSystemNode(
+      name: '照片.png',
+      path: '/照片.png',
+      isDirectory: false,
+      size: 128,
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService, items: [image]),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService:
+            _AutoLockSettingsService(enabled: false, ttlSeconds: 1),
+        contentWindowPlatform: platform,
+        idleCheckInterval: const Duration(milliseconds: 100),
+        idleNow: () => now,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('照片.png')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在新窗口中查看'));
+    await tester.pumpAndSettle();
+    expect(platform.openedImages, hasLength(1));
+
+    now = now.add(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(cryptoService.closedRootIDs, isEmpty);
+    expect(find.text('照片.png'), findsOneWidget);
+  });
+
+  testWidgets('returning from settings reloads the current idle TTL',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    var now = DateTime(2026, 7, 18, 12);
+    final cryptoService = _FakeCryptoService(rootPath);
+    final settings = _AutoLockSettingsService(enabled: false);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService: settings,
+        idleCheckInterval: const Duration(milliseconds: 100),
+        idleNow: () => now,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    now = now.add(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(cryptoService.closedRootIDs, isEmpty);
+
+    settings.ttlSeconds = 900;
+    await tester.tap(find.byTooltip('设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    now = now.add(const Duration(minutes: 15, seconds: 1));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(cryptoService.closedRootIDs, [7]);
+  });
+
   testWidgets('secondary click opens the file context menu', (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
     final cryptoService = _FakeCryptoService(rootPath);
@@ -1935,7 +2060,7 @@ class _AutoLockSettingsService extends SettingsService {
   _AutoLockSettingsService({required this.enabled, this.ttlSeconds = 0});
 
   final bool enabled;
-  final int ttlSeconds;
+  int ttlSeconds;
   int reads = 0;
 
   @override

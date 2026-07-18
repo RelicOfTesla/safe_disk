@@ -194,6 +194,29 @@ void main() {
     expect(await service.getSessionTTL(), 900);
   });
 
+  testWidgets('invalid persisted session TTL falls back to the safe default',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'session_ttl': 1});
+    final service = SettingsService();
+
+    await tester.pumpWidget(
+      MaterialApp(home: SettingsPage(settingsService: service)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(await service.getSessionTTL(), SettingsService.defaultSessionTTL);
+    final ttl = find.byKey(const Key('session-ttl'));
+    expect(
+      tester
+          .widget<DropdownButton<int>>(
+            find.descendant(
+                of: ttl, matching: find.byType(DropdownButton<int>)),
+          )
+          .value,
+      SettingsService.defaultSessionTTL,
+    );
+  });
+
   testWidgets('detailed error reporting participates in save transaction',
       (tester) async {
     final service = SettingsService();
