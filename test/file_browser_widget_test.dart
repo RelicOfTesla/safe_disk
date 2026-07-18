@@ -169,6 +169,54 @@ void main() {
     );
   });
 
+  testWidgets('incomplete directories preserve cursor order in list and grid',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: _PagedBrowserHarness()));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('目录尚未完整加载，暂不可排序'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('zeta.txt')).dy,
+      lessThan(tester.getTopLeft(find.text('alpha.txt')).dy),
+    );
+
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('zeta.txt')).dx,
+      lessThan(tester.getTopLeft(find.text('alpha.txt')).dx),
+    );
+  });
+
+  testWidgets(
+      'incomplete directory filter declares its scope and can load more',
+      (tester) async {
+    final key = GlobalKey<_PagedBrowserHarnessState>();
+    await tester.pumpWidget(MaterialApp(home: _PagedBrowserHarness(key: key)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('筛选当前目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('仅筛选已加载条目；继续加载可扩大范围'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('current-directory-filter')),
+      'missing',
+    );
+    await tester.pump();
+    expect(find.text('已加载条目中没有匹配“missing”的内容'), findsOneWidget);
+    expect(find.text('仍有未加载条目，可继续加载后再筛选'), findsOneWidget);
+    await tester.tap(find.text('加载更多条目'));
+    expect(key.currentState!.loadMoreCalls, 1);
+
+    key.currentState!.finishLoading();
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('排序：名称：A 到 Z'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('file-sort-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('名称：Z 到 A').last, findsOneWidget);
+  });
+
   for (final brightness in [Brightness.light, Brightness.dark]) {
     testWidgets('right-click highlight is explicit in ${brightness.name} mode',
         (tester) async {
@@ -284,6 +332,61 @@ class _BrowserHarnessState extends State<_BrowserHarness> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PagedBrowserHarness extends StatefulWidget {
+  const _PagedBrowserHarness({super.key});
+
+  @override
+  State<_PagedBrowserHarness> createState() => _PagedBrowserHarnessState();
+}
+
+class _PagedBrowserHarnessState extends State<_PagedBrowserHarness> {
+  var hasMore = true;
+  var loadMoreCalls = 0;
+  var viewMode = ViewMode.list;
+
+  final items = [
+    FileSystemNode(
+      name: 'zeta.txt',
+      path: '/root/zeta.txt',
+      isDirectory: false,
+    ),
+    FileSystemNode(
+      name: 'alpha.txt',
+      path: '/root/alpha.txt',
+      isDirectory: false,
+    ),
+  ];
+
+  void finishLoading() => setState(() => hasMore = false);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: FileBrowser(
+        items: items,
+        currentPath: '/root',
+        rootPath: '/root',
+        viewMode: viewMode,
+        isSelectMode: false,
+        selectedFiles: const {},
+        fileService: _TreeFileService(),
+        onNavigateToDirectory: (_) {},
+        onNavigateUp: () {},
+        onOpenItem: (_) {},
+        onItemLongPress: (_) {},
+        onItemSecondaryTap: (_, __) {},
+        onBackgroundSecondaryTap: (_) {},
+        onViewModeChanged: (mode) => setState(() => viewMode = mode),
+        onToggleSelectMode: (_) {},
+        onSelectionToggle: (_, __) {},
+        onSelectAll: () {},
+        hasMore: hasMore,
+        onLoadMore: () => setState(() => loadMoreCalls++),
       ),
     );
   }

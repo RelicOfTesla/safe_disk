@@ -89,6 +89,8 @@ class _FileBrowserState extends State<FileBrowser> {
   FileSortOrder _sortOrder = FileSortOrder.nameAscending;
   final ScrollController _contentScrollController = ScrollController();
 
+  bool get _directoryIsIncomplete => widget.hasMore || widget.isLoadingMore;
+
   @override
   void initState() {
     super.initState();
@@ -275,6 +277,7 @@ class _FileBrowserState extends State<FileBrowser> {
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: '筛选当前目录的文件和文件夹…',
+          helperText: _directoryIsIncomplete ? '仅筛选已加载条目；继续加载可扩大范围' : null,
           prefixIcon: const Icon(Icons.filter_alt_outlined),
           suffixIcon: _filterController.text.isNotEmpty
               ? IconButton(
@@ -310,6 +313,7 @@ class _FileBrowserState extends State<FileBrowser> {
         normalizeLogicalPath(widget.currentPath!) !=
             normalizeLogicalPath(widget.rootPath);
     final treePaneVisible = _showTreeNavigator && _lastContentWidth >= 760;
+    final directoryIsIncomplete = _directoryIsIncomplete;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -334,8 +338,12 @@ class _FileBrowserState extends State<FileBrowser> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${widget.items.where((i) => i.isDirectory).length} 个文件夹，'
-                    '${widget.items.where((i) => !i.isDirectory).length} 个文件',
+                    directoryIsIncomplete
+                        ? '已加载 ${widget.items.length} 项（'
+                            '${widget.items.where((i) => i.isDirectory).length} 个文件夹，'
+                            '${widget.items.where((i) => !i.isDirectory).length} 个文件）'
+                        : '${widget.items.where((i) => i.isDirectory).length} 个文件夹，'
+                            '${widget.items.where((i) => !i.isDirectory).length} 个文件',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -344,10 +352,14 @@ class _FileBrowserState extends State<FileBrowser> {
               PopupMenuButton<FileSortOrder>(
                 key: const Key('file-sort-menu'),
                 initialValue: _sortOrder,
-                tooltip: '排序：${fileSortOrderLabel(_sortOrder)}',
+                tooltip: directoryIsIncomplete
+                    ? '目录尚未完整加载，暂不可排序'
+                    : '排序：${fileSortOrderLabel(_sortOrder)}',
                 icon: const Icon(Icons.sort),
                 constraints: buttonConstraints,
-                onSelected: (order) => setState(() => _sortOrder = order),
+                onSelected: directoryIsIncomplete
+                    ? null
+                    : (order) => setState(() => _sortOrder = order),
                 itemBuilder: (context) => FileSortOrder.values
                     .map((order) => PopupMenuItem(
                           value: order,
@@ -430,7 +442,11 @@ class _FileBrowserState extends State<FileBrowser> {
         : widget.items
             .where((item) => item.name.toLowerCase().contains(query))
             .toList();
-    final items = sortFileSystemNodes(filteredItems, _sortOrder);
+    // Sorting a partial cursor result would present a local ordering as if it
+    // covered the entire directory. Preserve the walker order until EOF.
+    final items = _directoryIsIncomplete
+        ? filteredItems
+        : sortFileSystemNodes(filteredItems, _sortOrder);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -475,7 +491,17 @@ class _FileBrowserState extends State<FileBrowser> {
           children: [
             const Icon(Icons.search_off, size: 48, color: Colors.grey),
             const SizedBox(height: 16),
-            Text('当前目录没有匹配“${_filterController.text}”的条目'),
+            Text(
+              _directoryIsIncomplete
+                  ? '已加载条目中没有匹配“${_filterController.text}”的内容'
+                  : '当前目录没有匹配“${_filterController.text}”的条目',
+            ),
+            if (_directoryIsIncomplete) ...[
+              const SizedBox(height: 8),
+              const Text('仍有未加载条目，可继续加载后再筛选'),
+              const SizedBox(height: 12),
+              _buildFilteredLoadMoreAction(),
+            ],
           ],
         ),
       ));
@@ -491,6 +517,21 @@ class _FileBrowserState extends State<FileBrowser> {
       return _buildGridView(items);
     }
     return _buildListView(items);
+  }
+
+  Widget _buildFilteredLoadMoreAction() {
+    if (widget.isLoadingMore) {
+      return const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    return FilledButton.icon(
+      onPressed: widget.onLoadMore,
+      icon: const Icon(Icons.expand_more),
+      label: const Text('加载更多条目'),
+    );
   }
 
   Widget _buildTreeNavigator() {

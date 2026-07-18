@@ -1,6 +1,6 @@
 # 大目录 cursor 与 UI 增量加载设计
 
-> 状态：2026-07-18，native cursor ABI 已实现并有 FFI 回归；Dart session、浏览器增量加载、全局排序与全 root 搜索仍未实现。
+> 状态：2026-07-18，native cursor ABI、Dart session、浏览器和目录树增量加载均已实现并有 FFI/widget 回归；全局排序、完整筛选与全 root 搜索仍未实现。
 
 ## 现状与问题
 

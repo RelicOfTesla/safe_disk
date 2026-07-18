@@ -32,6 +32,7 @@
 |---|---|---|---:|---|
 | UI-39 | 应用隐藏时的安全自动锁定 | 安全/生命周期 | 76% | 设计见 [AUTO_LOCK_DESIGN.md](design/AUTO_LOCK_DESIGN.md)。设置开关已持久化；HomePage 监听 `hidden`/`paused`，对无内容窗口、无脏文档、无活动写入的 root 依次释放当前目录 cursor、关闭 native root、清除该 root 的应用内剪贴板/broker 并保留侧边栏历史。恢复可见后会提示锁定/跳过/失败摘要。widget 覆盖开关保存、默认关闭、单 root 锁定并重新验证、两个已解锁 root 逐一关闭且恢复后不泄露旧条目，以及内容窗口阻断锁定；broker/controller 覆盖脏记事本和活动写入的关闭判定。仍缺 Home 与子窗口协议的重解锁竞态、真实 FFI 与三平台 `hidden`/`paused` 验收；TTL 与子窗口草稿确认协议未实现。 |
 | UI-41 | Flutter UI 中文文案规范化 | UX/可访问性 | 88% | 已统一主工具栏、批量菜单、侧边栏、设置、图片浏览器、记事本、路径选择、导入、解锁与欢迎页的用户文案：去除英文遗留与“所选文件”等不准确表述，短标签使用动作/对象名。错误建议已改为用户可执行的步骤，不再引用不存在的按钮、内部配置名或 root 初始化术语；安全限制保留在说明和确认中。主页、侧边栏、设置、路径选择、创建、导入、图片和记事本 widget 回归已通过。仍缺读屏语义、低频状态页复查与三平台字号/截断验收。 |
+| UI-43 | 增量目录的筛选与排序边界 | UX/正确性 | 88% | 未完成 cursor 的 list/grid 现保持 walker 页顺序，不再对局部页排序；工具栏显示已加载项并禁用排序。筛选框提示“仅筛选已加载条目”，无匹配时不会宣称整个目录为空，且可继续加载下一页；EOF 后恢复既有排序。widget 覆盖 list/grid 页顺序、筛选范围/空态、继续加载和完成后排序菜单；真实 FFI 全量 Flutter 回归通过。仍缺 10 万条真实 root 的性能基线、筛选时自动滚动加载的桌面可用性与跨平台验收。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
@@ -62,7 +63,7 @@
 | 安全记事本 | 94% | 状态/controller 与 UI 分区已拆分；编辑、加密草稿、剪贴板监视、broker 冲突及远程子窗口均有测试，Linux 已实测原生窗口 | 补三平台桌面键盘/关闭/系统剪贴板 E2E、大文件策略和可验证内存边界 |
 | 图片浏览器 | 92% | JPEG/PNG/GIF/BMP/WebP 真实 codec 与渲染、GIF 动画识别、缩放旋转、键盘翻页、重试、64 MiB/100 MP 资源边界、异步竞态清零和只读子窗口 lease 均有自动化测试；真实 FFI 验证中文加密目录 WebP，Linux 已实测跨 engine PNG | 三平台真实窗口键盘/手势 E2E、超大图片内存压力与平台 codec 差异验收 |
 | Stream V3/增量编辑 | 15% | 有设计文档；Dart 活跃入口明确返回 unsupported | 确定格式、完整性和崩溃一致性模型，完成 sec/FFI/Dart/UI 实现及随机编辑实际测试 |
-| 大目录 UI 虚拟化 | 65% | Flutter list/grid 已使用 sliver 虚拟构建。当前目录的 native cursor、Dart binding/session 与 FileService 路径映射已接入 HomePage 的 list/grid；tree 的 root 与每个展开节点现在也使用独立 cursor。tree session 不累计普通文件，只保留当前页，并会越过纯文件页继续读取直到发现目录或 EOF；刷新/节点销毁会关闭 cursor，失败改为从头刷新。真实 name-encrypted root 两页 FFI、session 保留模式和 tree 纯文件页 widget 回归已通过。现有 `listCurrentDirectory(offset/limit)` 仍只是兼容回退的本地 `skip/take`。分页边界见 [DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 定义增量模式的排序/筛选边界；补 10 万 entry、取消/错误/导航/关闭 root 的真实跨层回归 |
+| 大目录 UI 虚拟化 | 70% | Flutter list/grid 已使用 sliver 虚拟构建。当前目录的 native cursor、Dart binding/session 与 FileService 路径映射已接入 HomePage 的 list/grid；tree 的 root 与每个展开节点现在也使用独立 cursor。tree session 不累计普通文件，只保留当前页，并会越过纯文件页继续读取直到发现目录或 EOF；刷新/节点销毁会关闭 cursor，失败改为从头刷新。未完成目录会保持 walker 页顺序、禁用全目录排序，筛选明确限定为已加载条目且空态可继续加载。真实 name-encrypted root 两页 FFI、session 保留模式、tree 纯文件页和筛选/排序边界 widget 回归已通过。现有 `listCurrentDirectory(offset/limit)` 仍只是兼容回退的本地 `skip/take`。分页边界见 [DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 补 10 万 entry、取消/错误/导航/关闭 root 的真实跨层回归；评估筛选时自动加载的性能与可访问性 |
 | 自动锁定与密钥缓存超时 | 76% | 应用隐藏自动锁定已接入设置和 HomePage：合格 root 会关闭 native session、目录 cursor、应用内剪贴板和 broker 能力，历史保留；widget 覆盖默认关闭、单 root 和两个已解锁 root 逐一关闭、恢复后不泄露旧条目及内容窗口跳过。broker/controller 已覆盖脏文档和活动写入的关闭判定 | Home 与子窗口协议的重解锁竞态、真实 FFI 与三平台 `hidden`/`paused` 验收；实现子窗口草稿确认后锁定，以及 per-root TTL |
 | KDF 成本动态校准 | 15% | 当前迭代/参数由配置与默认值决定 | 按设备目标耗时校准、参数上限、防 DoS 和跨设备测试 |
 | 文件排序/过滤/批量操作 | 92% | 当前目录筛选、目录优先排序、批量文件复制/剪切/粘贴/导出/删除已实现；批量冲突支持仅此项/全部应用，取消、失败和未处理项保留重试，并有结构化结果面板 | 超大目录分页排序、真实桌面大批次与跨 root 页面 E2E；全 root 搜索另立任务 |
