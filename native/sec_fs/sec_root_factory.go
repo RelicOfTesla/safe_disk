@@ -135,7 +135,9 @@ type defaultIgnoreMatcher struct {
 // Since config files are not encrypted, we check the raw name here.
 func (d *defaultIgnoreMatcher) ShouldIgnore1(encryptedName string, isDir bool) bool {
 	if isDir {
-		return false
+		// Transfer V3 operation markers are plaintext internal state, not view
+		// entries. They must be filtered before encrypted-name decryption.
+		return encryptedName == ".transfer_v3"
 	}
 	return encryptedName == d.configFileName
 }

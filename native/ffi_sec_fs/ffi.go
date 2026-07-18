@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -768,18 +769,22 @@ func ReadDir_FFI(rootID int64, path string) string {
 	}
 	defer walker.Close()
 
-	// Read all entries
+	// Read all entries. HasNext cannot expose errors, so Next/EOF is the
+	// only valid completion boundary.
 	entries := make([]DirEntryResult, 0)
-	for walker.HasNext() {
+	for {
 		dirEntry, err := walker.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
 		if err != nil {
-			break // No more entries or error
+			return errorResponse(err)
 		}
 
 		// Get file info from the entry
 		info, err := dirEntry.Info()
 		if err != nil {
-			continue // Skip entries with errors
+			return errorResponse(err)
 		}
 
 		entries = append(entries, DirEntryResult{

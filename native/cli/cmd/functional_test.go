@@ -12,8 +12,8 @@ import (
 	"safe_disk/native/sec_fs"
 
 	// Import algorithm implementations to register key derivers and encryptors
-	_ "safe_disk/native/sec_fs/crypto_hkdf/algorithm_impl/argon2"
 	_ "safe_disk/native/sec_fs/crypto_data/algorithm_impl/aes_ctr"
+	_ "safe_disk/native/sec_fs/crypto_hkdf/algorithm_impl/argon2"
 	_ "safe_disk/native/sec_fs/crypto_name/algorithm_impl/aes_gcm_name"
 )
 
@@ -123,10 +123,10 @@ func TestImportExportDirectory(t *testing.T) {
 
 	// Create test directory structure
 	testFiles := map[string][]byte{
-		"file1.txt":                []byte("Content of file1"),
-		"file2.txt":                []byte("Content of file2"),
-		"subdir/file3.txt":         []byte("Content of file3 in subdir"),
-		"subdir/nested/file4.txt":  []byte("Content of file4 in nested subdir"),
+		"file1.txt":               []byte("Content of file1"),
+		"file2.txt":               []byte("Content of file2"),
+		"subdir/file3.txt":        []byte("Content of file3 in subdir"),
+		"subdir/nested/file4.txt": []byte("Content of file4 in nested subdir"),
 	}
 
 	for relPath, content := range testFiles {
@@ -211,8 +211,8 @@ func TestListCommand(t *testing.T) {
 
 	// Create test files
 	testFiles := map[string][]byte{
-		"file1.txt": []byte("Content 1"),
-		"file2.txt": []byte("Content 2"),
+		"file1.txt":        []byte("Content 1"),
+		"file2.txt":        []byte("Content 2"),
 		"subdir/file3.txt": []byte("Content 3"),
 	}
 
@@ -264,6 +264,28 @@ func TestListCommand(t *testing.T) {
 	// file3.txt is inside subdir, should NOT be shown in non-recursive list
 	if strings.Contains(outputStr, "file3.txt") {
 		t.Error("file3.txt should not be shown in non-recursive list (it's inside subdir)")
+	}
+}
+
+func TestListCommandReportsUnexpectedPlainStoreEntry(t *testing.T) {
+	tmpDir := t.TempDir()
+	encryptedDir := filepath.Join(tmpDir, "encrypted")
+	password := "list-corruption-password"
+
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(encryptedDir), password); err != nil {
+		t.Fatalf("Failed to create encrypted root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(encryptedDir, "unexpected-plaintext-entry"), []byte("invalid"), 0600); err != nil {
+		t.Fatalf("Failed to inject unexpected plain store entry: %v", err)
+	}
+
+	cmd := exec.Command("../safe-disk-test", "list", "--password", password, "--path", encryptedDir)
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("list must fail rather than silently omit a corrupted store entry; output: %s", output)
+	}
+	if !strings.Contains(string(output), "decrypt_entry_name") {
+		t.Fatalf("expected decrypt_entry_name error, got: %s", output)
 	}
 }
 
@@ -486,12 +508,12 @@ func TestUnicodeFilename(t *testing.T) {
 
 	// Create files with unicode names
 	unicodeFiles := map[string][]byte{
-		"中文文件.txt":        []byte("Chinese filename"),
+		"中文文件.txt":         []byte("Chinese filename"),
 		"日本語ファイル.txt":      []byte("Japanese filename"),
 		"한국어파일.txt":        []byte("Korean filename"),
-		"Ελληνικά.txt":      []byte("Greek filename"),
-		"العربية.txt":        []byte("Arabic filename"),
-		"עברית.txt":         []byte("Hebrew filename"),
+		"Ελληνικά.txt":     []byte("Greek filename"),
+		"العربية.txt":      []byte("Arabic filename"),
+		"עברית.txt":        []byte("Hebrew filename"),
 		"emoji_🎉_file.txt": []byte("Emoji filename"),
 	}
 

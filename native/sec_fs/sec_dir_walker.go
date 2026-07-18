@@ -4,6 +4,7 @@ package sec_fs
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -22,7 +23,7 @@ import (
 // dirStackItem represents a directory in the traversal stack.
 type dirStackItem struct {
 	relativePath RelativeViewPath
-	dirFile      *os.File
+	depth        int
 }
 type secDirWalker struct {
 	rootPathInfo sec_utils.PathInfo
@@ -50,6 +51,12 @@ type secDirWalker struct {
 
 // Default batch size for streaming directory reading.
 const defaultBatchSize = 100
+
+// DefaultWalkerMaxPendingDirectories bounds memory used by recursive
+// traversal. Callers may reduce it but cannot disable the hard ceiling.
+const DefaultWalkerMaxPendingDirectories = 1024
+
+const maximumWalkerPendingDirectories = 4096
 
 // newSecDirWalker creates a new secDirWalker instance.
 // This is an internal factory function used by WalkDir.
@@ -121,7 +128,7 @@ func (w *secDirWalker) Next() (IDirEntry, error) {
 		// Convert to DirEntry with decryption and filtering
 		dirEntry, skip, err := w.processEntry(entry)
 		if err != nil {
-			continue // Skip entries with errors
+			return &secDirEntry{}, err
 		}
 		if skip {
 			continue // Skip filtered entries
@@ -184,59 +191,52 @@ func (w *secDirWalker) loadNextBatch() error {
 // loadNextDirectory loads the next directory from the stack for recursive traversal.
 // Returns io.EOF if there are no more directories to traverse.
 func (w *secDirWalker) loadNextDirectory() error {
-	// Check if there are directories in the stack for recursive traversal
-	if !w.options.Recursive || len(w.dirStack) == 0 {
+	for w.options.Recursive && len(w.dirStack) > 0 {
+		item := w.dirStack[len(w.dirStack)-1]
+		w.dirStack = w.dirStack[:len(w.dirStack)-1]
+
+		if w.dirFile != nil {
+			currentDir := w.dirFile
+			w.dirFile = nil
+			if err := currentDir.Close(); err != nil {
+				return NewRelativeViewPathError("closedir", w.relativePath, err)
+			}
+		}
+
+		_, fullPath, err := w.viewPathToStorePath(item.relativePath)
+		if err != nil {
+			return err
+		}
+		dirFile, err := os.Open(string(fullPath))
+		if err != nil {
+			if os.IsNotExist(err) {
+				return ErrDirectoryNotFound
+			}
+			return NewPairPathError("opendir", item.relativePath, fullPath, err)
+		}
+
+		w.relativePath = item.relativePath
+		w.dirFile = dirFile
+		w.currentDepth = item.depth
 		w.rawEntries = nil
-		return io.EOF
-	}
+		w.rawIndex = 0
 
-	// Pop the next directory from the stack
-	item := w.dirStack[len(w.dirStack)-1]
-	w.dirStack = w.dirStack[:len(w.dirStack)-1]
-
-	// Close current directory
-	if w.dirFile != nil {
-		w.dirFile.Close()
-	}
-
-	// Convert view path to store path
-	_, fullPath, err := w.viewPathToStorePath(item.relativePath)
-	if err != nil {
-		return err
-	}
-
-	// Open the new directory
-	dirFile, err := os.Open(string(fullPath))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return ErrDirectoryNotFound
+		entries, err := w.dirFile.ReadDir(w.batchSize)
+		if errors.Is(err, io.EOF) && len(entries) == 0 {
+			continue
 		}
-		return NewPairPathError("opendir", item.relativePath, fullPath, err)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return NewRelativeViewPathError("readdir", w.relativePath, err)
+		}
+		if len(entries) == 0 {
+			continue
+		}
+		w.rawEntries = entries
+		return nil
 	}
 
-	// Update walker state
-	w.relativePath = item.relativePath
-	w.dirFile = dirFile
-	w.currentDepth++
 	w.rawEntries = nil
-	w.rawIndex = 0
-
-	// Load from the new directory
-	entries, err := w.dirFile.ReadDir(w.batchSize)
-	if err != nil {
-		if err.Error() == "EOF" || errors.Is(err, io.EOF) {
-			return w.loadNextDirectory() // Try next directory
-		}
-		return NewRelativeViewPathError("readdir", w.relativePath, err)
-	}
-
-	if len(entries) == 0 {
-		return w.loadNextDirectory() // Try next directory
-	}
-
-	w.rawEntries = entries
-	w.rawIndex = 0
-	return nil
+	return io.EOF
 }
 
 // processEntry converts a raw directory entry to DirEntry with decryption and filtering.
@@ -253,7 +253,9 @@ func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) 
 	if w.nameCryptor != nil {
 		decryptedName, err := w.nameCryptor.DecryptName(name)
 		if err != nil {
-			return &secDirEntry{}, true, nil // Skip files that cannot be decrypted
+			return &secDirEntry{}, false, NewRelativeViewPathError(
+				"decrypt_entry_name", w.relativePath, err,
+			)
 		}
 		name = decryptedName
 	}
@@ -272,9 +274,17 @@ func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) 
 	if isDir && w.options.Recursive {
 		// Check max depth (0 = unlimited)
 		if w.options.MaxDepth == 0 || w.currentDepth < w.options.MaxDepth {
+			if len(w.dirStack) >= w.maxPendingDirectories() {
+				return &secDirEntry{}, false, fmt.Errorf(
+					"%w: limit=%d",
+					ErrWalkerWorkLimit,
+					w.maxPendingDirectories(),
+				)
+			}
 			subDirPath := RelativeViewPath(filepath.Join(string(w.relativePath), name))
 			w.dirStack = append(w.dirStack, dirStackItem{
 				relativePath: subDirPath,
+				depth:        w.currentDepth + 1,
 			})
 		}
 	}
@@ -290,7 +300,9 @@ func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) 
 	// Get file info
 	info, err := entry.Info()
 	if err != nil {
-		return &secDirEntry{}, true, nil
+		return &secDirEntry{}, false, NewRelativeViewPathError(
+			"entry_info", w.relativePath, err,
+		)
 	}
 
 	dirEntry := &secDirEntry{
@@ -305,6 +317,17 @@ func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) 
 	return dirEntry, false, nil
 }
 
+func (w *secDirWalker) maxPendingDirectories() int {
+	limit := w.options.MaxPendingDirectories
+	if limit < 1 {
+		return DefaultWalkerMaxPendingDirectories
+	}
+	if limit > maximumWalkerPendingDirectories {
+		return maximumWalkerPendingDirectories
+	}
+	return limit
+}
+
 // Close closes the directory walker and releases resources.
 func (w *secDirWalker) Close() error {
 	if w == nil {
@@ -316,6 +339,7 @@ func (w *secDirWalker) Close() error {
 
 	w.closed = true
 	w.rawEntries = nil
+	w.dirStack = nil
 
 	// Close the directory file
 	if w.dirFile != nil {
@@ -359,10 +383,10 @@ func (w *secDirWalker) NextBatch(batchSize int) ([]IDirEntry, error) {
 		if w.rawIndex >= len(w.rawEntries) {
 			// Try to load next batch
 			if err := w.loadNextBatch(); err != nil {
-				if len(batch) == 0 {
-					return nil, err
+				if errors.Is(err, io.EOF) {
+					break
 				}
-				break // Return what we have
+				return nil, err
 			}
 			// If no more entries after loading
 			if len(w.rawEntries) == 0 {
@@ -377,7 +401,7 @@ func (w *secDirWalker) NextBatch(batchSize int) ([]IDirEntry, error) {
 		// Convert to DirEntry with decryption and filtering
 		dirEntry, skip, err := w.processEntry(entry)
 		if err != nil {
-			continue // Skip entries with errors
+			return nil, err
 		}
 		if skip {
 			continue // Skip filtered entries

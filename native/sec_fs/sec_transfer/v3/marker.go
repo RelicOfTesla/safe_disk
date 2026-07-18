@@ -160,7 +160,7 @@ func validateListedMarker(marker sec_transfer.OperationMarker) error {
 	switch marker.Type {
 	case sec_transfer.OperationImport, sec_transfer.OperationExport:
 		if marker.EntryKind != sec_transfer.EntryKindFile && marker.EntryKind != sec_transfer.EntryKindDirectory {
-			return fmt.Errorf("invalid %s marker entry kind %q", marker.Type, marker.EntryKind)
+			return fmt.Errorf("invalid %s marker entry_kind %q", marker.Type, marker.EntryKind)
 		}
 		// An empty relative source or destination denotes the root directory for
 		// directory transfers, so only fields that cannot have that meaning are
@@ -196,7 +196,42 @@ func listMarkers(rootPath string) ([]sec_transfer.OperationMarker, error) {
 			return nil, fmt.Errorf("%w: %s", sec_transfer.ErrTransferMarkerCorrupt, entry.Name())
 		}
 		if err := validateListedMarker(marker); err != nil {
+			return nil, fmt.Errorf("%w: %s: %v", sec_transfer.ErrTransferMarkerCorrupt, entry.Name(), err)
+		}
+		if entry.Name() != marker.OpID+".json" {
 			return nil, fmt.Errorf("%w: %s", sec_transfer.ErrTransferMarkerCorrupt, entry.Name())
+		}
+		markers = append(markers, marker)
+	}
+	return markers, nil
+}
+
+// listConvertMarkers avoids letting an import/export marker participate in
+// convert recovery. Those markers are validated by ListUnfinishedOperations
+// after the encrypted root is open, where their policy can be applied.
+func listConvertMarkers(rootPath string) ([]sec_transfer.OperationMarker, error) {
+	entries, err := os.ReadDir(activeDir(rootPath))
+	if os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR) {
+		return []sec_transfer.OperationMarker{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	markers := make([]sec_transfer.OperationMarker, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		marker, err := readMarker(filepath.Join(activeDir(rootPath), entry.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s", sec_transfer.ErrTransferMarkerCorrupt, entry.Name())
+		}
+		if marker.Type != sec_transfer.OperationConvertEncrypt && marker.Type != sec_transfer.OperationConvertDecrypt {
+			continue
+		}
+		if err := validateListedMarker(marker); err != nil {
+			return nil, fmt.Errorf("%w: %s: %v", sec_transfer.ErrTransferMarkerCorrupt, entry.Name(), err)
 		}
 		if entry.Name() != marker.OpID+".json" {
 			return nil, fmt.Errorf("%w: %s", sec_transfer.ErrTransferMarkerCorrupt, entry.Name())

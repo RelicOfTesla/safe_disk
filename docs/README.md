@@ -60,6 +60,7 @@
 | [design/STREAM_V3_DESIGN.md](design/STREAM_V3_DESIGN.md) | Stream V3 格式设计 | 设计文档 |
 | [design/STREAM_V3_ROADMAP.md](design/STREAM_V3_ROADMAP.md) | Stream V3 实施路线 | 已按实际代码重审为百分比 |
 | [design/FFI_INCREMENTAL_ENCRYPTION.md](design/FFI_INCREMENTAL_ENCRYPTION.md) | 增量加密 FFI 设计 | 设计文档，不是实现证明 |
+| [design/WALKER_RESOURCE_DESIGN.md](design/WALKER_RESOURCE_DESIGN.md) | secure walker 工作集与错误传播 | 实施中 |
 
 ## 历史报告
 

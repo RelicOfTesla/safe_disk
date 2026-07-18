@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -618,21 +619,24 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 		err = os.WriteFile(filepath.Join(testDir, validEncryptedName), []byte("content"), 0644)
 		require.NoError(t, err)
 
-		// Create walker - should skip the invalid file and only return the valid one
+		// Create walker - corruption must be visible rather than silently skipped.
 		walker := newSecDirWalker(sec_utils.ParsePathInfoMust(testDir), "", cryptor, nil)
 		err = walker.init()
 		require.NoError(t, err)
 		defer walker.Close()
 
-		// Should only get the valid file
-		entry, err := walker.Next()
-		require.NoError(t, err)
-		require.NotNil(t, entry)
-		assert.Equal(t, "valid_file.txt", entry.Name(), "Should get the valid decrypted file")
-
-		// No more entries (invalid file was skipped)
-		_, err = walker.Next()
-		assert.ErrorIs(t, err, io.EOF, "Should skip invalid encrypted files")
+		// The invalid encrypted store name is a corruption error, not EOF. Do
+		// not depend on filesystem ordering between the valid and invalid names.
+		for {
+			_, err := walker.Next()
+			if err == io.EOF {
+				t.Fatal("invalid encrypted name was silently skipped")
+			}
+			if err != nil {
+				assert.NotErrorIs(t, err, io.EOF)
+				break
+			}
+		}
 	})
 
 	t.Run("MixedEncryptedAndPlain", func(t *testing.T) {
@@ -656,21 +660,23 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 		require.NoError(t, err)
 		defer walker.Close()
 
-		// Read all entries - the plain file cannot be decrypted and should be skipped
+		// A plaintext entry in an encrypted-name directory is corruption.
 		foundNames := make(map[string]bool)
+		var walkErr error
 		for {
 			entry, err := walker.Next()
 			if err == io.EOF {
 				break
 			}
-			require.NoError(t, err)
+			if err != nil {
+				walkErr = err
+				break
+			}
 			foundNames[entry.Name()] = true
 		}
 
-		// Only the encrypted file should be found (plain file is skipped due to decryption error)
-		assert.True(t, foundNames["encrypted.txt"], "Should find the encrypted file")
-		assert.False(t, foundNames["plain.txt"], "Plain file should be skipped (decryption failed)")
-		assert.Len(t, foundNames, 1, "Should only find one file (the encrypted one)")
+		assert.Error(t, walkErr, "Plain store names must not be silently skipped")
+		assert.False(t, foundNames["plain.txt"])
 	})
 
 	t.Run("WithMockCryptor", func(t *testing.T) {
@@ -874,6 +880,77 @@ func TestSecDirWalker_ConcurrentAccess(t *testing.T) {
 			require.NoError(t, err)
 		}
 	})
+}
+
+func TestSecDirWalker_RecursiveWorkSetLimit(t *testing.T) {
+	testDir := t.TempDir()
+	for i := 0; i < 3; i++ {
+		if err := os.Mkdir(filepath.Join(testDir, fmt.Sprintf("dir-%d", i)), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	walker := newSecDirWalker(
+		sec_utils.ParsePathInfoMust(testDir),
+		"",
+		nil,
+		nil,
+		WithRecursive(),
+		WithMaxPendingDirectories(2),
+	)
+	defer walker.Close()
+
+	for {
+		_, err := walker.Next()
+		if errors.Is(err, ErrWalkerWorkLimit) {
+			break
+		}
+		if err == io.EOF {
+			t.Fatal("wide directory completed without enforcing the work-set limit")
+		}
+		if err != nil {
+			t.Fatalf("unexpected walker error: %v", err)
+		}
+	}
+}
+
+func TestSecDirWalker_RecursiveDepthUsesStackItemDepth(t *testing.T) {
+	testDir := t.TempDir()
+	current := testDir
+	for i := 0; i < 8; i++ {
+		current = filepath.Join(current, fmt.Sprintf("depth-%d", i))
+		if err := os.Mkdir(current, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	walker := newSecDirWalker(
+		sec_utils.ParsePathInfoMust(testDir),
+		"",
+		nil,
+		nil,
+		WithRecursive(),
+		WithMaxDepth(3),
+		WithMaxPendingDirectories(1),
+	)
+	defer walker.Close()
+
+	count := 0
+	for {
+		_, err := walker.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		count++
+	}
+	// MaxDepth limits descent, so the first directory beyond the limit is
+	// still emitted but never opened.
+	if count != 4 {
+		t.Fatalf("recursive entry count = %d, want 4 at MaxDepth(3)", count)
+	}
 }
 
 // Mock implementations for testing

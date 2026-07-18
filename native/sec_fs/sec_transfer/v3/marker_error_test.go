@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"safe_disk/native/sec_fs/sec_transfer"
@@ -38,5 +39,31 @@ func TestListUnfinishedOperationsRejectsUnreadableOrInvalidMarkers(t *testing.T)
 				t.Fatalf("error = %v, want ErrTransferMarkerCorrupt", err)
 			}
 		})
+	}
+}
+
+func TestRecoverConvertIgnoresInvalidNonConvertMarker(t *testing.T) {
+	rootPath := t.TempDir()
+	marker := sec_transfer.OperationMarker{
+		Version: markerVersion,
+		OpID:    "unfinished-import",
+		Type:    sec_transfer.OperationImport,
+		Status:  "running",
+	}
+	if err := writeMarker(rootPath, marker); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := New().RecoverConvert(context.Background(), rootPath)
+	if err != nil {
+		t.Fatalf("convert recovery must ignore a non-convert marker: %v", err)
+	}
+	if result.Action != sec_transfer.RecoverActionNone {
+		t.Fatalf("recover action = %s, want none", result.Action)
+	}
+
+	_, err = New().ListUnfinishedOperations(context.Background(), rootPath)
+	if !errors.Is(err, sec_transfer.ErrTransferMarkerCorrupt) || !strings.Contains(err.Error(), "entry_kind") {
+		t.Fatalf("unfinished marker error = %v, want corrupt entry_kind detail", err)
 	}
 }

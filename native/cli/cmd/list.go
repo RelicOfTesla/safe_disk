@@ -54,18 +54,13 @@ var listCmd = &cobra.Command{
 		fmt.Println("=====================================")
 
 		count := 0
-		var firstError error
-		for walker.HasNext() {
+		for {
 			entry, err := walker.Next()
 			if err != nil {
 				if err == io.EOF {
 					break
 				}
-				if firstError == nil {
-					firstError = err
-				}
-				fmt.Printf("Error reading entry: %v\n", err)
-				break
+				return fmt.Errorf("failed to read directory entries: %w", err)
 			}
 
 			typeStr := "FILE"
@@ -74,8 +69,7 @@ var listCmd = &cobra.Command{
 			}
 			fi, err := entry.Info()
 			if err != nil {
-				fmt.Printf("Error getting file info: %v\n", err)
-				continue
+				return fmt.Errorf("failed to read directory entry metadata: %w", err)
 			}
 
 			fmt.Printf("[%s] %s (%d bytes)\n", typeStr, entry.Name(), fi.Size())
@@ -84,12 +78,6 @@ var listCmd = &cobra.Command{
 
 		fmt.Println("=====================================")
 		fmt.Printf("Total: %d items\n", count)
-
-		// Return error if there was an error reading entries
-		// This helps detect issues like wrong password
-		if firstError != nil && count == 0 {
-			return fmt.Errorf("failed to read directory entries: %w (this may indicate wrong password)", firstError)
-		}
 
 		return nil
 	},

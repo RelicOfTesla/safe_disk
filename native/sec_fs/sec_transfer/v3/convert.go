@@ -287,14 +287,11 @@ func findConvertMarkers(rootPath string) ([]sec_transfer.OperationMarker, error)
 	var markers []sec_transfer.OperationMarker
 	seen := map[string]struct{}{}
 	for _, candidate := range candidates {
-		found, err := listMarkers(candidate)
+		found, err := listConvertMarkers(candidate)
 		if err != nil {
 			return nil, err
 		}
 		for _, marker := range found {
-			if marker.Type != sec_transfer.OperationConvertEncrypt && marker.Type != sec_transfer.OperationConvertDecrypt {
-				continue
-			}
 			key := marker.OpID + "\x00" + marker.Phase + "\x00" + marker.Root + "\x00" + marker.Work + "\x00" + marker.Backup
 			if _, ok := seen[key]; ok {
 				continue

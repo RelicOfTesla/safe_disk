@@ -91,6 +91,10 @@ var (
 	// ErrWalkerClosed indicates that the directory walker is closed.
 	ErrWalkerClosed = errors.New("walker is closed")
 
+	// ErrWalkerWorkLimit indicates that recursive traversal exceeded its
+	// bounded pending-directory work set.
+	ErrWalkerWorkLimit = errors.New("walker pending directory limit exceeded")
+
 	// ErrNotConfigFile indicates that the config file is missing or invalid.
 	ErrNotConfigFile = errors.New("config file not found or invalid")
 

@@ -207,6 +207,10 @@ type WalkOptions struct {
 
 	// IncludeHidden indicates whether to include hidden files/directories.
 	IncludeHidden bool
+
+	// MaxPendingDirectories limits queued recursive directories. Zero uses the
+	// secure default; values above the hard ceiling are clamped.
+	MaxPendingDirectories int
 }
 
 // WithRecursive returns a WalkOption that enables recursive directory walking.
@@ -241,6 +245,15 @@ func WithSkipDirs() WalkOption {
 func WithIncludeHidden() WalkOption {
 	return func(opts *WalkOptions) {
 		opts.IncludeHidden = true
+	}
+}
+
+// WithMaxPendingDirectories limits the recursive walk work set. Values less
+// than one use the secure default and values above the hard ceiling are
+// clamped by the walker.
+func WithMaxPendingDirectories(limit int) WalkOption {
+	return func(opts *WalkOptions) {
+		opts.MaxPendingDirectories = limit
 	}
 }
 

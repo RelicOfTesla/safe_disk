@@ -525,6 +525,32 @@ func TestOpenRootFFIIgnoreMatcher(t *testing.T) {
 	}
 }
 
+func TestReadDirFFIReportsUnexpectedPlainStoreEntry(t *testing.T) {
+	rootPath := filepath.Join(t.TempDir(), "root")
+	assertSuccess(t, CreateRootConfig_FFI(
+		rootPath,
+		"pw",
+		`{"dataFactory":"AES-CTR","nameFactory":"AES-256-GCM"}`,
+	))
+	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+
+	if err := os.WriteFile(filepath.Join(rootPath, "unexpected-plain-entry"), []byte("x"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var response Response
+	if err := json.Unmarshal([]byte(ReadDir_FFI(rootID, "")), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Success {
+		t.Fatal("unexpected plaintext store entry was reported as a successful directory listing")
+	}
+	if !strings.Contains(response.Error, "decrypt_entry_name") {
+		t.Fatalf("unexpected ReadDir error: %q", response.Error)
+	}
+}
+
 func TestCLIAndFFICreateOpenCompatibility(t *testing.T) {
 	tmp := t.TempDir()
 	cliBin := filepath.Join(tmp, "safe-disk-test")
