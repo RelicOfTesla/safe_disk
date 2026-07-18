@@ -71,7 +71,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Enter password for:'), findsOneWidget);
+    expect(find.text('请输入密码以解锁：'), findsOneWidget);
     expect(fileService.listCalls, 0);
     expect(find.text('无法读取目录内容。'), findsNothing);
 
@@ -79,7 +79,7 @@ void main() {
     await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Enter password for:'), findsOneWidget);
+    expect(find.text('请输入密码以解锁：'), findsOneWidget);
     expect(fileService.listCalls, 0);
 
     await tester.enterText(find.byType(TextField), 'correct-password');
@@ -134,7 +134,7 @@ void main() {
     expect(find.text('visible.txt'), findsNothing);
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
-    expect(find.text('Enter password for:'), findsOneWidget);
+    expect(find.text('请输入密码以解锁：'), findsOneWidget);
   });
 
   testWidgets('background lifecycle locks every eligible unlocked root',
@@ -184,12 +184,12 @@ void main() {
     expect(cryptoService.closedRootIDs, unorderedEquals([7, 8]));
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(find.text('Enter password for:'), findsOneWidget);
+    expect(find.text('请输入密码以解锁：'), findsOneWidget);
     expect(find.text('visible.txt'), findsNothing);
 
     await tester.tap(find.text('vault-one'));
     await tester.pumpAndSettle();
-    expect(find.text('Enter password for:'), findsOneWidget);
+    expect(find.text('请输入密码以解锁：'), findsOneWidget);
   });
 
   testWidgets('background lifecycle does not lock roots by default',
@@ -1281,7 +1281,7 @@ void main() {
     expect(cryptoService.deletedFiles, isEmpty);
     expect(persistenceService.savedDirectoryLists, isEmpty);
     expect(find.text('vault'), findsOneWidget);
-    expect(find.text('Enter password for:'), findsOneWidget);
+    expect(find.text('请输入密码以解锁：'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'correct-password');
     await tester.tap(find.text('解锁'));

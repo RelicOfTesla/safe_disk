@@ -392,8 +392,8 @@ class _PathSelectionDialogState extends State<PathSelectionDialog> {
           TextField(
             controller: _pathController,
             decoration: InputDecoration(
-              labelText: 'Directory Path',
-              hintText: 'Enter or browse for directory',
+              labelText: '目录路径',
+              hintText: '输入目录路径或浏览选择',
               suffixIcon: IconButton(
                 icon: const Icon(Icons.folder_open),
                 onPressed: _browseDirectory,

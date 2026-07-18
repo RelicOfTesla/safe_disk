@@ -74,7 +74,7 @@ class _PasswordPromptState extends State<PasswordPrompt> {
             const Icon(Icons.lock, size: 48),
             const SizedBox(height: 16),
             Text(
-              'Enter password for:',
+              '请输入密码以解锁：',
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 8),
@@ -92,7 +92,7 @@ class _PasswordPromptState extends State<PasswordPrompt> {
               enableInteractiveSelection: true,
               enabled: !_isVerifying,
               decoration: const InputDecoration(
-                labelText: 'Password',
+                labelText: '密码',
                 border: OutlineInputBorder(),
               ),
               onSubmitted: (_) => _handleSubmit(),

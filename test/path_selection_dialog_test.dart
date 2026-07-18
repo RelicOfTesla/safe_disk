@@ -30,6 +30,8 @@ void main() {
 
     await tester.tap(find.text('选择'));
     await tester.pumpAndSettle();
+    expect(find.text('目录路径'), findsOneWidget);
+    expect(find.text('输入目录路径或浏览选择'), findsOneWidget);
     await tester.enterText(find.byType(TextField), path);
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
