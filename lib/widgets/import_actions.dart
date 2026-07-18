@@ -18,12 +18,12 @@ class ImportActions extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.upload_file),
           onPressed: onImportFile,
-          tooltip: 'Import File',
+          tooltip: '导入文件',
         ),
         IconButton(
           icon: const Icon(Icons.drive_folder_upload),
           onPressed: onImportDirectory,
-          tooltip: 'Import Directory',
+          tooltip: '导入目录',
         ),
       ],
     );

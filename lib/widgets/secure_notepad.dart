@@ -309,6 +309,20 @@ class _SecureNotepadState extends State<SecureNotepad>
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
           unawaited(_save());
         },
+        const SingleActivator(LogicalKeyboardKey.keyZ, control: true):
+            _controller.undo,
+        const SingleActivator(
+          LogicalKeyboardKey.keyZ,
+          control: true,
+          shift: true,
+        ): _controller.redo,
+        const SingleActivator(LogicalKeyboardKey.keyZ, meta: true):
+            _controller.undo,
+        const SingleActivator(
+          LogicalKeyboardKey.keyZ,
+          meta: true,
+          shift: true,
+        ): _controller.redo,
         const SingleActivator(LogicalKeyboardKey.escape): _hideFind,
       },
       child: PopScope(
@@ -328,22 +342,22 @@ class _SecureNotepadState extends State<SecureNotepad>
                   _controller.isReadOnly ? Icons.edit : Icons.visibility,
                 ),
                 onPressed: _controller.toggleReadOnly,
-                tooltip: _controller.isReadOnly ? '切换到编辑模式' : '切换到只读模式',
+                tooltip: _controller.isReadOnly ? '开始编辑' : '切换为只读',
               ),
               IconButton(
                 icon: const Icon(Icons.undo),
                 onPressed: _controller.canUndo ? _controller.undo : null,
-                tooltip: '撤销',
+                tooltip: '撤销（Ctrl/Cmd+Z）',
               ),
               IconButton(
                 icon: const Icon(Icons.redo),
                 onPressed: _controller.canRedo ? _controller.redo : null,
-                tooltip: '重做',
+                tooltip: '重做（Ctrl/Cmd+Shift+Z）',
               ),
               IconButton(
                 icon: Icon(_showFindReplace ? Icons.search_off : Icons.search),
                 onPressed: _showFindReplace ? _hideFind : _showFind,
-                tooltip: _showFindReplace ? '隐藏查找/替换' : '查找/替换',
+                tooltip: _showFindReplace ? '关闭查找' : '查找和替换',
               ),
               IconButton(
                 icon: Icon(
@@ -421,8 +435,6 @@ class _SecureNotepadState extends State<SecureNotepad>
             hasChanges: _controller.hasChanges,
             isSaving: _controller.isSaving,
             isReadOnly: _controller.isReadOnly,
-            undoCount: _controller.undoCount,
-            redoCount: _controller.redoCount,
             characterCount: _controller.characterCount,
             encoding: _controller.detectedEncoding,
             saveError: _controller.saveError,

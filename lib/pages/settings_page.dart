@@ -198,7 +198,7 @@ class _SettingsPageState extends State<SettingsPage> {
             IconButton(
               onPressed: _isLoading ? null : _resetToDefaults,
               icon: const Icon(Icons.restart_alt),
-              tooltip: '恢复默认（未保存）',
+              tooltip: '恢复默认设置（未保存）',
             ),
           ],
         ),
@@ -277,7 +277,7 @@ class _SettingsPageState extends State<SettingsPage> {
             onSelectionChanged: (selection) => _setTheme(selection.single),
           ),
           const SizedBox(height: 10),
-          const Text('主题会立即预览，保存后在下次启动继续生效。'),
+          const Text('主题会立即预览；保存后会在下次启动时保留。'),
         ],
       );
 
@@ -333,7 +333,7 @@ class _SettingsPageState extends State<SettingsPage> {
             key: const Key('notepad-default-read-only'),
             contentPadding: EdgeInsets.zero,
             title: const Text('记事本默认只读'),
-            subtitle: const Text('新打开时先显示为只读，可手动切换到编辑模式'),
+            subtitle: const Text('新打开的文件先以只读方式显示，可手动开始编辑'),
             value: _notepadDefaultReadOnly,
             onChanged: (value) =>
                 setState(() => _notepadDefaultReadOnly = value),
@@ -341,7 +341,7 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             key: const Key('notepad-default-monitor-clipboard'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('记事本默认监视剪贴板'),
+            title: const Text('默认监视剪贴板'),
             subtitle: const Text('仅显示短文本预览，不写入文件或设置'),
             value: _notepadDefaultMonitorClipboard,
             onChanged: (value) =>
@@ -351,7 +351,7 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             key: const Key('detailed-error-reports'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('报告详细错误信息'),
+            title: const Text('显示详细错误信息'),
             subtitle: const Text('在错误提示中显示经脱敏的操作阶段与底层错误；不会写入磁盘日志'),
             value: _detailedErrorReports,
             onChanged: (value) => setState(() => _detailedErrorReports = value),

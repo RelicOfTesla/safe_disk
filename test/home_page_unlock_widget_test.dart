@@ -76,14 +76,14 @@ void main() {
     expect(find.text('无法读取目录内容。'), findsNothing);
 
     await tester.enterText(find.byType(TextField), 'wrong-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     expect(find.text('Enter password for:'), findsOneWidget);
     expect(fileService.listCalls, 0);
 
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     expect(
@@ -118,7 +118,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
     expect(find.text('visible.txt'), findsOneWidget);
     expect(settings.reads, greaterThan(0));
@@ -155,7 +155,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
@@ -181,7 +181,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -257,7 +257,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -303,7 +303,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -352,7 +352,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -389,7 +389,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -405,7 +405,7 @@ void main() {
 
     await tester.tap(find.byTooltip('更多批量操作'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('导出所选文件'));
+    await tester.tap(find.text('导出所选项'));
     await tester.pumpAndSettle();
 
     expect(fileService.exportCalls, [
@@ -449,7 +449,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -467,10 +467,10 @@ void main() {
 
     await tester.tap(find.byTooltip('更多批量操作'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('删除所选文件'));
+    await tester.tap(find.text('删除所选项'));
     await tester.pumpAndSettle();
     expect(find.text('确认批量删除'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, '删除所选文件'));
+    await tester.tap(find.widgetWithText(FilledButton, '删除所选项'));
     await tester.pumpAndSettle();
 
     expect(
@@ -520,7 +520,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -535,7 +535,7 @@ void main() {
     await tester.tap(find.text('second.txt'));
     await tester.pump();
 
-    await tester.tap(find.byTooltip('复制所选文件'));
+    await tester.tap(find.byTooltip('复制所选项'));
     await tester.pumpAndSettle();
     expect(find.textContaining('first.txt 等 2 项'), findsOneWidget);
 
@@ -573,7 +573,7 @@ void main() {
   testWidgets('batch paste cancellation keeps every unprocessed clipboard item',
       (tester) async {
     final (:cryptoService, :fileService) = await _openTwoFileVault(tester);
-    await _selectTwoEntries(tester, clipboardAction: '复制所选文件');
+    await _selectTwoEntries(tester, clipboardAction: '复制所选项');
 
     await tester.tap(find.byTooltip('粘贴到当前目录'));
     await tester.pumpAndSettle();
@@ -594,7 +594,7 @@ void main() {
       tester,
       copyFailures: const {'/second.txt'},
     );
-    await _selectTwoEntries(tester, clipboardAction: '复制所选文件');
+    await _selectTwoEntries(tester, clipboardAction: '复制所选项');
 
     await tester.tap(find.byTooltip('粘贴到当前目录'));
     await tester.pumpAndSettle();
@@ -614,7 +614,7 @@ void main() {
   testWidgets('batch cut applies keep-both policy once and renames each item',
       (tester) async {
     final (:cryptoService, :fileService) = await _openTwoFileVault(tester);
-    await _selectTwoEntries(tester, clipboardAction: '剪切所选文件');
+    await _selectTwoEntries(tester, clipboardAction: '剪切所选项');
 
     await tester.tap(find.byTooltip('移动到当前目录'));
     await tester.pumpAndSettle();
@@ -665,7 +665,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -740,7 +740,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -783,7 +783,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -835,7 +835,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     Future<void> openContextMenu() async {
@@ -892,7 +892,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -937,7 +937,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     expect(fileService.listCalls, 1);
@@ -987,7 +987,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -1006,7 +1006,7 @@ void main() {
       tester.getSize(find.byKey(const Key('file-clipboard-status'))).height,
       44,
     );
-    expect(find.textContaining('应用内剪贴板 ·'), findsOneWidget);
+    expect(find.textContaining('文件剪贴板 ·'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(const Size(600, 700));
     await tester.pumpAndSettle();
@@ -1051,7 +1051,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final gesture = await tester.startGesture(
@@ -1101,7 +1101,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     final itemGesture = await tester.startGesture(
@@ -1211,10 +1211,10 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('关闭当前加密目录'));
+    await tester.tap(find.byTooltip('关闭目录'));
     await tester.pumpAndSettle();
     expect(find.text('目录操作'), findsOneWidget);
     expect(find.textContaining('保留侧边栏历史'), findsOneWidget);
@@ -1229,7 +1229,7 @@ void main() {
     expect(find.text('Enter password for:'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
     expect(cryptoService.openedPasswords, [
       'correct-password',
@@ -1259,10 +1259,10 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('目录操作'));
+    await tester.tap(find.byTooltip('更多目录操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('结束会话并移除历史'));
     await tester.pumpAndSettle();
@@ -1297,10 +1297,10 @@ void main() {
     await tester.tap(find.text(rootName));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('目录操作'));
+    await tester.tap(find.byTooltip('更多目录操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('结束会话、移除历史并删除目录'));
     await tester.pumpAndSettle();
@@ -1359,17 +1359,17 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Import File'));
+    await tester.tap(find.byTooltip('导入文件'));
     await tester.pumpAndSettle();
     expect(find.text('目标已存在'), findsOneWidget);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
     expect(directoryService.importFileCalls, isEmpty);
 
-    await tester.tap(find.byTooltip('Import File'));
+    await tester.tap(find.byTooltip('导入文件'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('替换'));
     await tester.pumpAndSettle();
@@ -1411,10 +1411,10 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Import Directory'));
+    await tester.tap(find.byTooltip('导入目录'));
     await tester.pumpAndSettle();
 
     expect(find.text('目标已存在'), findsOneWidget);
@@ -1452,11 +1452,11 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 4));
 
-    await tester.tap(find.byTooltip('Import Directory'));
+    await tester.tap(find.byTooltip('导入目录'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 500));
@@ -1502,10 +1502,10 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Import File'));
+    await tester.tap(find.byTooltip('导入文件'));
     await tester.pumpAndSettle();
 
     final import = directoryService.importFileCalls.single;
@@ -1543,7 +1543,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -1579,7 +1579,7 @@ void main() {
     await tester.tap(find.text('vault'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'correct-password');
-    await tester.tap(find.text('Unlock'));
+    await tester.tap(find.text('解锁'));
     await tester.pumpAndSettle();
 
     expect(find.text('无法确认未完成传输状态'), findsOneWidget);
@@ -1626,7 +1626,7 @@ Future<
   await tester.tap(find.text('two-file-vault'));
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextField), 'correct-password');
-  await tester.tap(find.text('Unlock'));
+  await tester.tap(find.text('解锁'));
   await tester.pumpAndSettle();
   return (cryptoService: cryptoService, fileService: fileService);
 }

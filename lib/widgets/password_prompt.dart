@@ -106,7 +106,7 @@ class _PasswordPromptState extends State<PasswordPrompt> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Unlock'),
+                  : const Text('解锁'),
             ),
           ],
         ),

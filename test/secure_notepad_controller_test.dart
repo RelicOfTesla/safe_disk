@@ -82,6 +82,21 @@ void main() {
     expect(controller.textController.text, 'gamma beta alpha');
   });
 
+  test('read-only mode disables undo and redo', () async {
+    final controller = _controller(_FakeCryptoService('initial'));
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    controller.textController.text = 'changed';
+    expect(controller.canUndo, isTrue);
+    controller.toggleReadOnly();
+    expect(controller.canUndo, isFalse);
+    expect(controller.canRedo, isFalse);
+
+    controller.undo();
+    expect(controller.textController.text, 'changed');
+  });
+
   test('periodically saves an encrypted draft without overwriting the source',
       () async {
     final service = _FakeCryptoService('initial');

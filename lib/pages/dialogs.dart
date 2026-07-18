@@ -385,7 +385,7 @@ class _PathSelectionDialogState extends State<PathSelectionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Select Directory'),
+      title: const Text('选择目录'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -397,7 +397,7 @@ class _PathSelectionDialogState extends State<PathSelectionDialog> {
               suffixIcon: IconButton(
                 icon: const Icon(Icons.folder_open),
                 onPressed: _browseDirectory,
-                tooltip: 'Browse',
+                tooltip: '浏览',
               ),
             ),
           ),
@@ -406,7 +406,7 @@ class _PathSelectionDialogState extends State<PathSelectionDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: const Text('取消'),
         ),
         ElevatedButton(
           onPressed: () {
@@ -421,7 +421,7 @@ class _PathSelectionDialogState extends State<PathSelectionDialog> {
 
             Navigator.pop(context, path);
           },
-          child: const Text('OK'),
+          child: const Text('确定'),
         ),
       ],
     );

@@ -17,7 +17,7 @@ class WelcomeScreen extends StatelessWidget {
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8),
-          Text('Encrypted file manager'),
+          Text('加密文件管理器'),
           SizedBox(height: 32),
           Text(
             '请从侧边栏打开或创建加密目录',

@@ -168,13 +168,13 @@ class HomeShell extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.copy_outlined),
           onPressed: onBatchCopy,
-          tooltip: '复制所选文件',
+          tooltip: '复制所选项',
         ),
       if (selectedFiles.isNotEmpty)
         IconButton(
           icon: const Icon(Icons.content_cut),
           onPressed: onBatchCut,
-          tooltip: '剪切所选文件',
+          tooltip: '剪切所选项',
         ),
       PopupMenuButton<_BatchSelectionAction>(
         tooltip: '更多批量操作',
@@ -196,7 +196,7 @@ class HomeShell extends StatelessWidget {
             value: _BatchSelectionAction.selectAll,
             child: ListTile(
               leading: Icon(Icons.select_all),
-              title: Text('全选文件'),
+              title: Text('全选'),
             ),
           ),
           if (selectedFiles.isNotEmpty)
@@ -204,7 +204,7 @@ class HomeShell extends StatelessWidget {
               value: _BatchSelectionAction.export,
               child: ListTile(
                 leading: Icon(Icons.save_alt),
-                title: Text('导出所选文件'),
+                title: Text('导出所选项'),
               ),
             ),
           if (selectedFiles.isNotEmpty)
@@ -212,7 +212,7 @@ class HomeShell extends StatelessWidget {
               value: _BatchSelectionAction.delete,
               child: ListTile(
                 leading: Icon(Icons.delete_outline),
-                title: Text('删除所选文件'),
+                title: Text('删除所选项'),
               ),
             ),
         ],
@@ -230,7 +230,7 @@ class HomeShell extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.folder_off_outlined),
           onPressed: onCloseCurrentRoot,
-          tooltip: '关闭当前加密目录',
+          tooltip: '关闭目录',
         ),
       IconButton(
         icon: const Icon(Icons.settings_outlined),
@@ -353,7 +353,7 @@ class HomeShell extends StatelessWidget {
                 Expanded(
                   child: Text(
                     wide
-                        ? '${isMove ? '待移动' : '应用内剪贴板'} · '
+                        ? '${isMove ? '待移动' : '文件剪贴板'} · '
                             '$entryLabel  →  $targetName'
                         : '${isMove ? '待移动' : '待粘贴'} · $entryLabel',
                     maxLines: 1,
@@ -380,7 +380,7 @@ class HomeShell extends StatelessWidget {
                 IconButton(
                   onPressed: onClearClipboard,
                   icon: const Icon(Icons.close, size: 18),
-                  tooltip: '清除应用内剪贴板',
+                  tooltip: '清空文件剪贴板',
                 ),
               ],
             ),

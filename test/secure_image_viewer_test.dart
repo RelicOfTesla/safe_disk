@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,15 +47,52 @@ void main() {
     );
     expect(viewer.transformationController!.value.getMaxScaleOnAxis(), 1);
 
-    await tester.tap(find.byTooltip('放大 (+)'));
+    await tester.tap(find.byTooltip('放大（+）'));
     await tester.pump();
     expect(viewer.transformationController!.value.getMaxScaleOnAxis(), 1.2);
+
+    for (var index = 0; index < 14; index++) {
+      await tester.tap(find.byTooltip('缩小（-）'));
+    }
+    await tester.pump();
+    expect(viewer.transformationController!.value.getMaxScaleOnAxis(), 0.1);
+
+    await tester.tap(find.byTooltip('重置视图（N）'));
+    await tester.pump();
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    final viewerCenter = tester.getCenter(
+      find.byKey(const Key('secure-image-interactive-viewer')),
+    );
+    mouse.hover(viewerCenter);
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, -20)));
+    await tester.pump();
+    expect(
+      viewer.transformationController!.value.getMaxScaleOnAxis(),
+      greaterThan(1),
+      reason: '图片查看器必须接收滚轮缩放事件',
+    );
+
+    await tester.tap(find.byTooltip('重置视图（N）'));
+    await tester.pump();
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 20)));
+    await tester.pump();
+    expect(
+      viewer.transformationController!.value.getMaxScaleOnAxis(),
+      lessThan(1),
+      reason: '滚轮缩小应使用与按钮相同的最小缩放范围',
+    );
+
+    for (var index = 0; index < 30; index++) {
+      await tester.sendEventToBinding(mouse.scroll(const Offset(0, 20)));
+    }
+    await tester.pump();
+    expect(viewer.transformationController!.value.getMaxScaleOnAxis(), 0.1);
 
     final beforeRotation = tester
         .widget<Transform>(find.byKey(const Key('secure-image-rotation')))
         .transform
         .clone();
-    await tester.tap(find.byTooltip('顺时针旋转 (R)'));
+    await tester.tap(find.byTooltip('顺时针旋转（R）'));
     await tester.pump();
     final afterRotation = tester
         .widget<Transform>(find.byKey(const Key('secure-image-rotation')))
@@ -177,9 +215,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
     expect(inspectionCalls, 1);
-    expect(find.byTooltip('下一张 (→)'), findsOneWidget);
+    expect(find.byTooltip('下一张（→）'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('下一张 (→)'));
+    await tester.tap(find.byTooltip('下一张（→）'));
     await tester.pumpAndSettle();
     expect(find.text('two.jpg'), findsOneWidget);
     expect(find.byKey(const Key('secure-image-content')), findsOneWidget);
@@ -247,7 +285,7 @@ void main() {
       ),
     ));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('下一张 (→)'));
+    await tester.tap(find.byTooltip('下一张（→）'));
     await tester.pumpAndSettle();
     expect(find.textContaining('图片内容为空'), findsOneWidget);
 

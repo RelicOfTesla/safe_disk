@@ -60,7 +60,7 @@ class SidebarWidget extends StatelessWidget {
                           TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     Text(
-                      '${openedDirs.length} directories',
+                      '已打开 ${openedDirs.length} 个目录',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -76,7 +76,7 @@ class SidebarWidget extends StatelessWidget {
                     Navigator.pop(context);
                   }
                 },
-                tooltip: drawerPinned ? 'Unpin sidebar' : 'Pin sidebar',
+                tooltip: drawerPinned ? '取消固定侧边栏' : '固定侧边栏',
               ),
             ],
           ),
@@ -93,7 +93,7 @@ class SidebarWidget extends StatelessWidget {
               onOpenDirectory();
             },
             icon: const Icon(Icons.create_new_folder),
-            label: const Text('打开/创建加密目录'),
+            label: const Text('打开或创建加密目录'),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 40),
             ),
@@ -109,7 +109,7 @@ class SidebarWidget extends StatelessWidget {
                   child: Padding(
                     padding: EdgeInsets.all(16.0),
                     child: Text(
-                      'No directories opened\n\nClick "打开/创建加密目录" to start',
+                      '还没有打开目录\n\n选择“打开或创建加密目录”开始使用',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey),
                     ),
@@ -147,17 +147,17 @@ class SidebarWidget extends StatelessWidget {
                             const PopupMenuDivider(),
                             const PopupMenuItem(
                               value: SidebarDirectoryAction.setAlias,
-                              child: Text('设置显示别名'),
+                              child: Text('设置别名'),
                             ),
                             if (dir.displayAlias != null)
                               const PopupMenuItem(
                                 value: SidebarDirectoryAction.clearAlias,
-                                child: Text('清除显示别名'),
+                                child: Text('清除别名'),
                               ),
                             const PopupMenuDivider(),
                             const PopupMenuItem(
                               value: SidebarDirectoryAction.directoryActions,
-                              child: Text('会话与目录操作'),
+                              child: Text('关闭或移除目录'),
                             ),
                           ],
                         );
@@ -190,7 +190,7 @@ class SidebarWidget extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            dir.isVerified ? 'Verified' : 'Not verified',
+                            dir.isVerified ? '已解锁' : '需要密码',
                             style: TextStyle(
                               color:
                                   dir.isVerified ? Colors.green : Colors.orange,
@@ -200,7 +200,7 @@ class SidebarWidget extends StatelessWidget {
                           trailing: IconButton(
                             icon: const Icon(Icons.close, size: 18),
                             onPressed: () => onCloseDirectory(dir),
-                            tooltip: '目录操作',
+                            tooltip: '更多目录操作',
                           ),
                           onTap: () {
                             if (!drawerPinned && Navigator.canPop(context)) {

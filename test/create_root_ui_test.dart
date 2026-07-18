@@ -32,10 +32,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('打开/创建加密目录'));
+    await tester.tap(find.text('打开或创建加密目录'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), directory.path);
-    await tester.tap(find.text('OK'));
+    await tester.tap(find.text('确定'));
     for (var attempt = 0;
         attempt < 10 && find.byType(SnackBar).evaluate().isEmpty;
         attempt++) {

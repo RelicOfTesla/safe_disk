@@ -1646,8 +1646,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       builder: (dialogContext) => AlertDialog(
         title: const Text('确认批量删除'),
         content: Text(
-          '确定删除所选 ${selected.length} 个文件吗？此操作无法撤销。'
-          '删除会逐项执行，发生失败时已删除的文件不会恢复。',
+          '确定删除所选 ${selected.length} 项吗？此操作无法撤销。'
+          '删除会逐项执行，发生失败时已删除的项目不会恢复。',
         ),
         actions: [
           TextButton(
@@ -1657,7 +1657,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('删除所选文件'),
+            child: const Text('删除所选项'),
           ),
         ],
       ),
@@ -2010,7 +2010,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           context,
           errorType: ErrorType.operationFailed,
           originalError: '成功 $successCount 个，失败 ${failures.length} 个；'
-              '失败项已保留在应用内剪贴板。',
+              '失败项已保留在文件剪贴板中。',
         );
       } else {
         ErrorHelper.showSuccess(

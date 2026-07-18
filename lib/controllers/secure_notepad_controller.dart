@@ -82,11 +82,9 @@ class SecureNotepadController extends ChangeNotifier {
   String? get detectedEncoding => _detectedEncoding;
   String get draftPath =>
       SecureNotepadDraftStore.draftPathFor(file.encryptedPath);
-  bool get canUndo => _historyIndex > 0;
-  bool get canRedo => _historyIndex >= 0 && _historyIndex < _history.length - 1;
-  int get undoCount => _historyIndex < 0 ? 0 : _historyIndex;
-  int get redoCount =>
-      _historyIndex < 0 ? 0 : _history.length - _historyIndex - 1;
+  bool get canUndo => !_isReadOnly && _historyIndex > 0;
+  bool get canRedo =>
+      !_isReadOnly && _historyIndex >= 0 && _historyIndex < _history.length - 1;
   int get characterCount => textController.text.length;
 
   Future<void> load() async {

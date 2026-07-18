@@ -25,7 +25,7 @@ void main() {
     expect(tester.widget<TextField>(editorFinder).readOnly, isTrue);
     expect(find.text('只读'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('切换到编辑模式'));
+    await tester.tap(find.byTooltip('开始编辑'));
     await tester.pump();
     expect(tester.widget<TextField>(editorFinder).readOnly, isFalse);
     expect(find.text('编辑'), findsOneWidget);
@@ -176,6 +176,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(service.writes, ['saved by shortcut']);
+  });
+
+  testWidgets('undo and redo use standard commands instead of history counts',
+      (tester) async {
+    await _openNotepad(tester, _FakeCryptoService('initial'));
+    final editor = find.byKey(const Key('secure-notepad-editor'));
+    await tester.enterText(editor, 'changed');
+    await tester.pump();
+
+    final undo = find.byTooltip('撤销（Ctrl/Cmd+Z）');
+    final redo = find.byTooltip('重做（Ctrl/Cmd+Shift+Z）');
+    final undoButton =
+        find.ancestor(of: undo, matching: find.byType(IconButton));
+    final redoButton =
+        find.ancestor(of: redo, matching: find.byType(IconButton));
+    expect(tester.widget<IconButton>(undoButton).onPressed, isNotNull);
+    expect(tester.widget<IconButton>(redoButton).onPressed, isNull);
+    expect(find.textContaining('撤销:'), findsNothing);
+    expect(find.textContaining('重做:'), findsNothing);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(tester.widget<TextField>(editor).controller!.text, 'initial');
+    expect(tester.widget<IconButton>(redoButton).onPressed, isNotNull);
+
+    await tester.tap(redoButton);
+    await tester.pump();
+    expect(tester.widget<TextField>(editor).controller!.text, 'changed');
   });
 
   testWidgets('failed save while closing keeps the editor open',

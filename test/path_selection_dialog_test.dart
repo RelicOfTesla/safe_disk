@@ -31,7 +31,7 @@ void main() {
     await tester.tap(find.text('选择'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), path);
-    await tester.tap(find.text('OK'));
+    await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
     expect(selected, path);

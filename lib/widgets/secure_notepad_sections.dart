@@ -10,8 +10,6 @@ class SecureNotepadStatusBar extends StatelessWidget {
     required this.hasChanges,
     required this.isSaving,
     required this.isReadOnly,
-    required this.undoCount,
-    required this.redoCount,
     required this.characterCount,
     this.encoding,
     this.saveError,
@@ -23,8 +21,6 @@ class SecureNotepadStatusBar extends StatelessWidget {
   final bool hasChanges;
   final bool isSaving;
   final bool isReadOnly;
-  final int undoCount;
-  final int redoCount;
   final int characterCount;
   final String? encoding;
   final String? saveError;
@@ -73,10 +69,6 @@ class SecureNotepadStatusBar extends StatelessWidget {
             isReadOnly ? '只读' : '编辑',
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          const SizedBox(width: 16),
-          Text('撤销: $undoCount', style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(width: 8),
-          Text('重做: $redoCount', style: Theme.of(context).textTheme.bodySmall),
           const Spacer(),
           if (encoding != null) ...[
             Text(

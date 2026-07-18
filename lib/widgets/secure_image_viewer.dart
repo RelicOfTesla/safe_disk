@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -235,6 +236,23 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
       ..scaleByDouble(newScale, newScale, newScale, 1);
   }
 
+  void _handleMouseWheel(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent ||
+        event.kind != PointerDeviceKind.mouse ||
+        event.scrollDelta.dy == 0) {
+      return;
+    }
+    GestureBinding.instance.pointerSignalResolver.register(event, (resolved) {
+      final scroll = resolved as PointerScrollEvent;
+      if (!mounted) return;
+      if (scroll.scrollDelta.dy < 0) {
+        _zoomIn();
+      } else {
+        _zoomOut();
+      }
+    });
+  }
+
   /// Handle keyboard shortcuts
   void _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return;
@@ -331,25 +349,25 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
             IconButton(
               icon: const Icon(Icons.zoom_in),
               onPressed: _zoomIn,
-              tooltip: '放大 (+)',
+              tooltip: '放大（+）',
             ),
             // Zoom out
             IconButton(
               icon: const Icon(Icons.zoom_out),
               onPressed: _zoomOut,
-              tooltip: '缩小 (-)',
+              tooltip: '缩小（-）',
             ),
             // Reset view
             IconButton(
               icon: const Icon(Icons.fit_screen),
               onPressed: _resetView,
-              tooltip: '重置视图 (N)',
+              tooltip: '重置视图（N）',
             ),
             // Rotate
             IconButton(
               icon: const Icon(Icons.rotate_right),
               onPressed: _rotateImage,
-              tooltip: '顺时针旋转 (R)',
+              tooltip: '顺时针旋转（R）',
             ),
           ],
         ),
@@ -372,7 +390,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
           IconButton(
             icon: const Icon(Icons.navigate_before),
             onPressed: _currentIndex > 0 ? _previousImage : null,
-            tooltip: '上一张 (←)',
+            tooltip: '上一张（←）',
           ),
           // Image counter
           Text(
@@ -384,7 +402,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
             icon: const Icon(Icons.navigate_next),
             onPressed:
                 _currentIndex < _imageFiles.length - 1 ? _nextImage : null,
-            tooltip: '下一张 (→)',
+            tooltip: '下一张（→）',
           ),
         ],
       ),
@@ -424,58 +442,62 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
       return const Center(child: Text('没有可显示的图片数据'));
     }
 
-    return GestureDetector(
-      onDoubleTap: _resetView,
-      onHorizontalDragEnd: (details) {
-        // Swipe left/right to navigate
-        if (details.primaryVelocity == null) return;
-
-        if (details.primaryVelocity! > 300) {
-          // Swipe right -> previous
-          _previousImage();
-        } else if (details.primaryVelocity! < -300) {
-          // Swipe left -> next
-          _nextImage();
-        }
-      },
-      child: Center(
+    return SizedBox.expand(
+      child: Listener(
+        onPointerSignal: _handleMouseWheel,
         child: InteractiveViewer(
           key: const Key('secure-image-interactive-viewer'),
           transformationController: _transformController,
+        // Keep a sufficiently large canvas so pointer gestures can reach the
+        // same 10%-1000% range as the toolbar controls.
+          boundaryMargin: const EdgeInsets.all(10000),
           minScale: 0.1,
           maxScale: 10.0,
-          child: Transform.rotate(
-            key: const Key('secure-image-rotation'),
-            angle: _rotation * 3.14159265359 / 180,
-            child: Image(
-              key: const Key('secure-image-content'),
-              image: _imageProvider!,
-              fit: BoxFit.contain,
-              gaplessPlayback: false,
-              errorBuilder: (context, error, stackTrace) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.broken_image,
-                          size: 48, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      const Text('无法显示图片'),
-                      const SizedBox(height: 8),
-                      Text(
-                        '文件可能已损坏，或不是受支持的图片格式。',
-                        style: Theme.of(context).textTheme.bodySmall,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadImage,
-                        child: const Text('重试'),
-                      ),
-                    ],
-                  ),
-                );
-              },
+          child: GestureDetector(
+            onDoubleTap: _resetView,
+            onHorizontalDragEnd: (details) {
+              // Swipe left/right to navigate.
+              if (details.primaryVelocity == null) return;
+
+              if (details.primaryVelocity! > 300) {
+                _previousImage();
+              } else if (details.primaryVelocity! < -300) {
+                _nextImage();
+              }
+            },
+            child: Transform.rotate(
+              key: const Key('secure-image-rotation'),
+              angle: _rotation * 3.14159265359 / 180,
+              child: Image(
+                key: const Key('secure-image-content'),
+                image: _imageProvider!,
+                fit: BoxFit.contain,
+                gaplessPlayback: false,
+                errorBuilder: (context, error, stackTrace) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.broken_image,
+                            size: 48, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        const Text('无法显示图片'),
+                        const SizedBox(height: 8),
+                        Text(
+                          '文件可能已损坏，或不是受支持的图片格式。',
+                          style: Theme.of(context).textTheme.bodySmall,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadImage,
+                          child: const Text('重试'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ),

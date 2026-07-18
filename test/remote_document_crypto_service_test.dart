@@ -85,7 +85,7 @@ void main() {
       isTrue,
     );
     expect(find.byKey(const Key('secure-clipboard-monitor')), findsOneWidget);
-    await tester.tap(find.byTooltip('切换到编辑模式'));
+    await tester.tap(find.byTooltip('开始编辑'));
     await tester.pump();
 
     await tester.enterText(

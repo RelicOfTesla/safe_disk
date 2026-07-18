@@ -73,8 +73,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('属性'), findsOneWidget);
     expect(find.text('修改密码'), findsOneWidget);
-    expect(find.text('设置显示别名'), findsOneWidget);
-    await tester.tap(find.text('清除显示别名'));
+    expect(find.text('设置别名'), findsOneWidget);
+    await tester.tap(find.text('清除别名'));
     await tester.pumpAndSettle();
     expect(renamed?.displayAlias, isNull);
   });

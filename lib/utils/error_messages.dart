@@ -108,14 +108,14 @@ class ErrorMessages {
   static const Map<ErrorType, ErrorMessage> _messages = {
     // 目录验证相关
     ErrorType.directoryNotVerified: ErrorMessage(
-      title: '需要验证目录',
-      description: '请先验证此加密目录的身份，然后才能操作文件。',
-      suggestion: '点击侧边栏的"验证"按钮，输入密码验证目录。',
+      title: '需要解锁目录',
+      description: '请输入密码解锁此加密目录后再操作文件。',
+      suggestion: '在侧边栏选择该目录，然后输入密码。',
     ),
     ErrorType.sessionExpired: ErrorMessage(
-      title: '会话已过期',
-      description: '您的登录会话已过期，出于安全考虑，需要重新验证。',
-      suggestion: '点击侧边栏的"验证"按钮，重新输入密码。',
+      title: '目录已锁定',
+      description: '目录会话已结束，需要重新解锁。',
+      suggestion: '在侧边栏选择该目录，然后重新输入密码。',
     ),
     ErrorType.invalidPassword: ErrorMessage(
       title: '密码错误',
@@ -131,14 +131,14 @@ class ErrorMessages {
       suggestion: '请检查目录路径是否正确，或选择其他目录。',
     ),
     ErrorType.notEncryptedDirectory: ErrorMessage(
-      title: '非加密目录',
-      description: '此目录不是 Safe Disk 加密目录，无法打开。',
-      suggestion: '请选择包含 "_cryption.json" 文件的加密目录。',
+      title: '无法打开目录',
+      description: '所选目录不是可识别的 Safe Disk 加密目录。',
+      suggestion: '请选择已有加密目录，或创建新的加密目录。',
     ),
     ErrorType.loadConfigFailed: ErrorMessage(
       title: '加载配置失败',
       description: '无法读取加密目录的配置文件。',
-      suggestion: '请检查 "_cryption.json" 文件是否存在且格式正确。',
+      suggestion: '请检查目录是否完整且未被其他程序修改。',
       isCritical: true,
     ),
     ErrorType.loadDirectoryFailed: ErrorMessage(
@@ -160,7 +160,7 @@ class ErrorMessages {
     ErrorType.createEncryptedDirectoryRequiresEmpty: ErrorMessage(
       title: '目录不是空目录',
       description: '新加密目录只能创建在不存在或内容为空的目录中。',
-      suggestion: '请选择新的路径或空目录；已有内容需要先导入，不能直接作为新 root 初始化。',
+      suggestion: '请选择新的路径或空目录；已有内容请通过导入功能加入。',
     ),
 
     // 文件操作相关

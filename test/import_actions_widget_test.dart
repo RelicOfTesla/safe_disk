@@ -20,8 +20,8 @@ void main() {
       ),
     ));
 
-    await tester.tap(find.byTooltip('Import File'));
-    await tester.tap(find.byTooltip('Import Directory'));
+    await tester.tap(find.byTooltip('导入文件'));
+    await tester.tap(find.byTooltip('导入目录'));
 
     expect(fileImports, 1);
     expect(directoryImports, 1);
