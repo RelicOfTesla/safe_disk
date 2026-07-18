@@ -249,12 +249,17 @@ class _SecureNotepadState extends State<SecureNotepad>
 
   void _hideFind() {
     if (_showFindReplace) setState(() => _showFindReplace = false);
+    _editorViewport.clearSelectionHighlight();
     _controller.focusNode.requestFocus();
   }
 
   FindResult? _find(String query, {bool backwards = false}) {
     final result = _controller.find(query, backwards: backwards);
-    if (result != null) _editorViewport.centerSelection();
+    if (result != null) {
+      _editorViewport.centerSelection();
+    } else {
+      _editorViewport.clearSelectionHighlight();
+    }
     return result;
   }
 
@@ -401,6 +406,7 @@ class _SecureNotepadState extends State<SecureNotepad>
               onReplace: _controller.replaceSelection,
               onReplaceAll: _controller.replaceAll,
               focusNode: _findFocusNode,
+              onQueryChanged: _editorViewport.clearSelectionHighlight,
               onClose: _hideFind,
             ),
           if (_monitorClipboard)

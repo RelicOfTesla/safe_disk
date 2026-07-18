@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe_disk/models/cryption_config.dart';
@@ -56,11 +57,25 @@ void main() {
     await tester.enterText(findField, 'alpha');
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
+    await tester.pump();
     expect(find.text('1/2'), findsOneWidget);
     expect(
       tester.widget<TextField>(editor).controller!.selection,
       const TextSelection(baseOffset: 0, extentOffset: 5),
     );
+    final editorEditable = _findRenderEditable(
+      tester.renderObject<RenderObject>(editor),
+    );
+    expect(editorEditable, isNotNull);
+    expect(
+      editorEditable!.selection,
+      tester.widget<TextField>(editor).controller!.selection,
+    );
+    expect(editorEditable.selectionColor, isNull);
+    final highlight = find.byKey(const Key('secure-notepad-find-highlight'));
+    expect(highlight, findsOneWidget);
+    expect(tester.widget<CustomPaint>(highlight).painter, isNotNull);
+    expect(tester.widget<TextField>(findField).focusNode?.hasFocus, isTrue);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -75,6 +90,10 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
     expect(findField, findsNothing);
+    expect(
+      find.byKey(const Key('secure-notepad-find-highlight')),
+      findsNothing,
+    );
     expect(tester.widget<TextField>(editor).focusNode?.hasFocus, isTrue);
   });
 
@@ -246,6 +265,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     expect(clipboard.readCount, readsAfterClose);
   });
+}
+
+RenderEditable? _findRenderEditable(RenderObject renderObject) {
+  if (renderObject is RenderEditable) return renderObject;
+  RenderEditable? result;
+  renderObject.visitChildren((child) {
+    result ??= _findRenderEditable(child);
+  });
+  return result;
 }
 
 Future<void> _openNotepad(

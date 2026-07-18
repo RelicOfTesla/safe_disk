@@ -193,6 +193,7 @@ class SecureFindReplaceBar extends StatefulWidget {
     required this.onReplace,
     required this.onReplaceAll,
     required this.focusNode,
+    required this.onQueryChanged,
     required this.onClose,
   });
 
@@ -201,6 +202,7 @@ class SecureFindReplaceBar extends StatefulWidget {
   final bool Function(String query, String replacement) onReplace;
   final int Function(String query, String replacement) onReplaceAll;
   final FocusNode focusNode;
+  final VoidCallback onQueryChanged;
   final VoidCallback onClose;
 
   @override
@@ -286,7 +288,10 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
                       EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   border: OutlineInputBorder(),
                 ),
-                onChanged: (_) => setState(() => _findResult = null),
+                onChanged: (_) {
+                  setState(() => _findResult = null);
+                  widget.onQueryChanged();
+                },
               ),
             ),
           ),
@@ -342,8 +347,11 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
 
 class SecureTextEditorViewport {
   VoidCallback? _centerSelectionCallback;
+  VoidCallback? _clearSelectionHighlightCallback;
 
   void centerSelection() => _centerSelectionCallback?.call();
+
+  void clearSelectionHighlight() => _clearSelectionHighlightCallback?.call();
 }
 
 class SecureTextEditor extends StatefulWidget {
@@ -366,12 +374,16 @@ class SecureTextEditor extends StatefulWidget {
 
 class _SecureTextEditorState extends State<SecureTextEditor> {
   final GlobalKey _editorKey = GlobalKey();
+  final GlobalKey _highlightKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
+  List<Rect> _selectionHighlightRects = const [];
 
   @override
   void initState() {
     super.initState();
     widget.viewport._centerSelectionCallback = _centerSelection;
+    widget.viewport._clearSelectionHighlightCallback = _clearSelectionHighlight;
+    _scrollController.addListener(_refreshSelectionHighlight);
   }
 
   @override
@@ -379,13 +391,18 @@ class _SecureTextEditorState extends State<SecureTextEditor> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.viewport != widget.viewport) {
       oldWidget.viewport._centerSelectionCallback = null;
+      oldWidget.viewport._clearSelectionHighlightCallback = null;
       widget.viewport._centerSelectionCallback = _centerSelection;
+      widget.viewport._clearSelectionHighlightCallback =
+          _clearSelectionHighlight;
     }
   }
 
   @override
   void dispose() {
     widget.viewport._centerSelectionCallback = null;
+    widget.viewport._clearSelectionHighlightCallback = null;
+    _scrollController.removeListener(_refreshSelectionHighlight);
     _scrollController.dispose();
     super.dispose();
   }
@@ -394,7 +411,10 @@ class _SecureTextEditorState extends State<SecureTextEditor> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       final selection = widget.controller.selection;
-      if (!selection.isValid) return;
+      if (!selection.isValid || selection.isCollapsed) {
+        _clearSelectionHighlight();
+        return;
+      }
       final renderEditable = _findRenderEditable(
         _editorKey.currentContext?.findRenderObject(),
       );
@@ -413,7 +433,53 @@ class _SecureTextEditorState extends State<SecureTextEditor> {
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOutCubic,
       );
+      _updateSelectionHighlight(renderEditable, selection);
     });
+  }
+
+  void _refreshSelectionHighlight() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final selection = widget.controller.selection;
+      if (!selection.isValid || selection.isCollapsed) {
+        _clearSelectionHighlight();
+        return;
+      }
+      final renderEditable = _findRenderEditable(
+        _editorKey.currentContext?.findRenderObject(),
+      );
+      if (renderEditable != null) {
+        _updateSelectionHighlight(renderEditable, selection);
+      }
+    });
+  }
+
+  void _updateSelectionHighlight(
+    RenderEditable renderEditable,
+    TextSelection selection,
+  ) {
+    final highlightBox = _highlightKey.currentContext?.findRenderObject();
+    if (highlightBox is! RenderBox || !highlightBox.hasSize) return;
+    final rects = renderEditable
+        .getBoxesForSelection(selection)
+        .map((box) {
+          final topLeft = highlightBox.globalToLocal(
+            renderEditable.localToGlobal(box.toRect().topLeft),
+          );
+          final bottomRight = highlightBox.globalToLocal(
+            renderEditable.localToGlobal(box.toRect().bottomRight),
+          );
+          return Rect.fromPoints(topLeft, bottomRight);
+        })
+        .where((rect) => rect.width > 0 && rect.height > 0)
+        .toList(growable: false);
+    if (_sameRects(_selectionHighlightRects, rects)) return;
+    setState(() => _selectionHighlightRects = rects);
+  }
+
+  void _clearSelectionHighlight() {
+    if (_selectionHighlightRects.isEmpty || !mounted) return;
+    setState(() => _selectionHighlightRects = const []);
   }
 
   RenderEditable? _findRenderEditable(RenderObject? renderObject) {
@@ -428,29 +494,102 @@ class _SecureTextEditorState extends State<SecureTextEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    // Keep the native focused selection legible across desktop themes. When
+    // the find bar owns focus, the overlay below supplies the visible match.
+    final findSelectionColor = Color.alphaBlend(
+      colors.primary.withValues(alpha: 0.42),
+      colors.surface,
+    );
+    final findSelectionOverlayColor = colors.primary.withValues(alpha: 0.32);
     return Padding(
       padding: const EdgeInsets.all(16),
       child: KeyedSubtree(
         key: _editorKey,
-        child: TextField(
-          key: const Key('secure-notepad-editor'),
-          controller: widget.controller,
-          focusNode: widget.focusNode,
-          readOnly: widget.readOnly,
-          style: Theme.of(context).textTheme.bodyLarge,
-          maxLines: null,
-          expands: true,
-          autofocus: !widget.readOnly,
-          showCursor: !widget.readOnly,
-          enableInteractiveSelection: true,
-          scrollController: _scrollController,
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-            filled: false,
-          ),
-          cursorColor: Theme.of(context).colorScheme.primary,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Theme(
+              data: Theme.of(context).copyWith(
+                textSelectionTheme: TextSelectionThemeData(
+                  selectionColor: findSelectionColor,
+                ),
+              ),
+              child: TextField(
+                key: const Key('secure-notepad-editor'),
+                controller: widget.controller,
+                focusNode: widget.focusNode,
+                readOnly: widget.readOnly,
+                style: Theme.of(context).textTheme.bodyLarge,
+                maxLines: null,
+                expands: true,
+                autofocus: !widget.readOnly,
+                showCursor: !widget.readOnly,
+                enableInteractiveSelection: true,
+                scrollController: _scrollController,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  filled: false,
+                ),
+                cursorColor: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            if (_selectionHighlightRects.isNotEmpty)
+              Positioned.fill(
+                child: KeyedSubtree(
+                  key: _highlightKey,
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                      key: const Key('secure-notepad-find-highlight'),
+                      painter: _FindSelectionHighlightPainter(
+                        _selectionHighlightRects,
+                        findSelectionOverlayColor,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              Positioned.fill(
+                child: KeyedSubtree(
+                  key: _highlightKey,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+          ],
         ),
       ),
     );
+  }
+}
+
+bool _sameRects(List<Rect> left, List<Rect> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
+}
+
+class _FindSelectionHighlightPainter extends CustomPainter {
+  const _FindSelectionHighlightPainter(this.rects, this.color);
+
+  final List<Rect> rects;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    for (final rect in rects) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect.inflate(1), const Radius.circular(2)),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FindSelectionHighlightPainter oldDelegate) {
+    return color != oldDelegate.color || !_sameRects(rects, oldDelegate.rects);
   }
 }
