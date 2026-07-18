@@ -106,7 +106,15 @@
 | UI-34 | 主界面与记事本桌面快捷键 | 功能/可访问性 | 90% | 主界面焦点域已接入 F2（单选或右键目标重命名）、F5 刷新、Ctrl+V 安全剪贴板粘贴，并修复右键菜单关闭后快捷键域未恢复焦点；记事本接入 Ctrl+F、Ctrl+S、Enter/Shift+Enter 与 Escape；无目标/无安全剪贴板时不执行，文本控件优先处理自身输入；主界面和记事本键盘级 widget 均通过，还缺 Windows/Linux 实机键位与菜单提示验收 |
 | UI-35 | 安全记事本查找焦点、失焦与高亮 | Bug/UX/可访问性 | 90% | Ctrl+F/按钮打开后聚焦查询框，Enter/Shift+Enter 循环前后匹配，正文 selection 明确选中当前项并显示 `当前/总数`，查询修改使计数失效，无匹配提示，Escape 关闭并恢复编辑器焦点；主/子窗口复用同一 widget，键盘级 widget 已验证 1/2→2/2 selection；还缺三平台真实窗口视觉可见性验收 |
 | UI-36 | 侧边栏 root 属性与安全修改密码 | 功能/安全/配置 | 80% | root 右键已新增“属性”和“修改密码”；属性通过无 route Overlay 展示别名、磁盘路径、会话、配置版本、数据/名称/KDF 工厂、verifier 版本及白名单成本参数，测试确认 challenge/tag/salt 不渲染。sec 审计确认当前密码直接派生数据/名称密钥，没有独立 master-key envelope，无法安全原地改密；入口明确解释不支持原因和“新 root + 全量迁移”方案，`ENCRYPTION.md` 已记录格式限制，不伪改 verifier。剩余工作是未来 master-key envelope 格式设计与迁移实现；当前格式下不应继续实现改密写操作 |
-| UI-37 | 解锁错误分阶段归类与详细诊断 | P0 Bug/可诊断性/安全 | 85% | FFI 已为无效密码、缺少 verifier、无效配置返回稳定结构化 code，Dart `NativeOperationException` 保留 code；认证 try/catch 已收窄为单独 `openRoot` 调用，仅明确的 invalid-password code 显示“密码错误”，verifier/config 显示“加载配置失败”，未知异常显示“操作失败”并保留阶段和脱敏详情，测试确认即使未知错误文本含 `invalid password` 也不误判。`DynamicLibrary.open` 与符号 lookup 现包装为“装载/绑定”结构化异常；主窗口在创建 HomePage 前探测，失败显示独立错误页与重试，不显示库绝对路径、密码或原始异常；详细错误开关开启时才显示经脱敏的底层诊断。widget 已覆盖成功、失败、重试及诊断脱敏，真实 FFI Linux 启动已进入主界面；当前执行环境未能运行缺失 `.so` 的真实 GUI 反向验收。此前 f8 UI 解锁失败的原始异常未记录，因此不作归因。剩余：恢复/list 各自稳定 code、跨 FFI 实际 UI 错误详情 E2E、缺失动态库桌面反向验收 |
+| UI-37 | 解锁错误分阶段归类与详细诊断 | P0 Bug/可诊断性/安全 | 92% | FFI 已为无效密码、缺少 verifier、无效配置返回稳定结构化 code，Dart `NativeOperationException` 保留 code；认证 try/catch 已收窄为单独 `openRoot` 调用，仅明确的 invalid-password code 显示“密码错误”，verifier/config 显示“加载配置失败”，未知异常显示“操作失败”并保留阶段和脱敏详情，测试确认即使未知错误文本含 `invalid password` 也不误判。`DynamicLibrary.open` 与符号 lookup 现包装为“装载/绑定”结构化异常；主窗口在创建 HomePage 前探测，失败显示独立错误页与重试，不显示库绝对路径、密码或原始异常；详细错误开关开启时才显示经脱敏的底层诊断。Transfer V3 现在为 root session 不存在（1201）、损坏/不一致 marker（1202）和 V3 未注册（1203）返回稳定 code；`list unfinished` 不再静默跳过不可解析或结构不合法 marker，解锁阶段遇到该错误会关闭刚创建的 root session，避免未知 unfinished 状态被伪装为安全打开；有效 convert `needs_attention` 保持成功结果。Go、Dart classifier/widget 与真实 FFI 损坏 marker 回归均通过。当前执行环境未能运行缺失 `.so` 的真实 GUI 反向验收。此前 f8 UI 解锁失败的原始异常未记录，因此不作归因。剩余：跨 FFI 实际 UI 错误详情桌面 E2E、缺失动态库桌面反向验收 |
+
+### UI-37 本轮清单（Transfer V3 状态感知）
+
+- [x] `list unfinished` 不得静默跳过无法读取、无法解析或结构不合法的 `.transfer_v3/active/*.json` marker；返回 1202 `transfer-marker-corrupt`。marker 文件名与内部 `op_id` 不一致也拒绝，避免不可清理的伪任务进入重跑流程。
+- [x] 已关闭或不存在的 root session、未注册的 Transfer V3 实现分别返回 1201、1203，Dart 只按 code 分类，不依赖英文错误文本。
+- [x] 解锁时读取 unfinished marker 失败会阻止本次 root session 进入已验证状态，并关闭已打开的 rootID；用户可重新打开并在详细错误开关下查看经过脱敏的诊断。
+- [x] convert recovery 的 `needs_attention` 是成功但需人工处置的结果，不映射为“恢复成功”或异常；本轮不伪造进度续传。
+- [x] 验收：Go 覆盖三类 code 与损坏 marker；Dart 覆盖 code 映射、解锁阻断和 root close；真实 FFI 覆盖损坏 marker 不会被当作“无任务”。
 | SEC-01 | 算法规范名重命名的旧 root 兼容 | P0 Bug/格式兼容/加密 | 95% | factory lookup 已显式兼容 `aes-gcm-name → AES-256-GCM`、`hkdf → HKDF-SHA-256`，其余旧名由大小写查找覆盖，注册层拒绝仅大小写不同的歧义 factory。PBKDF2/HKDF 新写入恢复稳定 `pbkdf2_*`/`hkdf_*` namespace，读取同时兼容历史小写和短期版本的 `PBKDF2_*`/`HKDF-SHA-256_*`，并以 salt 所在组整体选择、禁止跨组拼接。单测覆盖两类 namespace、旧别名 root 关闭重开和名称加密读写；真实 `bb`（PBKDF2）、`ee`（旧 AES-GCM 名称）、`ff`（旧小写组合）均由当前 CLI 用 `123` 成功只读列出。剩余：Dart FFI 与 Windows 对三份真实样本复验；未完成前不标 100% |
 
 实施顺序：`SEC-01 旧算法名兼容 → UI-37 解锁诊断正确性 → UI-31 标题栏真实关闭 → UI-30 Ubuntu 首次属性时间线 → UI-36 sec 改密能力审计与 root 属性 → 其余实机验收`。先排除 factory 兼容和误报干扰再复现进程崩溃；UI-30 必须先证明阻塞位置再修；UI-36 的改密入口以后端安全原语为前置条件。

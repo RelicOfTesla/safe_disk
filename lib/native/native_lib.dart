@@ -25,6 +25,9 @@ abstract final class NativeErrorCode {
   static const invalidPassword = 1001;
   static const passwordVerifierAbsent = 1002;
   static const invalidConfig = 1101;
+  static const rootSessionNotFound = 1201;
+  static const transferMarkerCorrupt = 1202;
+  static const transferV3Unavailable = 1203;
 }
 
 /// Native library wrapper for Safe Disk FFI operations.

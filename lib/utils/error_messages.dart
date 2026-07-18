@@ -28,6 +28,9 @@ enum ErrorType {
   /// 加载目录失败
   loadDirectoryFailed,
 
+  /// 无法安全读取未完成传输状态
+  unfinishedTransferStateUnavailable,
+
   /// 创建加密目录失败
   createEncryptedDirectoryFailed,
 
@@ -142,6 +145,12 @@ class ErrorMessages {
       title: '加载目录失败',
       description: '无法读取目录内容。',
       suggestion: '请检查目录权限，或尝试重新打开目录。',
+    ),
+    ErrorType.unfinishedTransferStateUnavailable: ErrorMessage(
+      title: '无法确认未完成传输状态',
+      description: '无法安全读取未完成的导入/导出状态，因此没有打开此加密目录。',
+      suggestion: '请检查目录权限和磁盘状态；不要手动删除传输状态文件。',
+      isCritical: true,
     ),
     ErrorType.createEncryptedDirectoryFailed: ErrorMessage(
       title: '创建加密目录失败',

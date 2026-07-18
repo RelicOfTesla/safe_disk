@@ -56,6 +56,19 @@ func TestTransferV3FFIRoundTrip(t *testing.T) {
 	}
 }
 
+func TestTransferV3UnfinishedUsesStableMissingSessionCode(t *testing.T) {
+	var response Response
+	if err := json.Unmarshal([]byte(TransferV3ListUnfinished_FFI(-1)), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.Success {
+		t.Fatal("missing root session unexpectedly succeeded")
+	}
+	if response.Code != ErrorCodeRootSessionNotFound {
+		t.Fatalf("code = %d, want %d", response.Code, ErrorCodeRootSessionNotFound)
+	}
+}
+
 func TestRenameFFIRenamesEncryptedEntriesWithoutReplacing(t *testing.T) {
 	rootPath := filepath.Join(t.TempDir(), "root")
 	assertSuccess(t, CreateRootConfig_FFI(

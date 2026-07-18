@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe_disk/models/cryption_config.dart';
 import 'package:safe_disk/models/secure_image_policy.dart';
+import 'package:safe_disk/native/native_lib.dart';
 import 'package:safe_disk/pages/home_page.dart';
 import 'package:safe_disk/services/crypto_service.dart';
 import 'package:safe_disk/services/content_window_host_bridge.dart';
@@ -1434,6 +1435,38 @@ void main() {
     expect(directoryService.rerunCalls, [marker]);
     expect(find.text('visible.txt'), findsOneWidget);
   });
+
+  testWidgets('corrupt unfinished state closes the new root session',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final directoryService = _FakeDirectoryService(
+      unfinishedListError: const NativeOperationException(
+        'secTransferV3ListUnfinished',
+        'marker is corrupt',
+        code: NativeErrorCode.transferMarkerCorrupt,
+      ),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: directoryService,
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('无法确认未完成传输状态'), findsOneWidget);
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(find.text('visible.txt'), findsNothing);
+  });
 }
 
 const _twoFileRootPath = '/tmp/safe-disk-home-test/two-file-vault';
@@ -1682,10 +1715,15 @@ class _FakeFileService extends FileService {
 }
 
 class _FakeDirectoryService extends DirectoryService {
-  _FakeDirectoryService({this.importError, this.unfinishedMarkers = const []});
+  _FakeDirectoryService({
+    this.importError,
+    this.unfinishedMarkers = const [],
+    this.unfinishedListError,
+  });
 
   final String? importError;
   final List<Map<String, dynamic>> unfinishedMarkers;
+  final Object? unfinishedListError;
   final List<Map<String, dynamic>> rerunCalls = [];
   final List<
       ({
@@ -1704,8 +1742,11 @@ class _FakeDirectoryService extends DirectoryService {
 
   @override
   Future<List<Map<String, dynamic>>> listUnfinishedOperations(
-          int rootID) async =>
-      unfinishedMarkers;
+      int rootID) async {
+    final error = unfinishedListError;
+    if (error != null) throw error;
+    return unfinishedMarkers;
+  }
 
   @override
   Future<void> rerunUnfinishedOperation(

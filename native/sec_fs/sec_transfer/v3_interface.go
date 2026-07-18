@@ -169,8 +169,11 @@ type RecoverResult struct {
 
 var (
 	ErrTransferV3NotRegistered = errors.New("transfer v3 implementation is not registered")
-	transferV3FactoryMu        sync.RWMutex
-	transferV3Factory          func() V3Transfer
+	// ErrTransferMarkerCorrupt means an unfinished-operation marker cannot be
+	// safely understood. Callers must not treat this as an empty marker list.
+	ErrTransferMarkerCorrupt = errors.New("transfer operation marker is corrupt")
+	transferV3FactoryMu      sync.RWMutex
+	transferV3Factory        func() V3Transfer
 )
 
 // RegisterTransferV3Factory installs the process-wide V3 implementation.

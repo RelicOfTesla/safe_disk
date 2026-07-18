@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"safe_disk/native/sec_fs"
+	"safe_disk/native/sec_fs/sec_transfer"
 )
 
 func TestErrorResponseUsesStableCodesForClassifiableRootErrors(t *testing.T) {
@@ -18,6 +19,8 @@ func TestErrorResponseUsesStableCodesForClassifiableRootErrors(t *testing.T) {
 		{name: "invalid password", err: sec_fs.ErrInvalidPassword, code: ErrorCodeInvalidPassword},
 		{name: "missing verifier", err: sec_fs.ErrPasswordVerifierMissing, code: ErrorCodePasswordVerifierAbsent},
 		{name: "invalid config", err: sec_fs.ErrInvalidConfig, code: ErrorCodeInvalidConfig},
+		{name: "corrupt transfer marker", err: sec_transfer.ErrTransferMarkerCorrupt, code: ErrorCodeTransferMarkerCorrupt},
+		{name: "transfer unavailable", err: sec_transfer.ErrTransferV3NotRegistered, code: ErrorCodeTransferV3Unavailable},
 		{
 			name: "wrapped invalid password",
 			err:  fmt.Errorf("open root: %w", sec_fs.ErrInvalidPassword),

@@ -44,7 +44,7 @@ func memZero(data []byte) {
 func TransferV3ListUnfinished_FFI(rootID int64) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
-		return errorResponseStr("root not found")
+		return ErrorWithCode("root session not found", ErrorCodeRootSessionNotFound)
 	}
 	manager := sec_transfer.GetDefaultTransferV3()
 	markers, err := manager.ListUnfinishedOperations(context.Background(), entry.RootPath)
@@ -57,7 +57,7 @@ func TransferV3ListUnfinished_FFI(rootID int64) string {
 func TransferV3CleanUnfinished_FFI(rootID int64, opID string) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
-		return errorResponseStr("root not found")
+		return ErrorWithCode("root session not found", ErrorCodeRootSessionNotFound)
 	}
 	manager := sec_transfer.GetDefaultTransferV3()
 	if err := manager.CleanUnfinishedImportExport(context.Background(), entry.RootPath, opID); err != nil {
@@ -225,6 +225,10 @@ func errorResponse(err error) string {
 		return ErrorWithCode(err.Error(), ErrorCodePasswordVerifierAbsent)
 	case errors.Is(err, sec_fs.ErrInvalidConfig):
 		return ErrorWithCode(err.Error(), ErrorCodeInvalidConfig)
+	case errors.Is(err, sec_transfer.ErrTransferMarkerCorrupt):
+		return ErrorWithCode(err.Error(), ErrorCodeTransferMarkerCorrupt)
+	case errors.Is(err, sec_transfer.ErrTransferV3NotRegistered):
+		return ErrorWithCode(err.Error(), ErrorCodeTransferV3Unavailable)
 	}
 	return ErrorResponse(err.Error())
 }

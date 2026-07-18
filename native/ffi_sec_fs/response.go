@@ -8,6 +8,9 @@ const (
 	ErrorCodeInvalidPassword        = 1001
 	ErrorCodePasswordVerifierAbsent = 1002
 	ErrorCodeInvalidConfig          = 1101
+	ErrorCodeRootSessionNotFound    = 1201
+	ErrorCodeTransferMarkerCorrupt  = 1202
+	ErrorCodeTransferV3Unavailable  = 1203
 )
 
 // Response represents a standard FFI response structure.

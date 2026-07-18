@@ -150,6 +150,33 @@ func readMarker(path string) (sec_transfer.OperationMarker, error) {
 	return marker, nil
 }
 
+func validateListedMarker(marker sec_transfer.OperationMarker) error {
+	if marker.Version != markerVersion {
+		return fmt.Errorf("unsupported marker version %d", marker.Version)
+	}
+	if err := validateOpID(marker.OpID); err != nil {
+		return err
+	}
+	switch marker.Type {
+	case sec_transfer.OperationImport, sec_transfer.OperationExport:
+		if marker.EntryKind != sec_transfer.EntryKindFile && marker.EntryKind != sec_transfer.EntryKindDirectory {
+			return fmt.Errorf("invalid %s marker entry kind %q", marker.Type, marker.EntryKind)
+		}
+		// An empty relative source or destination denotes the root directory for
+		// directory transfers, so only fields that cannot have that meaning are
+		// structural requirements here.
+		if marker.Status == "" {
+			return fmt.Errorf("incomplete %s marker", marker.Type)
+		}
+	case sec_transfer.OperationConvertEncrypt, sec_transfer.OperationConvertDecrypt:
+		// Recovery validates root/work/backup relationships and reports an
+		// intentional needs_attention result for an otherwise readable marker.
+	default:
+		return fmt.Errorf("unsupported marker type %q", marker.Type)
+	}
+	return nil
+}
+
 func listMarkers(rootPath string) ([]sec_transfer.OperationMarker, error) {
 	entries, err := os.ReadDir(activeDir(rootPath))
 	if os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR) {
@@ -166,7 +193,13 @@ func listMarkers(rootPath string) ([]sec_transfer.OperationMarker, error) {
 		}
 		marker, err := readMarker(filepath.Join(activeDir(rootPath), entry.Name()))
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("%w: %s", sec_transfer.ErrTransferMarkerCorrupt, entry.Name())
+		}
+		if err := validateListedMarker(marker); err != nil {
+			return nil, fmt.Errorf("%w: %s", sec_transfer.ErrTransferMarkerCorrupt, entry.Name())
+		}
+		if entry.Name() != marker.OpID+".json" {
+			return nil, fmt.Errorf("%w: %s", sec_transfer.ErrTransferMarkerCorrupt, entry.Name())
 		}
 		markers = append(markers, marker)
 	}

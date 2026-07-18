@@ -22,6 +22,7 @@ import '../services/content_window_host_bridge.dart';
 import '../utils/error_messages.dart';
 import '../utils/error_diagnostics.dart';
 import '../utils/unlock_error_classifier.dart';
+import '../utils/unfinished_transfer_error_classifier.dart';
 import '../widgets/batch_operation_result_dialog.dart';
 import '../widgets/copyable_snackbar.dart';
 import '../widgets/secure_notepad.dart';
@@ -443,7 +444,11 @@ class _HomePageState extends State<HomePage> {
       return false;
     }
 
-    await _handleUnfinishedOperations(rootID);
+    final transferStateAvailable = await _handleUnfinishedOperations(rootID);
+    if (!transferStateAvailable) {
+      _closeSession(rootID.toString());
+      return false;
+    }
 
     setState(() {
       _currentDir = EncryptedDirectory(
@@ -466,21 +471,23 @@ class _HomePageState extends State<HomePage> {
     return true;
   }
 
-  Future<void> _handleUnfinishedOperations(int rootID) async {
+  Future<bool> _handleUnfinishedOperations(int rootID) async {
     List<Map<String, dynamic>> markers;
     try {
       markers = await _directoryService.listUnfinishedOperations(rootID);
     } catch (e) {
       if (mounted) {
+        final presentation = classifyUnfinishedTransferError(e);
         ErrorHelper.showError(
           context,
-          errorType: ErrorType.operationFailed,
+          errorType: presentation.type,
           originalError: e.toString(),
+          operation: presentation.operation,
         );
       }
-      return;
+      return false;
     }
-    if (!mounted || markers.isEmpty) return;
+    if (!mounted || markers.isEmpty) return true;
 
     final action = await showDialog<_UnfinishedAction>(
       context: context,
@@ -510,10 +517,10 @@ class _HomePageState extends State<HomePage> {
 
     if (action == _UnfinishedAction.rerun) {
       await _rerunUnfinishedOperations(rootID, markers);
-      return;
+      return true;
     }
     if (action != _UnfinishedAction.clean) {
-      return;
+      return true;
     }
 
     try {
@@ -539,6 +546,7 @@ class _HomePageState extends State<HomePage> {
         );
       }
     }
+    return true;
   }
 
   Future<void> _rerunUnfinishedOperations(

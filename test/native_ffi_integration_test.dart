@@ -271,6 +271,39 @@ void main() {
       expect(await directoryService.listUnfinishedOperations(rootID), isEmpty);
     });
 
+    test('reports a corrupt unfinished marker instead of hiding it', () async {
+      final tmp = await Directory.systemTemp.createTemp('safe-disk-marker-');
+      addTearDown(() async {
+        if (await tmp.exists()) await tmp.delete(recursive: true);
+      });
+
+      final rootPath = '${tmp.path}/root';
+      await Directory(rootPath).create(recursive: true);
+      final native = NativeLib.instance;
+      native.secCreateRootConfig(
+        rootPath,
+        'marker-password',
+        jsonEncode({'dataFactory': 'AES-CTR', 'nameFactory': 'None'}),
+      );
+      final rootID = native.secRootOpen(rootPath, 'marker-password', '');
+      addTearDown(() => native.secRootClose(rootID));
+
+      final markerDirectory = Directory('$rootPath/.transfer_v3/active');
+      await markerDirectory.create(recursive: true);
+      await File('${markerDirectory.path}/broken.json').writeAsString('{');
+
+      await expectLater(
+        DirectoryService().listUnfinishedOperations(rootID),
+        throwsA(
+          isA<NativeOperationException>().having(
+            (error) => error.code,
+            'code',
+            NativeErrorCode.transferMarkerCorrupt,
+          ),
+        ),
+      );
+    });
+
     test(
         'copies across encrypted roots and imports only after overwrite consent',
         () async {
