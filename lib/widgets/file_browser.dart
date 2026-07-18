@@ -27,6 +27,9 @@ class FileBrowser extends StatefulWidget {
     required this.onToggleSelectMode,
     required this.onSelectionToggle,
     required this.onSelectAll,
+    this.hasMore = false,
+    this.isLoadingMore = false,
+    this.onLoadMore,
   });
 
   final List<FileSystemNode> items;
@@ -64,6 +67,9 @@ class FileBrowser extends StatefulWidget {
 
   /// Select all non-directory items.
   final VoidCallback onSelectAll;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final VoidCallback? onLoadMore;
 
   @override
   State<FileBrowser> createState() => _FileBrowserState();
@@ -77,12 +83,30 @@ class _FileBrowserState extends State<FileBrowser> {
   String? _contextSelectedPath;
   double _lastContentWidth = 0;
   FileSortOrder _sortOrder = FileSortOrder.nameAscending;
+  final ScrollController _contentScrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _contentScrollController.addListener(_maybeLoadMore);
+  }
 
   @override
   void dispose() {
     _filterController.dispose();
     _filterFocusNode.dispose();
+    _contentScrollController
+      ..removeListener(_maybeLoadMore)
+      ..dispose();
     super.dispose();
+  }
+
+  void _maybeLoadMore() {
+    if (widget.hasMore &&
+        !widget.isLoadingMore &&
+        _contentScrollController.position.extentAfter < 480) {
+      widget.onLoadMore?.call();
+    }
   }
 
   @override
@@ -489,6 +513,7 @@ class _FileBrowserState extends State<FileBrowser> {
 
   Widget _buildListView(List<FileSystemNode> items) {
     return CustomScrollView(
+      controller: _contentScrollController,
       slivers: [
         SliverList.builder(
           itemCount: items.length,
@@ -509,6 +534,17 @@ class _FileBrowserState extends State<FileBrowser> {
             );
           },
         ),
+        if (widget.hasMore || widget.isLoadingMore)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: widget.isLoadingMore
+                    ? const CircularProgressIndicator()
+                    : const Text('继续滚动以加载更多条目'),
+              ),
+            ),
+          ),
         SliverFillRemaining(
           hasScrollBody: false,
           child: _withBackgroundActions(const SizedBox.expand()),
@@ -519,6 +555,7 @@ class _FileBrowserState extends State<FileBrowser> {
 
   Widget _buildGridView(List<FileSystemNode> items) {
     return CustomScrollView(
+      controller: _contentScrollController,
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.all(8),
@@ -545,6 +582,17 @@ class _FileBrowserState extends State<FileBrowser> {
             },
           ),
         ),
+        if (widget.hasMore || widget.isLoadingMore)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: widget.isLoadingMore
+                    ? const CircularProgressIndicator()
+                    : const Text('继续滚动以加载更多条目'),
+              ),
+            ),
+          ),
         SliverFillRemaining(
           hasScrollBody: false,
           child: _withBackgroundActions(const SizedBox.expand()),
