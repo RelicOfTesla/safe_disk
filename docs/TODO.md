@@ -30,7 +30,7 @@
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---:|---|
-| UI-38 | 安全记事本查找结果定位与可见高亮 | Bug/UX/可访问性 | 82% | 已确认 Material `TextField` 在失焦时不画原生 selection；现改由忽略指针的 overlay 根据 `RenderEditable` 实际 selection boxes 绘制当前匹配项，查找框继续持焦。widget 覆盖 Ctrl+F、命中 selection、overlay painter、前后跳转、关闭清理、滚动定位和焦点；仍缺 Linux/Windows/macOS 实机视觉、缩放与多行命中验收。 |
+| UI-38 | 安全记事本查找结果定位与可见高亮 | Bug/UX/可访问性 | 88% | 已确认 Material `TextField` 在失焦时不画原生 selection；现改由忽略指针的 overlay 根据 `RenderEditable` 实际 selection boxes 绘制当前匹配项，查找框继续持焦。widget 覆盖 Ctrl+F、命中 selection、overlay painter、前后跳转、关闭清理、滚动定位和焦点；2026-07-18 已在 Linux 真实加密 root 的记事本实测 `needle` 命中显示、`1/2` 计数与查找框持焦。仍缺 Windows/macOS、缩放和跨行命中验收。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
