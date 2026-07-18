@@ -31,6 +31,7 @@
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---:|---|
 | UI-38 | 安全记事本查找结果定位与可见高亮 | Bug/UX/可访问性 | 92% | 已确认 Material `TextField` 在失焦时不画原生 selection；现由忽略指针的 overlay 按 `RenderEditable` 实际 selection boxes 绘制当前匹配项，查找框继续持焦。查找框保持单行与 Enter 查找，`\\n` 表示换行，查找/替换当前项/全部替换均解析该语法。widget 覆盖 Ctrl+F、命中 selection、overlay painter、前后跳转、关闭清理、滚动定位和焦点，并验证跨行命中会生成至少两个 editor selection box 与 overlay rect；2026-07-18 已在 Linux 真实加密 root 的记事本实测 `needle` 命中显示、`1/2` 计数与查找框持焦。仍缺 Windows/macOS 和缩放验收。 |
+| UI-39 | 应用隐藏时的安全自动锁定 | 安全/生命周期 | 70% | 设计见 [AUTO_LOCK_DESIGN.md](design/AUTO_LOCK_DESIGN.md)。设置开关已持久化；HomePage 监听 `hidden`/`paused`，对无内容窗口、无脏文档、无活动写入的 root 依次释放当前目录 cursor、关闭 native root、清除该 root 的应用内剪贴板/broker 并保留侧边栏历史。恢复可见后会提示锁定/跳过/失败摘要。widget 覆盖开关保存、默认关闭、合格 root 锁定并重新验证，以及内容窗口阻断锁定。仍缺多个 root、活动写入/脏记事本、重解锁竞争、真实 FFI 与三平台 hidden/paused 验收；TTL 与子窗口草稿确认协议未实现。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
@@ -62,7 +63,7 @@
 | 图片浏览器 | 92% | JPEG/PNG/GIF/BMP/WebP 真实 codec 与渲染、GIF 动画识别、缩放旋转、键盘翻页、重试、64 MiB/100 MP 资源边界、异步竞态清零和只读子窗口 lease 均有自动化测试；真实 FFI 验证中文加密目录 WebP，Linux 已实测跨 engine PNG | 三平台真实窗口键盘/手势 E2E、超大图片内存压力与平台 codec 差异验收 |
 | Stream V3/增量编辑 | 15% | 有设计文档；Dart 活跃入口明确返回 unsupported | 确定格式、完整性和崩溃一致性模型，完成 sec/FFI/Dart/UI 实现及随机编辑实际测试 |
 | 大目录 UI 虚拟化 | 55% | Flutter list/grid 已使用 sliver 虚拟构建。当前目录的 native cursor、Dart binding/session 和 FileService 路径映射已接入 HomePage 与 list/grid：首屏读取一页，滚动接近底部再读取，EOF/草稿过滤/关闭 root 已覆盖；失败会关闭 cursor、停止追加并提示刷新后从头重试，避免重复条目。真实 name-encrypted root 两页 FFI 回归、session 错误回归及 list/grid 状态 widget 回归已通过。tree 仍调用全量读取；现有 offset/limit 仍只是本地 `skip/take`。分页边界见 [DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 接入目录树增量加载；定义增量模式的排序/筛选边界；补 10 万 entry、取消/错误/导航/关闭 root 的跨层回归 |
-| 自动锁定与密钥缓存超时 | 20% | 有 root close/key 清理基础 | 生命周期策略、前后台切换、超时清理、真实 UI/FFI 验收 |
+| 自动锁定与密钥缓存超时 | 45% | 应用隐藏自动锁定第一阶段已接入设置和 HomePage：合格 root 会关闭 native session、目录 cursor、应用内剪贴板和 broker 能力，历史保留；有内容窗口的 root 明确跳过以避免丢失内存修改 | 多 root、脏记事本/活动写入、重解锁竞态和真实 FFI/三平台生命周期验收；实现子窗口草稿确认后锁定，以及 per-root TTL |
 | KDF 成本动态校准 | 15% | 当前迭代/参数由配置与默认值决定 | 按设备目标耗时校准、参数上限、防 DoS 和跨设备测试 |
 | 文件排序/过滤/批量操作 | 92% | 当前目录筛选、目录优先排序、批量文件复制/剪切/粘贴/导出/删除已实现；批量冲突支持仅此项/全部应用，取消、失败和未处理项保留重试，并有结构化结果面板 | 超大目录分页排序、真实桌面大批次与跨 root 页面 E2E；全 root 搜索另立任务 |
 | 主界面右键菜单 | 98% | 应用内单项及批量文件复制/粘贴、剪切/移动、冲突询问、跨 root 重加密、图片新窗口和右键选择/批量导出/删除已有测试；跨 root 文件移动有真实 FFI 验证 | 跨 root 目录移动与系统剪贴板互通；三平台鼠标 E2E、键盘菜单键、焦点和读屏测试 |

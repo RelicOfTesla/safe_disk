@@ -62,6 +62,7 @@
 | [design/FFI_INCREMENTAL_ENCRYPTION.md](design/FFI_INCREMENTAL_ENCRYPTION.md) | 增量加密 FFI 设计 | 设计文档，不是实现证明 |
 | [design/WALKER_RESOURCE_DESIGN.md](design/WALKER_RESOURCE_DESIGN.md) | secure walker 工作集与错误传播 | 实施中 |
 | [design/DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 大目录 cursor 与 UI 增量加载 | 设计中 |
+| [design/AUTO_LOCK_DESIGN.md](design/AUTO_LOCK_DESIGN.md) | 应用生命周期下的 root 自动锁定与密钥清理 | 第一阶段已实现，桌面验收未完成 |
 
 ## 历史报告
 

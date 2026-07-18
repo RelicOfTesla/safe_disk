@@ -23,6 +23,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late final SettingsService _settingsService;
   String _themeMode = SettingsService.defaultThemeMode;
   bool _confirmBeforeDelete = SettingsService.defaultConfirmBeforeDelete;
+  bool _autoLockOnBackground = SettingsService.defaultAutoCloseSession;
   int _notepadAutoSaveSeconds = SettingsService.defaultNotepadAutoSaveSeconds;
   bool _notepadDefaultReadOnly = SettingsService.defaultNotepadReadOnly;
   bool _notepadDefaultMonitorClipboard =
@@ -37,6 +38,7 @@ class _SettingsPageState extends State<SettingsPage> {
   _SettingsSnapshot get _current => _SettingsSnapshot(
         themeMode: _themeMode,
         confirmBeforeDelete: _confirmBeforeDelete,
+        autoLockOnBackground: _autoLockOnBackground,
         notepadAutoSaveSeconds: _notepadAutoSaveSeconds,
         notepadDefaultReadOnly: _notepadDefaultReadOnly,
         notepadDefaultMonitorClipboard: _notepadDefaultMonitorClipboard,
@@ -55,6 +57,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final snapshot = _SettingsSnapshot(
         themeMode: await _settingsService.getThemeMode(),
         confirmBeforeDelete: await _settingsService.getConfirmBeforeDelete(),
+        autoLockOnBackground: await _settingsService.getAutoCloseSession(),
         notepadAutoSaveSeconds:
             await _settingsService.getNotepadAutoSaveSeconds(),
         notepadDefaultReadOnly:
@@ -67,6 +70,7 @@ class _SettingsPageState extends State<SettingsPage> {
       setState(() {
         _themeMode = snapshot.themeMode;
         _confirmBeforeDelete = snapshot.confirmBeforeDelete;
+        _autoLockOnBackground = snapshot.autoLockOnBackground;
         _notepadAutoSaveSeconds = snapshot.notepadAutoSaveSeconds;
         _notepadDefaultReadOnly = snapshot.notepadDefaultReadOnly;
         _notepadDefaultMonitorClipboard =
@@ -88,6 +92,7 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       await _settingsService.setThemeMode(_themeMode);
       await _settingsService.setConfirmBeforeDelete(_confirmBeforeDelete);
+      await _settingsService.setAutoCloseSession(_autoLockOnBackground);
       await _settingsService.setNotepadAutoSaveSeconds(_notepadAutoSaveSeconds);
       await _settingsService.setNotepadDefaultReadOnly(
         _notepadDefaultReadOnly,
@@ -289,6 +294,17 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (value) => setState(() => _confirmBeforeDelete = value),
           ),
           const Divider(),
+          SwitchListTile(
+            key: const Key('auto-lock-on-background'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('应用隐藏时自动锁定'),
+            subtitle: const Text(
+              '仅锁定没有内容窗口、未保存修改或活动写入的目录；其他目录不会被强制关闭',
+            ),
+            value: _autoLockOnBackground,
+            onChanged: (value) => setState(() => _autoLockOnBackground = value),
+          ),
+          const Divider(),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('安全草稿保存间隔'),
@@ -397,6 +413,7 @@ class _SettingsSnapshot {
   const _SettingsSnapshot({
     required this.themeMode,
     required this.confirmBeforeDelete,
+    required this.autoLockOnBackground,
     required this.notepadAutoSaveSeconds,
     required this.notepadDefaultReadOnly,
     required this.notepadDefaultMonitorClipboard,
@@ -405,6 +422,7 @@ class _SettingsSnapshot {
 
   final String themeMode;
   final bool confirmBeforeDelete;
+  final bool autoLockOnBackground;
   final int notepadAutoSaveSeconds;
   final bool notepadDefaultReadOnly;
   final bool notepadDefaultMonitorClipboard;
@@ -415,6 +433,7 @@ class _SettingsSnapshot {
       other is _SettingsSnapshot &&
       themeMode == other.themeMode &&
       confirmBeforeDelete == other.confirmBeforeDelete &&
+      autoLockOnBackground == other.autoLockOnBackground &&
       notepadAutoSaveSeconds == other.notepadAutoSaveSeconds &&
       notepadDefaultReadOnly == other.notepadDefaultReadOnly &&
       notepadDefaultMonitorClipboard == other.notepadDefaultMonitorClipboard &&
@@ -424,6 +443,7 @@ class _SettingsSnapshot {
   int get hashCode => Object.hash(
         themeMode,
         confirmBeforeDelete,
+        autoLockOnBackground,
         notepadAutoSaveSeconds,
         notepadDefaultReadOnly,
         notepadDefaultMonitorClipboard,

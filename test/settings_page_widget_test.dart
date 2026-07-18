@@ -148,6 +148,28 @@ void main() {
     expect(await service.getNotepadDefaultMonitorClipboard(), isTrue);
   });
 
+  testWidgets(
+      'background auto-lock participates in the settings save transaction',
+      (tester) async {
+    final service = SettingsService();
+    await tester.pumpWidget(
+      MaterialApp(home: SettingsPage(settingsService: service)),
+    );
+    await tester.pumpAndSettle();
+
+    final toggle = find.byKey(const Key('auto-lock-on-background'));
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pump();
+    expect(await service.getAutoCloseSession(), isFalse);
+
+    final save = find.text('保存设置');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(await service.getAutoCloseSession(), isTrue);
+  });
+
   testWidgets('detailed error reporting participates in save transaction',
       (tester) async {
     final service = SettingsService();

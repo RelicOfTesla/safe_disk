@@ -15,6 +15,7 @@ import 'package:safe_disk/services/content_window_host_bridge.dart';
 import 'package:safe_disk/services/directory_persistence_service.dart';
 import 'package:safe_disk/services/directory_service.dart';
 import 'package:safe_disk/services/file_service.dart';
+import 'package:safe_disk/services/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -95,6 +96,73 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     expect(cryptoService.closedRootIDs, [7]);
+  });
+
+  testWidgets('background lifecycle locks an eligible root when enabled',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService);
+    final settings = _AutoLockSettingsService(enabled: true);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService: settings,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+    expect(find.text('visible.txt'), findsOneWidget);
+    expect(settings.reads, greaterThan(0));
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedRootIDs, [7]);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text('visible.txt'), findsNothing);
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter password for:'), findsOneWidget);
+  });
+
+  testWidgets('background lifecycle does not lock roots by default',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService: SettingsService(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedRootIDs, isEmpty);
+    expect(find.text('visible.txt'), findsOneWidget);
   });
 
   testWidgets('secondary click opens the file context menu', (tester) async {
@@ -206,6 +274,57 @@ void main() {
     expect(platform.openedImages.single['title'], '照片.png');
     expect(platform.openedImages.single.values, isNot(contains('7')));
     expect(platform.openedImages.single.values, isNot(contains('/照片.png')));
+  });
+
+  testWidgets('background auto-lock keeps a root with a content window open',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final platform = _FakeContentWindowPlatform();
+    addTearDown(platform.dispose);
+    final image = FileSystemNode(
+      name: '照片.png',
+      path: '/照片.png',
+      isDirectory: false,
+      size: 128,
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService, items: [image]),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService: _AutoLockSettingsService(enabled: true),
+        contentWindowPlatform: platform,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('照片.png')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在新窗口中查看'));
+    await tester.pumpAndSettle();
+    expect(platform.openedImages, hasLength(1));
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump();
+    expect(cryptoService.closedRootIDs, isEmpty);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text('照片.png'), findsOneWidget);
   });
 
   testWidgets('oversized image is rejected before opening a native window',
@@ -1711,6 +1830,19 @@ class _FakeFileService extends FileService {
       path: exportPath,
       sessionID: tempKeyID,
     ));
+  }
+}
+
+class _AutoLockSettingsService extends SettingsService {
+  _AutoLockSettingsService({required this.enabled});
+
+  final bool enabled;
+  int reads = 0;
+
+  @override
+  Future<bool> getAutoCloseSession() async {
+    reads++;
+    return enabled;
   }
 }
 

@@ -78,7 +78,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final CryptoService _cryptoService;
   late final DirectoryService _directoryService;
@@ -99,6 +99,9 @@ class _HomePageState extends State<HomePage> {
   int _pageGeneration = 0;
   bool _isLoadingMore = false;
   bool _isLoading = false;
+  bool _autoLockOnBackground = SettingsService.defaultAutoCloseSession;
+  bool _isAutoLocking = false;
+  String? _pendingAutoLockSummary;
   bool _drawerPinned = false;
   ViewMode _viewMode = ViewMode.list;
 
@@ -126,13 +129,16 @@ class _HomePageState extends State<HomePage> {
       broker: _documentBroker,
       platform: widget.contentWindowPlatform,
     );
+    WidgetsBinding.instance.addObserver(this);
     _loadPersistedDirectories();
     _loadDrawerPinnedState();
+    _loadAutoLockPreference();
     _checkFirstTimeUser();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(_pageSession?.dispose() ?? Future.value());
     _shortcutFocusNode.dispose();
     _contentWindowBridge.dispose();
@@ -145,6 +151,107 @@ class _HomePageState extends State<HomePage> {
       _closeSession(sessionID);
     }
     super.dispose();
+  }
+
+  Future<void> _loadAutoLockPreference() async {
+    final enabled = await _settingsService.getAutoCloseSession();
+    if (mounted) setState(() => _autoLockOnBackground = enabled);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      unawaited(_lockEligibleRootsForBackground());
+      return;
+    }
+    if (state == AppLifecycleState.resumed) {
+      _showPendingAutoLockSummary();
+    }
+  }
+
+  void _showPendingAutoLockSummary() {
+    final summary = _pendingAutoLockSummary;
+    if (summary == null || !mounted) return;
+    _pendingAutoLockSummary = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ErrorHelper.showInfo(context, summary);
+    });
+  }
+
+  Future<void> _lockEligibleRootsForBackground() async {
+    if (!_autoLockOnBackground || _isAutoLocking) return;
+    _isAutoLocking = true;
+    var lockedCount = 0;
+    var skippedCount = 0;
+    var failedCount = 0;
+    try {
+      for (final directory in List<EncryptedDirectory>.from(_openedDirs)) {
+        final sessionID = directory.tempKeyID;
+        if (sessionID == null) continue;
+        final decision = _rootCloseCoordinator.inspect(sessionID);
+        if (decision.disposition != RootCloseDisposition.closeImmediately) {
+          skippedCount++;
+          continue;
+        }
+        try {
+          if (!_isCurrentDirectorySession(directory.path, sessionID)) continue;
+          await _disposeCurrentDirectoryPageSession(directory.path, sessionID);
+          if (!_isCurrentDirectorySession(directory.path, sessionID)) continue;
+          if (!_closeSession(sessionID)) {
+            failedCount++;
+            continue;
+          }
+          _secureClipboard.removeSession(sessionID);
+          _rootCloseCoordinator.releaseRoot(sessionID);
+          if (mounted) {
+            _replaceWithLockedDirectory(
+              directory,
+              EncryptedDirectory(
+                path: directory.path,
+                config: directory.config,
+                isVerified: false,
+                displayAlias: directory.displayAlias,
+              ),
+            );
+          }
+          lockedCount++;
+        } catch (_) {
+          failedCount++;
+        }
+      }
+    } finally {
+      _isAutoLocking = false;
+    }
+    if (!mounted) return;
+    final messages = <String>[];
+    if (lockedCount > 0) messages.add('已自动锁定 $lockedCount 个目录');
+    if (skippedCount > 0) messages.add('$skippedCount 个目录含内容窗口或未完成保存，未强制关闭');
+    if (failedCount > 0) messages.add('$failedCount 个目录锁定失败');
+    if (messages.isNotEmpty) _pendingAutoLockSummary = messages.join('；');
+  }
+
+  bool _isCurrentDirectorySession(String path, String sessionID) {
+    final current = _currentDir;
+    return (current?.path == path && current?.tempKeyID == sessionID) ||
+        _openedDirs.any(
+          (directory) =>
+              directory.path == path && directory.tempKeyID == sessionID,
+        );
+  }
+
+  Future<void> _disposeCurrentDirectoryPageSession(
+    String path,
+    String sessionID,
+  ) async {
+    final current = _currentDir;
+    if (current?.path != path || current?.tempKeyID != sessionID) return;
+    final pageSession = _pageSession;
+    _pageSession = null;
+    _pageGeneration++;
+    _isLoadingMore = false;
+    _isLoading = false;
+    await pageSession?.dispose();
   }
 
   // ── Persistence ───────────────────────────────────────────────────
@@ -757,6 +864,9 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
+    if (sessionID != null) {
+      await _disposeCurrentDirectoryPageSession(dir.path, sessionID);
+    }
     if (!_closeSession(dir.tempKeyID)) {
       if (mounted) {
         ErrorHelper.showError(
@@ -774,6 +884,7 @@ class _HomePageState extends State<HomePage> {
       path: dir.path,
       config: dir.config,
       isVerified: false,
+      displayAlias: dir.displayAlias,
     );
     if (action == RootDirectoryAction.deleteDirectory) {
       try {
@@ -829,6 +940,9 @@ class _HomePageState extends State<HomePage> {
         _currentDir = lockedDirectory;
         _currentPath = lockedDirectory.path;
         _items = [];
+        _selectedFiles.clear();
+        _keyboardTarget = null;
+        _isSelectMode = false;
       }
     });
   }
@@ -2064,6 +2178,7 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+    if (mounted) await _loadAutoLockPreference();
   }
 
   // ── Build ─────────────────────────────────────────────────────────
