@@ -903,5 +903,38 @@ void main() {
 
       expect(data, everyElement(0));
     });
+
+    test(
+        'opens FileService directory page sessions through the real cursor ABI',
+        () async {
+      final tmp = await Directory.systemTemp.createTemp('safe-disk-cursor-');
+      addTearDown(() => tmp.delete(recursive: true));
+      final rootPath = '${tmp.path}/root';
+      final native = NativeLib.instance;
+      native.secCreateRootConfig(
+          rootPath,
+          'pw',
+          jsonEncode({
+            'dataFactory': 'AES-CTR',
+            'nameFactory': 'AES-256-GCM',
+            'keyStrengthMs': 1,
+          }));
+      final crypto = CryptoService();
+      final rootID = crypto.openRoot(rootPath, 'pw', '');
+      addTearDown(() => crypto.closeRoot(rootID));
+      for (final name in ['a.txt', 'b.txt', 'c.txt']) {
+        native.secQuickWriteFile(rootID, name, utf8.encode(name));
+      }
+
+      final session = FileService(cryptoService: crypto)
+          .openCurrentDirectorySession(rootPath)!;
+      await session.loadNext(limit: 2);
+      expect(session.entries, hasLength(2));
+      expect(session.done, isFalse);
+      await session.loadNext(limit: 2);
+      expect(session.entries.map((entry) => entry.name), hasLength(3));
+      expect(session.done, isTrue);
+      await session.dispose();
+    });
   });
 }

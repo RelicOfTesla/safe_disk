@@ -4,6 +4,7 @@ import 'dart:io';
 import '../models/secure_image_policy.dart';
 import '../models/logical_path.dart';
 import 'crypto_service.dart';
+import 'directory_page_session.dart';
 import 'secure_notepad_draft_store.dart';
 
 /// Represents a file or directory node in the encrypted file system.
@@ -159,6 +160,16 @@ class FileService {
     return _cryptoService.listDir(rootID, path);
   }
 
+  DirectoryPageSession? openCurrentDirectorySession(String path) {
+    final rootID = _cryptoService.rootIDForPath(path);
+    if (rootID == null) return null;
+    return DirectoryPageSession(
+      gateway: _CryptoDirectoryCursorGateway(_cryptoService),
+      rootID: rootID,
+      relativePath: _cryptoService.relativePathForRoot(rootID, path),
+    );
+  }
+
   /// Lists a directory using the absolute virtual path used by the UI.
   Future<List<FileSystemNode>> listCurrentDirectory(
     String path, {
@@ -236,5 +247,27 @@ class FileService {
       }
       rethrow;
     }
+  }
+}
+
+class _CryptoDirectoryCursorGateway implements DirectoryCursorGateway {
+  _CryptoDirectoryCursorGateway(this.cryptoService);
+
+  final CryptoService cryptoService;
+
+  @override
+  Future<void> close(int cursorID) => cryptoService.closeDirCursor(cursorID);
+
+  @override
+  Future<int> open(int rootID, String relativePath) =>
+      cryptoService.openDirCursor(rootID, relativePath);
+
+  @override
+  Future<DirectoryCursorPageData> readPage(int cursorID, int limit) async {
+    final page = await cryptoService.readDirCursorPage(cursorID, limit);
+    return DirectoryCursorPageData(
+      entries: page.entries.map(DirEntry.fromJson).toList(),
+      done: page.done,
+    );
   }
 }

@@ -282,6 +282,20 @@ class CryptoService {
     });
   }
 
+  Future<int> openDirCursor(int rootID, String path) async =>
+      Future.microtask(() => _native.secOpenDirCursor(rootID, path));
+
+  Future<DirectoryCursorPage> readDirCursorPage(
+    int cursorID,
+    int limit,
+  ) async =>
+      Future.microtask(
+        () => _native.secReadDirCursorPage(cursorID, limit),
+      );
+
+  Future<void> closeDirCursor(int cursorID) async =>
+      Future.microtask(() => _native.secCloseDirCursor(cursorID));
+
   /// Creates a directory in a secure root (async).
   Future<void> createDir(int rootID, String path) async {
     return Future.microtask(
