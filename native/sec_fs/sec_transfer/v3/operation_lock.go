@@ -83,5 +83,16 @@ func operationLockPath(rootPath string) (string, error) {
 	}
 	digest := sha256.Sum256([]byte(canonicalPath))
 	name := ".safe_disk.transfer." + hex.EncodeToString(digest[:8]) + ".lock"
-	return filepath.Join(filepath.Dir(canonicalPath), name), nil
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve transfer lock cache directory: %w", err)
+	}
+	lockDir := filepath.Join(cacheDir, "safe_disk", "transfer-locks")
+	if err := os.MkdirAll(lockDir, sec_fs.SecureDirMode); err != nil {
+		return "", fmt.Errorf("create transfer lock cache directory: %w", err)
+	}
+	if err := os.Chmod(lockDir, sec_fs.SecureDirMode); err != nil {
+		return "", fmt.Errorf("protect transfer lock cache directory: %w", err)
+	}
+	return filepath.Join(lockDir, name), nil
 }

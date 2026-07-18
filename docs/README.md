@@ -12,7 +12,8 @@
 6. [CLI 设计文档](CLI_DESIGN.md)
 7. [开发路线图](ROADMAP.md)
 8. [任务列表](TODO.md)
-9. [已完成任务](completed/TASKS_COMPLETED.md)
+9. [跨平台验收清单](PLATFORM_ACCEPTANCE.md)
+10. [已完成任务](completed/TASKS_COMPLETED.md)
 
 ## 当前状态与项目管理
 
@@ -22,6 +23,7 @@
 | [REQUIREMENTS.md](REQUIREMENTS.md) | 需求、威胁模型、功能范围 | 当前有效，需结合代码审计 |
 | [ROADMAP.md](ROADMAP.md) | 阶段规划 | 统一百分比，只保留未完成阶段 |
 | [TODO.md](TODO.md) | 活跃功能任务 | 统一百分比，不包含 100% 项 |
+| [PLATFORM_ACCEPTANCE.md](PLATFORM_ACCEPTANCE.md) | 已实现功能的 Windows/macOS/独立环境验收 | 当前有效，不作为实现完成证明 |
 | [FEATURES.md](FEATURES.md) | 活跃功能规划 | 统一百分比，不包含 100% 项 |
 | [completed/TASKS_COMPLETED.md](completed/TASKS_COMPLETED.md) | 已完成任务 | 仅包含有自动化实际功能证据的 100% 项 |
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/secure_notepad_controller.dart';
@@ -339,38 +340,116 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
   }
 }
 
-class SecureTextEditor extends StatelessWidget {
+class SecureTextEditorViewport {
+  VoidCallback? _centerSelectionCallback;
+
+  void centerSelection() => _centerSelectionCallback?.call();
+}
+
+class SecureTextEditor extends StatefulWidget {
   const SecureTextEditor({
     super.key,
     required this.controller,
     required this.focusNode,
     required this.readOnly,
+    required this.viewport,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool readOnly;
+  final SecureTextEditorViewport viewport;
+
+  @override
+  State<SecureTextEditor> createState() => _SecureTextEditorState();
+}
+
+class _SecureTextEditorState extends State<SecureTextEditor> {
+  final GlobalKey _editorKey = GlobalKey();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.viewport._centerSelectionCallback = _centerSelection;
+  }
+
+  @override
+  void didUpdateWidget(covariant SecureTextEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.viewport != widget.viewport) {
+      oldWidget.viewport._centerSelectionCallback = null;
+      widget.viewport._centerSelectionCallback = _centerSelection;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.viewport._centerSelectionCallback = null;
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _centerSelection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final selection = widget.controller.selection;
+      if (!selection.isValid) return;
+      final renderEditable = _findRenderEditable(
+        _editorKey.currentContext?.findRenderObject(),
+      );
+      if (renderEditable == null || !renderEditable.hasSize) return;
+
+      final caret = renderEditable.getLocalRectForCaret(
+        TextPosition(offset: selection.extentOffset),
+      );
+      final position = _scrollController.position;
+      final target =
+          (position.pixels + caret.center.dy - renderEditable.size.height / 2)
+              .clamp(position.minScrollExtent, position.maxScrollExtent)
+              .toDouble();
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  RenderEditable? _findRenderEditable(RenderObject? renderObject) {
+    if (renderObject == null) return null;
+    if (renderObject is RenderEditable) return renderObject;
+    RenderEditable? result;
+    renderObject.visitChildren((child) {
+      result ??= _findRenderEditable(child);
+    });
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: TextField(
-        key: const Key('secure-notepad-editor'),
-        controller: controller,
-        focusNode: focusNode,
-        readOnly: readOnly,
-        style: Theme.of(context).textTheme.bodyLarge,
-        maxLines: null,
-        expands: true,
-        autofocus: !readOnly,
-        showCursor: !readOnly,
-        enableInteractiveSelection: true,
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          filled: false,
+      child: KeyedSubtree(
+        key: _editorKey,
+        child: TextField(
+          key: const Key('secure-notepad-editor'),
+          controller: widget.controller,
+          focusNode: widget.focusNode,
+          readOnly: widget.readOnly,
+          style: Theme.of(context).textTheme.bodyLarge,
+          maxLines: null,
+          expands: true,
+          autofocus: !widget.readOnly,
+          showCursor: !widget.readOnly,
+          enableInteractiveSelection: true,
+          scrollController: _scrollController,
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            filled: false,
+          ),
+          cursorColor: Theme.of(context).colorScheme.primary,
         ),
-        cursorColor: Theme.of(context).colorScheme.primary,
       ),
     );
   }

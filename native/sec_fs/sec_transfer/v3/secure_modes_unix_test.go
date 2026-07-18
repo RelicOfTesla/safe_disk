@@ -108,6 +108,7 @@ func TestOperationLockProtectsExistingLockFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = os.Remove(lockPath) })
 	if err := os.WriteFile(lockPath, nil, 0644); err != nil {
 		t.Fatal(err)
 	}

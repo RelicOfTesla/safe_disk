@@ -42,6 +42,7 @@ func TestOperationLockCoordinatesAcrossProcesses(t *testing.T) {
 	if err := os.MkdirAll(rootPath, 0755); err != nil {
 		t.Fatal(err)
 	}
+	cleanupOperationLockFile(t, rootPath)
 
 	cmd := exec.Command(os.Args[0], "-test.run=^TestOperationLockHelperProcess$")
 	cmd.Env = append(os.Environ(),
@@ -96,6 +97,79 @@ func TestOperationLockCoordinatesAcrossProcesses(t *testing.T) {
 	}
 }
 
+func TestOperationLockDoesNotCreateAdjacentLockFile(t *testing.T) {
+	tmp := t.TempDir()
+	rootPath := filepath.Join(tmp, "root")
+	if err := os.MkdirAll(rootPath, sec_fs.SecureDirMode); err != nil {
+		t.Fatal(err)
+	}
+	lockPath, err := operationLockPath(rootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(lockPath) })
+	if filepath.Dir(lockPath) == filepath.Dir(rootPath) {
+		t.Fatalf("transfer lock must not be adjacent to root: %q", lockPath)
+	}
+
+	lock, err := acquireOperationLock(context.Background(), rootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := lock.release(); err != nil {
+		t.Fatal(err)
+	}
+	legacyLocks, err := filepath.Glob(filepath.Join(tmp, ".safe_disk.transfer.*.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(legacyLocks) != 0 {
+		t.Fatalf("transfer created adjacent lock files: %q", legacyLocks)
+	}
+}
+
+func TestImportDoesNotLeaveLockAdjacentToRoot(t *testing.T) {
+	tmp := t.TempDir()
+	rootPath := filepath.Join(tmp, "root")
+	sourcePath := filepath.Join(tmp, "source.txt")
+	if err := os.WriteFile(sourcePath, []byte("content"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := sec_fs.CreateRootConfigQuick(
+		sec_fs.FullStorePath(rootPath),
+		"pw",
+		defaultCreateRootOptions()...,
+	); err != nil {
+		t.Fatal(err)
+	}
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(rootPath), "pw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+
+	if err := New().ImportFile(context.Background(), sec_transfer.ImportFileRequest{
+		Source:    sec_fs.FullStorePath(sourcePath),
+		DestRoot:  root,
+		Dest:      "imported.txt",
+		Overwrite: true,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	legacyLocks, err := filepath.Glob(filepath.Join(tmp, ".safe_disk.transfer.*.lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(legacyLocks) != 0 {
+		t.Fatalf("import left adjacent lock files: %q", legacyLocks)
+	}
+	lockPath, err := operationLockPath(rootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(lockPath) })
+}
+
 func TestImportCanceledWhileWaitingForLockWritesNoMarker(t *testing.T) {
 	tmp := t.TempDir()
 	rootPath := filepath.Join(tmp, "root")
@@ -106,6 +180,7 @@ func TestImportCanceledWhileWaitingForLockWritesNoMarker(t *testing.T) {
 	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(rootPath), "pw", defaultCreateRootOptions()...); err != nil {
 		t.Fatal(err)
 	}
+	cleanupOperationLockFile(t, rootPath)
 	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(rootPath), "pw")
 	if err != nil {
 		t.Fatal(err)
@@ -155,4 +230,13 @@ func TestOperationLockUsesSameKeyForSymlinkAlias(t *testing.T) {
 	if realLockPath != aliasLockPath {
 		t.Fatalf("symlink alias bypasses lock key: %q != %q", realLockPath, aliasLockPath)
 	}
+}
+
+func cleanupOperationLockFile(t *testing.T, rootPath string) {
+	t.Helper()
+	lockPath, err := operationLockPath(rootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(lockPath) })
 }

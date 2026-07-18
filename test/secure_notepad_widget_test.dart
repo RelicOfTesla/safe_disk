@@ -78,6 +78,31 @@ void main() {
     expect(tester.widget<TextField>(editor).focusNode?.hasFocus, isTrue);
   });
 
+  testWidgets('find centers a distant match without stealing query focus',
+      (tester) async {
+    final text = List<String>.generate(
+      100,
+      (index) => index == 90 ? 'needle' : 'line $index',
+    ).join('\n');
+    await _openNotepad(tester, _FakeCryptoService(text));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+
+    final findField = find.byKey(const Key('secure-notepad-find-field'));
+    final editor = find.byKey(const Key('secure-notepad-editor'));
+    await tester.enterText(findField, 'needle');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump(const Duration(milliseconds: 200));
+
+    final textField = tester.widget<TextField>(editor);
+    expect(textField.controller!.selection.textInside(text), 'needle');
+    expect(textField.scrollController!.offset, greaterThan(300));
+    expect(tester.widget<TextField>(findField).focusNode?.hasFocus, isTrue);
+  });
+
   testWidgets('Ctrl+S saves the current note', (tester) async {
     final service = _FakeCryptoService('initial');
     await _openNotepad(tester, service);

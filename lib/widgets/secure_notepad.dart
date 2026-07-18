@@ -64,6 +64,7 @@ class _SecureNotepadState extends State<SecureNotepad>
   bool _clipboardReadActive = false;
   int _clipboardGeneration = 0;
   final FocusNode _findFocusNode = FocusNode();
+  final SecureTextEditorViewport _editorViewport = SecureTextEditorViewport();
 
   @override
   void initState() {
@@ -251,6 +252,12 @@ class _SecureNotepadState extends State<SecureNotepad>
     _controller.focusNode.requestFocus();
   }
 
+  FindResult? _find(String query, {bool backwards = false}) {
+    final result = _controller.find(query, backwards: backwards);
+    if (result != null) _editorViewport.centerSelection();
+    return result;
+  }
+
   Future<bool> _confirmClose() async {
     if (!_controller.hasChanges) return true;
     final result = await showDialog<String>(
@@ -390,7 +397,7 @@ class _SecureNotepadState extends State<SecureNotepad>
           if (_showFindReplace)
             SecureFindReplaceBar(
               readOnly: _controller.isReadOnly,
-              onFind: _controller.find,
+              onFind: _find,
               onReplace: _controller.replaceSelection,
               onReplaceAll: _controller.replaceAll,
               focusNode: _findFocusNode,
@@ -422,6 +429,7 @@ class _SecureNotepadState extends State<SecureNotepad>
               controller: _controller.textController,
               focusNode: _controller.focusNode,
               readOnly: _controller.isReadOnly,
+              viewport: _editorViewport,
             ),
           ),
         ],

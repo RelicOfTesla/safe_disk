@@ -68,9 +68,10 @@ FFI 为活动 operation 保存一次性 `context.CancelFunc`：
 
 ### 4. 并发协调不是 task
 
-同一 root 的 import、export、convert、recover 和 marker clean 必须串行，避免固定 temp/backup 名互删或 convert 切换目录时仍有复制操作。V3 使用 root 同级目录中的稳定 OS advisory lock 文件：
+同一 root 的 import、export、convert、recover 和 marker clean 必须串行，避免固定 temp/backup 名互删或 convert 切换目录时仍有复制操作。V3 使用应用私有缓存目录中的稳定 OS advisory lock 文件：
 
 - lock key 基于规范化、解析 symlink 后的 root 绝对路径；
+- lock 文件位于用户缓存下的 `safe_disk/transfer-locks/`，不写入 root 或其父目录；
 - Unix 使用 `flock`，Windows 使用 `LockFileEx`；
 - 不删除 lock 文件，避免 unlock 后 unlink 导致不同进程锁住两个 inode；
 - 文件不保存 operation、进度、密码或恢复状态，不属于持久化 task；
