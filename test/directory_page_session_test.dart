@@ -30,6 +30,10 @@ void main() {
     await expectLater(session.loadNext(), throwsStateError);
     expect(session.error, isA<StateError>());
     expect(gateway.closes, [9]);
+
+    await session.loadNext();
+    expect(gateway.opens, 1);
+    expect(gateway.closes, [9]);
   });
 }
 

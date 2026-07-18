@@ -58,6 +58,11 @@ class HomeShell extends StatelessWidget {
     this.canPaste = false,
     this.clipboardEntry,
     this.clipboardEntryCount = 0,
+    this.hasMore = false,
+    this.isLoadingMore = false,
+    this.loadMoreError,
+    this.onLoadMore,
+    this.onRetryLoadMore,
   });
 
   final GlobalKey<ScaffoldState> scaffoldKey;
@@ -74,6 +79,11 @@ class HomeShell extends StatelessWidget {
   final bool canPaste;
   final SecureClipboardEntry? clipboardEntry;
   final int clipboardEntryCount;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final Object? loadMoreError;
+  final VoidCallback? onLoadMore;
+  final VoidCallback? onRetryLoadMore;
 
   final VoidCallback onOpenDirectory;
   final ValueChanged<EncryptedDirectory> onCloseDirectory;
@@ -293,6 +303,11 @@ class HomeShell extends StatelessWidget {
             onToggleSelectMode: onToggleSelectMode,
             onSelectionToggle: onSelectionToggle,
             onSelectAll: onSelectAll,
+            hasMore: hasMore,
+            isLoadingMore: isLoadingMore,
+            loadMoreError: loadMoreError,
+            onLoadMore: onLoadMore,
+            onRetryLoadMore: onRetryLoadMore,
           ),
         ),
       ],

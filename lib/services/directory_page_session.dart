@@ -31,8 +31,12 @@ class DirectoryPageSession {
   Object? error;
   final List<DirEntry> entries = [];
 
+  bool get hasError => error != null;
+
   Future<void> loadNext({int limit = 200}) async {
-    if (_disposed || _loading || done) return;
+    // A failed cursor is closed. Continuing it would reopen at the first page
+    // and append duplicate entries, so callers must create a fresh session.
+    if (_disposed || _loading || done || hasError) return;
     _loading = true;
     try {
       var cursorID = _cursorID;

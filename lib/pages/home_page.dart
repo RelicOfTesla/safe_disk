@@ -11,6 +11,7 @@ import '../models/create_root_options.dart';
 import '../models/text_file_policy.dart';
 import '../services/crypto_service.dart';
 import '../services/file_service.dart';
+import '../services/directory_page_session.dart';
 import '../services/directory_service.dart';
 import '../services/directory_persistence_service.dart';
 import '../services/settings_service.dart';
@@ -94,6 +95,9 @@ class _HomePageState extends State<HomePage> {
   EncryptedDirectory? _currentDir;
   String? _currentPath;
   List<FileSystemNode> _items = [];
+  DirectoryPageSession? _pageSession;
+  int _pageGeneration = 0;
+  bool _isLoadingMore = false;
   bool _isLoading = false;
   bool _drawerPinned = false;
   ViewMode _viewMode = ViewMode.list;
@@ -129,6 +133,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    unawaited(_pageSession?.dispose() ?? Future.value());
     _shortcutFocusNode.dispose();
     _contentWindowBridge.dispose();
     _saveOpenedDirectories();
@@ -405,12 +410,26 @@ class _HomePageState extends State<HomePage> {
     if (_currentPath == null || !mounted) return false;
     setState(() => _isLoading = true);
 
+    final path = _currentPath!;
+    final generation = ++_pageGeneration;
+    await _pageSession?.dispose();
+    final session = _fileService.openCurrentDirectorySession(path);
+    _pageSession = session;
     try {
-      final items = await _fileService.listCurrentDirectory(_currentPath!);
-      if (mounted) setState(() => _items = items);
+      if (session == null) {
+        final items = await _fileService.listCurrentDirectory(path);
+        if (mounted && generation == _pageGeneration) {
+          setState(() => _items = items);
+        }
+        return true;
+      }
+      await session.loadNext();
+      if (mounted && generation == _pageGeneration) {
+        setState(() => _items = _nodesForSession(session));
+      }
       return true;
     } catch (e) {
-      if (mounted) {
+      if (mounted && generation == _pageGeneration) {
         ErrorHelper.showError(
           context,
           errorType: ErrorType.loadDirectoryFailed,
@@ -419,7 +438,50 @@ class _HomePageState extends State<HomePage> {
       }
       return false;
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && generation == _pageGeneration) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  List<FileSystemNode> _nodesForSession(DirectoryPageSession session) {
+    return session.entries.map((entry) {
+      final relative = session.relativePath.isEmpty
+          ? entry.name
+          : '${session.relativePath}/${entry.name}';
+      return FileSystemNode(
+          name: entry.name,
+          path: _cryptoService.absolutePathForRoot(session.rootID, relative),
+          isDirectory: entry.isDir,
+          modifiedTime:
+              DateTime.fromMillisecondsSinceEpoch(entry.modTime * 1000),
+          size: entry.size);
+    }).toList();
+  }
+
+  Future<void> _loadMoreCurrentPath() async {
+    final session = _pageSession;
+    if (session == null || session.done || session.hasError || _isLoadingMore) {
+      return;
+    }
+    setState(() => _isLoadingMore = true);
+    try {
+      await session.loadNext();
+      if (mounted && identical(session, _pageSession)) {
+        setState(() => _items = _nodesForSession(session));
+      }
+    } catch (e) {
+      if (mounted && identical(session, _pageSession)) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.loadDirectoryFailed,
+          originalError: e.toString(),
+        );
+      }
+    } finally {
+      if (mounted && identical(session, _pageSession)) {
+        setState(() => _isLoadingMore = false);
+      }
     }
   }
 
@@ -2044,6 +2106,13 @@ class _HomePageState extends State<HomePage> {
           canPaste: _secureClipboard.hasEntry,
           clipboardEntry: _secureClipboard.entry,
           clipboardEntryCount: _secureClipboard.entryCount,
+          hasMore: _pageSession != null &&
+              !_pageSession!.done &&
+              !_pageSession!.hasError,
+          isLoadingMore: _isLoadingMore,
+          loadMoreError: _pageSession?.error,
+          onLoadMore: _loadMoreCurrentPath,
+          onRetryLoadMore: _loadCurrentPath,
           onOpenDirectory: _openOrCreateEncryptedDirectory,
           onCloseDirectory: _closeDirectory,
           onSwitchDirectory: _switchToDirectory,

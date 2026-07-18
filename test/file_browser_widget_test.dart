@@ -42,6 +42,42 @@ void main() {
     expect(upCount, 1);
   });
 
+  testWidgets('分页失败显示刷新重试而不是继续追加', (tester) async {
+    var retryCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FileBrowser(
+            items: const [],
+            currentPath: '/root',
+            rootPath: '/root',
+            viewMode: ViewMode.list,
+            isSelectMode: false,
+            selectedFiles: const {},
+            fileService: _TreeFileService(),
+            onNavigateToDirectory: (_) {},
+            onNavigateUp: () {},
+            onOpenItem: (_) {},
+            onItemLongPress: (_) {},
+            onItemSecondaryTap: (_, __) {},
+            onBackgroundSecondaryTap: (_) {},
+            onViewModeChanged: (_) {},
+            onToggleSelectMode: (_) {},
+            onSelectionToggle: (_, __) {},
+            onSelectAll: () {},
+            loadMoreError: StateError('cursor failed'),
+            onRetryLoadMore: () => retryCount++,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('读取目录失败，刷新后重试'), findsOneWidget);
+    await tester.tap(find.text('读取目录失败，刷新后重试'));
+    expect(retryCount, 1);
+  });
+
   testWidgets('current-directory filter keeps focus and clears on navigation',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));

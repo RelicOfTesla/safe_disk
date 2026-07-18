@@ -29,7 +29,9 @@ class FileBrowser extends StatefulWidget {
     required this.onSelectAll,
     this.hasMore = false,
     this.isLoadingMore = false,
+    this.loadMoreError,
     this.onLoadMore,
+    this.onRetryLoadMore,
   });
 
   final List<FileSystemNode> items;
@@ -69,7 +71,9 @@ class FileBrowser extends StatefulWidget {
   final VoidCallback onSelectAll;
   final bool hasMore;
   final bool isLoadingMore;
+  final Object? loadMoreError;
   final VoidCallback? onLoadMore;
+  final VoidCallback? onRetryLoadMore;
 
   @override
   State<FileBrowser> createState() => _FileBrowserState();
@@ -452,6 +456,18 @@ class _FileBrowserState extends State<FileBrowser> {
   }
 
   Widget _buildContentView(List<FileSystemNode> items, String query) {
+    if (widget.loadMoreError != null && items.isEmpty) {
+      return _withBackgroundActions(
+        Center(
+          child: TextButton.icon(
+            onPressed: widget.onRetryLoadMore,
+            icon: const Icon(Icons.refresh),
+            label: const Text('读取目录失败，刷新后重试'),
+          ),
+        ),
+      );
+    }
+
     if (query.isNotEmpty && items.isEmpty) {
       return _withBackgroundActions(Center(
         child: Column(
@@ -534,17 +550,7 @@ class _FileBrowserState extends State<FileBrowser> {
             );
           },
         ),
-        if (widget.hasMore || widget.isLoadingMore)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: widget.isLoadingMore
-                    ? const CircularProgressIndicator()
-                    : const Text('继续滚动以加载更多条目'),
-              ),
-            ),
-          ),
+        _buildLoadMoreStatus(),
         SliverFillRemaining(
           hasScrollBody: false,
           child: _withBackgroundActions(const SizedBox.expand()),
@@ -582,23 +588,43 @@ class _FileBrowserState extends State<FileBrowser> {
             },
           ),
         ),
-        if (widget.hasMore || widget.isLoadingMore)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: widget.isLoadingMore
-                    ? const CircularProgressIndicator()
-                    : const Text('继续滚动以加载更多条目'),
-              ),
-            ),
-          ),
+        _buildLoadMoreStatus(),
         SliverFillRemaining(
           hasScrollBody: false,
           child: _withBackgroundActions(const SizedBox.expand()),
         ),
       ],
     );
+  }
+
+  Widget _buildLoadMoreStatus() {
+    if (widget.loadMoreError != null) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: TextButton.icon(
+              onPressed: widget.onRetryLoadMore,
+              icon: const Icon(Icons.refresh),
+              label: const Text('加载更多失败，刷新后重试'),
+            ),
+          ),
+        ),
+      );
+    }
+    if (widget.hasMore || widget.isLoadingMore) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: widget.isLoadingMore
+                ? const CircularProgressIndicator()
+                : const Text('继续滚动以加载更多条目'),
+          ),
+        ),
+      );
+    }
+    return const SliverToBoxAdapter(child: SizedBox.shrink());
   }
 
   Widget _withBackgroundActions(Widget child) {
