@@ -56,6 +56,21 @@ func (s *IDStore[T]) Len() int {
 	return len(s.items)
 }
 
+// TakeWhere removes and returns every item selected by predicate. It lets a
+// parent resource release dependent handles before the parent is closed.
+func (s *IDStore[T]) TakeWhere(predicate func(T) bool) []T {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	items := make([]T, 0)
+	for id, item := range s.items {
+		if predicate(item) {
+			items = append(items, item)
+			delete(s.items, id)
+		}
+	}
+	return items
+}
+
 ////
 
 type KeyValueMap[K comparable, V any] struct {

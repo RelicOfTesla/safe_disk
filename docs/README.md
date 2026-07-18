@@ -61,6 +61,7 @@
 | [design/STREAM_V3_ROADMAP.md](design/STREAM_V3_ROADMAP.md) | Stream V3 实施路线 | 已按实际代码重审为百分比 |
 | [design/FFI_INCREMENTAL_ENCRYPTION.md](design/FFI_INCREMENTAL_ENCRYPTION.md) | 增量加密 FFI 设计 | 设计文档，不是实现证明 |
 | [design/WALKER_RESOURCE_DESIGN.md](design/WALKER_RESOURCE_DESIGN.md) | secure walker 工作集与错误传播 | 实施中 |
+| [design/DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 大目录 cursor 与 UI 增量加载 | 设计中 |
 
 ## 历史报告
 

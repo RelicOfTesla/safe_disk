@@ -286,6 +286,15 @@ type ReadDirResult struct {
 	Count   int              `json:"count"`
 }
 
+type DirCursorOpenResult struct {
+	CursorID int64 `json:"cursor_id"`
+}
+
+type DirCursorPageResult struct {
+	Entries []DirEntryResult `json:"entries"`
+	Done    bool             `json:"done"`
+}
+
 // ==================== Config Helper Functions ====================
 
 // parseOpenOptions parses a JSON string into OpenOption slice.
@@ -487,10 +496,17 @@ func OpenRoot_FFI(rootPath string, password string, optionsJSON string) string {
 // CloseRoot_FFI closes a secure root directory.
 // Returns a JSON string indicating success or failure.
 func CloseRoot_FFI(rootID int64) string {
+	dirCursorLifecycleMu.Lock()
+	defer dirCursorLifecycleMu.Unlock()
 	entry, ok := RootStore.Get(rootID)
 	root := entry.Root
 	if !ok {
 		return errorResponseStr("root not found")
+	}
+	for _, cursor := range DirCursorStore.TakeWhere(func(cursor *dirCursor) bool {
+		return cursor.rootID == rootID
+	}) {
+		_ = closeDirCursor(cursor)
 	}
 
 	err := root.Close()
@@ -801,6 +817,91 @@ func ReadDir_FFI(rootID int64, path string) string {
 		Entries: entries,
 		Count:   len(entries),
 	})
+}
+
+const maximumDirCursorPageSize = 1000
+
+// OpenDirCursor_FFI opens a non-recursive directory cursor for incremental reads.
+func OpenDirCursor_FFI(rootID int64, path string) string {
+	dirCursorLifecycleMu.Lock()
+	defer dirCursorLifecycleMu.Unlock()
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+	walker, err := entry.Root.WalkDir(sec_fs.RelativeViewPath(path))
+	if err != nil {
+		return errorResponse(err)
+	}
+	cursorID := DirCursorStore.Add(&dirCursor{rootID: rootID, walker: walker})
+	return successResponse(DirCursorOpenResult{CursorID: cursorID})
+}
+
+// ReadDirCursorPage_FFI reads up to limit entries. Only EOF marks completion;
+// other walker errors close the cursor and are returned to the caller.
+func ReadDirCursorPage_FFI(cursorID int64, limit int) string {
+	if limit < 1 || limit > maximumDirCursorPageSize {
+		return errorResponseStr("directory page limit must be between 1 and 1000")
+	}
+	cursor, ok := DirCursorStore.Get(cursorID)
+	if !ok {
+		return errorResponseStr("directory cursor not found")
+	}
+	entries, done, err := readDirCursorPage(cursor, limit)
+	if err != nil {
+		DirCursorStore.Remove(cursorID)
+		_ = closeDirCursor(cursor)
+		return errorResponse(err)
+	}
+	if done {
+		DirCursorStore.Remove(cursorID)
+		_ = closeDirCursor(cursor)
+	}
+	return successResponse(DirCursorPageResult{Entries: entries, Done: done})
+}
+
+// CloseDirCursor_FFI is idempotent so Dart cleanup after EOF/root close is safe.
+func CloseDirCursor_FFI(cursorID int64) string {
+	cursor, ok := DirCursorStore.Get(cursorID)
+	if !ok {
+		return Success()
+	}
+	DirCursorStore.Remove(cursorID)
+	if err := closeDirCursor(cursor); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
+}
+
+func readDirCursorPage(cursor *dirCursor, limit int) ([]DirEntryResult, bool, error) {
+	cursor.mu.Lock()
+	defer cursor.mu.Unlock()
+	entries := make([]DirEntryResult, 0, limit)
+	for len(entries) < limit {
+		entry, err := cursor.walker.Next()
+		if errors.Is(err, io.EOF) {
+			return entries, true, nil
+		}
+		if err != nil {
+			return nil, false, err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return nil, false, err
+		}
+		entries = append(entries, DirEntryResult{
+			Name: entry.Name(), IsDir: entry.IsDir(), Size: info.Size(),
+			ModTime: info.ModTime().Unix(), Mode: uint32(info.Mode()),
+			Path: string(entry.GetRelativeViewPath()),
+		})
+	}
+	return entries, false, nil
+}
+
+func closeDirCursor(cursor *dirCursor) error {
+	cursor.mu.Lock()
+	defer cursor.mu.Unlock()
+	return cursor.walker.Close()
 }
 
 // ==================== Convenience Functions ====================

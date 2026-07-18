@@ -551,6 +551,53 @@ func TestReadDirFFIReportsUnexpectedPlainStoreEntry(t *testing.T) {
 	}
 }
 
+func TestDirCursorFFIPagesAndClosesWithRoot(t *testing.T) {
+	rootPath := filepath.Join(t.TempDir(), "root")
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"None"}`))
+	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+
+	for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
+		assertSuccess(t, QuickWriteFile_FFI(rootID, name, []byte(name)))
+	}
+	openResp := assertSuccess(t, OpenDirCursor_FFI(rootID, ""))
+	cursorID := int64(openResp["data"].(map[string]interface{})["cursor_id"].(float64))
+
+	var page struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Entries []DirEntryResult `json:"entries"`
+			Done    bool             `json:"done"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(ReadDirCursorPage_FFI(cursorID, 2)), &page); err != nil {
+		t.Fatal(err)
+	}
+	if !page.Success || len(page.Data.Entries) != 2 || page.Data.Done {
+		t.Fatalf("first cursor page = %+v", page)
+	}
+	if err := json.Unmarshal([]byte(ReadDirCursorPage_FFI(cursorID, 2)), &page); err != nil {
+		t.Fatal(err)
+	}
+	if !page.Success || len(page.Data.Entries) != 1 || !page.Data.Done {
+		t.Fatalf("final cursor page = %+v", page)
+	}
+	assertSuccess(t, CloseDirCursor_FFI(cursorID))
+
+	openResp = assertSuccess(t, OpenDirCursor_FFI(rootID, ""))
+	cursorID = int64(openResp["data"].(map[string]interface{})["cursor_id"].(float64))
+	assertSuccess(t, CloseRoot_FFI(rootID))
+	if DirCursorStore.Len() != 0 {
+		t.Fatalf("root close leaked directory cursors: %d", DirCursorStore.Len())
+	}
+	if jsonSuccess(ReadDirCursorPage_FFI(cursorID, 1)) {
+		t.Fatal("cursor survived root close")
+	}
+	if jsonSuccess(ReadDirCursorPage_FFI(cursorID, 0)) {
+		t.Fatal("invalid page limit unexpectedly succeeded")
+	}
+}
+
 func TestCLIAndFFICreateOpenCompatibility(t *testing.T) {
 	tmp := t.TempDir()
 	cliBin := filepath.Join(tmp, "safe-disk-test")

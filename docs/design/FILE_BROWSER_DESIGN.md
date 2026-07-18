@@ -48,7 +48,7 @@
 
 - tree 只显示目录，不显示文件，避免点击文件却按目录导航。
 - 子目录按需加载；加载错误必须可见，不能静默显示为空。
-- 当前阶段沿用 FileService 分页读取；大目录完整性仍受 walker/分页任务约束。
+- 当前 `FileService.listCurrentDirectory(offset/limit)` 会先读取完整 FFI 列表再本地 `skip/take`，不是分页；真实目录 cursor 方案见 [DIRECTORY_PAGINATION_DESIGN.md](DIRECTORY_PAGINATION_DESIGN.md)。
 
 ## 7. 文件剪贴板状态
 

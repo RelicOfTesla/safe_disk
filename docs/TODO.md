@@ -61,7 +61,7 @@
 | 安全记事本 | 94% | 状态/controller 与 UI 分区已拆分；编辑、加密草稿、剪贴板监视、broker 冲突及远程子窗口均有测试，Linux 已实测原生窗口 | 补三平台桌面键盘/关闭/系统剪贴板 E2E、大文件策略和可验证内存边界 |
 | 图片浏览器 | 92% | JPEG/PNG/GIF/BMP/WebP 真实 codec 与渲染、GIF 动画识别、缩放旋转、键盘翻页、重试、64 MiB/100 MP 资源边界、异步竞态清零和只读子窗口 lease 均有自动化测试；真实 FFI 验证中文加密目录 WebP，Linux 已实测跨 engine PNG | 三平台真实窗口键盘/手势 E2E、超大图片内存压力与平台 codec 差异验收 |
 | Stream V3/增量编辑 | 15% | 有设计文档；Dart 活跃入口明确返回 unsupported | 确定格式、完整性和崩溃一致性模型，完成 sec/FFI/Dart/UI 实现及随机编辑实际测试 |
-| 大目录 UI 虚拟化 | 10% | 只有需求 | 虚拟列表、分页/增量 walker API、10 万 entry 自动化性能测试 |
+| 大目录 UI 虚拟化 | 25% | Flutter list/grid 已使用 sliver 虚拟构建，但 `ReadDir_FFI`、FileService 和 tree 仍先读取完整目录；现有 offset/limit 只是本地 `skip/take`，不是分页。native 已实现目录 cursor 的打开/读取页/关闭 ABI，以及 EOF、错误销毁和 root 关闭级联 FFI 回归；Dart/UI 尚未调用。分页边界见 [DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 接入 Dart session 和浏览器增量加载；定义增量模式的排序/筛选边界；补 10 万 entry、取消/错误/导航/关闭 root 的跨层回归 |
 | 自动锁定与密钥缓存超时 | 20% | 有 root close/key 清理基础 | 生命周期策略、前后台切换、超时清理、真实 UI/FFI 验收 |
 | KDF 成本动态校准 | 15% | 当前迭代/参数由配置与默认值决定 | 按设备目标耗时校准、参数上限、防 DoS 和跨设备测试 |
 | 文件排序/过滤/批量操作 | 92% | 当前目录筛选、目录优先排序、批量文件复制/剪切/粘贴/导出/删除已实现；批量冲突支持仅此项/全部应用，取消、失败和未处理项保留重试，并有结构化结果面板 | 超大目录分页排序、真实桌面大批次与跨 root 页面 E2E；全 root 搜索另立任务 |

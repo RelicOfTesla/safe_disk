@@ -3,6 +3,8 @@
 package main
 
 import (
+	"sync"
+
 	"safe_disk/native/sec_fs"
 )
 
@@ -12,6 +14,14 @@ type RootEntry struct {
 	RootPath string
 }
 
+type dirCursor struct {
+	rootID int64
+	walker sec_fs.IDirWalker
+	mu     sync.Mutex
+}
+
+var dirCursorLifecycleMu sync.Mutex
+
 // Global stores for root and file instances.
 var (
 	// RootStore manages RootEntry instances with int64 IDs.
@@ -19,4 +29,7 @@ var (
 
 	// FileStore manages ISecFile instances with int64 IDs.
 	FileStore = NewIDStore[sec_fs.ISecFile]()
+
+	// DirCursorStore manages non-recursive directory walkers for paged reads.
+	DirCursorStore = NewIDStore[*dirCursor]()
 )

@@ -43,6 +43,21 @@ func sec_root_close(rootID C.int64_t) *C.char {
 	return C.CString(result)
 }
 
+//export sec_dir_cursor_open
+func sec_dir_cursor_open(rootID C.int64_t, path *C.char) *C.char {
+	return C.CString(OpenDirCursor_FFI(int64(rootID), C.GoString(path)))
+}
+
+//export sec_dir_cursor_read_page
+func sec_dir_cursor_read_page(cursorID C.int64_t, limit C.int) *C.char {
+	return C.CString(ReadDirCursorPage_FFI(int64(cursorID), int(limit)))
+}
+
+//export sec_dir_cursor_close
+func sec_dir_cursor_close(cursorID C.int64_t) *C.char {
+	return C.CString(CloseDirCursor_FFI(int64(cursorID)))
+}
+
 //export sec_create_root_config
 func sec_create_root_config(rootPath *C.char, password *C.char, optionsJSON *C.char) *C.char {
 	goRootPath := C.GoString(rootPath)
