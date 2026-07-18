@@ -1706,6 +1706,7 @@ void main() {
         persistenceService: _FakePersistenceService(rootPath),
         selectFile: (groups) async {
           expect(groups, isNotEmpty);
+          expect(groups.single.label, '所有文件');
           return source;
         },
       ),
@@ -1760,6 +1761,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('发现未完成的导入/导出'), findsOneWidget);
+    expect(find.textContaining('这些操作无法继续'), findsOneWidget);
     await tester.tap(find.text('全量重跑'));
     await tester.pumpAndSettle();
 

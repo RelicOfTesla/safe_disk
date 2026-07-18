@@ -138,7 +138,7 @@ class _ProgressDialogState extends State<ProgressDialog> {
               ),
               if (timeRemaining.isNotEmpty)
                 Text(
-                  '预计剩余: $timeRemaining',
+                  '预计剩余：$timeRemaining',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
             ],
@@ -147,7 +147,7 @@ class _ProgressDialogState extends State<ProgressDialog> {
 
           // File count
           Text(
-            '已处理: ${progress.current} / ${progress.total}',
+            '已处理：${progress.current} / ${progress.total}',
             style: const TextStyle(fontSize: 13),
           ),
 
@@ -155,7 +155,7 @@ class _ProgressDialogState extends State<ProgressDialog> {
           if (progress.currentFileName != null) ...[
             const SizedBox(height: 8),
             Text(
-              '当前: ${progress.currentFileName}',
+              '当前：${progress.currentFileName}',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey.shade700,

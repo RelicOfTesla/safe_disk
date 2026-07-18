@@ -708,7 +708,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         title: const Text('发现未完成的导入/导出'),
         content: Text(
           '检测到 ${markers.length} 个未完成的导入/导出状态。\n\n'
-          'Safe Disk V3 不做断点续传。你可以清理状态后重新全量执行导入/导出，'
+          '这些操作无法继续。你可以清理状态后重新执行完整的导入或导出，'
           '也可以暂时跳过。',
         ),
         actions: [
@@ -1272,7 +1272,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _importFile() async {
     if (!_validateSession()) return;
 
-    const typeGroup = XTypeGroup(label: 'All Files');
+    const typeGroup = XTypeGroup(label: '所有文件');
     final XFile? file = widget.selectFile != null
         ? await widget.selectFile!([typeGroup])
         : await openFile(acceptedTypeGroups: [typeGroup]);

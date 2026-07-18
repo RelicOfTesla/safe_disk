@@ -29,6 +29,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('传输中'), findsOneWidget);
 
+    controller.update(current: 1, currentFileName: '报告.txt');
+    await tester.pump();
+    expect(find.text('已处理：1 / 1'), findsOneWidget);
+    expect(find.text('当前：报告.txt'), findsOneWidget);
+
     await tester.tap(find.text('取消'));
     await tester.pump();
     expect(find.text('传输中'), findsOneWidget);
