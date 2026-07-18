@@ -99,6 +99,9 @@ extern "C" {
 
 extern char* sec_root_open(char* rootPath, char* password, char* configJSON);
 extern char* sec_root_close(int64_t rootID);
+extern char* sec_dir_cursor_open(int64_t rootID, char* path);
+extern char* sec_dir_cursor_read_page(int64_t cursorID, int limit);
+extern char* sec_dir_cursor_close(int64_t cursorID);
 extern char* sec_create_root_config(char* rootPath, char* password, char* optionsJSON);
 extern char* sec_file_open(int64_t rootID, char* path, int mode);
 extern char* sec_file_close(int64_t fileID);
