@@ -246,10 +246,12 @@ void main() {
 
     now = now.add(const Duration(seconds: 2));
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(cryptoService.closedRootIDs, [7]);
     expect(find.text('请输入密码以解锁：'), findsOneWidget);
+    expect(find.text('已自动锁定 1 个目录'), findsOneWidget);
   });
 
   testWidgets('idle TTL is reset by activity in the current root',
@@ -335,8 +337,11 @@ void main() {
 
     now = now.add(const Duration(seconds: 2));
     await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(cryptoService.closedRootIDs, isEmpty);
     expect(find.text('照片.png'), findsOneWidget);
+    expect(find.textContaining('未强制关闭'), findsOneWidget);
   });
 
   testWidgets('idle TTL keeps a root with a dirty secure notepad open',

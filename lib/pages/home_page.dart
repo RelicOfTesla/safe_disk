@@ -109,6 +109,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isAutoLocking = false;
   Timer? _idleTimer;
   String? _pendingAutoLockSummary;
+  String? _lastIdleAutoLockSummary;
   bool _drawerPinned = false;
   ViewMode _viewMode = ViewMode.list;
 
@@ -194,7 +195,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   void _touchCurrentRoot() {
     final sessionID = _currentDir?.tempKeyID;
-    if (sessionID != null) _idleTracker.touch(sessionID);
+    if (sessionID != null) {
+      _idleTracker.touch(sessionID);
+      _lastIdleAutoLockSummary = null;
+    }
   }
 
   @override
@@ -213,16 +217,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final summary = _pendingAutoLockSummary;
     if (summary == null || !mounted) return;
     _pendingAutoLockSummary = null;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ErrorHelper.showInfo(context, summary);
-    });
+    ErrorHelper.showInfo(context, summary);
   }
 
   Future<void> _lockExpiredRoots() async {
     final expired = _idleTracker.expiredSessionIDs();
-    if (expired.isNotEmpty) {
-      await _lockEligibleRoots(sessionIDs: expired);
+    if (expired.isEmpty) {
+      _lastIdleAutoLockSummary = null;
+      return;
     }
+    await _lockEligibleRoots(sessionIDs: expired);
+    final summary = _pendingAutoLockSummary;
+    if (summary == null || summary == _lastIdleAutoLockSummary) return;
+    _lastIdleAutoLockSummary = summary;
+    _showPendingAutoLockSummary();
   }
 
   Future<void> _lockEligibleRoots({
