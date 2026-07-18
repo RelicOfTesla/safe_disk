@@ -10,16 +10,18 @@ void main() {
     ErrorReportingService.configure(detailedErrorsEnabled: false);
   });
 
-  test('diagnostics redact secrets while retaining operation evidence', () {
+  test('diagnostics redact secrets and absolute paths', () {
     final details = ErrorDiagnostics.build(
       type: ErrorType.createEncryptedDirectoryFailed,
       operation: 'create-root-config',
-      originalError:
-          'password=hunter2 SAFE_DISK_PASSWORD=secret C:\\vault access denied',
+      originalError: 'password=hunter2 SAFE_DISK_PASSWORD=secret '
+          r'C:\vault /tmp/safe-disk/libffi_sec_fs.so access denied',
     );
 
     expect(details, contains('create-root-config'));
-    expect(details, contains(r'C:\vault'));
+    expect(details, contains('[路径已隐藏]'));
+    expect(details, isNot(contains(r'C:\vault')));
+    expect(details, isNot(contains('/tmp/safe-disk/libffi_sec_fs.so')));
     expect(details, isNot(contains('hunter2')));
     expect(details, isNot(contains('=secret')));
   });

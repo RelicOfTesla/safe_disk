@@ -46,6 +46,16 @@ class ErrorDiagnostics {
       RegExp(r'(SAFE_DISK_PASSWORD\s*=\s*)[^\s]+', caseSensitive: false),
       (match) => '${match.group(1)}[已隐藏]',
     );
+    // Diagnostics may contain loader paths outside the user's home directory.
+    // Do not expose either Unix or Windows absolute paths, even after opt-in.
+    result = result.replaceAllMapped(
+      RegExp(r'''(?<![A-Za-z0-9_])/(?:[^\s"'`,;:])+'''),
+      (_) => '[路径已隐藏]',
+    );
+    result = result.replaceAllMapped(
+      RegExp(r'''(?<![A-Za-z0-9_])[A-Za-z]:\\(?:[^\s"'`,;:])+'''),
+      (_) => '[路径已隐藏]',
+    );
     if (result.length > _maxDetailLength) {
       result = '${result.substring(0, _maxDetailLength)}\n[详细信息已截断]';
     }

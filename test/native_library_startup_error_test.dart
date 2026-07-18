@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   final loadError = NativeLibraryException(
     NativeLibraryFailureStage.load,
-    StateError('password=secret /home/example/libffi_sec_fs.so'),
+    StateError('password=secret /tmp/example/libffi_sec_fs.so'),
   );
 
   testWidgets('startup error hides raw diagnostics by default', (tester) async {
@@ -47,6 +47,7 @@ void main() {
     );
     expect(diagnostics.data, contains('password=[已隐藏]'));
     expect(diagnostics.data, isNot(contains('secret')));
+    expect(diagnostics.data, isNot(contains('/tmp/example/libffi_sec_fs.so')));
   });
 
   testWidgets('retry probes again before opening the home page',
