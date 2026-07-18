@@ -126,7 +126,14 @@
 |---|---:|---|---|
 | secure root walker 错误语义与资源上限 | 55% | backing entry 分批读取；已有加密名称、并发、关闭测试 | 不得静默吞掉名称解密/entry info 错误；待处理目录工作集需硬上限；补超宽、超深和损坏 backing entry 实测 |
 | Windows durability 与跨进程锁 | 60% | Windows lock 实现和交叉编译路径存在；文件 Sync 已实现 | 真实 Windows 上验证目录 metadata flush、LockFileEx 竞争、进程退出释放、rename/占用句柄故障 |
-| Flutter 正确密码打开后目录可见性 | 85% | 有错误/正确密码 widget 流程和真实 FFI 密码/import 测试 | 增加自动化桌面端整页 E2E：真实动态库、真实文件选择结果、侧边栏点击、目录列表渲染和重启重开 |
+| Flutter 正确密码打开后目录可见性 | 92% | 有错误/正确密码 widget 流程和真实 FFI 密码/import 测试；2026-07-18 Linux 实际侧边栏 `ff` + 用户提供密码 `123` 复现并修复：从未创建 `.transfer_v3/active` 的 root 原先返回 JSON `markers:null`，Dart 强制转 `List` 抛错并关闭刚创建的会话，因此目录不渲染。现 FFI 固定返回 `markers:[]`，Dart 对成功但结构非法响应给出 ABI 错误；真实 FFI、widget、Linux 桌面侧边栏解锁、`新建文件.txt` 列表渲染以及退出后重启重开均通过 | Windows/macOS 实测；将 Linux xdotool 流程固化为隔离 profile 的可重复桌面 E2E，避免依赖用户已有 root |
+
+### Flutter 正确密码打开后目录可见性（2026-07-18 修复清单）
+
+- [x] 新创建且从未发生 transfer 的 root 调用 `sec_transfer_v3_list_unfinished` 成功返回 `markers: []`，不再返回 `null`。
+- [x] Dart 将 FFI 成功响应中缺失或非数组 `markers` 识别为 ABI 响应损坏，避免 `Null is not a subtype of List<dynamic>` 这种无阶段错误；对已规范的空数组继续打开 root。
+- [x] 解锁流程真实 FFI 测试覆盖“无 marker 目录”的 root；已有 widget 覆盖此列表为空时进入已验证目录并渲染文件。
+- [x] Linux 桌面以 `ff`/用户提供密码 `123` 重做侧边栏解锁，确认 `新建文件.txt` 列表渲染；退出后重启并重开同一 root 仍通过。Windows/macOS 另行验收。
 | 本地并发符号链接替换防护 | 35% | 有词法 containment 和 import 符号链接拒绝 | 使用 dirfd/openat 或等价方案消除检查与打开间竞态；补攻击进程实测 |
 
 ## P1 核心基础设施

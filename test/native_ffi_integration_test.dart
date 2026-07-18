@@ -288,6 +288,9 @@ void main() {
       final rootID = native.secRootOpen(rootPath, 'marker-password', '');
       addTearDown(() => native.secRootClose(rootID));
 
+      expect(
+          await DirectoryService().listUnfinishedOperations(rootID), isEmpty);
+
       final markerDirectory = Directory('$rootPath/.transfer_v3/active');
       await markerDirectory.create(recursive: true);
       await File('${markerDirectory.path}/broken.json').writeAsString('{');

@@ -443,8 +443,20 @@ class NativeLib {
     final result = _ptrToString(resultPtr);
     final data = _parseJson(result);
     _checkResult(data, 'secTransferV3ListUnfinished');
-    final markers = data['data']['markers'] as List;
-    return markers.cast<Map<String, dynamic>>();
+    final responseData = data['data'];
+    if (responseData is! Map) {
+      throw StateError('secTransferV3ListUnfinished returned invalid data');
+    }
+    final markers = responseData['markers'];
+    if (markers is! List) {
+      throw StateError('secTransferV3ListUnfinished returned invalid markers');
+    }
+    return markers.map((marker) {
+      if (marker is! Map) {
+        throw StateError('secTransferV3ListUnfinished returned invalid marker');
+      }
+      return Map<String, dynamic>.from(marker);
+    }).toList(growable: false);
   }
 
   void secTransferV3CleanUnfinished(int rootID, String opID) {

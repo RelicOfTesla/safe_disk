@@ -51,6 +51,9 @@ func TransferV3ListUnfinished_FFI(rootID int64) string {
 	if err != nil {
 		return errorResponse(err)
 	}
+	if markers == nil {
+		markers = []sec_transfer.OperationMarker{}
+	}
 	return successResponse(map[string]interface{}{"markers": markers, "count": len(markers)})
 }
 

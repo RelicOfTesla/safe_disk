@@ -180,7 +180,7 @@ func validateListedMarker(marker sec_transfer.OperationMarker) error {
 func listMarkers(rootPath string) ([]sec_transfer.OperationMarker, error) {
 	entries, err := os.ReadDir(activeDir(rootPath))
 	if os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR) {
-		return nil, nil
+		return []sec_transfer.OperationMarker{}, nil
 	}
 	if err != nil {
 		return nil, err

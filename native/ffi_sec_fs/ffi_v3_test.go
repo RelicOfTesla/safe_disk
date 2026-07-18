@@ -69,6 +69,30 @@ func TestTransferV3UnfinishedUsesStableMissingSessionCode(t *testing.T) {
 	}
 }
 
+func TestTransferV3UnfinishedSerializesAnEmptyMarkerList(t *testing.T) {
+	rootPath := filepath.Join(t.TempDir(), "root")
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"None"}`))
+	rootResp := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Markers json.RawMessage `json:"markers"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(TransferV3ListUnfinished_FFI(rootID)), &response); err != nil {
+		t.Fatal(err)
+	}
+	if !response.Success {
+		t.Fatal("empty marker list unexpectedly failed")
+	}
+	if string(response.Data.Markers) != "[]" {
+		t.Fatalf("markers = %s, want []", response.Data.Markers)
+	}
+}
+
 func TestRenameFFIRenamesEncryptedEntriesWithoutReplacing(t *testing.T) {
 	rootPath := filepath.Join(t.TempDir(), "root")
 	assertSuccess(t, CreateRootConfig_FFI(
