@@ -30,9 +30,13 @@
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---:|---|
-| UI-39 | 应用隐藏时的安全自动锁定 | 安全/生命周期 | 76% | 设计见 [AUTO_LOCK_DESIGN.md](design/AUTO_LOCK_DESIGN.md)。设置开关已持久化；HomePage 监听 `hidden`/`paused`，对无内容窗口、无脏文档、无活动写入的 root 依次释放当前目录 cursor、关闭 native root、清除该 root 的应用内剪贴板/broker 并保留侧边栏历史。恢复可见后会提示锁定/跳过/失败摘要。widget 覆盖开关保存、默认关闭、单 root 锁定并重新验证、两个已解锁 root 逐一关闭且恢复后不泄露旧条目，以及内容窗口阻断锁定；broker/controller 覆盖脏记事本和活动写入的关闭判定。仍缺 Home 与子窗口协议的重解锁竞态、真实 FFI 与三平台 `hidden`/`paused` 验收；TTL 与子窗口草稿确认协议未实现。 |
+| UI-39 | 应用隐藏时的安全自动锁定 | 安全/生命周期 | 76% | 设计见 [AUTO_LOCK_DESIGN.md](design/AUTO_LOCK_DESIGN.md)。设置开关已持久化；HomePage 监听 `hidden`/`paused`，对无内容窗口、无脏文档、无活动写入的 root 依次释放当前目录 cursor、关闭 native root、清除该 root 的应用内剪贴板/broker 并保留侧边栏历史。恢复可见后会提示锁定/跳过/失败摘要。widget 覆盖开关保存、默认关闭、单 root 锁定并重新验证、两个已解锁 root 逐一关闭且恢复后不泄露旧条目，以及内容窗口阻断锁定；broker/controller 覆盖脏记事本和活动写入的关闭判定。仍缺 Home 与子窗口协议的重解锁竞态、真实 FFI 与三平台 `hidden`/`paused` 验收；子窗口草稿确认协议未实现。per-root TTL 见 UI-44。 |
 | UI-41 | Flutter UI 中文文案规范化 | UX/可访问性 | 85% | 已统一主工具栏、批量菜单、侧边栏、设置、图片浏览器、记事本、路径选择、导入与欢迎页的大部分用户文案：去除英文遗留与“所选文件”等不准确表述，短标签使用动作/对象名。密码页现为“请输入密码以解锁”“密码”，目录路径字段现为“目录路径”“输入目录路径或浏览选择”，主页解锁与路径选择 widget 回归通过。错误建议已改为用户可执行的步骤，不再引用不存在的按钮、内部配置名或 root 初始化术语；安全限制保留在说明和确认中。仍需低频状态页复查、读屏语义与三平台字号/截断验收。 |
 | UI-43 | 增量目录的筛选与排序边界 | UX/正确性 | 88% | 未完成 cursor 的 list/grid 现保持 walker 页顺序，不再对局部页排序；工具栏显示已加载项并禁用排序。筛选框提示“仅筛选已加载条目”，无匹配时不会宣称整个目录为空，且可继续加载下一页；EOF 后恢复既有排序。widget 覆盖 list/grid 页顺序、筛选范围/空态、继续加载和完成后排序菜单；真实 FFI 全量 Flutter 回归通过。仍缺 10 万条真实 root 的性能基线、筛选时自动滚动加载的桌面可用性与跨平台验收。 |
+| UI-44 | root 空闲 TTL 自动锁定 | 安全/生命周期 | 72% | `session_ttl` 已接入设置页和 HomePage。每个已解锁 root 有独立活动时钟；解锁、鼠标操作、导航和 F5/Ctrl+V/F2 文件快捷键会刷新当前 root，设置页返回后重载 TTL；到期时复用 root close coordinator，仅关闭无内容窗口、无脏文档和无活动写入的 root，并在关闭/会话结束时移除计时。tracker 覆盖独立截止和关闭值，Home widget 覆盖到期锁定，设置页覆盖持久化。仍缺活动刷新、阻断状态、设置改动后 live deadline 的 Home widget 回归，真实 FFI 与桌面 TTL 验收。 |
+| UI-45 | 图片浏览器滚轮缩放下限一致 | Bug/交互一致性 | 90% | 已将鼠标滚轮监听移到 `InteractiveViewer` 子层，使它优先于默认滚动处理并调用与工具栏相同的缩放函数。widget 覆盖重置后滚轮放大/缩小、低于 100% 和连续缩小到 10% 下限，以及按钮缩放、旋转和关闭清理。仍缺 Linux/Windows/macOS 真实鼠标和触控板手势验收。 |
+| UI-46 | Flutter UI 文案通俗化复查 | UX/可访问性 | 20% | 本轮已将图片动画状态改为“动画（N 帧）”、记事本操作改为常见的“查找/替换”，避免符号拼接和生硬连接词；受影响图片 widget 回归通过。仍需按对象逐页复查图片浏览器、文件操作、设置和安全记事本的低频提示，并进行读屏、字号与三平台截断验收。 |
+| UI-47 | 安全记事本撤销/重做交互重设计 | UX/编辑正确性 | 90% | 复核当前源码后确认不渲染“撤销:N / 重做:M”：采用标准撤销/重做图标、禁用态和 `Ctrl/Cmd+Z`、`Ctrl/Cmd+Shift+Z`，不暴露历史文本或内部计数。本轮 widget 已验证初始/编辑后/撤销后/重做后的可用状态和快捷键一致。仍缺 Linux/Windows/macOS 实机键盘、工具提示和读屏语义验收；若用户仍看到计数，应先核对实际运行 bundle 是否为当前构建。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
@@ -64,7 +68,7 @@
 | 图片浏览器 | 92% | JPEG/PNG/GIF/BMP/WebP 真实 codec 与渲染、GIF 动画识别、缩放旋转、键盘翻页、重试、64 MiB/100 MP 资源边界、异步竞态清零和只读子窗口 lease 均有自动化测试；真实 FFI 验证中文加密目录 WebP，Linux 已实测跨 engine PNG | 三平台真实窗口键盘/手势 E2E、超大图片内存压力与平台 codec 差异验收 |
 | Stream V3/增量编辑 | 15% | 有设计文档；Dart 活跃入口明确返回 unsupported | 确定格式、完整性和崩溃一致性模型，完成 sec/FFI/Dart/UI 实现及随机编辑实际测试 |
 | 大目录 UI 虚拟化 | 70% | Flutter list/grid 已使用 sliver 虚拟构建。当前目录的 native cursor、Dart binding/session 与 FileService 路径映射已接入 HomePage 的 list/grid；tree 的 root 与每个展开节点现在也使用独立 cursor。tree session 不累计普通文件，只保留当前页，并会越过纯文件页继续读取直到发现目录或 EOF；刷新/节点销毁会关闭 cursor，失败改为从头刷新。未完成目录会保持 walker 页顺序、禁用全目录排序，筛选明确限定为已加载条目且空态可继续加载。真实 name-encrypted root 两页 FFI、session 保留模式、tree 纯文件页和筛选/排序边界 widget 回归已通过。现有 `listCurrentDirectory(offset/limit)` 仍只是兼容回退的本地 `skip/take`。分页边界见 [DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 补 10 万 entry、取消/错误/导航/关闭 root 的真实跨层回归；评估筛选时自动加载的性能与可访问性 |
-| 自动锁定与密钥缓存超时 | 76% | 应用隐藏自动锁定已接入设置和 HomePage：合格 root 会关闭 native session、目录 cursor、应用内剪贴板和 broker 能力，历史保留；widget 覆盖默认关闭、单 root 和两个已解锁 root 逐一关闭、恢复后不泄露旧条目及内容窗口跳过。broker/controller 已覆盖脏文档和活动写入的关闭判定 | Home 与子窗口协议的重解锁竞态、真实 FFI 与三平台 `hidden`/`paused` 验收；实现子窗口草稿确认后锁定，以及 per-root TTL |
+| 自动锁定与密钥缓存超时 | 80% | 应用隐藏自动锁定已接入设置和 HomePage：合格 root 会关闭 native session、目录 cursor、应用内剪贴板和 broker 能力，历史保留；widget 覆盖默认关闭、单 root 和两个已解锁 root 逐一关闭、恢复后不泄露旧条目及内容窗口跳过。per-root TTL 已接入设置、独立活动时钟和同一关闭协调器，且有 tracker/Home/设置页定向测试。broker/controller 已覆盖脏文档和活动写入的关闭判定 | Home 与子窗口协议的重解锁竞态、TTL 活动/阻断/live 重载 widget 回归、真实 FFI 与三平台 `hidden`/`paused`/TTL 验收；实现子窗口草稿确认后锁定 |
 | KDF 成本动态校准 | 15% | 当前迭代/参数由配置与默认值决定 | 按设备目标耗时校准、参数上限、防 DoS 和跨设备测试 |
 | 文件排序/过滤/批量操作 | 92% | 当前目录筛选、目录优先排序、批量文件复制/剪切/粘贴/导出/删除已实现；批量冲突支持仅此项/全部应用，取消、失败和未处理项保留重试，并有结构化结果面板 | 超大目录分页排序、真实桌面大批次与跨 root 页面 E2E；全 root 搜索另立任务 |
 | 主界面右键菜单 | 98% | 应用内单项及批量文件复制/粘贴、剪切/移动、冲突询问、跨 root 重加密、图片新窗口和右键选择/批量导出/删除已有测试；跨 root 文件移动有真实 FFI 验证 | 跨 root 目录移动与系统剪贴板互通；三平台鼠标 E2E、键盘菜单键、焦点和读屏测试 |
@@ -89,6 +93,7 @@
 
 ## 本轮验证状态
 
+- 2026-07-18 Flutter 回归：`flutter analyze --no-pub` 零问题；主页完整 widget 回归 34 项通过；真实 FFI 动态库 `/tmp/safe_disk_ffi/libffi_sec_fs.so` 下完整 `flutter test --no-pub --timeout 180s` 共 179 项通过。本轮直接覆盖图片滚轮缩放 10%--1000% 边界、记事本撤销/重做状态、TTL 设置持久化、独立计时和到期锁定。
 - 2026-07-14 Flutter UI 回归：`flutter analyze --no-pub` 零问题；默认入口 Linux debug 构建通过；真实 FFI 动态库下完整 `flutter test --no-pub` 共 130 项通过，覆盖 root 三种关闭语义、记事本默认项、属性首击、批量粘贴冲突/取消/部分失败、五种图片 codec/资源边界/只读子窗口 lease、中文加密目录 WebP 实际渲染、错误详情开关/脱敏、Windows 字体主题、不存在与非空 root 路径语义，以及既有 CLI/Dart FFI 互通和多窗口协议回归。
 - 2026-07-14 Windows 静态/交叉验证：构建脚本 Windows DLL 规范名单测通过，`scripts/build.go` 和 sec_fs 测试二进制均通过 Windows amd64 交叉编译；当前 Linux 环境没有 Windows runner toolchain/Wine，因此这些证据不替代 Win10 bundle 与界面实测。
 - 2026-07-14 Linux X11 实测：同一进程成功创建独立主窗口与安全记事本、图片查看器子 Flutter engine；另以 `GDK_SYNCHRONIZE=1` 连续创建/关闭五个记事本原生窗口，进程正常退出且无 implicit view 移除、engine 销毁后 messenger 或 GLX BadAccess 错误。仍观察到一次 compositor shader 上下文警告，且该自动化路径不能替代用户标题栏关闭复验、Windows/macOS 与完整桌面 E2E。

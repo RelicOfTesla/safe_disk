@@ -170,6 +170,30 @@ void main() {
     expect(await service.getAutoCloseSession(), isTrue);
   });
 
+  testWidgets('session TTL participates in the settings save transaction',
+      (tester) async {
+    final service = SettingsService();
+    await tester.pumpWidget(
+      MaterialApp(home: SettingsPage(settingsService: service)),
+    );
+    await tester.pumpAndSettle();
+
+    final ttl = find.byKey(const Key('session-ttl'));
+    await tester.ensureVisible(ttl);
+    await tester.tap(
+        find.descendant(of: ttl, matching: find.byType(DropdownButton<int>)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('15 分钟').last);
+    await tester.pump();
+
+    expect(await service.getSessionTTL(), SettingsService.defaultSessionTTL);
+    final save = find.text('保存设置');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(await service.getSessionTTL(), 900);
+  });
+
   testWidgets('detailed error reporting participates in save transaction',
       (tester) async {
     final service = SettingsService();

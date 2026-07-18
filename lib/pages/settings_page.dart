@@ -24,6 +24,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _themeMode = SettingsService.defaultThemeMode;
   bool _confirmBeforeDelete = SettingsService.defaultConfirmBeforeDelete;
   bool _autoLockOnBackground = SettingsService.defaultAutoCloseSession;
+  int _sessionTTL = SettingsService.defaultSessionTTL;
   int _notepadAutoSaveSeconds = SettingsService.defaultNotepadAutoSaveSeconds;
   bool _notepadDefaultReadOnly = SettingsService.defaultNotepadReadOnly;
   bool _notepadDefaultMonitorClipboard =
@@ -39,6 +40,7 @@ class _SettingsPageState extends State<SettingsPage> {
         themeMode: _themeMode,
         confirmBeforeDelete: _confirmBeforeDelete,
         autoLockOnBackground: _autoLockOnBackground,
+        sessionTTL: _sessionTTL,
         notepadAutoSaveSeconds: _notepadAutoSaveSeconds,
         notepadDefaultReadOnly: _notepadDefaultReadOnly,
         notepadDefaultMonitorClipboard: _notepadDefaultMonitorClipboard,
@@ -58,6 +60,7 @@ class _SettingsPageState extends State<SettingsPage> {
         themeMode: await _settingsService.getThemeMode(),
         confirmBeforeDelete: await _settingsService.getConfirmBeforeDelete(),
         autoLockOnBackground: await _settingsService.getAutoCloseSession(),
+        sessionTTL: await _settingsService.getSessionTTL(),
         notepadAutoSaveSeconds:
             await _settingsService.getNotepadAutoSaveSeconds(),
         notepadDefaultReadOnly:
@@ -71,6 +74,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _themeMode = snapshot.themeMode;
         _confirmBeforeDelete = snapshot.confirmBeforeDelete;
         _autoLockOnBackground = snapshot.autoLockOnBackground;
+        _sessionTTL = snapshot.sessionTTL;
         _notepadAutoSaveSeconds = snapshot.notepadAutoSaveSeconds;
         _notepadDefaultReadOnly = snapshot.notepadDefaultReadOnly;
         _notepadDefaultMonitorClipboard =
@@ -93,6 +97,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await _settingsService.setThemeMode(_themeMode);
       await _settingsService.setConfirmBeforeDelete(_confirmBeforeDelete);
       await _settingsService.setAutoCloseSession(_autoLockOnBackground);
+      await _settingsService.setSessionTTL(_sessionTTL);
       await _settingsService.setNotepadAutoSaveSeconds(_notepadAutoSaveSeconds);
       await _settingsService.setNotepadDefaultReadOnly(
         _notepadDefaultReadOnly,
@@ -294,6 +299,27 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (value) => setState(() => _confirmBeforeDelete = value),
           ),
           const Divider(),
+          ListTile(
+            key: const Key('session-ttl'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('空闲后自动锁定'),
+            subtitle: const Text('当前目录空闲到期后锁定；有未保存内容或活动写入时不会强制关闭'),
+            trailing: DropdownButton<int>(
+              value: _sessionTTL,
+              items: SettingsService.sessionTTLOptions.values
+                  .map((seconds) => DropdownMenuItem(
+                        value: seconds,
+                        child: Text(
+                          _settingsService.getSessionTTLDisplayName(seconds),
+                        ),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) setState(() => _sessionTTL = value);
+              },
+            ),
+          ),
+          const Divider(),
           SwitchListTile(
             key: const Key('auto-lock-on-background'),
             contentPadding: EdgeInsets.zero,
@@ -414,6 +440,7 @@ class _SettingsSnapshot {
     required this.themeMode,
     required this.confirmBeforeDelete,
     required this.autoLockOnBackground,
+    required this.sessionTTL,
     required this.notepadAutoSaveSeconds,
     required this.notepadDefaultReadOnly,
     required this.notepadDefaultMonitorClipboard,
@@ -423,6 +450,7 @@ class _SettingsSnapshot {
   final String themeMode;
   final bool confirmBeforeDelete;
   final bool autoLockOnBackground;
+  final int sessionTTL;
   final int notepadAutoSaveSeconds;
   final bool notepadDefaultReadOnly;
   final bool notepadDefaultMonitorClipboard;
@@ -434,6 +462,7 @@ class _SettingsSnapshot {
       themeMode == other.themeMode &&
       confirmBeforeDelete == other.confirmBeforeDelete &&
       autoLockOnBackground == other.autoLockOnBackground &&
+      sessionTTL == other.sessionTTL &&
       notepadAutoSaveSeconds == other.notepadAutoSaveSeconds &&
       notepadDefaultReadOnly == other.notepadDefaultReadOnly &&
       notepadDefaultMonitorClipboard == other.notepadDefaultMonitorClipboard &&
@@ -444,6 +473,7 @@ class _SettingsSnapshot {
         themeMode,
         confirmBeforeDelete,
         autoLockOnBackground,
+        sessionTTL,
         notepadAutoSaveSeconds,
         notepadDefaultReadOnly,
         notepadDefaultMonitorClipboard,

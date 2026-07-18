@@ -45,6 +45,14 @@ void main() {
     final viewer = tester.widget<InteractiveViewer>(
       find.byKey(const Key('secure-image-interactive-viewer')),
     );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('secure-image-interactive-viewer')),
+        matching: find.byType(Listener),
+      ),
+      findsWidgets,
+      reason: '滚轮监听必须优先于 InteractiveViewer 的默认滚动处理注册',
+    );
     expect(viewer.transformationController!.value.getMaxScaleOnAxis(), 1);
 
     await tester.tap(find.byTooltip('放大（+）'));
@@ -127,7 +135,7 @@ void main() {
       );
       expect(tester.takeException(), isNull, reason: extension);
       if (extension == 'gif') {
-        expect(find.text('动画 · 2 帧'), findsOneWidget);
+        expect(find.text('动画（2 帧）'), findsOneWidget);
       }
 
       await tester.pumpWidget(const SizedBox.shrink());

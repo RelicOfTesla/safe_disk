@@ -220,6 +220,38 @@ void main() {
     expect(find.text('visible.txt'), findsOneWidget);
   });
 
+  testWidgets('idle TTL locks an eligible root without hiding the app',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    var now = DateTime(2026, 7, 18, 12);
+    final cryptoService = _FakeCryptoService(rootPath);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService:
+            _AutoLockSettingsService(enabled: false, ttlSeconds: 1),
+        idleCheckInterval: const Duration(milliseconds: 100),
+        idleNow: () => now,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    now = now.add(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(find.text('请输入密码以解锁：'), findsOneWidget);
+  });
+
   testWidgets('secondary click opens the file context menu', (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
     final cryptoService = _FakeCryptoService(rootPath);
@@ -1900,9 +1932,10 @@ class _FakeFileService extends FileService {
 }
 
 class _AutoLockSettingsService extends SettingsService {
-  _AutoLockSettingsService({required this.enabled});
+  _AutoLockSettingsService({required this.enabled, this.ttlSeconds = 0});
 
   final bool enabled;
+  final int ttlSeconds;
   int reads = 0;
 
   @override
@@ -1910,6 +1943,9 @@ class _AutoLockSettingsService extends SettingsService {
     reads++;
     return enabled;
   }
+
+  @override
+  Future<int> getSessionTTL() async => ttlSeconds;
 }
 
 class _FakeDirectoryService extends DirectoryService {

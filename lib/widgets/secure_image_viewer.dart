@@ -341,7 +341,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
                 padding: const EdgeInsets.only(right: 4),
                 child: Chip(
                   avatar: const Icon(Icons.animation, size: 16),
-                  label: Text('动画 · ${_metadata!.frameCount} 帧'),
+                  label: Text('动画（${_metadata!.frameCount} 帧）'),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -443,16 +443,18 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
     }
 
     return SizedBox.expand(
-      child: Listener(
-        onPointerSignal: _handleMouseWheel,
-        child: InteractiveViewer(
-          key: const Key('secure-image-interactive-viewer'),
-          transformationController: _transformController,
+      child: InteractiveViewer(
+        key: const Key('secure-image-interactive-viewer'),
+        transformationController: _transformController,
         // Keep a sufficiently large canvas so pointer gestures can reach the
         // same 10%-1000% range as the toolbar controls.
-          boundaryMargin: const EdgeInsets.all(10000),
-          minScale: 0.1,
-          maxScale: 10.0,
+        boundaryMargin: const EdgeInsets.all(10000),
+        minScale: 0.1,
+        maxScale: 10.0,
+        // As a child, this listener registers before InteractiveViewer's own
+        // pointer-signal handler, so mouse wheels use the toolbar zoom path.
+        child: Listener(
+          onPointerSignal: _handleMouseWheel,
           child: GestureDetector(
             onDoubleTap: _resetView,
             onHorizontalDragEnd: (details) {

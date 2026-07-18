@@ -357,7 +357,7 @@ class _SecureNotepadState extends State<SecureNotepad>
               IconButton(
                 icon: Icon(_showFindReplace ? Icons.search_off : Icons.search),
                 onPressed: _showFindReplace ? _hideFind : _showFind,
-                tooltip: _showFindReplace ? '关闭查找' : '查找和替换',
+                tooltip: _showFindReplace ? '关闭查找' : '查找/替换',
               ),
               IconButton(
                 icon: Icon(

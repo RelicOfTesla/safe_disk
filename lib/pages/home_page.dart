@@ -19,6 +19,7 @@ import '../services/secure_clipboard_service.dart';
 import '../services/secure_entry_move_service.dart';
 import '../services/document_session_broker.dart';
 import '../services/root_close_coordinator.dart';
+import '../services/root_idle_tracker.dart';
 import '../services/content_window_host_bridge.dart';
 import '../utils/error_messages.dart';
 import '../utils/error_diagnostics.dart';
@@ -57,6 +58,8 @@ class HomePage extends StatefulWidget {
     this.contentWindowPlatform,
     this.exportTargetExists,
     this.deleteRootDirectory,
+    this.idleCheckInterval,
+    this.idleNow,
   });
 
   final CryptoService? cryptoService;
@@ -73,6 +76,8 @@ class HomePage extends StatefulWidget {
   final ContentWindowPlatform? contentWindowPlatform;
   final Future<bool> Function(String path)? exportTargetExists;
   final Future<void> Function(String path)? deleteRootDirectory;
+  final Duration? idleCheckInterval;
+  final DateTime Function()? idleNow;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -89,6 +94,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late final SecureEntryMoveService _secureEntryMover;
   late final DocumentSessionBroker _documentBroker;
   late final RootCloseCoordinator _rootCloseCoordinator;
+  late final RootIdleTracker _idleTracker;
   late final ContentWindowHostBridge _contentWindowBridge;
 
   final List<EncryptedDirectory> _openedDirs = [];
@@ -101,6 +107,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isLoading = false;
   bool _autoLockOnBackground = SettingsService.defaultAutoCloseSession;
   bool _isAutoLocking = false;
+  Timer? _idleTimer;
   String? _pendingAutoLockSummary;
   bool _drawerPinned = false;
   ViewMode _viewMode = ViewMode.list;
@@ -125,6 +132,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _secureEntryMover = SecureEntryMoveService(_cryptoService);
     _documentBroker = DocumentSessionBroker(cryptoService: _cryptoService);
     _rootCloseCoordinator = RootCloseCoordinator(_documentBroker);
+    _idleTracker = RootIdleTracker(
+      timeout: const Duration(seconds: SettingsService.defaultSessionTTL),
+      now: widget.idleNow,
+    );
     _contentWindowBridge = ContentWindowHostBridge(
       broker: _documentBroker,
       platform: widget.contentWindowPlatform,
@@ -133,12 +144,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _loadPersistedDirectories();
     _loadDrawerPinnedState();
     _loadAutoLockPreference();
+    _loadSessionTTL();
     _checkFirstTimeUser();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _idleTimer?.cancel();
+    _idleTracker.clear();
     unawaited(_pageSession?.dispose() ?? Future.value());
     _shortcutFocusNode.dispose();
     _contentWindowBridge.dispose();
@@ -158,11 +172,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted) setState(() => _autoLockOnBackground = enabled);
   }
 
+  Future<void> _loadSessionTTL() async {
+    final seconds = await _settingsService.getSessionTTL();
+    if (!mounted) return;
+    _idleTracker.updateTimeout(Duration(seconds: seconds));
+    _idleTimer?.cancel();
+    if (_idleTracker.isEnabled) {
+      _idleTimer = Timer.periodic(
+        widget.idleCheckInterval ?? const Duration(seconds: 1),
+        (_) => unawaited(_lockExpiredRoots()),
+      );
+    }
+  }
+
+  void _touchCurrentRoot() {
+    final sessionID = _currentDir?.tempKeyID;
+    if (sessionID != null) _idleTracker.touch(sessionID);
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused) {
-      unawaited(_lockEligibleRootsForBackground());
+      unawaited(_lockEligibleRoots(requireBackgroundPreference: true));
       return;
     }
     if (state == AppLifecycleState.resumed) {
@@ -179,8 +211,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _lockEligibleRootsForBackground() async {
-    if (!_autoLockOnBackground || _isAutoLocking) return;
+  Future<void> _lockExpiredRoots() async {
+    final expired = _idleTracker.expiredSessionIDs();
+    if (expired.isNotEmpty) {
+      await _lockEligibleRoots(sessionIDs: expired);
+    }
+  }
+
+  Future<void> _lockEligibleRoots({
+    Set<String>? sessionIDs,
+    bool requireBackgroundPreference = false,
+  }) async {
+    if ((requireBackgroundPreference && !_autoLockOnBackground) ||
+        _isAutoLocking) {
+      return;
+    }
     _isAutoLocking = true;
     var lockedCount = 0;
     var skippedCount = 0;
@@ -189,6 +234,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       for (final directory in List<EncryptedDirectory>.from(_openedDirs)) {
         final sessionID = directory.tempKeyID;
         if (sessionID == null) continue;
+        if (sessionIDs != null && !sessionIDs.contains(sessionID)) continue;
         final decision = _rootCloseCoordinator.inspect(sessionID);
         if (decision.disposition != RootCloseDisposition.closeImmediately) {
           skippedCount++;
@@ -204,6 +250,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           }
           _secureClipboard.removeSession(sessionID);
           _rootCloseCoordinator.releaseRoot(sessionID);
+          _idleTracker.remove(sessionID);
           if (mounted) {
             _replaceWithLockedDirectory(
               directory,
@@ -624,6 +671,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!mounted) return false;
 
     if (loaded) {
+      _idleTracker.touch(rootID.toString());
       ErrorHelper.showSuccess(context, '密码验证成功');
     }
     return true;
@@ -868,6 +916,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     if (sessionID != null) _secureClipboard.removeSession(sessionID);
     if (sessionID != null) _rootCloseCoordinator.releaseRoot(sessionID);
+    if (sessionID != null) _idleTracker.remove(sessionID);
 
     final lockedDirectory = EncryptedDirectory(
       path: dir.path,
@@ -939,6 +988,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // ── Navigation ────────────────────────────────────────────────────
 
   void _navigateToDirectory(String path) {
+    _touchCurrentRoot();
     setState(() => _currentPath = path);
     _loadCurrentPath();
   }
@@ -2167,7 +2217,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
       ),
     );
-    if (mounted) await _loadAutoLockPreference();
+    if (!mounted) return;
+    await _loadAutoLockPreference();
+    await _loadSessionTTL();
   }
 
   // ── Build ─────────────────────────────────────────────────────────
@@ -2177,10 +2229,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.f5): () {
+          _touchCurrentRoot();
           unawaited(_loadCurrentPath());
         },
         const SingleActivator(LogicalKeyboardKey.keyV, control: true): () {
-          if (_secureClipboard.hasEntry) unawaited(_pasteClipboard());
+          if (_secureClipboard.hasEntry) {
+            _touchCurrentRoot();
+            unawaited(_pasteClipboard());
+          }
         },
         const SingleActivator(LogicalKeyboardKey.f2): () {
           final target = _selectedFiles.length == 1
@@ -2188,102 +2244,107 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               : _keyboardTarget;
           if (target != null &&
               _items.any((item) => item.path == target.path)) {
+            _touchCurrentRoot();
             unawaited(_renameItem(target));
           }
         },
       },
-      child: Focus(
-        focusNode: _shortcutFocusNode,
-        autofocus: true,
-        child: HomeShell(
-          scaffoldKey: _scaffoldKey,
-          openedDirectories: _openedDirs,
-          currentDirectory: _currentDir,
-          currentPath: _currentPath,
-          items: _items,
-          drawerPinned: _drawerPinned,
-          viewMode: _viewMode,
-          selectMode: _isSelectMode,
-          selectedFiles: _selectedFiles,
-          fileService: _fileService,
-          loading: _isLoading,
-          canPaste: _secureClipboard.hasEntry,
-          clipboardEntry: _secureClipboard.entry,
-          clipboardEntryCount: _secureClipboard.entryCount,
-          hasMore: _pageSession != null &&
-              !_pageSession!.done &&
-              !_pageSession!.hasError,
-          isLoadingMore: _isLoadingMore,
-          loadMoreError: _pageSession?.error,
-          onLoadMore: _loadMoreCurrentPath,
-          onRetryLoadMore: _loadCurrentPath,
-          onOpenDirectory: _openOrCreateEncryptedDirectory,
-          onCloseDirectory: _closeDirectory,
-          onSwitchDirectory: _switchToDirectory,
-          onRenameDirectory: _renameDirectoryAlias,
-          onShowRootProperties: (directory) {
-            unawaited(showRootDirectoryProperties(
-              context: context,
-              directory: directory,
-            ));
-          },
-          onChangeRootPassword: (directory) {
-            unawaited(showUnsupportedRootPasswordChange(
-              context: context,
-              directory: directory,
-            ));
-          },
-          onToggleDrawerPin: (pinned) async {
-            setState(() => _drawerPinned = pinned);
-            await _persistenceService.saveDrawerPinned(pinned);
-          },
-          onUnlock: _verifyPassword,
-          onImportFile: _importFile,
-          onImportDirectory: _importDirectory,
-          onPaste: () => _pasteClipboard(),
-          onClearClipboard: () {
-            _secureClipboard.clear();
-            setState(() {});
-          },
-          onOpenSettings: _openSettings,
-          onViewModeChanged: (mode) => setState(() => _viewMode = mode),
-          onCancelSelection: () {
-            setState(() {
-              _isSelectMode = false;
-              _selectedFiles.clear();
-            });
-          },
-          onSelectAll: () {
-            setState(() {
-              _selectedFiles.addAll(_items.where((item) => !item.isDirectory));
-            });
-          },
-          onBatchCopy: () => _copySelected(move: false),
-          onBatchCut: () => _copySelected(move: true),
-          onBatchExport: _batchExport,
-          onBatchDelete: _batchDelete,
-          onNavigateToDirectory: _navigateToDirectory,
-          onNavigateUp: _navigateUp,
-          onOpenItem: _openItem,
-          onShowItemOptions: _showFileOptions,
-          onShowItemContextMenu: _showFileContextMenu,
-          onShowBackgroundContextMenu: _showBackgroundContextMenu,
-          onCloseCurrentRoot: () {
-            final directory = _currentDir;
-            if (directory != null) _closeDirectory(directory);
-          },
-          onToggleSelectMode: (selectMode) {
-            setState(() => _isSelectMode = selectMode);
-          },
-          onSelectionToggle: (item, selected) {
-            setState(() {
-              if (selected) {
-                _selectedFiles.add(item);
-              } else {
-                _selectedFiles.remove(item);
-              }
-            });
-          },
+      child: Listener(
+        onPointerDown: (_) => _touchCurrentRoot(),
+        child: Focus(
+          focusNode: _shortcutFocusNode,
+          autofocus: true,
+          child: HomeShell(
+            scaffoldKey: _scaffoldKey,
+            openedDirectories: _openedDirs,
+            currentDirectory: _currentDir,
+            currentPath: _currentPath,
+            items: _items,
+            drawerPinned: _drawerPinned,
+            viewMode: _viewMode,
+            selectMode: _isSelectMode,
+            selectedFiles: _selectedFiles,
+            fileService: _fileService,
+            loading: _isLoading,
+            canPaste: _secureClipboard.hasEntry,
+            clipboardEntry: _secureClipboard.entry,
+            clipboardEntryCount: _secureClipboard.entryCount,
+            hasMore: _pageSession != null &&
+                !_pageSession!.done &&
+                !_pageSession!.hasError,
+            isLoadingMore: _isLoadingMore,
+            loadMoreError: _pageSession?.error,
+            onLoadMore: _loadMoreCurrentPath,
+            onRetryLoadMore: _loadCurrentPath,
+            onOpenDirectory: _openOrCreateEncryptedDirectory,
+            onCloseDirectory: _closeDirectory,
+            onSwitchDirectory: _switchToDirectory,
+            onRenameDirectory: _renameDirectoryAlias,
+            onShowRootProperties: (directory) {
+              unawaited(showRootDirectoryProperties(
+                context: context,
+                directory: directory,
+              ));
+            },
+            onChangeRootPassword: (directory) {
+              unawaited(showUnsupportedRootPasswordChange(
+                context: context,
+                directory: directory,
+              ));
+            },
+            onToggleDrawerPin: (pinned) async {
+              setState(() => _drawerPinned = pinned);
+              await _persistenceService.saveDrawerPinned(pinned);
+            },
+            onUnlock: _verifyPassword,
+            onImportFile: _importFile,
+            onImportDirectory: _importDirectory,
+            onPaste: () => _pasteClipboard(),
+            onClearClipboard: () {
+              _secureClipboard.clear();
+              setState(() {});
+            },
+            onOpenSettings: _openSettings,
+            onViewModeChanged: (mode) => setState(() => _viewMode = mode),
+            onCancelSelection: () {
+              setState(() {
+                _isSelectMode = false;
+                _selectedFiles.clear();
+              });
+            },
+            onSelectAll: () {
+              setState(() {
+                _selectedFiles
+                    .addAll(_items.where((item) => !item.isDirectory));
+              });
+            },
+            onBatchCopy: () => _copySelected(move: false),
+            onBatchCut: () => _copySelected(move: true),
+            onBatchExport: _batchExport,
+            onBatchDelete: _batchDelete,
+            onNavigateToDirectory: _navigateToDirectory,
+            onNavigateUp: _navigateUp,
+            onOpenItem: _openItem,
+            onShowItemOptions: _showFileOptions,
+            onShowItemContextMenu: _showFileContextMenu,
+            onShowBackgroundContextMenu: _showBackgroundContextMenu,
+            onCloseCurrentRoot: () {
+              final directory = _currentDir;
+              if (directory != null) _closeDirectory(directory);
+            },
+            onToggleSelectMode: (selectMode) {
+              setState(() => _isSelectMode = selectMode);
+            },
+            onSelectionToggle: (item, selected) {
+              setState(() {
+                if (selected) {
+                  _selectedFiles.add(item);
+                } else {
+                  _selectedFiles.remove(item);
+                }
+              });
+            },
+          ),
         ),
       ),
     );
