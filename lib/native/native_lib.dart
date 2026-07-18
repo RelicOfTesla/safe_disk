@@ -8,6 +8,13 @@ import 'package:ffi/ffi.dart';
 
 import 'bindings.dart';
 
+class DirectoryCursorPage {
+  const DirectoryCursorPage({required this.entries, required this.done});
+
+  final List<Map<String, dynamic>> entries;
+  final bool done;
+}
+
 class NativeOperationException implements Exception {
   const NativeOperationException(this.operation, this.message, {this.code});
 
@@ -367,6 +374,36 @@ class NativeLib {
     } finally {
       calloc.free(pathPtr);
     }
+  }
+
+  int secOpenDirCursor(int rootID, String path) {
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final data =
+          _parseJson(_ptrToString(_bindings.secDirCursorOpen(rootID, pathPtr)));
+      _checkResult(data, 'secOpenDirCursor');
+      return data['data']['cursor_id'] as int;
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  DirectoryCursorPage secReadDirCursorPage(int cursorID, int limit) {
+    final data = _parseJson(
+        _ptrToString(_bindings.secDirCursorReadPage(cursorID, limit)));
+    _checkResult(data, 'secReadDirCursorPage');
+    final page = data['data'] as Map<String, dynamic>;
+    return DirectoryCursorPage(
+      entries:
+          (page['entries'] as List? ?? const []).cast<Map<String, dynamic>>(),
+      done: page['done'] as bool,
+    );
+  }
+
+  void secCloseDirCursor(int cursorID) {
+    final data =
+        _parseJson(_ptrToString(_bindings.secDirCursorClose(cursorID)));
+    _checkResult(data, 'secCloseDirCursor');
   }
 
   // ==================== Quick Operations ====================

@@ -111,6 +111,17 @@ typedef SecMkdirAllDart = Pointer<Utf8> Function(
 typedef SecReadDirC = Pointer<Utf8> Function(Int64 rootID, Pointer<Utf8> path);
 typedef SecReadDirDart = Pointer<Utf8> Function(int rootID, Pointer<Utf8> path);
 
+typedef SecDirCursorOpenC = Pointer<Utf8> Function(
+    Int64 rootID, Pointer<Utf8> path);
+typedef SecDirCursorOpenDart = Pointer<Utf8> Function(
+    int rootID, Pointer<Utf8> path);
+typedef SecDirCursorReadPageC = Pointer<Utf8> Function(
+    Int64 cursorID, Int32 limit);
+typedef SecDirCursorReadPageDart = Pointer<Utf8> Function(
+    int cursorID, int limit);
+typedef SecDirCursorCloseC = Pointer<Utf8> Function(Int64 cursorID);
+typedef SecDirCursorCloseDart = Pointer<Utf8> Function(int cursorID);
+
 // sec_quick_read_file: (rootID, path) -> JSON string
 typedef SecQuickReadFileC = Pointer<Utf8> Function(
     Int64 rootID, Pointer<Utf8> path);
@@ -242,6 +253,9 @@ class NativeBindings {
   late final SecFileExistsDart secFileExists;
   late final SecMkdirAllDart secMkdirAll;
   late final SecReadDirDart secReadDir;
+  late final SecDirCursorOpenDart secDirCursorOpen;
+  late final SecDirCursorReadPageDart secDirCursorReadPage;
+  late final SecDirCursorCloseDart secDirCursorClose;
   late final SecQuickReadFileDart secQuickReadFile;
   late final SecQuickWriteFileDart secQuickWriteFile;
   late final SecFreeStringDart secFreeString;
@@ -350,6 +364,15 @@ class NativeBindings {
         _lib!.lookupFunction<SecMkdirAllC, SecMkdirAllDart>('sec_mkdir_all');
     secReadDir =
         _lib!.lookupFunction<SecReadDirC, SecReadDirDart>('sec_read_dir');
+    secDirCursorOpen = _lib!
+        .lookupFunction<SecDirCursorOpenC, SecDirCursorOpenDart>(
+            'sec_dir_cursor_open');
+    secDirCursorReadPage = _lib!
+        .lookupFunction<SecDirCursorReadPageC, SecDirCursorReadPageDart>(
+            'sec_dir_cursor_read_page');
+    secDirCursorClose = _lib!
+        .lookupFunction<SecDirCursorCloseC, SecDirCursorCloseDart>(
+            'sec_dir_cursor_close');
     secQuickReadFile = _lib!
         .lookupFunction<SecQuickReadFileC, SecQuickReadFileDart>(
             'sec_quick_read_file');
