@@ -552,18 +552,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   List<FileSystemNode> _nodesForSession(DirectoryPageSession session) {
-    return session.entries.map((entry) {
-      final relative = session.relativePath.isEmpty
-          ? entry.name
-          : '${session.relativePath}/${entry.name}';
-      return FileSystemNode(
-          name: entry.name,
-          path: _cryptoService.absolutePathForRoot(session.rootID, relative),
-          isDirectory: entry.isDir,
-          modifiedTime:
-              DateTime.fromMillisecondsSinceEpoch(entry.modTime * 1000),
-          size: entry.size);
-    }).toList();
+    return _fileService.nodesForDirectoryPage(session, session.entries);
   }
 
   Future<void> _loadMoreCurrentPath() async {

@@ -160,14 +160,36 @@ class FileService {
     return _cryptoService.listDir(rootID, path);
   }
 
-  DirectoryPageSession? openCurrentDirectorySession(String path) {
+  DirectoryPageSession? openCurrentDirectorySession(
+    String path, {
+    bool retainEntries = true,
+  }) {
     final rootID = _cryptoService.rootIDForPath(path);
     if (rootID == null) return null;
     return DirectoryPageSession(
       gateway: _CryptoDirectoryCursorGateway(_cryptoService),
       rootID: rootID,
       relativePath: _cryptoService.relativePathForRoot(rootID, path),
+      retainEntries: retainEntries,
     );
+  }
+
+  List<FileSystemNode> nodesForDirectoryPage(
+    DirectoryPageSession session,
+    Iterable<DirEntry> entries,
+  ) {
+    return entries.map((entry) {
+      final relative = session.relativePath.isEmpty
+          ? entry.name
+          : '${session.relativePath}/${entry.name}';
+      return FileSystemNode(
+        name: entry.name,
+        path: _cryptoService.absolutePathForRoot(session.rootID, relative),
+        isDirectory: entry.isDir,
+        modifiedTime: DateTime.fromMillisecondsSinceEpoch(entry.modTime * 1000),
+        size: entry.size,
+      );
+    }).toList();
   }
 
   /// Lists a directory using the absolute virtual path used by the UI.

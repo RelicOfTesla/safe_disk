@@ -926,8 +926,8 @@ void main() {
         native.secQuickWriteFile(rootID, name, utf8.encode(name));
       }
 
-      final session = FileService(cryptoService: crypto)
-          .openCurrentDirectorySession(rootPath)!;
+      final fileService = FileService(cryptoService: crypto);
+      final session = fileService.openCurrentDirectorySession(rootPath)!;
       await session.loadNext(limit: 2);
       expect(session.entries, hasLength(2));
       expect(session.done, isFalse);
@@ -935,6 +935,25 @@ void main() {
       expect(session.entries.map((entry) => entry.name), hasLength(3));
       expect(session.done, isTrue);
       await session.dispose();
+
+      final treeSession = fileService.openCurrentDirectorySession(
+        rootPath,
+        retainEntries: false,
+      )!;
+      await treeSession.loadNext(limit: 2);
+      expect(treeSession.entries, isEmpty);
+      expect(treeSession.latestPageEntries, hasLength(2));
+      expect(
+        fileService
+            .nodesForDirectoryPage(treeSession, treeSession.latestPageEntries)
+            .map((entry) => entry.name),
+        hasLength(2),
+      );
+      await treeSession.loadNext(limit: 2);
+      expect(treeSession.entries, isEmpty);
+      expect(treeSession.latestPageEntries, hasLength(1));
+      expect(treeSession.done, isTrue);
+      await treeSession.dispose();
     });
   });
 }

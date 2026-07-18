@@ -35,6 +35,28 @@ void main() {
     expect(gateway.opens, 1);
     expect(gateway.closes, [9]);
   });
+
+  test('tree mode keeps only the latest visible page', () async {
+    final gateway = _Gateway([
+      DirectoryCursorPageData(
+          entries: [_entry('a'), _entry(_draft)], done: false),
+      DirectoryCursorPageData(entries: [_entry('b')], done: true),
+    ]);
+    final session = DirectoryPageSession(
+      gateway: gateway,
+      rootID: 7,
+      relativePath: '',
+      retainEntries: false,
+    );
+
+    await session.loadNext();
+    expect(session.entries, isEmpty);
+    expect(session.latestPageEntries.map((entry) => entry.name), ['a']);
+
+    await session.loadNext();
+    expect(session.entries, isEmpty);
+    expect(session.latestPageEntries.map((entry) => entry.name), ['b']);
+  });
 }
 
 const _draft = '${SecureNotepadDraftStore.internalNamePrefix}draft';

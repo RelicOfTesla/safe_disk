@@ -1,16 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../services/directory_page_session.dart';
 import '../services/file_service.dart';
 
-/// Default page size for directory listing
+/// Default number of secure entries read for each tree cursor request.
 const int kDefaultPageSize = 100;
 
 class DirectoryTreeWidget extends StatefulWidget {
-  final String rootPath;
-  final String? currentPath;
-  final FileService fileService;
-  final void Function(String path) onPathSelected;
-  final int pageSize;
-
   const DirectoryTreeWidget({
     super.key,
     required this.rootPath,
@@ -20,72 +18,85 @@ class DirectoryTreeWidget extends StatefulWidget {
     this.pageSize = kDefaultPageSize,
   });
 
+  final String rootPath;
+  final String? currentPath;
+  final FileService fileService;
+  final void Function(String path) onPathSelected;
+  final int pageSize;
+
   @override
   State<DirectoryTreeWidget> createState() => _DirectoryTreeWidgetState();
 }
 
 class _DirectoryTreeWidgetState extends State<DirectoryTreeWidget> {
-  List<FileSystemNode> _rootItems = [];
+  late _TreeDirectoryPager _pager;
   bool _isLoading = false;
-  bool _hasMore = false;
-  int _currentOffset = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadRootItems();
+    _pager = _createPager();
+    unawaited(_loadNext());
   }
 
-  Future<void> _loadRootItems({bool loadMore = false}) async {
-    if (_isLoading) return;
+  @override
+  void didUpdateWidget(covariant DirectoryTreeWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.rootPath == widget.rootPath &&
+        oldWidget.fileService == widget.fileService &&
+        oldWidget.pageSize == widget.pageSize) {
+      return;
+    }
+    final previous = _pager;
+    _pager = _createPager();
+    unawaited(previous.dispose());
+    unawaited(_loadNext());
+  }
 
+  @override
+  void dispose() {
+    unawaited(_pager.dispose());
+    super.dispose();
+  }
+
+  _TreeDirectoryPager _createPager() => _TreeDirectoryPager(
+        fileService: widget.fileService,
+        path: widget.rootPath,
+        pageSize: widget.pageSize,
+      );
+
+  Future<void> _loadNext({bool refresh = false}) async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
-      final offset = loadMore ? _currentOffset + widget.pageSize : 0;
-      final items = await widget.fileService.listCurrentDirectory(
-        widget.rootPath,
-        offset: offset,
-        limit: widget.pageSize,
-      );
-      final directories = items.where((item) => item.isDirectory).toList();
-
-      // Check if there are more items to load
-      // We can't know for sure without counting, so we check if we got a full page
-      final hasMore = items.length >= widget.pageSize;
-
-      setState(() {
-        if (loadMore) {
-          _rootItems.addAll(directories);
-          _currentOffset = offset;
-        } else {
-          _rootItems = directories;
-          _currentOffset = 0;
-        }
-        _hasMore = hasMore;
-      });
+      if (refresh) await _pager.reset();
+      await _pager.loadNext();
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  Future<void> _refresh() async {
-    await _loadRootItems(loadMore: false);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading && _rootItems.isEmpty) {
+    if (_isLoading && _pager.directories.isEmpty) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (_pager.error != null && _pager.directories.isEmpty) {
+      return _TreeRetry(
+        message: '无法读取目录树',
+        onRetry: () => _loadNext(refresh: true),
+      );
     }
 
     return RefreshIndicator(
-      onRefresh: _refresh,
+      onRefresh: () => _loadNext(refresh: true),
       child: ListView.builder(
-        itemCount: _rootItems.length + (_hasMore ? 1 : 0),
+        itemCount: _pager.directories.length + _tailItemCount,
         itemBuilder: (context, index) {
-          if (index < _rootItems.length) {
-            final item = _rootItems[index];
+          if (index < _pager.directories.length) {
+            final item = _pager.directories[index];
             return _DirectoryTreeItem(
+              key: ValueKey(item.path),
               item: item,
               depth: 0,
               currentPath: widget.currentPath,
@@ -93,20 +104,36 @@ class _DirectoryTreeWidgetState extends State<DirectoryTreeWidget> {
               onPathSelected: widget.onPathSelected,
               pageSize: widget.pageSize,
             );
-          } else {
-            // "Load more" button
-            return _LoadMoreButton(
-              isLoading: _isLoading,
-              onPressed: () => _loadRootItems(loadMore: true),
+          }
+          if (_pager.error != null) {
+            return _TreeRetry(
+              message: '继续读取失败',
+              onRetry: () => _loadNext(refresh: true),
             );
           }
+          return _LoadMoreButton(
+            isLoading: _isLoading,
+            onPressed: _loadNext,
+          );
         },
       ),
     );
   }
+
+  int get _tailItemCount => _pager.hasMore || _pager.error != null ? 1 : 0;
 }
 
 class _DirectoryTreeItem extends StatefulWidget {
+  const _DirectoryTreeItem({
+    super.key,
+    required this.item,
+    required this.depth,
+    this.currentPath,
+    required this.fileService,
+    required this.onPathSelected,
+    required this.pageSize,
+  });
+
   final FileSystemNode item;
   final int depth;
   final String? currentPath;
@@ -114,73 +141,67 @@ class _DirectoryTreeItem extends StatefulWidget {
   final void Function(String path) onPathSelected;
   final int pageSize;
 
-  const _DirectoryTreeItem({
-    required this.item,
-    required this.depth,
-    this.currentPath,
-    required this.fileService,
-    required this.onPathSelected,
-    this.pageSize = kDefaultPageSize,
-  });
-
   @override
   State<_DirectoryTreeItem> createState() => _DirectoryTreeItemState();
 }
 
 class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
-  List<FileSystemNode> _children = [];
+  _TreeDirectoryPager? _pager;
   bool _isExpanded = false;
   bool _isLoading = false;
-  bool _hasLoadedChildren = false;
-  bool _hasMore = false;
-  int _currentOffset = 0;
 
-  Future<void> _loadChildren({bool loadMore = false}) async {
-    if (!widget.item.isDirectory) return;
+  @override
+  void didUpdateWidget(covariant _DirectoryTreeItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.path == widget.item.path &&
+        oldWidget.fileService == widget.fileService &&
+        oldWidget.pageSize == widget.pageSize) {
+      return;
+    }
+    final previous = _pager;
+    _pager = null;
+    _isExpanded = false;
+    if (previous != null) unawaited(previous.dispose());
+  }
 
-    if (_isLoading) return;
+  @override
+  void dispose() {
+    unawaited(_pager?.dispose() ?? Future<void>.value());
+    super.dispose();
+  }
 
-    if (_hasLoadedChildren && !loadMore) {
+  Future<void> _toggleOrLoad() async {
+    final pager = _pager;
+    if (pager != null && pager.isLoaded) {
       setState(() => _isExpanded = !_isExpanded);
       return;
     }
+    await _loadNext();
+  }
 
+  Future<void> _loadNext({bool refresh = false}) async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
+    final pager = _pager ??= _TreeDirectoryPager(
+      fileService: widget.fileService,
+      path: widget.item.path,
+      pageSize: widget.pageSize,
+    );
     try {
-      final offset = loadMore ? _currentOffset + widget.pageSize : 0;
-      final items = await widget.fileService.listCurrentDirectory(
-        widget.item.path,
-        offset: offset,
-        limit: widget.pageSize,
-      );
-      final directories = items.where((item) => item.isDirectory).toList();
-
-      // Check if there are more items to load
-      final hasMore = items.length >= widget.pageSize;
-
-      setState(() {
-        if (loadMore) {
-          _children.addAll(directories);
-          _currentOffset = offset;
-        } else {
-          _children = directories;
-          _currentOffset = 0;
-          _isExpanded = true;
-          _hasLoadedChildren = true;
-        }
-        _hasMore = hasMore;
-      });
+      if (refresh) await pager.reset();
+      await pager.loadNext();
+      if (mounted) setState(() => _isExpanded = true);
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final pager = _pager;
     final isSelected = widget.currentPath == widget.item.path;
-    final isDirectory = widget.item.isDirectory;
-    final hasChildren =
-        isDirectory && (_hasLoadedChildren ? _children.isNotEmpty : true);
+    final children = pager?.directories ?? const <FileSystemNode>[];
+    final hasChildren = pager == null || children.isNotEmpty || pager.hasMore;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,15 +217,13 @@ class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
             ),
             child: Row(
               children: [
-                if (isDirectory && hasChildren)
+                if (hasChildren)
                   IconButton(
                     icon: Icon(
                       _isExpanded ? Icons.expand_more : Icons.chevron_right,
                       size: 18,
                     ),
-                    onPressed: _isLoading
-                        ? null
-                        : () => _loadChildren(loadMore: false),
+                    onPressed: _isLoading ? null : _toggleOrLoad,
                     padding: EdgeInsets.zero,
                     constraints:
                         const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -212,12 +231,8 @@ class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
                 else
                   const SizedBox(width: 24),
                 Icon(
-                  isDirectory
-                      ? (isSelected ? Icons.folder_open : Icons.folder)
-                      : Icons.insert_drive_file,
-                  color: isDirectory
-                      ? (isSelected ? Colors.blue : Colors.orange)
-                      : null,
+                  isSelected ? Icons.folder_open : Icons.folder,
+                  color: isSelected ? Colors.blue : Colors.orange,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -241,37 +256,132 @@ class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
             ),
           ),
         ),
-        if (_isExpanded && _children.isNotEmpty)
-          ...(_children.map((child) => _DirectoryTreeItem(
-                item: child,
-                depth: widget.depth + 1,
-                currentPath: widget.currentPath,
-                fileService: widget.fileService,
-                onPathSelected: widget.onPathSelected,
-                pageSize: widget.pageSize,
-              ))),
-        if (_isExpanded && _hasMore)
+        if (_isExpanded)
+          for (final child in children)
+            _DirectoryTreeItem(
+              key: ValueKey(child.path),
+              item: child,
+              depth: widget.depth + 1,
+              currentPath: widget.currentPath,
+              fileService: widget.fileService,
+              onPathSelected: widget.onPathSelected,
+              pageSize: widget.pageSize,
+            ),
+        if (_isExpanded && pager?.error != null)
+          _TreeRetry(
+            depth: widget.depth + 1,
+            message: '继续读取失败',
+            onRetry: () => _loadNext(refresh: true),
+          ),
+        if (_isExpanded && pager?.hasMore == true)
           _LoadMoreButton(
             depth: widget.depth + 1,
             isLoading: _isLoading,
-            onPressed: () => _loadChildren(loadMore: true),
+            onPressed: _loadNext,
           ),
       ],
     );
   }
 }
 
-/// "Load more" button widget
-class _LoadMoreButton extends StatelessWidget {
-  final int depth;
-  final bool isLoading;
-  final VoidCallback onPressed;
+class _TreeDirectoryPager {
+  _TreeDirectoryPager({
+    required this.fileService,
+    required this.path,
+    required this.pageSize,
+  });
 
+  final FileService fileService;
+  final String path;
+  final int pageSize;
+  DirectoryPageSession? _session;
+  bool _usingFallback = false;
+  int _fallbackOffset = 0;
+  bool done = false;
+  Object? error;
+  final List<FileSystemNode> directories = [];
+
+  bool get hasMore => !done && error == null;
+  bool get isLoaded => _session != null || _usingFallback;
+
+  Future<void> reset() async {
+    final previous = _session;
+    _session = null;
+    _usingFallback = false;
+    _fallbackOffset = 0;
+    done = false;
+    error = null;
+    directories.clear();
+    await previous?.dispose();
+  }
+
+  Future<void> dispose() async {
+    final previous = _session;
+    _session = null;
+    await previous?.dispose();
+  }
+
+  Future<void> loadNext() async {
+    if (done || error != null) return;
+    final session = _session ??= fileService.openCurrentDirectorySession(
+      path,
+      retainEntries: false,
+    );
+    if (session == null) {
+      _usingFallback = true;
+      await _loadFallbackPage();
+      return;
+    }
+
+    try {
+      var previousDirectoryCount = directories.length;
+      do {
+        await session.loadNext(limit: pageSize);
+        directories.addAll(
+          fileService
+              .nodesForDirectoryPage(session, session.latestPageEntries)
+              .where((item) => item.isDirectory),
+        );
+        if (session.done) done = true;
+        if (directories.length != previousDirectoryCount || done) break;
+        previousDirectoryCount = directories.length;
+      } while (true);
+    } catch (caught) {
+      error = caught;
+    }
+  }
+
+  Future<void> _loadFallbackPage() async {
+    try {
+      var previousDirectoryCount = directories.length;
+      do {
+        final page = await fileService.listCurrentDirectory(
+          path,
+          offset: _fallbackOffset,
+          limit: pageSize,
+        );
+        _fallbackOffset += page.length;
+        directories.addAll(page.where((item) => item.isDirectory));
+        done = page.length < pageSize;
+        if (directories.length != previousDirectoryCount || done) break;
+        previousDirectoryCount = directories.length;
+      } while (true);
+    } catch (caught) {
+      error = caught;
+    }
+  }
+}
+
+class _LoadMoreButton extends StatelessWidget {
   const _LoadMoreButton({
     this.depth = 0,
     required this.isLoading,
     required this.onPressed,
   });
+
+  final int depth;
+  final bool isLoading;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -300,14 +410,35 @@ class _LoadMoreButton extends StatelessWidget {
               ),
             const SizedBox(width: 8),
             Text(
-              isLoading ? 'Loading...' : 'Load more',
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 12,
-              ),
+              isLoading ? '正在读取…' : '读取更多目录',
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TreeRetry extends StatelessWidget {
+  const _TreeRetry({
+    required this.message,
+    required this.onRetry,
+    this.depth = 0,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+  final int depth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(left: depth * 16.0 + 24.0),
+      child: TextButton.icon(
+        onPressed: onRetry,
+        icon: const Icon(Icons.refresh),
+        label: Text('$message，刷新重试'),
       ),
     );
   }

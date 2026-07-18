@@ -19,17 +19,20 @@ class DirectoryPageSession {
     required this.gateway,
     required this.rootID,
     required this.relativePath,
+    this.retainEntries = true,
   });
 
   final DirectoryCursorGateway gateway;
   final int rootID;
   final String relativePath;
+  final bool retainEntries;
   int? _cursorID;
   bool _disposed = false;
   bool _loading = false;
   bool done = false;
   Object? error;
   final List<DirEntry> entries = [];
+  List<DirEntry> latestPageEntries = const [];
 
   bool get hasError => error != null;
 
@@ -50,9 +53,13 @@ class DirectoryPageSession {
       }
       final page = await gateway.readPage(cursorID, limit);
       if (_disposed) return;
-      entries.addAll(page.entries.where(
-        (entry) => !SecureNotepadDraftStore.isDraftName(entry.name),
-      ));
+      final visibleEntries = page.entries
+          .where(
+            (entry) => !SecureNotepadDraftStore.isDraftName(entry.name),
+          )
+          .toList(growable: false);
+      latestPageEntries = visibleEntries;
+      if (retainEntries) entries.addAll(visibleEntries);
       done = page.done;
       error = null;
       if (done) await _closeCursor();

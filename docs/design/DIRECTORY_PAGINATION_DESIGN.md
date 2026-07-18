@@ -55,4 +55,14 @@ cursor 只保存一个 native walker，不保存 JSON 页或整目录。应用�
 - `OpenDirCursor_FFI`、`ReadDirCursorPage_FFI`、`CloseDirCursor_FFI` 已实现；页读取只以 `io.EOF` 作为完成条件，walker 错误会销毁 cursor 并返回失败。
 - root 关闭前会关闭并移除其 cursor；FFI 测试覆盖多页、EOF、无效 page size、幂等 close 与 root 关闭级联。
 - Dart bindings、`DirectoryPageSession`、FileService 路径映射和 HomePage 的 list/grid 已接入；首次读取一页，接近列表底部再读取。读取失败后 session 关闭 cursor 并拒绝继续追加，UI 只允许刷新目录后从头重试。
-- tree 仍使用全量读取；增量模式的全局排序、筛选语义，以及 10 万条性能基线仍未完成。
+- tree 的 root 与每个展开节点已接入独立 cursor。tree 模式不累计已读普通文件，只保留当前页；纯文件页会继续读取至发现目录或 EOF。刷新、节点 dispose 和 root 关闭会释放 cursor。
+- 增量模式的全局排序、筛选语义，以及 10 万条性能基线仍未完成。
+
+## 目录树增量阶段
+
+目录树只显示目录，但不能通过“先读取并累计所有文件、再过滤目录”实现分页：文件占多数时仍会把完整目录保存在 Dart 内存中。
+
+- `DirectoryPageSession` 需要支持保留累计条目的浏览器模式，以及只暴露当前页的 tree 模式；后者不得保存已经过滤掉的普通文件。
+- 每个已展开 tree 节点拥有独立 cursor。读取一页后若没有目录而未到 EOF，应继续读取，直到得到至少一个目录、发生错误或 EOF。
+- 刷新、折叠后销毁节点、root 关闭和导航切换必须关闭相应 cursor；错误只能从头刷新，不能在已失败 cursor 上继续追加。
+- tree 不承诺跨所有未读取页的排序或筛选；展开顺序为 walker 原始顺序，文档和 UI 不能标为全局排序结果。
