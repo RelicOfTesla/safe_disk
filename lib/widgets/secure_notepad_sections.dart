@@ -223,7 +223,7 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
 
   void _find({bool backwards = false}) {
     final result = widget.onFind(
-      _findController.text,
+      _findQuery,
       backwards: backwards,
     );
     setState(() => _findResult = result);
@@ -234,7 +234,7 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
 
   void _replace() {
     if (!widget.onReplace(
-      _findController.text,
+      _findQuery,
       _replaceController.text,
     )) {
       _showMessage('请先选择匹配项');
@@ -243,11 +243,13 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
 
   void _replaceAll() {
     final count = widget.onReplaceAll(
-      _findController.text,
+      _findQuery,
       _replaceController.text,
     );
     _showMessage(count == 0 ? '未找到匹配项' : '已替换 $count 处');
   }
+
+  String get _findQuery => _findController.text.replaceAll(r'\n', '\n');
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -282,7 +284,7 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
                 focusNode: widget.focusNode,
                 autofocus: true,
                 decoration: const InputDecoration(
-                  hintText: '查找',
+                  hintText: r'查找（\n 表示换行）',
                   isDense: true,
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 8, vertical: 8),

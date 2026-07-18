@@ -122,6 +122,49 @@ void main() {
     expect(tester.widget<TextField>(findField).focusNode?.hasFocus, isTrue);
   });
 
+  testWidgets('find highlight paints every line of a cross-line match',
+      (tester) async {
+    const text = 'before needle\nsuffix after';
+    await _openNotepad(tester, _FakeCryptoService(text));
+    final editor = find.byKey(const Key('secure-notepad-editor'));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+
+    final findField = find.byKey(const Key('secure-notepad-find-field'));
+    await tester.enterText(findField, r'needle\nsuf');
+    expect(
+      tester.widget<TextField>(findField).controller!.text,
+      r'needle\nsuf',
+    );
+    await tester.tap(find.byTooltip('查找下一个'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(editor).controller!.selection,
+      const TextSelection(baseOffset: 7, extentOffset: 17),
+    );
+    final renderEditable = _findRenderEditable(
+      tester.renderObject<RenderObject>(editor),
+    );
+    final renderSelection = renderEditable!.selection;
+    expect(renderSelection, isNotNull);
+    expect(
+      renderEditable.getBoxesForSelection(renderSelection!).length,
+      greaterThanOrEqualTo(2),
+    );
+
+    final painter = tester
+        .widget<CustomPaint>(
+          find.byKey(const Key('secure-notepad-find-highlight')),
+        )
+        .painter!;
+    expect((painter as dynamic).rects.length, greaterThanOrEqualTo(2));
+    expect(tester.widget<TextField>(findField).focusNode?.hasFocus, isTrue);
+  });
+
   testWidgets('Ctrl+S saves the current note', (tester) async {
     final service = _FakeCryptoService('initial');
     await _openNotepad(tester, service);
