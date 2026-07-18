@@ -27,24 +27,24 @@ class ErrorDiagnostics {
     if (home != null && home.length > 2) {
       result = result.replaceAll(home, '~');
     }
-    result = result.replaceAll(
+    result = result.replaceAllMapped(
       RegExp(
         r'("?(?:password|passphrase|derived[_-]?key|secret|token)"?\s*[:=]\s*)'
         r'''("[^"]*"|'[^']*'|[^\s,;]+)''',
         caseSensitive: false,
       ),
-      r'$1[已隐藏]',
+      (match) => '${match.group(1)}[已隐藏]',
     );
-    result = result.replaceAll(
+    result = result.replaceAllMapped(
       RegExp(
         r'(--password(?:-stdin|-env)?(?:=|\s+))[^\s]+',
         caseSensitive: false,
       ),
-      r'$1[已隐藏]',
+      (match) => '${match.group(1)}[已隐藏]',
     );
-    result = result.replaceAll(
+    result = result.replaceAllMapped(
       RegExp(r'(SAFE_DISK_PASSWORD\s*=\s*)[^\s]+', caseSensitive: false),
-      r'$1[已隐藏]',
+      (match) => '${match.group(1)}[已隐藏]',
     );
     if (result.length > _maxDetailLength) {
       result = '${result.substring(0, _maxDetailLength)}\n[详细信息已截断]';

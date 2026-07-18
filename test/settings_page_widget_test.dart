@@ -20,7 +20,10 @@ void main() {
     SharedPreferences.setMockInitialValues({'theme_mode': 'dark'});
 
     await tester.pumpWidget(
-      SafeDiskApp(settingsService: SettingsService()),
+      SafeDiskApp(
+        settingsService: SettingsService(),
+        nativeLibraryProbe: () async {},
+      ),
     );
     await tester.pumpAndSettle();
 

@@ -2,6 +2,24 @@ import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
 
+enum NativeLibraryFailureStage { load, bind, unknown }
+
+class NativeLibraryException implements Exception {
+  const NativeLibraryException(this.stage, this.cause);
+
+  final NativeLibraryFailureStage stage;
+  final Object cause;
+
+  String get operation => switch (stage) {
+        NativeLibraryFailureStage.load => 'native-library/load',
+        NativeLibraryFailureStage.bind => 'native-library/bind',
+        NativeLibraryFailureStage.unknown => 'native-library/initialize',
+      };
+
+  @override
+  String toString() => 'NativeLibraryException($operation): $cause';
+}
+
 // ==================== FFI TYPE DEFINITIONS ====================
 // Based on ffi_sec_fs/exports.go
 
@@ -246,8 +264,20 @@ class NativeBindings {
   late final SecTransferV3CancelDart secTransferV3Cancel;
 
   NativeBindings._() {
-    _lib = _openLibrary();
-    _bindFunctions();
+    try {
+      _lib = _openLibrary();
+    } on NativeLibraryException {
+      rethrow;
+    } on Object catch (error) {
+      throw NativeLibraryException(NativeLibraryFailureStage.load, error);
+    }
+    try {
+      _bindFunctions();
+    } on NativeLibraryException {
+      rethrow;
+    } on Object catch (error) {
+      throw NativeLibraryException(NativeLibraryFailureStage.bind, error);
+    }
   }
 
   static NativeBindings get instance {

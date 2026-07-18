@@ -61,6 +61,11 @@ class NativeLib {
 
   NativeLib._();
 
+  /// Forces dynamic-library loading and symbol binding before user actions.
+  static void ensureAvailable() {
+    NativeBindings.instance;
+  }
+
   // ==================== Helper Methods ====================
 
   /// Converts FFI result pointer to Dart string and frees the pointer.

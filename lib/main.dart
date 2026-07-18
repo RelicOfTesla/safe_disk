@@ -9,7 +9,10 @@ import 'services/remote_document_crypto_service.dart';
 import 'services/settings_service.dart';
 import 'services/error_reporting_service.dart';
 import 'models/text_file_policy.dart';
+import 'native/bindings.dart';
+import 'native/native_lib.dart';
 import 'theme/app_theme.dart';
+import 'widgets/native_library_startup_error.dart';
 import 'windows/secure_notepad_window.dart';
 import 'windows/secure_image_window.dart';
 
@@ -98,10 +101,17 @@ class _CurrentContentWindow {
   final WindowController controller;
 }
 
+typedef NativeLibraryProbe = Future<void> Function();
+
 class SafeDiskApp extends StatefulWidget {
-  const SafeDiskApp({super.key, this.settingsService});
+  const SafeDiskApp({
+    super.key,
+    this.settingsService,
+    this.nativeLibraryProbe,
+  });
 
   final SettingsService? settingsService;
+  final NativeLibraryProbe? nativeLibraryProbe;
 
   @override
   State<SafeDiskApp> createState() => _SafeDiskAppState();
@@ -110,12 +120,39 @@ class SafeDiskApp extends StatefulWidget {
 class _SafeDiskAppState extends State<SafeDiskApp> {
   late final SettingsService _settingsService;
   ThemeMode _themeMode = ThemeMode.system;
+  bool _nativeReady = false;
+  NativeLibraryException? _nativeError;
 
   @override
   void initState() {
     super.initState();
     _settingsService = widget.settingsService ?? SettingsService();
     _loadSettings();
+    _probeNativeLibrary();
+  }
+
+  Future<void> _probeNativeLibrary() async {
+    if (mounted) {
+      setState(() {
+        _nativeReady = false;
+        _nativeError = null;
+      });
+    }
+    try {
+      await (widget.nativeLibraryProbe ?? _defaultNativeLibraryProbe)();
+      if (mounted) setState(() => _nativeReady = true);
+    } on NativeLibraryException catch (error) {
+      if (mounted) setState(() => _nativeError = error);
+    } on Object catch (error) {
+      if (mounted) {
+        setState(
+          () => _nativeError = NativeLibraryException(
+            NativeLibraryFailureStage.unknown,
+            error,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -139,12 +176,25 @@ class _SafeDiskAppState extends State<SafeDiskApp> {
       theme: buildSafeDiskTheme(brightness: Brightness.light),
       darkTheme: buildSafeDiskTheme(brightness: Brightness.dark),
       themeMode: _themeMode,
-      home: HomePage(
-        settingsService: _settingsService,
-        onThemeModeChanged: (mode) => setState(() => _themeMode = mode),
-      ),
+      home: _nativeError != null
+          ? NativeLibraryStartupErrorPage(
+              error: _nativeError!,
+              onRetry: _probeNativeLibrary,
+              showDiagnostics: ErrorReportingService.detailedErrorsEnabled,
+            )
+          : !_nativeReady
+              ? const NativeLibraryLoadingPage()
+              : HomePage(
+                  settingsService: _settingsService,
+                  onThemeModeChanged: (mode) =>
+                      setState(() => _themeMode = mode),
+                ),
     );
   }
+}
+
+Future<void> _defaultNativeLibraryProbe() async {
+  NativeLib.ensureAvailable();
 }
 
 ThemeMode _parseThemeMode(String mode) => switch (mode) {
