@@ -339,6 +339,84 @@ void main() {
     expect(find.text('照片.png'), findsOneWidget);
   });
 
+  testWidgets('idle TTL keeps a root with a dirty secure notepad open',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    var now = DateTime(2026, 7, 18, 12);
+    final cryptoService = _FakeCryptoService(rootPath);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService:
+            _AutoLockSettingsService(enabled: false, ttlSeconds: 1),
+        idleCheckInterval: const Duration(milliseconds: 100),
+        idleNow: () => now,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('visible.txt'));
+    await tester.pumpAndSettle();
+
+    final editor = find.byKey(const Key('secure-notepad-editor'));
+    await tester.enterText(editor, '未保存的内容');
+    await tester.pump();
+    now = now.add(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(cryptoService.closedRootIDs, isEmpty);
+    expect(find.byKey(const Key('secure-notepad-editor')), findsOneWidget);
+  });
+
+  testWidgets('idle TTL keeps a root while a secure notepad save is active',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    var now = DateTime(2026, 7, 18, 12);
+    final writeGate = Completer<void>();
+    final cryptoService = _FakeCryptoService(rootPath, writeGate: writeGate);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService:
+            _AutoLockSettingsService(enabled: false, ttlSeconds: 1),
+        idleCheckInterval: const Duration(milliseconds: 100),
+        idleNow: () => now,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('visible.txt'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('secure-notepad-editor')),
+      '正在保存的内容',
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('保存'));
+    await tester.pump();
+    now = now.add(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(cryptoService.closedRootIDs, isEmpty);
+    writeGate.complete();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('returning from settings reloads the current idle TTL',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
@@ -1870,12 +1948,14 @@ class _FakeCryptoService extends CryptoService {
     this.additionalRootPaths = const [],
     this.deleteFailures = const {},
     this.copyFailures = const {},
+    this.writeGate,
   });
 
   final String rootPath;
   final List<String> additionalRootPaths;
   final Set<String> deleteFailures;
   final Set<String> copyFailures;
+  final Completer<void>? writeGate;
   final List<String> openedPasswords = [];
   final List<String> decryptedPaths = [];
   final List<int> closedRootIDs = [];
@@ -2009,6 +2089,7 @@ class _FakeCryptoService extends CryptoService {
       sessionID: tempKeyID,
       bytes: List<int>.from(data),
     ));
+    await writeGate?.future;
   }
 }
 

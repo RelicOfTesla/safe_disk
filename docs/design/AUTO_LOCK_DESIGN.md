@@ -38,7 +38,7 @@
 ## 后续阶段
 
 1. 为内容窗口协议加入“写入加密草稿并确认锁定”请求；收到所有确认后才能锁定含窗口 root。
-2. per-root 空闲计时和可选 TTL 已接入；活动事件和到期锁定复用同一关闭协调器。仍需补脏文档/活动写入的 Home 集成回归与真实桌面验收。
+2. per-root 空闲计时和可选 TTL 已接入；活动事件和到期锁定复用同一关闭协调器。Home 已覆盖内容窗口、脏文档和活动写入的 TTL 阻断；仍需真实桌面验收。
 3. 在 Windows/macOS/Linux 真实桌面验证 hidden/paused 事件、系统休眠和多窗口切换。
 
 ## 当前实施证据
@@ -47,7 +47,7 @@
 - HomePage 已作为 `WidgetsBindingObserver` 监听 `hidden` 和 `paused`。满足关闭条件的 root 会先释放当前 Dart 目录 cursor，随后关闭 native root、清理应用内剪贴板和 broker lease，并保留侧边栏条目为未验证状态。
 - 每个 root 的关闭异常会被隔离为失败计数，避免一个 cursor 或 native close 失败阻断其他 root；`resumed` 后显示锁定、跳过或失败摘要。
 - widget 覆盖设置保存、默认不锁、合格 root 在 `paused` 后关闭且恢复后需重新验证、两个已解锁 root 逐一关闭且不泄露旧条目，以及已打开图片内容窗口时跳过锁定。
-- broker/controller 覆盖脏记事本与活动写入分别阻断关闭；per-root TTL 已使用独立活动时钟并复用同一关闭协调器，设置页可持久化、无效值回退到默认值且返回主页后重载。Home widget 覆盖 TTL 到期、当前 root 活动重置、内容窗口阻断和设置返回后的新 deadline。Home 与子窗口协议的旧生命周期回调/重新解锁竞争、脏文档/活动写入的 TTL Home 集成回归，以及真实 FFI 或桌面平台验收仍未覆盖。
+- broker/controller 覆盖脏记事本与活动写入分别阻断关闭；per-root TTL 已使用独立活动时钟并复用同一关闭协调器，设置页可持久化、无效值回退到默认值且返回主页后重载。Home widget 覆盖 TTL 到期、当前 root 活动重置、内容窗口/脏文档/活动写入阻断和设置返回后的新 deadline。Home 与子窗口协议的旧生命周期回调/重新解锁竞争，以及真实 FFI 或桌面平台验收仍未覆盖。
 
 ## 验收
 
