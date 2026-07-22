@@ -520,6 +520,31 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get unfinishedTransfersDetected => '发现未完成的导入/导出';
+
+  @override
+  String unfinishedTransfersDetectedDescription(int count) {
+    return '检测到 $count 个未完成的导入/导出状态。\n\n这些操作无法继续。你可以清理状态后重新执行完整的导入或导出，也可以暂时跳过。';
+  }
+
+  @override
+  String get skipForNow => '暂时跳过';
+
+  @override
+  String get cleanState => '清理状态';
+
+  @override
+  String get rerunAll => '全量重跑';
+
+  @override
+  String get confirmBatchDeletion => '确认批量删除';
+
+  @override
+  String confirmBatchDeletionDescription(int count) {
+    return '确定删除所选 $count 项吗？此操作无法撤销。删除会逐项执行，发生失败时已删除的项目不会恢复。';
+  }
+
+  @override
   String get disabled => '关闭';
 
   @override

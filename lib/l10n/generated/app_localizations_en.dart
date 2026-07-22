@@ -597,6 +597,32 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get unfinishedTransfersDetected =>
+      'Unfinished imports or exports found';
+
+  @override
+  String unfinishedTransfersDetectedDescription(int count) {
+    return '$count unfinished import or export states were found.\n\nThese operations cannot be resumed. You can clean their state and rerun the full import or export, or skip them for now.';
+  }
+
+  @override
+  String get skipForNow => 'Skip for now';
+
+  @override
+  String get cleanState => 'Clean state';
+
+  @override
+  String get rerunAll => 'Rerun all';
+
+  @override
+  String get confirmBatchDeletion => 'Confirm batch deletion';
+
+  @override
+  String confirmBatchDeletionDescription(int count) {
+    return 'Delete $count selected items? This cannot be undone. Items are deleted one at a time; items already deleted are not restored if a later deletion fails.';
+  }
+
+  @override
   String get disabled => 'Off';
 
   @override

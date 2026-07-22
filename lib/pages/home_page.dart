@@ -714,28 +714,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return false;
     }
     if (!mounted || markers.isEmpty) return true;
+    final strings = AppLocalizations.of(context)!;
 
     final action = await showDialog<_UnfinishedAction>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('发现未完成的导入/导出'),
+        title: Text(strings.unfinishedTransfersDetected),
         content: Text(
-          '检测到 ${markers.length} 个未完成的导入/导出状态。\n\n'
-          '这些操作无法继续。你可以清理状态后重新执行完整的导入或导出，'
-          '也可以暂时跳过。',
-        ),
+            strings.unfinishedTransfersDetectedDescription(markers.length)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, _UnfinishedAction.skip),
-            child: const Text('暂时跳过'),
+            child: Text(strings.skipForNow),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, _UnfinishedAction.clean),
-            child: const Text('清理状态'),
+            child: Text(strings.cleanState),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, _UnfinishedAction.rerun),
-            child: const Text('全量重跑'),
+            child: Text(strings.rerunAll),
           ),
         ],
       ),
@@ -1892,20 +1890,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('确认批量删除'),
-        content: Text(
-          '确定删除所选 ${selected.length} 项吗？此操作无法撤销。'
-          '删除会逐项执行，发生失败时已删除的项目不会恢复。',
-        ),
+        title: Text(strings.confirmBatchDeletion),
+        content: Text(strings.confirmBatchDeletionDescription(selected.length)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('删除所选项'),
+            child: Text(strings.deleteSelected),
           ),
         ],
       ),

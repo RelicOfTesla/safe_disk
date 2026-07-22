@@ -2102,6 +2102,47 @@ void main() {
     expect(find.text('visible.txt'), findsOneWidget);
   });
 
+  testWidgets('unfinished transfer confirmation follows the active locale',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final marker = <String, dynamic>{
+      'op_id': 'unfinished-english',
+      'type': 'export',
+      'entry_kind': 'file',
+      'src': 'report.txt',
+      'dst': '/outside/report.txt',
+    };
+    final cryptoService = _FakeCryptoService(rootPath);
+    final directoryService = _FakeDirectoryService(
+      unfinishedMarkers: [marker],
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: directoryService,
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Unfinished imports or exports found'), findsOneWidget);
+    expect(find.textContaining('cannot be resumed'), findsOneWidget);
+    expect(find.text('Rerun all'), findsOneWidget);
+    await tester.tap(find.text('Rerun all'));
+    await tester.pumpAndSettle();
+
+    expect(directoryService.rerunCalls, [marker]);
+  });
+
   testWidgets('corrupt unfinished state closes the new root session',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';

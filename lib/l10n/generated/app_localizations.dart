@@ -1034,6 +1034,48 @@ abstract class AppLocalizations {
   /// **'已删除 {count} 个文件'**
   String batchDeleteCompleted(int count);
 
+  /// No description provided for @unfinishedTransfersDetected.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现未完成的导入/导出'**
+  String get unfinishedTransfersDetected;
+
+  /// No description provided for @unfinishedTransfersDetectedDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'检测到 {count} 个未完成的导入/导出状态。\n\n这些操作无法继续。你可以清理状态后重新执行完整的导入或导出，也可以暂时跳过。'**
+  String unfinishedTransfersDetectedDescription(int count);
+
+  /// No description provided for @skipForNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂时跳过'**
+  String get skipForNow;
+
+  /// No description provided for @cleanState.
+  ///
+  /// In zh, this message translates to:
+  /// **'清理状态'**
+  String get cleanState;
+
+  /// No description provided for @rerunAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全量重跑'**
+  String get rerunAll;
+
+  /// No description provided for @confirmBatchDeletion.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认批量删除'**
+  String get confirmBatchDeletion;
+
+  /// No description provided for @confirmBatchDeletionDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定删除所选 {count} 项吗？此操作无法撤销。删除会逐项执行，发生失败时已删除的项目不会恢复。'**
+  String confirmBatchDeletionDescription(int count);
+
   /// No description provided for @disabled.
   ///
   /// In zh, this message translates to:
