@@ -91,7 +91,7 @@ FFI 层的职责是把 Go 后端能力稳定、安全地暴露给 Flutter，而�
 
 当前 `exports.go` 已包含：
 
-- Root：`sec_root_open`、`sec_root_close`、`sec_create_root_config`
+- Root：`sec_root_open`、`sec_root_close`、`sec_create_root_config`、`sec_root_change_password`
 - File：`sec_file_open`、`sec_file_read`、`sec_file_write`、`sec_file_seek`、`sec_file_truncate`、`sec_file_close`
 - Root 级文件操作：`sec_file_delete`、`sec_file_exists`、`sec_rename`、`sec_copy_entry`、`sec_mkdir_all`、`sec_read_dir`
 - Quick 操作：`sec_quick_read_file`、`sec_quick_write_file`
@@ -150,6 +150,8 @@ FFI 不自行实现密码算法，也不能通过“列目录是否为空”判�
 ```
 
 `before`/`beforePatterns` 在文件名解密前匹配 store name，`after`/`afterPatterns` 在文件名解密后匹配 view name。即使传入自定义 matcher，FFI 仍会保留 config 文件忽略逻辑。
+
+`sec_create_root_config` 的 `optionsJSON` 额外支持 `passwordChangeable`。为 `true` 时，sec 创建随机内容密钥，并以密码派生的包装密钥写入版本化密钥包装记录；Flutter 创建界面默认传 `true`。`sec_root_change_password(rootPath, oldPassword, newPassword)` 只接受这种新格式，成功后调用方必须关闭旧 `root_id` 会话并用新密码重新打开。旧格式返回明确的不支持错误，不能通过 FFI 伪造改密。
 
 ### File 生命周期
 

@@ -41,11 +41,11 @@ CLI 与 FFI 入口通过 `crypto_all` 注册上述实现。`hkdf` 适用于已�
 `CreateRootConfigQuick` 的实际流程：
 
 1. 解析并记录数据、文件名和 KDF factory。
-2. 由 KDF 创建主密钥并把算法参数写入配置。
-3. 初始化文件名加密 context。
+2. 旧格式由 KDF 直接创建内容密钥；可改密码格式由 KDF 创建 32 字节包装密钥，并生成与数据/名称算法长度匹配的随机内容密钥。
+3. 可改密码格式用 AES-256-GCM 和固定格式域将内容密钥包装到配置中；文件名加密 context 始终使用内容密钥。
 4. 生成 32 字节随机认证挑战。
-5. 计算 `HMAC-SHA256(derivedKey, domain || challenge)`。
-6. 写入 challenge 和 tag，最后写入 verifier version 作为完整记录的提交标记。
+5. 计算 `HMAC-SHA256(passwordDerivedKey, domain || challenge)`；可改密码格式中的 `passwordDerivedKey` 是包装密钥。
+6. 写入 challenge 和 tag，最后写入 verifier version；可改密码格式最后写入 envelope version 作为包装记录的完成标记。
 
 密码和派生主密钥不会直接写入配置。verifier 与加密数据一样允许离线猜测密码，因此安全性仍依赖强密码和合适的 KDF 参数。
 
@@ -56,11 +56,12 @@ CLI 与 FFI 入口通过 `crypto_all` 注册上述实现。`hkdf` 适用于已�
 `OpenRootQuick` 必须先认证密码，再构造 root：
 
 1. 加载 `_cryption.json`。
-2. 按 `sec_deriver_factory` 和对应参数派生候选主密钥。
+2. 按 `sec_deriver_factory` 和对应参数派生候选密码密钥。
 3. 读取并校验 verifier 版本、challenge 和 tag。
-4. 使用候选主密钥重新计算 tag，并以常量时间比较。
-5. 不匹配时返回 `ErrInvalidPassword`。
-6. 只有认证成功后才创建文件名 context、root 对象或 FFI `root_id`。
+4. 使用候选密码密钥重新计算 tag，并以常量时间比较。
+5. 可改密码格式再验证并解开内容密钥；旧格式将候选密码密钥作为内容密钥。
+6. 不匹配、包装记录损坏或版本未知时返回错误；不会回退到旧格式。
+7. 只有认证成功后才创建文件名 context、root 对象或 FFI `root_id`。
 
 这项顺序是安全边界。不能通过“尝试列目录是否有内容”判断密码：空目录、`nameFactory=none` 和非认证型内容加密都无法可靠证明密码正确。
 
@@ -120,18 +121,15 @@ CLI 与 FFI 入口通过 `crypto_all` 注册上述实现。`hkdf` 适用于已�
 
 ## 修改密码能力
 
-当前格式**不支持安全的原地修改密码**。现有 root 使用密码经所选 KDF 直接派生
-数据和名称加密所需密钥，没有独立随机 root master key，也没有用密码派生密钥
-封装 master key 的配置记录。因此：
+新格式以 `sec_key_envelope_version=1` 标识。它随机生成内容密钥，密码只经 KDF
+派生 32 字节包装密钥；包装密钥认证密码后，以 AES-256-GCM 解开内容密钥。改密只在
+同目录临时配置中生成新 KDF 参数、verifier 和新的内容密钥包装记录，同步后替换正式
+配置，因此不重写任何文件或加密名称。具体字段、事务与验收见
+[PASSWORD_CHANGEABLE_ROOT_DESIGN.md](design/PASSWORD_CHANGEABLE_ROOT_DESIGN.md)。
 
-- 只更新 password verifier 会使新密码通过认证，但无法解密既有数据；
-- 只替换 KDF salt/参数同样会改变实际加密密钥并损坏 root；
-- 保留旧 salt 并登记新 verifier 不构成改密，也不能让新旧密码得到同一密钥。
-
-当前 UI 只能展示“不支持安全原地改密”，不能提供伪改密操作。安全替代方案是用
-新密码创建新 root，再全量迁移。未来若要支持无需重加密的数据改密，格式必须先
-引入随机 master key、用途分离子密钥、经密码派生 KEK 认证加密的 master-key
-envelope，以及配置原子替换和中断恢复协议。
+不含 envelope version 的旧格式仍**不支持安全的原地修改密码**：它的密码直接派生
+数据和名称密钥，替换 salt、KDF 参数或 verifier 都会使原有内容不可读。UI 必须明确
+拒绝旧格式，安全替代方案仍是新建目录后全量迁移。
 
 ## 算法名称与配置命名空间兼容
 
@@ -182,7 +180,7 @@ envelope，以及配置原子替换和中断恢复协议。
 - 主密钥尚未按用途派生独立的 data/name/verifier 子密钥。
 - 文件内容认证、配置整体认证、防回滚和配置原子写入尚未形成完整方案。
 - root/store 的符号链接与并发路径替换尚未形成跨平台、无 TOCTOU 的完整防护。
-- 改密码与可变 file key 模型不在当前实现中；旧文档对此标记“已完成”是不准确的。
+- 可改密码格式尚缺损坏 envelope、临时配置写入/替换中断的故障注入，跨进程并发改密策略和 Windows/macOS 原子替换实测；不能据此宣称三平台事务完成。
 
 ## 安全规则
 
