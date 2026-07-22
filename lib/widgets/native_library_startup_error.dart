@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/generated/app_localizations.dart';
+import '../l10n/error_localizations.dart';
 import '../native/bindings.dart';
 import '../utils/error_diagnostics.dart';
 
@@ -62,7 +63,7 @@ class NativeLibraryStartupErrorPage extends StatelessWidget {
                   const SizedBox(height: 20),
                   SelectableText(
                     '${strings.initializationStage(error.operation)}\n'
-                    '${strings.underlyingError(ErrorDiagnostics.sanitize(error.cause.toString()))}',
+                    '${strings.underlyingError(ErrorDiagnostics.sanitize(error.cause.toString(), labels: strings.errorDiagnosticsLabels()))}',
                     key: const Key('native-library-error-diagnostics'),
                   ),
                 ],

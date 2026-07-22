@@ -507,15 +507,15 @@ class NativeLib {
     _checkResult(data, 'secTransferV3ListUnfinished');
     final responseData = data['data'];
     if (responseData is! Map) {
-      throw StateError('secTransferV3ListUnfinished returned invalid data');
+      throw StateError('transfer-v3-unfinished-invalid-data');
     }
     final markers = responseData['markers'];
     if (markers is! List) {
-      throw StateError('secTransferV3ListUnfinished returned invalid markers');
+      throw StateError('transfer-v3-unfinished-invalid-markers');
     }
     return markers.map((marker) {
       if (marker is! Map) {
-        throw StateError('secTransferV3ListUnfinished returned invalid marker');
+        throw StateError('transfer-v3-unfinished-invalid-marker');
       }
       return Map<String, dynamic>.from(marker);
     }).toList(growable: false);
@@ -753,7 +753,7 @@ class NativeLib {
 
       await for (final message in messages) {
         if (message == null) {
-          throw StateError('$operation worker exited without a result');
+          throw StateError('$operation-worker-exited-without-result');
         }
 
         final event = message as Map<Object?, Object?>;
@@ -784,7 +784,7 @@ class NativeLib {
           case 'error':
             throw StateError(event['error']! as String);
           default:
-            throw StateError('$operation worker sent an unknown event');
+            throw StateError('$operation-worker-unknown-event');
         }
       }
     } finally {
@@ -971,7 +971,8 @@ void _transferWorkerMain(Map<String, Object> request) {
             operation,
             report);
       default:
-        throw ArgumentError.value(kind, 'kind', 'unsupported transfer kind');
+        throw ArgumentError.value(
+            kind, 'kind', 'transfer-worker-unsupported-kind');
     }
     Isolate.exit(sendPort, const <String, Object>{'type': 'complete'});
   } catch (error) {
@@ -1011,7 +1012,7 @@ class TransferCancellationToken {
 
   void _bind(String operationID) {
     if (_operationID != null) {
-      throw StateError('TransferCancellationToken cannot be reused');
+      throw StateError('transfer-cancellation-token-reused');
     }
     _operationID = operationID;
   }

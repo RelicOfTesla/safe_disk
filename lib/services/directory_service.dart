@@ -127,19 +127,19 @@ class DirectoryService {
     final overwrite = marker['overwrite'] == true ||
         marker['destination_initially_existed'] == false;
     if (entryKind != 'file' && entryKind != 'directory') {
-      throw StateError('Unfinished operation $opID has invalid entry_kind');
+      throw StateError('unfinished-transfer-marker-invalid-entry-kind');
     }
     if (type != 'import' && type != 'export') {
-      throw StateError('Unfinished operation $opID has unsupported type');
+      throw StateError('unfinished-transfer-marker-unsupported-type');
     }
     if (type == 'import' && src.isEmpty) {
-      throw StateError('Unfinished import $opID has no source path');
+      throw StateError('unfinished-transfer-marker-import-source-missing');
     }
     if (type == 'export' && dst.isEmpty) {
-      throw StateError('Unfinished export $opID has no destination path');
+      throw StateError('unfinished-transfer-marker-export-destination-missing');
     }
     if (entryKind == 'file' && dst.isEmpty) {
-      throw StateError('Unfinished file operation $opID has no destination');
+      throw StateError('unfinished-transfer-marker-file-destination-missing');
     }
 
     await cleanUnfinishedOperation(rootID, opID);
@@ -166,7 +166,7 @@ class DirectoryService {
   String _requiredMarkerString(Map<String, dynamic> marker, String key) {
     final value = marker[key];
     if (value is! String || value.isEmpty) {
-      throw StateError('Unfinished operation marker has no $key');
+      throw StateError('unfinished-transfer-marker-required-field-missing');
     }
     return value;
   }
@@ -282,14 +282,14 @@ String buildDirectoryImportDestination({
   final current = _normalizeTransferPath(currentPath);
   final source = _normalizeTransferPath(sourcePath);
   if (root.isEmpty || current.isEmpty || source.isEmpty) {
-    throw ArgumentError('Directory import paths must not be empty');
+    throw ArgumentError('directory-import-paths-empty');
   }
   if (current != root && !current.startsWith('$root/')) {
-    throw StateError('Current path is outside the open root');
+    throw StateError('directory-import-current-path-outside-root');
   }
   final sourceName = source.split('/').last;
   if (sourceName.isEmpty) {
-    throw ArgumentError('Source directory must have a name');
+    throw ArgumentError('directory-import-source-name-empty');
   }
   final currentRelative =
       current == root ? '' : current.substring(root.length + 1);

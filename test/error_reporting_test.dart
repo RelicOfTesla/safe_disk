@@ -7,6 +7,15 @@ import 'package:safe_disk/utils/error_messages.dart';
 import 'package:safe_disk/widgets/copyable_snackbar.dart';
 
 void main() {
+  const chineseDiagnosticsLabels = ErrorDiagnosticsLabels(
+    errorType: _diagnosticType,
+    operation: _diagnosticOperation,
+    underlyingError: _diagnosticUnderlyingError,
+    redacted: '[已隐藏]',
+    pathRedacted: '[路径已隐藏]',
+    truncated: '[详细信息已截断]',
+  );
+
   tearDown(() {
     ErrorReportingService.configure(detailedErrorsEnabled: false);
   });
@@ -15,6 +24,7 @@ void main() {
     final details = ErrorDiagnostics.build(
       type: ErrorType.createEncryptedDirectoryFailed,
       operation: 'create-root-config',
+      labels: chineseDiagnosticsLabels,
       originalError: 'password=hunter2 SAFE_DISK_PASSWORD=secret '
           r'C:\vault /tmp/safe-disk/libffi_sec_fs.so access denied',
     );
@@ -117,3 +127,9 @@ void main() {
     expect(find.textContaining('create-root-config'), findsOneWidget);
   });
 }
+
+String _diagnosticType(String value) => '错误类型：$value';
+
+String _diagnosticOperation(String value) => '操作阶段：$value';
+
+String _diagnosticUnderlyingError(String value) => '底层错误：$value';

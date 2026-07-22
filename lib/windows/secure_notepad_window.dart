@@ -9,6 +9,7 @@ import '../services/remote_document_crypto_service.dart';
 import '../widgets/secure_notepad.dart';
 import '../theme/app_theme.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../l10n/error_localizations.dart';
 import '../l10n/app_locale.dart';
 import '../utils/error_diagnostics.dart';
 
@@ -142,7 +143,10 @@ class _ContentWindowStartupErrorPage extends StatelessWidget {
                 if (showDiagnostics)
                   SelectableText(
                     strings.underlyingError(
-                      ErrorDiagnostics.sanitize(error.toString()),
+                      ErrorDiagnostics.sanitize(
+                        error.toString(),
+                        labels: strings.errorDiagnosticsLabels(),
+                      ),
                     ),
                     key: const Key('content-window-error-diagnostics'),
                     textAlign: TextAlign.center,

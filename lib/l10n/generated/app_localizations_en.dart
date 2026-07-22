@@ -958,6 +958,25 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String errorDiagnosticType(String type) {
+    return 'Error type: $type';
+  }
+
+  @override
+  String errorDiagnosticOperation(String operation) {
+    return 'Operation: $operation';
+  }
+
+  @override
+  String get errorDiagnosticRedacted => '[redacted]';
+
+  @override
+  String get errorDiagnosticPathRedacted => '[path redacted]';
+
+  @override
+  String get errorDiagnosticTruncated => '[details truncated]';
+
+  @override
   String get contentWindowUnavailable => 'Cannot connect to main window';
 
   @override

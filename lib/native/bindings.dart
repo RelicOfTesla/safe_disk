@@ -324,15 +324,11 @@ class NativeBindings {
           .resolve('ffi_sec_fs.dll')
           .toFilePath();
       if (!File(libraryPath).existsSync()) {
-        throw StateError(
-          'Native library is missing from the application bundle: '
-          '$libraryPath. Rebuild with scripts/build_and_run.bat so ffi_sec_fs.dll '
-          'is placed beside safe_disk.exe.',
-        );
+        throw StateError('native-library-bundle-missing');
       }
       return DynamicLibrary.open(libraryPath);
     }
-    throw UnsupportedError('Unsupported platform');
+    throw UnsupportedError('native-library-platform-unsupported');
   }
 
   void _bindFunctions() {

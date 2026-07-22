@@ -76,6 +76,7 @@ class ErrorSnackBar extends SnackBar {
         ? ErrorDiagnostics.build(
             type: errorType,
             originalError: originalError,
+            labels: localizations.errorDiagnosticsLabels(),
             operation: operation,
           )
         : null;

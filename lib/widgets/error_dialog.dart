@@ -31,6 +31,7 @@ class ErrorDialog extends StatelessWidget {
         ? ErrorDiagnostics.build(
             type: errorType,
             originalError: originalError!,
+            labels: localizations.errorDiagnosticsLabels(),
           )
         : null;
 

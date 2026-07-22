@@ -136,7 +136,7 @@ class SettingsService {
   Future<void> setLocale(String locale) async {
     if (!localeOptions.contains(locale)) {
       throw ArgumentError.value(
-          locale, 'locale', 'unsupported application locale');
+          locale, 'locale', 'unsupported-application-locale');
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLocale, locale);

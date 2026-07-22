@@ -41,7 +41,7 @@
 
 执行 `dart run tool/audit_i18n_strings.dart` 会更新 [I18N_HARDCODED_STRING_AUDIT.md](../I18N_HARDCODED_STRING_AUDIT.md)。脚本以词法方式扫描 `lib/**/*.dart` 的单行、多行和 raw 字符串，忽略注释并排除生成的 `lib/l10n/`；它全量列出 CJK 字符串，并补充 UI/错误反馈上下文中的可见英文。需要核对测试字面量时，使用 `--include-test`。
 
-该报告按“直接 UI 文案”“错误/服务边界文案”“CJK 待人工复核”和英文候选分类，是待分类基线，不是自动完成判定。错误/服务层文案不得直接迁入 ARB，应先改为稳定状态或错误码，再由 UI 层映射；协议、日志和开发者文本须保留可审计的排除理由。每个迁移批次前后均重新执行脚本，并在提交中包含更新后的报告。2026-07-23 已据仓库级引用检查删除无入口、无测试引用的旧 `clipboard_service.dart` 与 `clipboard_helper.dart`，不把其临时文件剪贴板实现视为现行产品路径；同日删除无原生导出且无调用的增量 Dart API（`ffi_results.dart`、`incremental_encrypt_service.dart` 和 `NativeLib` 占位桩）。审计候选由 76 降至 31。
+该报告按“直接 UI 文案”“错误/服务边界文案”“CJK 待人工复核”和英文候选分类，是待分类基线，不是自动完成判定。错误/服务层文案不得直接迁入 ARB，应先改为稳定状态或错误码，再由 UI 层映射；协议、日志和开发者文本须保留可审计的排除理由。每个迁移批次前后均重新执行脚本，并在提交中包含更新后的报告。2026-07-23 已据仓库级引用检查删除无入口、无测试引用的旧 `clipboard_service.dart` 与 `clipboard_helper.dart`，不把其临时文件剪贴板实现视为现行产品路径；同日删除无原生导出且无调用的增量 Dart API（`ffi_results.dart`、`incremental_encrypt_service.dart` 和 `NativeLib` 占位桩），并将剩余服务诊断改为稳定标识和 ARB 详细错误标签。审计候选由 76 降至 0；该静态结果仍不替代人工 UI 和三平台视觉/读屏验收。
 
 ## 迁移批次与完成定义
 

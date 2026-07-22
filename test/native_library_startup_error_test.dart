@@ -81,6 +81,29 @@ void main() {
     expect(find.text('Retry'), findsOneWidget);
   });
 
+  testWidgets('startup error localizes opt-in diagnostic redaction',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: NativeLibraryStartupErrorPage(
+          error: loadError,
+          onRetry: () {},
+          showDiagnostics: true,
+        ),
+      ),
+    );
+
+    final diagnostics = tester.widget<SelectableText>(
+      find.byKey(const Key('native-library-error-diagnostics')),
+    );
+    expect(diagnostics.data, contains('password=[redacted]'));
+    expect(diagnostics.data, contains('[path redacted]'));
+    expect(diagnostics.data, isNot(contains('[已隐藏]')));
+  });
+
   testWidgets('retry probes again before opening the home page',
       (tester) async {
     SharedPreferences.setMockInitialValues({});

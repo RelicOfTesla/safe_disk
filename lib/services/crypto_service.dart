@@ -58,7 +58,7 @@ class CryptoService {
     if (directory.existsSync()) {
       if (directory.listSync(followLinks: false).isNotEmpty) {
         throw FileSystemException(
-          'Encrypted root must be created in an empty directory',
+          'encrypted-root-directory-not-empty',
           rootPath,
         );
       }
@@ -117,7 +117,7 @@ class CryptoService {
   String relativePathForRoot(int rootID, String path) {
     final root = _rootPaths[rootID];
     if (root == null) {
-      throw StateError('Root $rootID is not open');
+      throw StateError('secure-root-not-open');
     }
     final normalized = _normalizePath(path);
     if (normalized == root) {
@@ -132,7 +132,7 @@ class CryptoService {
   String absolutePathForRoot(int rootID, String relativePath) {
     final root = _rootPaths[rootID];
     if (root == null) {
-      throw StateError('Root $rootID is not open');
+      throw StateError('secure-root-not-open');
     }
     if (relativePath.isEmpty) {
       return root;

@@ -865,6 +865,25 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String errorDiagnosticType(String type) {
+    return '错误类型：$type';
+  }
+
+  @override
+  String errorDiagnosticOperation(String operation) {
+    return '操作阶段：$operation';
+  }
+
+  @override
+  String get errorDiagnosticRedacted => '[已隐藏]';
+
+  @override
+  String get errorDiagnosticPathRedacted => '[路径已隐藏]';
+
+  @override
+  String get errorDiagnosticTruncated => '[详细信息已截断]';
+
+  @override
   String get contentWindowUnavailable => '无法连接主窗口';
 
   @override

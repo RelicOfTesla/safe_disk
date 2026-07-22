@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../l10n/error_localizations.dart';
 import '../models/cryption_config.dart';
 import '../models/batch_operation_result.dart';
 import '../models/secure_image_policy.dart';
@@ -2348,7 +2349,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return switch (error) {
       SecureEntryMovePartialFailure() => strings.moveSourceDeleteFailed,
       SecureEntryMoveDirectoryUnsupported() => strings.moveDirectoryUnsupported,
-      _ => ErrorDiagnostics.sanitize(error.toString()),
+      _ => ErrorDiagnostics.sanitize(
+          error.toString(),
+          labels: strings.errorDiagnosticsLabels(),
+        ),
     };
   }
 

@@ -1,8 +1,20 @@
 import '../utils/error_messages.dart';
+import '../utils/error_diagnostics.dart';
 import 'generated/app_localizations.dart';
 
 /// 把稳定错误语义解析为当前 locale 的用户可见文本。
 extension ErrorLocalizations on AppLocalizations {
+  ErrorDiagnosticsLabels errorDiagnosticsLabels() {
+    return ErrorDiagnosticsLabels(
+      errorType: errorDiagnosticType,
+      operation: errorDiagnosticOperation,
+      underlyingError: underlyingError,
+      redacted: errorDiagnosticRedacted,
+      pathRedacted: errorDiagnosticPathRedacted,
+      truncated: errorDiagnosticTruncated,
+    );
+  }
+
   ErrorMessage errorMessage(ErrorType type) {
     final descriptor = ErrorMessages.descriptor(type);
     final (title, description, suggestion) = switch (type) {

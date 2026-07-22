@@ -1652,6 +1652,36 @@ abstract class AppLocalizations {
   /// **'底层错误：{error}'**
   String underlyingError(String error);
 
+  /// No description provided for @errorDiagnosticType.
+  ///
+  /// In zh, this message translates to:
+  /// **'错误类型：{type}'**
+  String errorDiagnosticType(String type);
+
+  /// No description provided for @errorDiagnosticOperation.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作阶段：{operation}'**
+  String errorDiagnosticOperation(String operation);
+
+  /// No description provided for @errorDiagnosticRedacted.
+  ///
+  /// In zh, this message translates to:
+  /// **'[已隐藏]'**
+  String get errorDiagnosticRedacted;
+
+  /// No description provided for @errorDiagnosticPathRedacted.
+  ///
+  /// In zh, this message translates to:
+  /// **'[路径已隐藏]'**
+  String get errorDiagnosticPathRedacted;
+
+  /// No description provided for @errorDiagnosticTruncated.
+  ///
+  /// In zh, this message translates to:
+  /// **'[详细信息已截断]'**
+  String get errorDiagnosticTruncated;
+
   /// No description provided for @contentWindowUnavailable.
   ///
   /// In zh, this message translates to:
