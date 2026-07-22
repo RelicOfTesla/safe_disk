@@ -5,20 +5,22 @@ import 'dart:typed_data';
 import 'crypto_service.dart';
 import 'secure_notepad_draft_store.dart';
 
-class DocumentSessionConflict implements Exception {
-  const DocumentSessionConflict(this.message);
+enum DocumentSessionConflictReason { staleRevision, externalModification }
 
-  final String message;
+class DocumentSessionConflict implements Exception {
+  const DocumentSessionConflict(this.reason);
+
+  final DocumentSessionConflictReason reason;
 
   @override
-  String toString() => message;
+  String toString() => 'document-session-conflict:${reason.name}';
 }
 
 class DocumentSessionNotFound implements Exception {
   const DocumentSessionNotFound();
 
   @override
-  String toString() => '内容窗口会话不存在或已经关闭';
+  String toString() => 'document-session-not-found';
 }
 
 class DocumentContentLimitExceeded implements Exception {
@@ -27,14 +29,14 @@ class DocumentContentLimitExceeded implements Exception {
   final int maxBytes;
 
   @override
-  String toString() => '内容超过允许的 $maxBytes 字节上限';
+  String toString() => 'document-content-limit-exceeded:$maxBytes';
 }
 
 class DocumentSessionReadOnly implements Exception {
   const DocumentSessionReadOnly();
 
   @override
-  String toString() => '当前内容窗口会话为只读';
+  String toString() => 'document-session-read-only';
 }
 
 class DocumentSnapshot {
@@ -202,7 +204,9 @@ class DocumentSessionBroker {
     required bool force,
   }) async {
     if (baseRevision != session.revision) {
-      throw const DocumentSessionConflict('窗口内容版本已过期，请重新加载后再保存');
+      throw const DocumentSessionConflict(
+        DocumentSessionConflictReason.staleRevision,
+      );
     }
 
     final current = _cryptoService.decryptFileToData(
@@ -210,7 +214,9 @@ class DocumentSessionBroker {
       session.rootSessionID,
     );
     if (!force && !_bytesEqual(current, session.baseContent)) {
-      throw const DocumentSessionConflict('文件已被另一个窗口修改，已阻止覆盖');
+      throw const DocumentSessionConflict(
+        DocumentSessionConflictReason.externalModification,
+      );
     }
 
     await _cryptoService.writeFileBySession(

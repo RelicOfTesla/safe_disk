@@ -1773,7 +1773,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ErrorHelper.showError(
             context,
             errorType: ErrorType.exportDirectoryFailed,
-            originalError: progress.error ?? 'Unknown error',
+            originalError:
+                progress.error ?? 'directory-export-failed-without-error',
           );
         }
       }
@@ -2276,7 +2277,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           processedCount++;
           failures.add(BatchOperationFailure(
             name: entry.name,
-            reason: ErrorDiagnostics.sanitize(error.toString()),
+            reason: _clipboardMoveFailureReason(strings, error),
           ));
         } finally {
           if (mounted) setState(() => _isLoading = false);
@@ -2341,6 +2342,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String _clipboardMoveFailureReason(AppLocalizations strings, Object error) {
+    return switch (error) {
+      SecureEntryMovePartialFailure() => strings.moveSourceDeleteFailed,
+      SecureEntryMoveDirectoryUnsupported() => strings.moveDirectoryUnsupported,
+      _ => ErrorDiagnostics.sanitize(error.toString()),
+    };
   }
 
   bool _isSameOrDescendantPath(String candidate, String parent) {

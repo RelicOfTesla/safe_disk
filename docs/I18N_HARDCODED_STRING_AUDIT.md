@@ -12,16 +12,14 @@
 - `CJK 待人工复核`：可能是协议、日志或测试数据，须登记理由后才可排除。
 - 英文候选用于发现未本地化 fallback；技术标识、URL、协议字段不应翻译。
 
-候选总数：99
+候选总数：76
 
 ## 按分类统计
 
 | 分类 | 候选数 |
 | --- | ---: |
-| CJK 待人工复核 | 26 |
-| 直接 UI 英文文案 | 3 |
+| CJK 待人工复核 | 12 |
 | 错误/反馈英文文案 | 64 |
-| 错误/服务边界文案 | 6 |
 
 ## 按文件统计
 
@@ -31,19 +29,12 @@
 | `lib/services/incremental_encrypt_service.dart` | 11 |
 | `lib/services/clipboard_service.dart` | 10 |
 | `lib/services/directory_service.dart` | 9 |
-| `lib/services/document_window_client.dart` | 9 |
 | `lib/utils/error_diagnostics.dart` | 9 |
 | `lib/native/native_lib.dart` | 8 |
 | `lib/services/clipboard_helper.dart` | 6 |
-| `lib/services/document_session_broker.dart` | 5 |
-| `lib/services/secure_entry_move_service.dart` | 4 |
 | `lib/services/crypto_service.dart` | 3 |
 | `lib/native/bindings.dart` | 2 |
-| `lib/services/remote_document_crypto_service.dart` | 2 |
-| `lib/main.dart` | 1 |
-| `lib/pages/home_page.dart` | 1 |
 | `lib/services/settings_service.dart` | 1 |
-| `lib/widgets/entry_conflict_dialog.dart` | 1 |
 
 ## 逐项清单
 
@@ -52,20 +43,6 @@
 | CJK 待人工复核 | `lib/services/clipboard_helper.dart` | 32 | 已取消：成功 $filesProcessed 个，失败 $filesFailed 个 | return '已取消：成功 $filesProcessed 个，失败 $filesFailed 个'; |
 | CJK 待人工复核 | `lib/services/clipboard_helper.dart` | 35 | 完成：成功粘贴 $filesProcessed 个文件 | return '完成：成功粘贴 $filesProcessed 个文件'; |
 | CJK 待人工复核 | `lib/services/clipboard_helper.dart` | 37 | 完成：成功 $filesProcessed 个，失败 $filesFailed 个 | return '完成：成功 $filesProcessed 个，失败 $filesFailed 个'; |
-| CJK 待人工复核 | `lib/services/document_session_broker.dart` | 21 | 内容窗口会话不存在或已经关闭 | String toString() => '内容窗口会话不存在或已经关闭'; |
-| CJK 待人工复核 | `lib/services/document_session_broker.dart` | 30 | 内容超过允许的 $maxBytes 字节上限 | String toString() => '内容超过允许的 $maxBytes 字节上限'; |
-| CJK 待人工复核 | `lib/services/document_session_broker.dart` | 37 | 当前内容窗口会话为只读 | String toString() => '当前内容窗口会话为只读'; |
-| CJK 待人工复核 | `lib/services/document_window_client.dart` | 32 | 主窗口未在限定时间内响应：$operation | String toString() => '主窗口未在限定时间内响应：$operation'; |
-| CJK 待人工复核 | `lib/services/document_window_client.dart` | 58 | 读取文档 | '读取文档', |
-| CJK 待人工复核 | `lib/services/document_window_client.dart` | 69 | 保存文档 | '保存文档', |
-| CJK 待人工复核 | `lib/services/document_window_client.dart` | 84 | 读取安全草稿 | '读取安全草稿', |
-| CJK 待人工复核 | `lib/services/document_window_client.dart` | 94 | 写入安全草稿 | '写入安全草稿', |
-| CJK 待人工复核 | `lib/services/document_window_client.dart` | 104 | 删除安全草稿 | '删除安全草稿', |
-| CJK 待人工复核 | `lib/services/document_window_client.dart` | 114 | 同步编辑状态 | '同步编辑状态', |
-| CJK 待人工复核 | `lib/services/document_window_client.dart` | 124 | 关闭文档会话 | '关闭文档会话', |
-| CJK 待人工复核 | `lib/services/secure_entry_move_service.dart` | 11 | 目标文件已复制，但删除源文件失败；为避免数据丢失，源文件和目标文件均已保留。 | return '目标文件已复制，但删除源文件失败；为避免数据丢失，源文件和目标文件均已保留。' |
-| CJK 待人工复核 | `lib/services/secure_entry_move_service.dart` | 12 | 请确认后手动删除源文件。原始错误：$cause | '请确认后手动删除源文件。原始错误：$cause'; |
-| CJK 待人工复核 | `lib/services/secure_entry_move_service.dart` | 39 | 可改用复制，确认内容后再手动删除源目录。 | '可改用复制，确认内容后再手动删除源目录。', |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 17 | 错误类型：${type.name} | '错误类型：${type.name}', |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 18 | 操作阶段：$operation | if (operation != null && operation.isNotEmpty) '操作阶段：$operation', |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 19 | 底层错误：$sanitized | '底层错误：$sanitized', |
@@ -75,9 +52,6 @@
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 53 | [路径已隐藏] | (_) => '[路径已隐藏]', |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 57 | [路径已隐藏] | (_) => '[路径已隐藏]', |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 60 | ${result.substring(0, _maxDetailLength)}\n[详细信息已截断] | result = '${result.substring(0, _maxDetailLength)}\n[详细信息已截断]'; |
-| 直接 UI 英文文案 | `lib/main.dart` | 197 | Safe Disk | title: 'Safe Disk', |
-| 直接 UI 英文文案 | `lib/pages/home_page.dart` | 1776 | Unknown error | originalError: progress.error ?? 'Unknown error', |
-| 直接 UI 英文文案 | `lib/widgets/entry_conflict_dialog.dart` | 128 | No conflict-free entry name could be generated | throw StateError('No conflict-free entry name could be generated'); |
 | 错误/反馈英文文案 | `lib/models/ffi_results.dart` | 45 | Operation failed | throw Exception(error ?? 'Operation failed'); |
 | 错误/反馈英文文案 | `lib/models/ffi_results.dart` | 48 | No data returned | throw Exception('No data returned'); |
 | 错误/反馈英文文案 | `lib/models/ffi_results.dart` | 72 | Operation failed | throw Exception(error ?? 'Operation failed'); |
@@ -142,9 +116,3 @@
 | 错误/反馈英文文案 | `lib/services/incremental_encrypt_service.dart` | 443 | Failed to get block info | onError?.call(result.error ?? 'Failed to get block info'); |
 | 错误/反馈英文文案 | `lib/services/incremental_encrypt_service.dart` | 465 | Failed to get all block info | onError?.call(result.error ?? 'Failed to get all block info'); |
 | 错误/反馈英文文案 | `lib/services/settings_service.dart` | 139 | unsupported application locale | locale, 'locale', 'unsupported application locale'); |
-| 错误/服务边界文案 | `lib/services/document_session_broker.dart` | 205 | 窗口内容版本已过期，请重新加载后再保存 | throw const DocumentSessionConflict('窗口内容版本已过期，请重新加载后再保存'); |
-| 错误/服务边界文案 | `lib/services/document_session_broker.dart` | 213 | 文件已被另一个窗口修改，已阻止覆盖 | throw const DocumentSessionConflict('文件已被另一个窗口修改，已阻止覆盖'); |
-| 错误/服务边界文案 | `lib/services/document_window_client.dart` | 147 | 主窗口返回了无效的文档快照 | throw StateError('主窗口返回了无效的文档快照'); |
-| 错误/服务边界文案 | `lib/services/remote_document_crypto_service.dart` | 26 | 安全草稿不存在 | if (draft == null) throw StateError('安全草稿不存在'); |
-| 错误/服务边界文案 | `lib/services/remote_document_crypto_service.dart` | 58 | 内容窗口不能删除原文件 | throw UnsupportedError('内容窗口不能删除原文件'); |
-| 错误/服务边界文案 | `lib/services/secure_entry_move_service.dart` | 38 | 跨 root 或替换已有目录的移动尚不安全：当前缺少递归删除源目录接口。 | '跨 root 或替换已有目录的移动尚不安全：当前缺少递归删除源目录接口。' |

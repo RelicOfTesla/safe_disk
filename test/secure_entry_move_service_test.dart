@@ -81,7 +81,7 @@ void main() {
         destinationSessionID: '2',
         overwrite: false,
       ),
-      throwsA(isA<UnsupportedError>()),
+      throwsA(isA<SecureEntryMoveDirectoryUnsupported>()),
     );
     expect(crypto.operations, isEmpty);
   });

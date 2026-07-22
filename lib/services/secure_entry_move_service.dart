@@ -7,10 +7,14 @@ class SecureEntryMovePartialFailure implements Exception {
   final Object cause;
 
   @override
-  String toString() {
-    return '目标文件已复制，但删除源文件失败；为避免数据丢失，源文件和目标文件均已保留。'
-        '请确认后手动删除源文件。原始错误：$cause';
-  }
+  String toString() => 'secure-entry-move-source-delete-failed';
+}
+
+class SecureEntryMoveDirectoryUnsupported implements Exception {
+  const SecureEntryMoveDirectoryUnsupported();
+
+  @override
+  String toString() => 'secure-entry-move-directory-unsupported';
 }
 
 class SecureEntryMoveService {
@@ -34,10 +38,7 @@ class SecureEntryMoveService {
       return;
     }
     if (entry.isDirectory) {
-      throw UnsupportedError(
-        '跨 root 或替换已有目录的移动尚不安全：当前缺少递归删除源目录接口。'
-        '可改用复制，确认内容后再手动删除源目录。',
-      );
+      throw const SecureEntryMoveDirectoryUnsupported();
     }
 
     await _cryptoService.copyBySession(

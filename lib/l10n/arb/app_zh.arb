@@ -314,6 +314,8 @@
   "clipboardMovePending": "待移动",
   "fileClipboard": "文件剪贴板",
   "clipboardPastePending": "待粘贴",
+  "moveSourceDeleteFailed": "目标已复制，但无法删除源文件。源文件和目标均已保留，请确认内容后手动删除源文件。",
+  "moveDirectoryUnsupported": "跨目录或替换已有目录的移动暂不支持。请改用复制，确认内容后手动删除源目录。",
   "clipboardMultipleEntries": "{name} 等 {count} 项",
   "@clipboardMultipleEntries": {"placeholders": {"name": {"type": "String"}, "count": {"type": "int"}}},
   "clipboardStatusWide": "{operation} · {entries} → {target}",

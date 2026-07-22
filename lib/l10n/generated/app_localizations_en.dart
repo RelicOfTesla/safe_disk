@@ -1016,6 +1016,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clipboardPastePending => 'Paste pending';
 
   @override
+  String get moveSourceDeleteFailed =>
+      'The target was copied, but the source could not be deleted. Both entries were kept; verify the target, then remove the source manually.';
+
+  @override
+  String get moveDirectoryUnsupported =>
+      'Moving across directories or replacing an existing directory is not supported. Copy it first, verify the contents, then remove the source manually.';
+
+  @override
   String clipboardMultipleEntries(String name, int count) {
     return '$name and $count items';
   }

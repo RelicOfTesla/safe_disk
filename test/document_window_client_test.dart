@@ -47,7 +47,7 @@ void main() {
     var closed = false;
     await tester.pumpWidget(ContentWindowStartupErrorApp(
       title: 'note.txt',
-      error: const DocumentWindowRequestTimeout('读取文档'),
+      error: const DocumentWindowRequestTimeout('document-read'),
       onClose: () async => closed = true,
       locale: const Locale('zh'),
     ));

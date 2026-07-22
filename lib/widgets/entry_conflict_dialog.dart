@@ -125,5 +125,5 @@ String nextAvailableEntryName({
     final candidate = '$base$suffix$extension';
     if (!existing.contains(candidate.toLowerCase())) return candidate;
   }
-  throw StateError('No conflict-free entry name could be generated');
+  throw StateError('no-conflict-free-entry-name');
 }

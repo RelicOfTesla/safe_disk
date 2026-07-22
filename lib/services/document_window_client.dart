@@ -29,7 +29,7 @@ class DocumentWindowRequestTimeout implements Exception {
   final String operation;
 
   @override
-  String toString() => '主窗口未在限定时间内响应：$operation';
+  String toString() => 'document-window-request-timeout:$operation';
 }
 
 class RemoteDocumentSnapshot {
@@ -55,7 +55,7 @@ class DocumentWindowClient {
 
   Future<RemoteDocumentSnapshot> read() async {
     final result = await _request(
-      '读取文档',
+      'document-read',
       () => _channel.invokeMethod<Map<dynamic, dynamic>>(
         'document.read',
         {'token': token},
@@ -66,7 +66,7 @@ class DocumentWindowClient {
 
   Future<RemoteDocumentSnapshot> save(int revision, List<int> content) async {
     final result = await _request(
-      '保存文档',
+      'document-save',
       () => _channel.invokeMethod<Map<dynamic, dynamic>>(
         'document.save',
         {
@@ -81,7 +81,7 @@ class DocumentWindowClient {
 
   Future<Uint8List?> readDraft() async {
     return _request(
-      '读取安全草稿',
+      'document-draft-read',
       () => _channel.invokeMethod<Uint8List>(
         'document.draftRead',
         {'token': token},
@@ -91,7 +91,7 @@ class DocumentWindowClient {
 
   Future<void> writeDraft(List<int> content) async {
     await _request(
-      '写入安全草稿',
+      'document-draft-write',
       () => _channel.invokeMethod<void>(
         'document.draftWrite',
         {'token': token, 'content': Uint8List.fromList(content)},
@@ -101,7 +101,7 @@ class DocumentWindowClient {
 
   Future<void> deleteDraft() async {
     await _request(
-      '删除安全草稿',
+      'document-draft-delete',
       () => _channel.invokeMethod<void>(
         'document.draftDelete',
         {'token': token},
@@ -111,7 +111,7 @@ class DocumentWindowClient {
 
   Future<void> setDirty(bool dirty) async {
     await _request(
-      '同步编辑状态',
+      'document-set-dirty',
       () => _channel.invokeMethod<void>(
         'document.setDirty',
         {'token': token, 'dirty': dirty},
@@ -121,7 +121,7 @@ class DocumentWindowClient {
 
   Future<void> close() async {
     await _request(
-      '关闭文档会话',
+      'document-close',
       () => _channel.invokeMethod<void>(
         'document.closed',
         {'token': token},
@@ -144,7 +144,7 @@ class DocumentWindowClient {
     final revision = value?['revision'];
     final content = value?['content'];
     if (revision is! int || content is! Uint8List) {
-      throw StateError('主窗口返回了无效的文档快照');
+      throw StateError('invalid-document-window-snapshot');
     }
     return RemoteDocumentSnapshot(content: content, revision: revision);
   }

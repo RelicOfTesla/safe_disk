@@ -202,7 +202,10 @@ void main() {
 
     second.textController.text = 'stale second window';
     expect(await second.save(), isFalse);
-    expect(second.saveError, contains('另一个窗口修改'));
+    expect(
+      second.saveError,
+      'document-session-conflict:externalModification',
+    );
     expect(service.files['/vault/note.txt'], 'first window');
 
     first.dispose();

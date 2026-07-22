@@ -339,7 +339,7 @@ class ContentWindowHostBridge {
           );
       }
     } on DocumentSessionConflict catch (error) {
-      throw PlatformException(code: 'write_conflict', message: error.message);
+      throw PlatformException(code: 'write_conflict', message: '$error');
     } on DocumentSessionNotFound catch (error) {
       throw PlatformException(code: 'session_not_found', message: '$error');
     } on DocumentSessionReadOnly catch (error) {

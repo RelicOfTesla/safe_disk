@@ -194,7 +194,7 @@ class _SafeDiskAppState extends State<SafeDiskApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Safe Disk',
+      onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       locale: _locale,
       localeResolutionCallback: resolveSafeDiskLocale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,

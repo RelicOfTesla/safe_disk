@@ -23,7 +23,7 @@ class RemoteDocumentCryptoService extends CryptoService {
   Uint8List decryptFileToData(String path, String tempKeyID) {
     if (_isDraft(path)) {
       final draft = _draft;
-      if (draft == null) throw StateError('安全草稿不存在');
+      if (draft == null) throw StateError('remote-document-draft-not-found');
       return Uint8List.fromList(draft);
     }
     return Uint8List.fromList(_content);
@@ -55,7 +55,7 @@ class RemoteDocumentCryptoService extends CryptoService {
   @override
   Future<void> deleteFileBySession(String path, String tempKeyID) async {
     if (!_isDraft(path)) {
-      throw UnsupportedError('内容窗口不能删除原文件');
+      throw UnsupportedError('remote-document-cannot-delete-source');
     }
     await _client.deleteDraft();
     _draft = null;
