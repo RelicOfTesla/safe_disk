@@ -37,6 +37,16 @@
       "fileName": {"type": "String"}
     }
   },
+  "animatedImageFrames": "Animated ({count} frames)",
+  "@animatedImageFrames": {"placeholders": {"count": {"type": "int"}}},
+  "zoomInShortcut": "Zoom in (+)",
+  "zoomOutShortcut": "Zoom out (-)",
+  "resetImageViewShortcut": "Reset view (N)",
+  "rotateClockwiseShortcut": "Rotate clockwise (R)",
+  "previousImageShortcut": "Previous image (Left)",
+  "nextImageShortcut": "Next image (Right)",
+  "imageDecodeFailed": "Cannot display image",
+  "imageDecodeFailedDescription": "The file may be damaged or use an unsupported image format.",
   "errorSuggestionPrefix": "Suggestion: ",
   "copy": "Copy",
   "close": "Close",

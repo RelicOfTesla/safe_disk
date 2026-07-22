@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide MaterialApp;
+import 'package:flutter/material.dart' as material show MaterialApp;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/models/cryption_config.dart';
 import 'package:safe_disk/models/secure_image_policy.dart';
 import 'package:safe_disk/services/content_window_host_bridge.dart';
@@ -15,6 +17,15 @@ import 'package:safe_disk/widgets/secure_image_viewer.dart';
 import 'package:safe_disk/windows/secure_image_window.dart';
 
 import 'support/image_fixtures.dart';
+
+class MaterialApp extends material.MaterialApp {
+  const MaterialApp({super.key, super.home, Locale? locale})
+      : super(
+          locale: locale ?? const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        );
+}
 
 void main() {
   test('recognizes every image format exposed by the browser', () {
@@ -113,6 +124,24 @@ void main() {
     expect(bytes.every((value) => value == 0), isTrue);
   });
 
+  testWidgets('image viewer toolbar follows the active locale', (tester) async {
+    final bytes = _pngBytes();
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      home: SecureImageViewer(
+        file: _file('one.png', '/one.png'),
+        cryptoService: _ImageCryptoService({'/one.png': bytes}),
+        tempKeyID: 'root-session',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Zoom in (+)'), findsOneWidget);
+    expect(find.byTooltip('Reset view (N)'), findsOneWidget);
+    expect(find.byTooltip('Rotate clockwise (R)'), findsOneWidget);
+    expect(find.bySemanticsLabel('Viewing: one.png'), findsOneWidget);
+  });
+
   testWidgets('exposes loading, image, and failure states to assistive tools',
       (tester) async {
     final semantics = tester.ensureSemantics();
@@ -153,7 +182,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(
-      find.bySemanticsLabel('图片加载失败：无法加载图片：图片内容为空'),
+      find.bySemanticsLabel('图片加载失败: 无法加载图片：图片内容为空'),
       findsOneWidget,
     );
 
@@ -179,7 +208,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(
-      find.bySemanticsLabel('无法显示图片：文件可能已损坏，或不是受支持的图片格式。'),
+      find.bySemanticsLabel('无法显示图片: 文件可能已损坏，或不是受支持的图片格式。'),
       findsOneWidget,
     );
     semantics.dispose();
@@ -399,7 +428,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<MaterialApp>(find.byType(MaterialApp)).locale,
+      tester.widget<material.MaterialApp>(find.byType(material.MaterialApp)).locale,
       const Locale('en'),
     );
     expect(find.text('remote.png'), findsOneWidget);

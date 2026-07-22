@@ -37,6 +37,16 @@
       "fileName": {"type": "String"}
     }
   },
+  "animatedImageFrames": "动画（{count} 帧）",
+  "@animatedImageFrames": {"placeholders": {"count": {"type": "int"}}},
+  "zoomInShortcut": "放大（+）",
+  "zoomOutShortcut": "缩小（-）",
+  "resetImageViewShortcut": "重置视图（N）",
+  "rotateClockwiseShortcut": "顺时针旋转（R）",
+  "previousImageShortcut": "上一张（←）",
+  "nextImageShortcut": "下一张（→）",
+  "imageDecodeFailed": "无法显示图片",
+  "imageDecodeFailedDescription": "文件可能已损坏，或不是受支持的图片格式。",
   "errorSuggestionPrefix": "建议：",
   "copy": "复制",
   "close": "关闭",

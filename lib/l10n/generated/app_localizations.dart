@@ -290,6 +290,60 @@ abstract class AppLocalizations {
   /// **'正在查看：{fileName}'**
   String viewingImage(String fileName);
 
+  /// No description provided for @animatedImageFrames.
+  ///
+  /// In zh, this message translates to:
+  /// **'动画（{count} 帧）'**
+  String animatedImageFrames(int count);
+
+  /// No description provided for @zoomInShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'放大（+）'**
+  String get zoomInShortcut;
+
+  /// No description provided for @zoomOutShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'缩小（-）'**
+  String get zoomOutShortcut;
+
+  /// No description provided for @resetImageViewShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'重置视图（N）'**
+  String get resetImageViewShortcut;
+
+  /// No description provided for @rotateClockwiseShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'顺时针旋转（R）'**
+  String get rotateClockwiseShortcut;
+
+  /// No description provided for @previousImageShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'上一张（←）'**
+  String get previousImageShortcut;
+
+  /// No description provided for @nextImageShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一张（→）'**
+  String get nextImageShortcut;
+
+  /// No description provided for @imageDecodeFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法显示图片'**
+  String get imageDecodeFailed;
+
+  /// No description provided for @imageDecodeFailedDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件可能已损坏，或不是受支持的图片格式。'**
+  String get imageDecodeFailedDescription;
+
   /// No description provided for @errorSuggestionPrefix.
   ///
   /// In zh, this message translates to:

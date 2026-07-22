@@ -107,6 +107,35 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String animatedImageFrames(int count) {
+    return '动画（$count 帧）';
+  }
+
+  @override
+  String get zoomInShortcut => '放大（+）';
+
+  @override
+  String get zoomOutShortcut => '缩小（-）';
+
+  @override
+  String get resetImageViewShortcut => '重置视图（N）';
+
+  @override
+  String get rotateClockwiseShortcut => '顺时针旋转（R）';
+
+  @override
+  String get previousImageShortcut => '上一张（←）';
+
+  @override
+  String get nextImageShortcut => '下一张（→）';
+
+  @override
+  String get imageDecodeFailed => '无法显示图片';
+
+  @override
+  String get imageDecodeFailedDescription => '文件可能已损坏，或不是受支持的图片格式。';
+
+  @override
   String get errorSuggestionPrefix => '建议：';
 
   @override

@@ -113,6 +113,36 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String animatedImageFrames(int count) {
+    return 'Animated ($count frames)';
+  }
+
+  @override
+  String get zoomInShortcut => 'Zoom in (+)';
+
+  @override
+  String get zoomOutShortcut => 'Zoom out (-)';
+
+  @override
+  String get resetImageViewShortcut => 'Reset view (N)';
+
+  @override
+  String get rotateClockwiseShortcut => 'Rotate clockwise (R)';
+
+  @override
+  String get previousImageShortcut => 'Previous image (Left)';
+
+  @override
+  String get nextImageShortcut => 'Next image (Right)';
+
+  @override
+  String get imageDecodeFailed => 'Cannot display image';
+
+  @override
+  String get imageDecodeFailedDescription =>
+      'The file may be damaged or use an unsupported image format.';
+
+  @override
   String get errorSuggestionPrefix => 'Suggestion: ';
 
   @override

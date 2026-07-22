@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/generated/app_localizations.dart';
+
 import '../models/secure_image_policy.dart';
 import '../services/crypto_service.dart';
 import '../services/file_service.dart';
@@ -317,6 +319,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return KeyboardListener(
       focusNode: _focusNode,
       autofocus: true,
@@ -341,7 +344,8 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
                 padding: const EdgeInsets.only(right: 4),
                 child: Chip(
                   avatar: const Icon(Icons.animation, size: 16),
-                  label: Text('动画（${_metadata!.frameCount} 帧）'),
+                  label:
+                      Text(strings.animatedImageFrames(_metadata!.frameCount)),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -349,35 +353,35 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
             IconButton(
               icon: const Icon(Icons.zoom_in),
               onPressed: _zoomIn,
-              tooltip: '放大（+）',
+              tooltip: strings.zoomInShortcut,
             ),
             // Zoom out
             IconButton(
               icon: const Icon(Icons.zoom_out),
               onPressed: _zoomOut,
-              tooltip: '缩小（-）',
+              tooltip: strings.zoomOutShortcut,
             ),
             // Reset view
             IconButton(
               icon: const Icon(Icons.fit_screen),
               onPressed: _resetView,
-              tooltip: '重置视图（N）',
+              tooltip: strings.resetImageViewShortcut,
             ),
             // Rotate
             IconButton(
               icon: const Icon(Icons.rotate_right),
               onPressed: _rotateImage,
-              tooltip: '顺时针旋转（R）',
+              tooltip: strings.rotateClockwiseShortcut,
             ),
           ],
         ),
         body: _buildBody(),
-        bottomNavigationBar: _buildBottomBar(),
+        bottomNavigationBar: _buildBottomBar(strings),
       ),
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(AppLocalizations strings) {
     if (_imageFiles.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -390,7 +394,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
           IconButton(
             icon: const Icon(Icons.navigate_before),
             onPressed: _currentIndex > 0 ? _previousImage : null,
-            tooltip: '上一张（←）',
+            tooltip: strings.previousImageShortcut,
           ),
           // Image counter
           Text(
@@ -402,7 +406,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
             icon: const Icon(Icons.navigate_next),
             onPressed:
                 _currentIndex < _imageFiles.length - 1 ? _nextImage : null,
-            tooltip: '下一张（→）',
+            tooltip: strings.nextImageShortcut,
           ),
         ],
       ),
@@ -410,10 +414,11 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   }
 
   Widget _buildBody() {
+    final strings = AppLocalizations.of(context)!;
     if (_isLoading) {
       return Center(
         child: Semantics(
-          label: '正在加载图片',
+          label: strings.loadingImage,
           liveRegion: true,
           child: const CircularProgressIndicator(),
         ),
@@ -424,7 +429,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
       return Semantics(
         container: true,
         explicitChildNodes: true,
-        label: '图片加载失败：$_errorMessage',
+        label: '${strings.imageLoadFailed}: $_errorMessage',
         liveRegion: true,
         child: Center(
           child: Column(
@@ -442,7 +447,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadImage,
-                child: const Text('重试'),
+                child: Text(strings.retry),
               ),
             ],
           ),
@@ -453,9 +458,9 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
     if (_imageData == null || _imageProvider == null) {
       return Center(
         child: Semantics(
-          label: '没有可显示的图片。请选择其他图片或重试。',
+          label: strings.noDisplayableImage,
           liveRegion: true,
-          child: const Text('没有可显示的图片。'),
+          child: Text(strings.noDisplayableImage),
         ),
       );
     }
@@ -491,14 +496,15 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
               child: Image(
                 key: const Key('secure-image-content'),
                 image: _imageProvider!,
-                semanticLabel: '正在查看：$_currentFileName',
+                semanticLabel: strings.viewingImage(_currentFileName),
                 fit: BoxFit.contain,
                 gaplessPlayback: false,
                 errorBuilder: (context, error, stackTrace) {
                   return Semantics(
                     container: true,
                     explicitChildNodes: true,
-                    label: '无法显示图片：文件可能已损坏，或不是受支持的图片格式。',
+                    label:
+                        '${strings.imageDecodeFailed}: ${strings.imageDecodeFailedDescription}',
                     liveRegion: true,
                     child: Center(
                       child: Column(
@@ -507,17 +513,17 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
                           const Icon(Icons.broken_image,
                               size: 48, color: Colors.grey),
                           const SizedBox(height: 16),
-                          const Text('无法显示图片'),
+                          Text(strings.imageDecodeFailed),
                           const SizedBox(height: 8),
                           Text(
-                            '文件可能已损坏，或不是受支持的图片格式。',
+                            strings.imageDecodeFailedDescription,
                             style: Theme.of(context).textTheme.bodySmall,
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 16),
                           ElevatedButton(
                             onPressed: _loadImage,
-                            child: const Text('重试'),
+                            child: Text(strings.retry),
                           ),
                         ],
                       ),
