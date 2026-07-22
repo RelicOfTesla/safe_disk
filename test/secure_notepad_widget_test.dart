@@ -96,6 +96,53 @@ void main() {
     expect(find.textContaining('[路径已隐藏]'), findsOneWidget);
   });
 
+  testWidgets('notepad localizes binary-content errors through the UI',
+      (tester) async {
+    await _openNotepad(
+      tester,
+      _FakeCryptoService('MZ\x00binary'),
+      locale: const Locale('en'),
+    );
+
+    expect(
+      find.text(
+        'The file contains binary content and cannot be opened in Secure Notepad.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('binary-content-nul-byte'), findsNothing);
+  });
+
+  testWidgets('notepad clipboard errors are localized without raw details',
+      (tester) async {
+    final clipboard = _FakeSystemTextClipboard(
+      'short text',
+      readError: 'cannot read /private-clipboard-path',
+    );
+    await _openNotepad(
+      tester,
+      _FakeCryptoService('initial'),
+      initiallyMonitorClipboard: true,
+      locale: const Locale('en'),
+      systemClipboard: clipboard,
+    );
+
+    expect(
+        find.text('Unable to read the clipboard. Try again.'), findsOneWidget);
+    expect(find.textContaining('private-clipboard-path'), findsNothing);
+
+    clipboard.readError = null;
+    await tester.tap(find.byTooltip('Refresh clipboard now'));
+    await tester.pumpAndSettle();
+    clipboard.clearError = 'cannot clear /private-clipboard-path';
+    await tester.tap(find.byTooltip('Clear system clipboard'));
+    await tester.pumpAndSettle();
+
+    expect(
+        find.text('Unable to clear the clipboard. Try again.'), findsOneWidget);
+    expect(find.textContaining('private-clipboard-path'), findsNothing);
+  });
+
   testWidgets('notepad save error hides raw diagnostics by default',
       (tester) async {
     await _openNotepad(
@@ -521,19 +568,23 @@ class _FakeCryptoService extends CryptoService {
 }
 
 class _FakeSystemTextClipboard implements SystemTextClipboard {
-  _FakeSystemTextClipboard(this.text);
+  _FakeSystemTextClipboard(this.text, {this.readError});
 
   String? text;
+  String? readError;
+  String? clearError;
   int readCount = 0;
 
   @override
   Future<String?> readText() async {
     readCount++;
+    if (readError != null) throw StateError(readError!);
     return text;
   }
 
   @override
   Future<void> clear() async {
+    if (clearError != null) throw StateError(clearError!);
     text = '';
   }
 }

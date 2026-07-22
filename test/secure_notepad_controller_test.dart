@@ -56,8 +56,9 @@ void main() {
 
     await controller.load();
 
-    expect(controller.loadError, '文件包含二进制内容，不能用安全记事本打开。');
-    expect(controller.loadTechnicalError, contains('NUL 字节'));
+    expect(controller.loadError, SecureNotepadLoadError.binaryContent);
+    expect(controller.loadTechnicalError,
+        'FormatException: binary-content-nul-byte');
     expect(controller.textController.text, isEmpty);
   });
 
@@ -68,8 +69,7 @@ void main() {
 
     await controller.load();
 
-    expect(controller.loadError, '无法读取文件内容。请检查文件是否存在且可读，然后重试。');
-    expect(controller.loadError, isNot(contains('private-note-path')));
+    expect(controller.loadError, SecureNotepadLoadError.readFailed);
     expect(controller.loadTechnicalError, contains('private-note-path'));
   });
 
@@ -85,8 +85,7 @@ void main() {
 
     controller.textController.text = 'edited';
     expect(await controller.saveDraft(), isFalse);
-    expect(controller.draftError, '无法保存恢复草稿。');
-    expect(controller.draftError, isNot(contains('private-draft-path')));
+    expect(controller.draftError, SecureNotepadDraftError.saveRecoveryDraft);
     expect(controller.draftTechnicalError, contains('private-draft-path'));
   });
 

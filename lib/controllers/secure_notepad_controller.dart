@@ -10,6 +10,15 @@ import '../services/document_session_broker.dart';
 import '../services/secure_notepad_draft_store.dart';
 import '../utils/encoding_detector.dart';
 
+enum SecureNotepadLoadError { binaryContent, readFailed }
+
+enum SecureNotepadDraftError {
+  cleanupAfterSave,
+  readRecoveryDraft,
+  discardRecoveryDraft,
+  saveRecoveryDraft,
+}
+
 class SecureNotepadController extends ChangeNotifier {
   SecureNotepadController({
     required this.file,
@@ -64,10 +73,10 @@ class SecureNotepadController extends ChangeNotifier {
   bool _hasDraftBackup = false;
   bool _hasChanges = false;
   bool _isReadOnly;
-  String? _loadError;
+  SecureNotepadLoadError? _loadError;
   String? _loadTechnicalError;
   String? _saveError;
-  String? _draftError;
+  SecureNotepadDraftError? _draftError;
   String? _draftTechnicalError;
   String? _detectedEncoding;
 
@@ -78,10 +87,10 @@ class SecureNotepadController extends ChangeNotifier {
   bool get hasRecoveryDraft => _recoveryDraftText != null;
   bool get hasChanges => _hasChanges;
   bool get isReadOnly => _isReadOnly;
-  String? get loadError => _loadError;
+  SecureNotepadLoadError? get loadError => _loadError;
   String? get loadTechnicalError => _loadTechnicalError;
   String? get saveError => _saveError;
-  String? get draftError => _draftError;
+  SecureNotepadDraftError? get draftError => _draftError;
   String? get draftTechnicalError => _draftTechnicalError;
   String? get detectedEncoding => _detectedEncoding;
   String get draftPath =>
@@ -105,7 +114,7 @@ class SecureNotepadController extends ChangeNotifier {
           );
       _documentRevision = lease?.snapshot.revision;
       if (contentBytes.contains(0)) {
-        throw const FormatException('文件包含 NUL 字节，可能是二进制文件');
+        throw const FormatException('binary-content-nul-byte');
       }
       final decoded = await EncodingDetector.decode(contentBytes);
       _detectedEncoding = decoded.encoding;
@@ -122,17 +131,17 @@ class SecureNotepadController extends ChangeNotifier {
       _startAutoSaveTimer();
     } catch (error) {
       _loadTechnicalError = error.toString();
-      _loadError = _userFacingLoadError(error);
+      _loadError = _loadErrorFor(error);
     } finally {
       _setLoading(false);
     }
   }
 
-  String _userFacingLoadError(Object error) {
+  SecureNotepadLoadError _loadErrorFor(Object error) {
     if (error is FormatException) {
-      return '文件包含二进制内容，不能用安全记事本打开。';
+      return SecureNotepadLoadError.binaryContent;
     }
-    return '无法读取文件内容。请检查文件是否存在且可读，然后重试。';
+    return SecureNotepadLoadError.readFailed;
   }
 
   Future<bool> save() async {
@@ -173,7 +182,7 @@ class SecureNotepadController extends ChangeNotifier {
         _draftError = null;
         _draftTechnicalError = null;
       } catch (error) {
-        _draftError = '原文件已保存，但无法清理旧草稿。';
+        _draftError = SecureNotepadDraftError.cleanupAfterSave;
         _draftTechnicalError = error.toString();
       }
       onSaved?.call();
@@ -201,7 +210,7 @@ class SecureNotepadController extends ChangeNotifier {
       _lastDraftText = draft;
       _hasDraftBackup = true;
     } catch (error) {
-      _draftError = '无法检查恢复草稿。';
+      _draftError = SecureNotepadDraftError.readRecoveryDraft;
       _draftTechnicalError = error.toString();
     }
   }
@@ -229,7 +238,7 @@ class SecureNotepadController extends ChangeNotifier {
       if (!_disposed) notifyListeners();
       return true;
     } catch (error) {
-      _draftError = '无法清理恢复草稿。';
+      _draftError = SecureNotepadDraftError.discardRecoveryDraft;
       _draftTechnicalError = error.toString();
       if (!_disposed) notifyListeners();
       return false;
@@ -253,7 +262,7 @@ class SecureNotepadController extends ChangeNotifier {
       _hasDraftBackup = true;
       return true;
     } catch (error) {
-      _draftError = '无法保存恢复草稿。';
+      _draftError = SecureNotepadDraftError.saveRecoveryDraft;
       _draftTechnicalError = error.toString();
       return false;
     } finally {

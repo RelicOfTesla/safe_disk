@@ -519,6 +519,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notepadRecoveryDraftFound => 'Secure draft found';
 
   @override
+  String get notepadBinaryContent =>
+      'The file contains binary content and cannot be opened in Secure Notepad.';
+
+  @override
+  String get notepadLoadFailed =>
+      'Unable to read the file. Check that it exists and is readable, then try again.';
+
+  @override
   String get notepadRecoveryDraftDescription =>
       'An encrypted draft from an unfinished edit was found. Restore it to the editor?';
 
@@ -565,6 +573,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notepadSave => 'Save';
 
   @override
+  String get notepadFileSaved => 'File saved';
+
+  @override
   String get notepadSaveFailed => 'Save failed';
 
   @override
@@ -591,6 +602,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notepadDraftSaveFailed => 'Could not save recovery draft';
 
   @override
+  String get notepadDraftCleanupFailed =>
+      'The original file was saved, but the old draft could not be removed.';
+
+  @override
+  String get notepadDraftReadFailed => 'Could not check the recovery draft.';
+
+  @override
+  String get notepadDraftDiscardFailed =>
+      'Could not remove the recovery draft.';
+
+  @override
   String get notepadSavingDraft => 'Saving recovery draft';
 
   @override
@@ -601,6 +623,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notepadClipboardEmpty => 'No short text in the clipboard';
+
+  @override
+  String get notepadClipboardReadFailed =>
+      'Unable to read the clipboard. Try again.';
+
+  @override
+  String get notepadClipboardClearFailed =>
+      'Unable to clear the clipboard. Try again.';
 
   @override
   String get notepadRefreshClipboard => 'Refresh clipboard now';

@@ -27,7 +27,7 @@ class SecureNotepadStatusBar extends StatelessWidget {
   final String? saveError;
   final bool isSavingDraft;
   final bool hasDraftBackup;
-  final String? draftError;
+  final SecureNotepadDraftError? draftError;
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +99,7 @@ class SecureNotepadStatusBar extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               draftError != null
-                  ? strings.notepadDraftSaveFailed
+                  ? _draftErrorMessage(strings, draftError!)
                   : isSavingDraft
                       ? strings.notepadSavingDraft
                       : strings.notepadDraftSaved,
@@ -109,6 +109,22 @@ class SecureNotepadStatusBar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _draftErrorMessage(
+    AppLocalizations strings,
+    SecureNotepadDraftError error,
+  ) {
+    return switch (error) {
+      SecureNotepadDraftError.cleanupAfterSave =>
+        strings.notepadDraftCleanupFailed,
+      SecureNotepadDraftError.readRecoveryDraft =>
+        strings.notepadDraftReadFailed,
+      SecureNotepadDraftError.discardRecoveryDraft =>
+        strings.notepadDraftDiscardFailed,
+      SecureNotepadDraftError.saveRecoveryDraft =>
+        strings.notepadDraftSaveFailed,
+    };
   }
 }
 

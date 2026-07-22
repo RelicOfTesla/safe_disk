@@ -968,6 +968,18 @@ abstract class AppLocalizations {
   /// **'发现安全草稿'**
   String get notepadRecoveryDraftFound;
 
+  /// No description provided for @notepadBinaryContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件包含二进制内容，不能用安全记事本打开。'**
+  String get notepadBinaryContent;
+
+  /// No description provided for @notepadLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法读取文件内容。请检查文件是否存在且可读，然后重试。'**
+  String get notepadLoadFailed;
+
   /// No description provided for @notepadRecoveryDraftDescription.
   ///
   /// In zh, this message translates to:
@@ -1058,6 +1070,12 @@ abstract class AppLocalizations {
   /// **'保存'**
   String get notepadSave;
 
+  /// No description provided for @notepadFileSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件已保存'**
+  String get notepadFileSaved;
+
   /// No description provided for @notepadSaveFailed.
   ///
   /// In zh, this message translates to:
@@ -1106,6 +1124,24 @@ abstract class AppLocalizations {
   /// **'无法保存恢复草稿'**
   String get notepadDraftSaveFailed;
 
+  /// No description provided for @notepadDraftCleanupFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'原文件已保存，但无法清理旧草稿'**
+  String get notepadDraftCleanupFailed;
+
+  /// No description provided for @notepadDraftReadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法检查恢复草稿'**
+  String get notepadDraftReadFailed;
+
+  /// No description provided for @notepadDraftDiscardFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法清理恢复草稿'**
+  String get notepadDraftDiscardFailed;
+
   /// No description provided for @notepadSavingDraft.
   ///
   /// In zh, this message translates to:
@@ -1129,6 +1165,18 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'剪贴板中没有短文本'**
   String get notepadClipboardEmpty;
+
+  /// No description provided for @notepadClipboardReadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法读取剪贴板，请重试。'**
+  String get notepadClipboardReadFailed;
+
+  /// No description provided for @notepadClipboardClearFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法清空剪贴板，请重试。'**
+  String get notepadClipboardClearFailed;
 
   /// No description provided for @notepadRefreshClipboard.
   ///

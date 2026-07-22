@@ -12,14 +12,14 @@
 - `CJK 待人工复核`：可能是协议、日志或测试数据，须登记理由后才可排除。
 - 英文候选用于发现未本地化 fallback；技术标识、URL、协议字段不应翻译。
 
-候选总数：117
+候选总数：114
 
 ## 按分类统计
 
 | 分类 | 候选数 |
 | --- | ---: |
 | CJK 待人工复核 | 27 |
-| 直接 UI 文案 | 6 |
+| 直接 UI 文案 | 3 |
 | 直接 UI 英文文案 | 4 |
 | 错误/反馈英文文案 | 64 |
 | 错误/服务边界文案 | 16 |
@@ -42,7 +42,6 @@
 | `lib/services/secure_entry_move_service.dart` | 4 |
 | `lib/services/crypto_service.dart` | 3 |
 | `lib/widgets/secure_image_viewer.dart` | 3 |
-| `lib/widgets/secure_notepad.dart` | 3 |
 | `lib/native/bindings.dart` | 2 |
 | `lib/services/remote_document_crypto_service.dart` | 2 |
 | `lib/main.dart` | 1 |
@@ -84,9 +83,6 @@
 | 直接 UI 文案 | `lib/services/content_window_host_bridge.dart` | 336 | 不支持的内容窗口调用：${call.method} | message: '不支持的内容窗口调用：${call.method}', |
 | 直接 UI 文案 | `lib/widgets/secure_image_viewer.dart` | 182 | 无法加载图片：${e.message} | ? '无法加载图片：${e.message}' |
 | 直接 UI 文案 | `lib/widgets/secure_image_viewer.dart` | 183 | 无法加载图片：图片解密失败或内容无效 | : '无法加载图片：图片解密失败或内容无效'; |
-| 直接 UI 文案 | `lib/widgets/secure_notepad.dart` | 214 | 无法读取剪贴板：$error | setState(() => _clipboardError = '无法读取剪贴板：$error'); |
-| 直接 UI 文案 | `lib/widgets/secure_notepad.dart` | 231 | 无法清空剪贴板：$error | setState(() => _clipboardError = '无法清空剪贴板：$error'); |
-| 直接 UI 文案 | `lib/widgets/secure_notepad.dart` | 244 | 文件保存成功 | ErrorHelper.showSuccess(context, '文件保存成功'); |
 | 直接 UI 英文文案 | `lib/main.dart` | 197 | Safe Disk | title: 'Safe Disk', |
 | 直接 UI 英文文案 | `lib/pages/home_page.dart` | 1776 | Unknown error | originalError: progress.error ?? 'Unknown error', |
 | 直接 UI 英文文案 | `lib/widgets/entry_conflict_dialog.dart` | 128 | No conflict-free entry name could be generated | throw StateError('No conflict-free entry name could be generated'); |

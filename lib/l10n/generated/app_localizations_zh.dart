@@ -467,6 +467,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notepadRecoveryDraftFound => '发现安全草稿';
 
   @override
+  String get notepadBinaryContent => '文件包含二进制内容，不能用安全记事本打开。';
+
+  @override
+  String get notepadLoadFailed => '无法读取文件内容。请检查文件是否存在且可读，然后重试。';
+
+  @override
   String get notepadRecoveryDraftDescription => '发现上次未完成编辑的加密草稿。是否恢复到编辑器？';
 
   @override
@@ -512,6 +518,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notepadSave => '保存';
 
   @override
+  String get notepadFileSaved => '文件已保存';
+
+  @override
   String get notepadSaveFailed => '保存失败';
 
   @override
@@ -538,6 +547,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notepadDraftSaveFailed => '无法保存恢复草稿';
 
   @override
+  String get notepadDraftCleanupFailed => '原文件已保存，但无法清理旧草稿';
+
+  @override
+  String get notepadDraftReadFailed => '无法检查恢复草稿';
+
+  @override
+  String get notepadDraftDiscardFailed => '无法清理恢复草稿';
+
+  @override
   String get notepadSavingDraft => '正在保存草稿';
 
   @override
@@ -548,6 +566,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get notepadClipboardEmpty => '剪贴板中没有短文本';
+
+  @override
+  String get notepadClipboardReadFailed => '无法读取剪贴板，请重试。';
+
+  @override
+  String get notepadClipboardClearFailed => '无法清空剪贴板，请重试。';
 
   @override
   String get notepadRefreshClipboard => '立即刷新剪贴板';

@@ -96,7 +96,7 @@ class _SecureNotepadState extends State<SecureNotepad>
         context,
         errorType: ErrorType.loadFileFailed,
         originalError: _controller.loadTechnicalError,
-        operation: '读取安全记事本',
+        operation: 'secure-notepad-load',
       );
       return;
     }
@@ -205,13 +205,14 @@ class _SecureNotepadState extends State<SecureNotepad>
         _clipboardPreview = _shortClipboardText(text);
         _clipboardError = null;
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted ||
           !_monitorClipboard ||
           generation != _clipboardGeneration) {
         return;
       }
-      setState(() => _clipboardError = '无法读取剪贴板：$error');
+      final strings = AppLocalizations.of(context)!;
+      setState(() => _clipboardError = strings.notepadClipboardReadFailed);
     } finally {
       _clipboardReadActive = false;
     }
@@ -226,9 +227,10 @@ class _SecureNotepadState extends State<SecureNotepad>
         _clipboardPreview = null;
         _clipboardError = null;
       });
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _clipboardError = '无法清空剪贴板：$error');
+        final strings = AppLocalizations.of(context)!;
+        setState(() => _clipboardError = strings.notepadClipboardClearFailed);
       }
     }
   }
@@ -241,7 +243,10 @@ class _SecureNotepadState extends State<SecureNotepad>
     final saved = await _controller.save();
     if (!mounted) return;
     if (saved) {
-      ErrorHelper.showSuccess(context, '文件保存成功');
+      ErrorHelper.showSuccess(
+        context,
+        AppLocalizations.of(context)!.notepadFileSaved,
+      );
       return;
     }
     ErrorHelper.showError(
@@ -418,7 +423,7 @@ class _SecureNotepadState extends State<SecureNotepad>
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text(_controller.loadError!),
+            Text(_loadErrorMessage(AppLocalizations.of(context)!)),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: _loadDocument,
@@ -472,6 +477,13 @@ class _SecureNotepadState extends State<SecureNotepad>
         ],
       ),
     );
+  }
+
+  String _loadErrorMessage(AppLocalizations strings) {
+    return switch (_controller.loadError!) {
+      SecureNotepadLoadError.binaryContent => strings.notepadBinaryContent,
+      SecureNotepadLoadError.readFailed => strings.notepadLoadFailed,
+    };
   }
 }
 
