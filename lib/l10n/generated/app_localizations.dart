@@ -1832,6 +1832,138 @@ abstract class AppLocalizations {
   /// **'所有文件'**
   String get allFiles;
 
+  /// No description provided for @encryptedDirectoryCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'加密目录创建成功'**
+  String get encryptedDirectoryCreated;
+
+  /// No description provided for @encryptedRootFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'已找到加密根目录：{path}'**
+  String encryptedRootFound(String path);
+
+  /// No description provided for @passwordVerified.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码验证成功'**
+  String get passwordVerified;
+
+  /// No description provided for @unfinishedStatesCleaned.
+  ///
+  /// In zh, this message translates to:
+  /// **'已清理 {count} 个未完成状态'**
+  String unfinishedStatesCleaned(int count);
+
+  /// No description provided for @notepadFileTooLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件超过 {limit}，暂不支持用安全记事本打开。'**
+  String notepadFileTooLarge(String limit);
+
+  /// No description provided for @nativeContentWindowUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前平台尚未启用原生内容窗口，已在主窗口打开'**
+  String get nativeContentWindowUnavailable;
+
+  /// No description provided for @batchMove.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量移动'**
+  String get batchMove;
+
+  /// No description provided for @batchPaste.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量粘贴'**
+  String get batchPaste;
+
+  /// No description provided for @movedToDestination.
+  ///
+  /// In zh, this message translates to:
+  /// **'已移动：{name}'**
+  String movedToDestination(String name);
+
+  /// No description provided for @pastedToDestination.
+  ///
+  /// In zh, this message translates to:
+  /// **'已粘贴：{name}'**
+  String pastedToDestination(String name);
+
+  /// No description provided for @batchPasteCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量粘贴已取消：成功 {success} 个，剩余 {remaining} 个可重试'**
+  String batchPasteCancelled(int success, int remaining);
+
+  /// No description provided for @movedFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'已移动 {count} 个文件'**
+  String movedFiles(int count);
+
+  /// No description provided for @pastedFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'已粘贴 {count} 个文件'**
+  String pastedFiles(int count);
+
+  /// No description provided for @noEncryptedClipboardEntries.
+  ///
+  /// In zh, this message translates to:
+  /// **'剪贴板中没有可粘贴的加密条目'**
+  String get noEncryptedClipboardEntries;
+
+  /// No description provided for @cannotPasteDirectoryIntoItself.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录不能粘贴到自身或其子目录'**
+  String get cannotPasteDirectoryIntoItself;
+
+  /// No description provided for @directoryCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录已创建：{name}'**
+  String directoryCreated(String name);
+
+  /// No description provided for @fileCreated.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件已创建：{name}'**
+  String fileCreated(String name);
+
+  /// No description provided for @renamedTo.
+  ///
+  /// In zh, this message translates to:
+  /// **'已重命名为：{name}'**
+  String renamedTo(String name);
+
+  /// No description provided for @confirmDeleteFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除文件'**
+  String get confirmDeleteFile;
+
+  /// No description provided for @confirmDeleteFileDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定要删除“{name}”吗？此操作无法撤销。'**
+  String confirmDeleteFileDescription(String name);
+
+  /// No description provided for @delete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除'**
+  String get delete;
+
+  /// No description provided for @fileDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件已删除'**
+  String get fileDeleted;
+
   /// No description provided for @fileImportCompleted.
   ///
   /// In zh, this message translates to:

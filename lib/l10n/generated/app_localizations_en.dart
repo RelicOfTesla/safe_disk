@@ -1051,6 +1051,99 @@ class AppLocalizationsEn extends AppLocalizations {
   String get allFiles => 'All files';
 
   @override
+  String get encryptedDirectoryCreated => 'Encrypted directory created';
+
+  @override
+  String encryptedRootFound(String path) {
+    return 'Encrypted root found: $path';
+  }
+
+  @override
+  String get passwordVerified => 'Password verified';
+
+  @override
+  String unfinishedStatesCleaned(int count) {
+    return 'Cleaned $count unfinished states';
+  }
+
+  @override
+  String notepadFileTooLarge(String limit) {
+    return 'The file exceeds $limit and cannot be opened in Secure Notepad.';
+  }
+
+  @override
+  String get nativeContentWindowUnavailable =>
+      'Native content windows are unavailable on this platform. Opened in the main window instead.';
+
+  @override
+  String get batchMove => 'Batch move';
+
+  @override
+  String get batchPaste => 'Batch paste';
+
+  @override
+  String movedToDestination(String name) {
+    return 'Moved: $name';
+  }
+
+  @override
+  String pastedToDestination(String name) {
+    return 'Pasted: $name';
+  }
+
+  @override
+  String batchPasteCancelled(int success, int remaining) {
+    return 'Batch paste cancelled: $success succeeded; $remaining items can be retried.';
+  }
+
+  @override
+  String movedFiles(int count) {
+    return 'Moved $count files';
+  }
+
+  @override
+  String pastedFiles(int count) {
+    return 'Pasted $count files';
+  }
+
+  @override
+  String get noEncryptedClipboardEntries =>
+      'There are no encrypted entries to paste in the file clipboard';
+
+  @override
+  String get cannotPasteDirectoryIntoItself =>
+      'A directory cannot be pasted into itself or one of its subdirectories';
+
+  @override
+  String directoryCreated(String name) {
+    return 'Directory created: $name';
+  }
+
+  @override
+  String fileCreated(String name) {
+    return 'File created: $name';
+  }
+
+  @override
+  String renamedTo(String name) {
+    return 'Renamed to: $name';
+  }
+
+  @override
+  String get confirmDeleteFile => 'Confirm file deletion';
+
+  @override
+  String confirmDeleteFileDescription(String name) {
+    return 'Delete \"$name\"? This cannot be undone.';
+  }
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get fileDeleted => 'File deleted';
+
+  @override
   String fileImportCompleted(String name) {
     return 'File imported: $name';
   }

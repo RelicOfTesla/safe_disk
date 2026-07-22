@@ -6,13 +6,12 @@
 它列出所有 CJK 字符串，以及常见 UI 构造位置的 ASCII 字符串。
 候选项需要人工分类：领域操作标识、技术诊断和仅供开发者使用的文本不应直接迁入 ARB。
 
-候选总数：99
+候选总数：68
 
 ## 按文件统计
 
 | 文件 | 候选数 |
 | --- | ---: |
-| `lib/pages/home_page.dart` | 31 |
 | `lib/services/document_window_client.dart` | 9 |
 | `lib/services/settings_service.dart` | 9 |
 | `lib/utils/error_diagnostics.dart` | 9 |
@@ -46,37 +45,6 @@
 | `lib/models/secure_image_policy.dart` | 84 | CJK 字符串 | 图片解码尺寸超过 ${formatImagePixelLimit(maxPixels)} 上限 | '图片解码尺寸超过 ${formatImagePixelLimit(maxPixels)} 上限', |
 | `lib/models/secure_image_policy.dart` | 96 | CJK 字符串 | 图片内容损坏或当前平台不支持该格式 | throw const SecureImagePolicyException('图片内容损坏或当前平台不支持该格式'); |
 | `lib/models/secure_image_policy.dart` | 114 | CJK 字符串 | $pixels 像素 | return '$pixels 像素'; |
-| `lib/pages/home_page.dart` | 535 | CJK 字符串 | 加密目录创建成功 | ErrorHelper.showSuccess(context, '加密目录创建成功'); |
-| `lib/pages/home_page.dart` | 578 | CJK 字符串 | 已找到加密根目录：$root | ErrorHelper.showInfo(context, '已找到加密根目录：$root'); |
-| `lib/pages/home_page.dart` | 705 | CJK 字符串 | 密码验证成功 | ErrorHelper.showSuccess(context, '密码验证成功'); |
-| `lib/pages/home_page.dart` | 772 | CJK 字符串 | 已清理 $cleaned 个未完成状态 | ErrorHelper.showSuccess(context, '已清理 $cleaned 个未完成状态'); |
-| `lib/pages/home_page.dart` | 1209 | CJK 字符串 | 文件超过 $kSecureNotepadContentLimitLabel，暂不支持用安全记事本打开。 | '文件超过 $kSecureNotepadContentLimitLabel，暂不支持用安全记事本打开。', |
-| `lib/pages/home_page.dart` | 1246 | CJK 字符串 | 当前平台尚未启用原生内容窗口，已在主窗口打开 | ErrorHelper.showInfo(context, '当前平台尚未启用原生内容窗口，已在主窗口打开'); |
-| `lib/pages/home_page.dart` | 1253 | CJK 字符串 | 文件超过 $kSecureNotepadContentLimitLabel，暂不支持用安全记事本打开。 | '文件超过 $kSecureNotepadContentLimitLabel，暂不支持用安全记事本打开。', |
-| `lib/pages/home_page.dart` | 1313 | CJK 字符串 | 当前平台尚未启用原生内容窗口，已在主窗口打开 | ErrorHelper.showInfo(context, '当前平台尚未启用原生内容窗口，已在主窗口打开'); |
-| `lib/pages/home_page.dart` | 1988 | CJK 字符串 | 成功 ${succeeded.length} 个，失败 ${failed.length} 个； | originalError: '成功 ${succeeded.length} 个，失败 ${failed.length} 个；' |
-| `lib/pages/home_page.dart` | 1989 | CJK 字符串 | 失败项已保留选择，可重试或退出选择模式。 | '失败项已保留选择，可重试或退出选择模式。', |
-| `lib/pages/home_page.dart` | 2094 | CJK 字符串 | 目标已存在：$name | originalError: '目标已存在：$name', |
-| `lib/pages/home_page.dart` | 2116 | CJK 字符串 | 目录已创建：$name | isDirectory ? '目录已创建：$name' : '文件已创建：$name', |
-| `lib/pages/home_page.dart` | 2116 | CJK 字符串 | 文件已创建：$name | isDirectory ? '目录已创建：$name' : '文件已创建：$name', |
-| `lib/pages/home_page.dart` | 2134 | CJK 字符串 | 剪贴板中没有可粘贴的加密条目 | ErrorHelper.showInfo(context, '剪贴板中没有可粘贴的加密条目'); |
-| `lib/pages/home_page.dart` | 2160 | CJK 字符串 | 目录不能粘贴到自身或其子目录 | reason: '目录不能粘贴到自身或其子目录', |
-| `lib/pages/home_page.dart` | 2264 | CJK 字符串 | 批量移动 | operation: entries.first.isMove ? '批量移动' : '批量粘贴', |
-| `lib/pages/home_page.dart` | 2264 | CJK 字符串 | 批量粘贴 | operation: entries.first.isMove ? '批量移动' : '批量粘贴', |
-| `lib/pages/home_page.dart` | 2279 | CJK 字符串 | 已移动：$lastDestinationName | ? '已移动：$lastDestinationName' |
-| `lib/pages/home_page.dart` | 2280 | CJK 字符串 | 已粘贴：$lastDestinationName | : '已粘贴：$lastDestinationName', |
-| `lib/pages/home_page.dart` | 2285 | CJK 字符串 | 批量粘贴已取消：成功 $successCount 个， | '批量粘贴已取消：成功 $successCount 个，' |
-| `lib/pages/home_page.dart` | 2286 | CJK 字符串 | 剩余 ${_secureClipboard.entryCount} 个可重试 | '剩余 ${_secureClipboard.entryCount} 个可重试', |
-| `lib/pages/home_page.dart` | 2292 | CJK 字符串 | 成功 $successCount 个，失败 ${failures.length} 个； | originalError: '成功 $successCount 个，失败 ${failures.length} 个；' |
-| `lib/pages/home_page.dart` | 2293 | CJK 字符串 | 失败项已保留在文件剪贴板中。 | '失败项已保留在文件剪贴板中。', |
-| `lib/pages/home_page.dart` | 2299 | CJK 字符串 | 已移动 $successCount 个文件 | ? '已移动 $successCount 个文件' |
-| `lib/pages/home_page.dart` | 2300 | CJK 字符串 | 已粘贴 $successCount 个文件 | : '已粘贴 $successCount 个文件', |
-| `lib/pages/home_page.dart` | 2349 | CJK 字符串 | 已重命名为：$newName | if (mounted) ErrorHelper.showSuccess(context, '已重命名为：$newName'); |
-| `lib/pages/home_page.dart` | 2371 | CJK 字符串 | 确认删除文件 | title: const Text('确认删除文件'), |
-| `lib/pages/home_page.dart` | 2372 | CJK 字符串 | 确定要删除“${item.name}”吗？此操作无法撤销。 | content: Text('确定要删除“${item.name}”吗？此操作无法撤销。'), |
-| `lib/pages/home_page.dart` | 2376 | CJK 字符串 | 取消 | child: const Text('取消'), |
-| `lib/pages/home_page.dart` | 2381 | CJK 字符串 | 删除 | child: const Text('删除'), |
-| `lib/pages/home_page.dart` | 2395 | CJK 字符串 | 文件已删除 | if (mounted) ErrorHelper.showSuccess(context, '文件已删除'); |
 | `lib/services/clipboard_helper.dart` | 32 | CJK 字符串 | 已取消：成功 $filesProcessed 个，失败 $filesFailed 个 | return '已取消：成功 $filesProcessed 个，失败 $filesFailed 个'; |
 | `lib/services/clipboard_helper.dart` | 35 | CJK 字符串 | 完成：成功粘贴 $filesProcessed 个文件 | return '完成：成功粘贴 $filesProcessed 个文件'; |
 | `lib/services/clipboard_helper.dart` | 37 | CJK 字符串 | 完成：成功 $filesProcessed 个，失败 $filesFailed 个 | return '完成：成功 $filesProcessed 个，失败 $filesFailed 个'; |

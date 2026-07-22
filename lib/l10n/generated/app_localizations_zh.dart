@@ -962,6 +962,96 @@ class AppLocalizationsZh extends AppLocalizations {
   String get allFiles => '所有文件';
 
   @override
+  String get encryptedDirectoryCreated => '加密目录创建成功';
+
+  @override
+  String encryptedRootFound(String path) {
+    return '已找到加密根目录：$path';
+  }
+
+  @override
+  String get passwordVerified => '密码验证成功';
+
+  @override
+  String unfinishedStatesCleaned(int count) {
+    return '已清理 $count 个未完成状态';
+  }
+
+  @override
+  String notepadFileTooLarge(String limit) {
+    return '文件超过 $limit，暂不支持用安全记事本打开。';
+  }
+
+  @override
+  String get nativeContentWindowUnavailable => '当前平台尚未启用原生内容窗口，已在主窗口打开';
+
+  @override
+  String get batchMove => '批量移动';
+
+  @override
+  String get batchPaste => '批量粘贴';
+
+  @override
+  String movedToDestination(String name) {
+    return '已移动：$name';
+  }
+
+  @override
+  String pastedToDestination(String name) {
+    return '已粘贴：$name';
+  }
+
+  @override
+  String batchPasteCancelled(int success, int remaining) {
+    return '批量粘贴已取消：成功 $success 个，剩余 $remaining 个可重试';
+  }
+
+  @override
+  String movedFiles(int count) {
+    return '已移动 $count 个文件';
+  }
+
+  @override
+  String pastedFiles(int count) {
+    return '已粘贴 $count 个文件';
+  }
+
+  @override
+  String get noEncryptedClipboardEntries => '剪贴板中没有可粘贴的加密条目';
+
+  @override
+  String get cannotPasteDirectoryIntoItself => '目录不能粘贴到自身或其子目录';
+
+  @override
+  String directoryCreated(String name) {
+    return '目录已创建：$name';
+  }
+
+  @override
+  String fileCreated(String name) {
+    return '文件已创建：$name';
+  }
+
+  @override
+  String renamedTo(String name) {
+    return '已重命名为：$name';
+  }
+
+  @override
+  String get confirmDeleteFile => '确认删除文件';
+
+  @override
+  String confirmDeleteFileDescription(String name) {
+    return '确定要删除“$name”吗？此操作无法撤销。';
+  }
+
+  @override
+  String get delete => '删除';
+
+  @override
+  String get fileDeleted => '文件已删除';
+
+  @override
   String fileImportCompleted(String name) {
     return '文件导入成功：$name';
   }

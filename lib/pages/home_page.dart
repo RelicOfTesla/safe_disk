@@ -532,7 +532,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         await _saveOpenedDirectories();
         await _loadCurrentPath();
         if (!mounted) return;
-        ErrorHelper.showSuccess(context, '加密目录创建成功');
+        ErrorHelper.showSuccess(
+          context,
+          AppLocalizations.of(context)!.encryptedDirectoryCreated,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -575,7 +578,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await _saveOpenedDirectories();
 
       if (root != path && mounted) {
-        ErrorHelper.showInfo(context, '已找到加密根目录：$root');
+        ErrorHelper.showInfo(
+          context,
+          AppLocalizations.of(context)!.encryptedRootFound(root),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -702,7 +708,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     if (loaded) {
       _idleTracker.touch(rootID.toString());
-      ErrorHelper.showSuccess(context, '密码验证成功');
+      ErrorHelper.showSuccess(
+        context,
+        AppLocalizations.of(context)!.passwordVerified,
+      );
     }
     return true;
   }
@@ -769,7 +778,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
 
       if (mounted) {
-        ErrorHelper.showSuccess(context, '已清理 $cleaned 个未完成状态');
+        ErrorHelper.showSuccess(
+          context,
+          AppLocalizations.of(context)!.unfinishedStatesCleaned(cleaned),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -1206,7 +1218,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) {
         ErrorHelper.showInfo(
           context,
-          '文件超过 $kSecureNotepadContentLimitLabel，暂不支持用安全记事本打开。',
+          AppLocalizations.of(context)!
+              .notepadFileTooLarge(kSecureNotepadContentLimitLabel),
         );
       }
     } catch (error) {
@@ -1243,14 +1256,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _documentBroker.close(lease.token);
       lease = null;
       if (!mounted) return;
-      ErrorHelper.showInfo(context, '当前平台尚未启用原生内容窗口，已在主窗口打开');
+      ErrorHelper.showInfo(
+        context,
+        AppLocalizations.of(context)!.nativeContentWindowUnavailable,
+      );
       await _openNotepad(item);
     } on DocumentContentLimitExceeded catch (_) {
       if (lease != null) _documentBroker.close(lease.token);
       if (mounted) {
         ErrorHelper.showInfo(
           context,
-          '文件超过 $kSecureNotepadContentLimitLabel，暂不支持用安全记事本打开。',
+          AppLocalizations.of(context)!
+              .notepadFileTooLarge(kSecureNotepadContentLimitLabel),
         );
       }
     } catch (error) {
@@ -1310,7 +1327,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _documentBroker.close(lease.token);
       lease = null;
       if (!mounted) return;
-      ErrorHelper.showInfo(context, '当前平台尚未启用原生内容窗口，已在主窗口打开');
+      ErrorHelper.showInfo(
+        context,
+        AppLocalizations.of(context)!.nativeContentWindowUnavailable,
+      );
       _openImageViewer(item);
     } catch (error) {
       if (lease != null) _documentBroker.close(lease.token);
@@ -1985,8 +2005,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.deleteFileFailed,
-        originalError: '成功 ${succeeded.length} 个，失败 ${failed.length} 个；'
-            '失败项已保留选择，可重试或退出选择模式。',
+        originalError: 'batch-delete-failed',
+        operation: 'batch-delete',
       );
     } else {
       ErrorHelper.showSuccess(
@@ -2091,7 +2111,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.operationFailed,
-        originalError: '目标已存在：$name',
+        originalError: 'entry-already-exists:$name',
+        operation: 'create-entry',
       );
       return;
     }
@@ -2113,7 +2134,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) {
         ErrorHelper.showSuccess(
           context,
-          isDirectory ? '目录已创建：$name' : '文件已创建：$name',
+          isDirectory
+              ? AppLocalizations.of(context)!.directoryCreated(name)
+              : AppLocalizations.of(context)!.fileCreated(name),
         );
       }
     } catch (error) {
@@ -2129,9 +2152,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _pasteClipboard({String? targetDirectory}) async {
     if (!_validateSession()) return;
+    final strings = AppLocalizations.of(context)!;
     final entries = List<SecureClipboardEntry>.from(_secureClipboard.entries);
     if (entries.isEmpty) {
-      ErrorHelper.showInfo(context, '剪贴板中没有可粘贴的加密条目');
+      ErrorHelper.showInfo(
+        context,
+        strings.noEncryptedClipboardEntries,
+      );
       return;
     }
 
@@ -2157,7 +2184,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           processedCount++;
           failures.add(BatchOperationFailure(
             name: entry.name,
-            reason: '目录不能粘贴到自身或其子目录',
+            reason: strings.cannotPasteDirectoryIntoItself,
           ));
           continue;
         }
@@ -2261,7 +2288,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (entries.length > 1) {
         await showBatchOperationResultDialog(
           context: context,
-          operation: entries.first.isMove ? '批量移动' : '批量粘贴',
+          operation:
+              entries.first.isMove ? strings.batchMove : strings.batchPaste,
           result: BatchOperationResult(
             total: entries.length,
             succeeded: successCount,
@@ -2276,28 +2304,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ErrorHelper.showSuccess(
           context,
           entries.first.isMove
-              ? '已移动：$lastDestinationName'
-              : '已粘贴：$lastDestinationName',
+              ? strings.movedToDestination(lastDestinationName!)
+              : strings.pastedToDestination(lastDestinationName!),
         );
       } else if (cancelled) {
         ErrorHelper.showInfo(
           context,
-          '批量粘贴已取消：成功 $successCount 个，'
-          '剩余 ${_secureClipboard.entryCount} 个可重试',
+          strings.batchPasteCancelled(
+            successCount,
+            _secureClipboard.entryCount,
+          ),
         );
       } else if (failures.isNotEmpty) {
         ErrorHelper.showError(
           context,
           errorType: ErrorType.operationFailed,
-          originalError: '成功 $successCount 个，失败 ${failures.length} 个；'
-              '失败项已保留在文件剪贴板中。',
+          originalError: 'batch-paste-failed',
+          operation: 'batch-paste',
         );
       } else {
         ErrorHelper.showSuccess(
           context,
           entries.first.isMove
-              ? '已移动 $successCount 个文件'
-              : '已粘贴 $successCount 个文件',
+              ? strings.movedFiles(successCount)
+              : strings.pastedFiles(successCount),
         );
       }
     } catch (error) {
@@ -2346,7 +2376,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _currentDir!.tempKeyID!,
       );
       await _loadCurrentPath();
-      if (mounted) ErrorHelper.showSuccess(context, '已重命名为：$newName');
+      if (mounted) {
+        ErrorHelper.showSuccess(
+          context,
+          AppLocalizations.of(context)!.renamedTo(newName),
+        );
+      }
     } catch (error) {
       if (mounted) {
         ErrorHelper.showError(
@@ -2367,18 +2402,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final confirm = requireConfirmation
         ? await showDialog<bool>(
             context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('确认删除文件'),
-              content: Text('确定要删除“${item.name}”吗？此操作无法撤销。'),
+            builder: (dialogContext) => AlertDialog(
+              title: Text(
+                AppLocalizations.of(dialogContext)!.confirmDeleteFile,
+              ),
+              content: Text(
+                AppLocalizations.of(dialogContext)!
+                    .confirmDeleteFileDescription(item.name),
+              ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('取消'),
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text(AppLocalizations.of(dialogContext)!.cancel),
                 ),
                 TextButton(
-                  onPressed: () => Navigator.pop(context, true),
+                  onPressed: () => Navigator.pop(dialogContext, true),
                   style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  child: const Text('删除'),
+                  child: Text(AppLocalizations.of(dialogContext)!.delete),
                 ),
               ],
             ),
@@ -2392,7 +2432,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _currentDir!.tempKeyID!,
         );
         _loadCurrentPath();
-        if (mounted) ErrorHelper.showSuccess(context, '文件已删除');
+        if (mounted) {
+          ErrorHelper.showSuccess(
+            context,
+            AppLocalizations.of(context)!.fileDeleted,
+          );
+        }
       } catch (e) {
         if (mounted) {
           ErrorHelper.showError(
