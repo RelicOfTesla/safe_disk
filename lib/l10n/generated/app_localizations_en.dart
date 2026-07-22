@@ -752,6 +752,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataEncryption => 'Data encryption';
 
   @override
+  String get fileNameEncryption => 'File name encryption';
+
+  @override
   String get nameEncryption => 'Name encryption';
 
   @override
@@ -804,6 +807,87 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get legacyPasswordChangeApproach =>
       'Create an encrypted directory with a new password, then export and import the content you need to keep.';
+
+  @override
+  String get createEncryptedDirectory => 'Create encrypted directory';
+
+  @override
+  String get confirmPassword => 'Confirm password';
+
+  @override
+  String get showPassword => 'Show password';
+
+  @override
+  String get hidePassword => 'Hide password';
+
+  @override
+  String get allowFuturePasswordChange => 'Allow password changes later';
+
+  @override
+  String get allowFuturePasswordChangeHint =>
+      'Recommended: change the password without re-encrypting existing files.';
+
+  @override
+  String get advancedEncryptionParameters => 'Advanced encryption parameters';
+
+  @override
+  String get advancedEncryptionParametersHint =>
+      'The default configuration is suitable for most people.';
+
+  @override
+  String get derivationStrength => 'Derivation strength';
+
+  @override
+  String durationMilliseconds(int count) {
+    return '$count ms';
+  }
+
+  @override
+  String get noEncryption => 'No encryption (None)';
+
+  @override
+  String get unencryptedNamesWarning =>
+      'Warning: with No encryption (None), file and directory names are not encrypted.';
+
+  @override
+  String get selectDirectory => 'Select directory';
+
+  @override
+  String get directoryPath => 'Directory path';
+
+  @override
+  String get directoryPathHint =>
+      'Enter a directory path or browse to select one';
+
+  @override
+  String get browse => 'Browse';
+
+  @override
+  String get confirm => 'Confirm';
+
+  @override
+  String get confirmDirectoryRemoval => 'Confirm removal';
+
+  @override
+  String get removeEncryptedDirectoryFromSidebar =>
+      'You are about to remove this encrypted directory from the sidebar:';
+
+  @override
+  String get chooseAnAction => 'Choose an action:';
+
+  @override
+  String get removeFromSidebarOnlyDescription =>
+      '• Remove from sidebar only: keep the disk directory and encrypted files';
+
+  @override
+  String get deleteDirectoryFromDiskDescription =>
+      '• Also delete the disk directory: permanently delete the directory and all files';
+
+  @override
+  String get removeOnly => 'Remove only';
+
+  @override
+  String get deleteDiskDirectory => 'Delete disk directory';
 
   @override
   String get argon2TimeCost => 'Argon2 time cost';

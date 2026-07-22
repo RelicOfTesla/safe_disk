@@ -669,6 +669,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dataEncryption => '数据加密';
 
   @override
+  String get fileNameEncryption => '文件名加密';
+
+  @override
   String get nameEncryption => '名称加密';
 
   @override
@@ -717,6 +720,80 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get legacyPasswordChangeApproach => '使用新密码创建一个加密目录，再导出并导入需要保留的内容。';
+
+  @override
+  String get createEncryptedDirectory => '创建加密目录';
+
+  @override
+  String get confirmPassword => '确认密码';
+
+  @override
+  String get showPassword => '显示密码';
+
+  @override
+  String get hidePassword => '隐藏密码';
+
+  @override
+  String get allowFuturePasswordChange => '允许以后修改密码';
+
+  @override
+  String get allowFuturePasswordChangeHint => '推荐：不重加密已有文件即可修改密码';
+
+  @override
+  String get advancedEncryptionParameters => '高级加密参数';
+
+  @override
+  String get advancedEncryptionParametersHint => '默认配置适合大多数用户';
+
+  @override
+  String get derivationStrength => '派生强度';
+
+  @override
+  String durationMilliseconds(int count) {
+    return '$count 毫秒';
+  }
+
+  @override
+  String get noEncryption => '不加密（None）';
+
+  @override
+  String get unencryptedNamesWarning => '注意：选择“不加密（None）”后，文件名和目录名不会加密。';
+
+  @override
+  String get selectDirectory => '选择目录';
+
+  @override
+  String get directoryPath => '目录路径';
+
+  @override
+  String get directoryPathHint => '输入目录路径或浏览选择';
+
+  @override
+  String get browse => '浏览';
+
+  @override
+  String get confirm => '确定';
+
+  @override
+  String get confirmDirectoryRemoval => '确认删除';
+
+  @override
+  String get removeEncryptedDirectoryFromSidebar => '您即将从侧边栏移除加密目录：';
+
+  @override
+  String get chooseAnAction => '请选择操作：';
+
+  @override
+  String get removeFromSidebarOnlyDescription => '• 仅从侧边栏移除：保留磁盘目录和加密文件';
+
+  @override
+  String get deleteDirectoryFromDiskDescription => '• 同时删除磁盘目录：永久删除目录及所有文件';
+
+  @override
+  String get removeOnly => '仅移除';
+
+  @override
+  String get deleteDiskDirectory => '删除磁盘目录';
 
   @override
   String get argon2TimeCost => 'Argon2 时间成本';

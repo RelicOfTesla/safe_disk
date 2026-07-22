@@ -60,19 +60,24 @@ void main() {
       'create dialog exposes constrained crypto parameters and password-change choice',
       (tester) async {
     CreateRootRequest? result;
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        builder: (context) => TextButton(
-          onPressed: () async {
-            result = await showDialog<CreateRootRequest>(
-              context: context,
-              builder: (_) => const CreateEncryptedDirectoryDialog(),
-            );
-          },
-          child: const Text('open'),
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              result = await showDialog<CreateRootRequest>(
+                context: context,
+                builder: (_) => const CreateEncryptedDirectoryDialog(),
+              );
+            },
+            child: const Text('open'),
+          ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     final passwordFields = tester

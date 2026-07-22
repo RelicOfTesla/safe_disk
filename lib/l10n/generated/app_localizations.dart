@@ -1334,6 +1334,12 @@ abstract class AppLocalizations {
   /// **'数据加密'**
   String get dataEncryption;
 
+  /// No description provided for @fileNameEncryption.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件名加密'**
+  String get fileNameEncryption;
+
   /// No description provided for @nameEncryption.
   ///
   /// In zh, this message translates to:
@@ -1429,6 +1435,150 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'使用新密码创建一个加密目录，再导出并导入需要保留的内容。'**
   String get legacyPasswordChangeApproach;
+
+  /// No description provided for @createEncryptedDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建加密目录'**
+  String get createEncryptedDirectory;
+
+  /// No description provided for @confirmPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认密码'**
+  String get confirmPassword;
+
+  /// No description provided for @showPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示密码'**
+  String get showPassword;
+
+  /// No description provided for @hidePassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐藏密码'**
+  String get hidePassword;
+
+  /// No description provided for @allowFuturePasswordChange.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许以后修改密码'**
+  String get allowFuturePasswordChange;
+
+  /// No description provided for @allowFuturePasswordChangeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'推荐：不重加密已有文件即可修改密码'**
+  String get allowFuturePasswordChangeHint;
+
+  /// No description provided for @advancedEncryptionParameters.
+  ///
+  /// In zh, this message translates to:
+  /// **'高级加密参数'**
+  String get advancedEncryptionParameters;
+
+  /// No description provided for @advancedEncryptionParametersHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认配置适合大多数用户'**
+  String get advancedEncryptionParametersHint;
+
+  /// No description provided for @derivationStrength.
+  ///
+  /// In zh, this message translates to:
+  /// **'派生强度'**
+  String get derivationStrength;
+
+  /// No description provided for @durationMilliseconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 毫秒'**
+  String durationMilliseconds(int count);
+
+  /// No description provided for @noEncryption.
+  ///
+  /// In zh, this message translates to:
+  /// **'不加密（None）'**
+  String get noEncryption;
+
+  /// No description provided for @unencryptedNamesWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'注意：选择“不加密（None）”后，文件名和目录名不会加密。'**
+  String get unencryptedNamesWarning;
+
+  /// No description provided for @selectDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择目录'**
+  String get selectDirectory;
+
+  /// No description provided for @directoryPath.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录路径'**
+  String get directoryPath;
+
+  /// No description provided for @directoryPathHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入目录路径或浏览选择'**
+  String get directoryPathHint;
+
+  /// No description provided for @browse.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览'**
+  String get browse;
+
+  /// No description provided for @confirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'确定'**
+  String get confirm;
+
+  /// No description provided for @confirmDirectoryRemoval.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认删除'**
+  String get confirmDirectoryRemoval;
+
+  /// No description provided for @removeEncryptedDirectoryFromSidebar.
+  ///
+  /// In zh, this message translates to:
+  /// **'您即将从侧边栏移除加密目录：'**
+  String get removeEncryptedDirectoryFromSidebar;
+
+  /// No description provided for @chooseAnAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'请选择操作：'**
+  String get chooseAnAction;
+
+  /// No description provided for @removeFromSidebarOnlyDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'• 仅从侧边栏移除：保留磁盘目录和加密文件'**
+  String get removeFromSidebarOnlyDescription;
+
+  /// No description provided for @deleteDirectoryFromDiskDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'• 同时删除磁盘目录：永久删除目录及所有文件'**
+  String get deleteDirectoryFromDiskDescription;
+
+  /// No description provided for @removeOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅移除'**
+  String get removeOnly;
+
+  /// No description provided for @deleteDiskDirectory.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除磁盘目录'**
+  String get deleteDiskDirectory;
 
   /// No description provided for @argon2TimeCost.
   ///

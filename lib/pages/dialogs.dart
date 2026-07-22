@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../utils/error_messages.dart';
 import '../models/create_root_options.dart';
 import '../widgets/copyable_snackbar.dart';
@@ -200,8 +201,9 @@ class _CreateEncryptedDirectoryDialogState
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('创建加密目录'),
+      title: Text(strings.createEncryptedDirectory),
       content: SingleChildScrollView(
         child: SizedBox(
           width: 480,
@@ -215,14 +217,16 @@ class _CreateEncryptedDirectoryDialogState
                 enableSuggestions: false,
                 keyboardType: TextInputType.visiblePassword,
                 decoration: InputDecoration(
-                  labelText: '密码',
+                  labelText: strings.password,
                   suffixIcon: IconButton(
                     icon: Icon(_obscurePassword
                         ? Icons.visibility
                         : Icons.visibility_off),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
-                    tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
+                    tooltip: _obscurePassword
+                        ? strings.showPassword
+                        : strings.hidePassword,
                   ),
                 ),
               ),
@@ -234,21 +238,23 @@ class _CreateEncryptedDirectoryDialogState
                 enableSuggestions: false,
                 keyboardType: TextInputType.visiblePassword,
                 decoration: InputDecoration(
-                  labelText: '确认密码',
+                  labelText: strings.confirmPassword,
                   suffixIcon: IconButton(
                     icon: Icon(_obscureConfirm
                         ? Icons.visibility
                         : Icons.visibility_off),
                     onPressed: () =>
                         setState(() => _obscureConfirm = !_obscureConfirm),
-                    tooltip: _obscureConfirm ? '显示密码' : '隐藏密码',
+                    tooltip: _obscureConfirm
+                        ? strings.showPassword
+                        : strings.hidePassword,
                   ),
                 ),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('允许以后修改密码'),
-                subtitle: const Text('推荐：不重加密已有文件即可修改密码'),
+                title: Text(strings.allowFuturePasswordChange),
+                subtitle: Text(strings.allowFuturePasswordChangeHint),
                 value: _passwordChangeable,
                 onChanged: (value) =>
                     setState(() => _passwordChangeable = value),
@@ -256,37 +262,39 @@ class _CreateEncryptedDirectoryDialogState
               const SizedBox(height: 8),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('高级加密参数'),
-                subtitle: const Text('默认配置适合大多数用户'),
+                title: Text(strings.advancedEncryptionParameters),
+                subtitle: Text(strings.advancedEncryptionParametersHint),
                 value: _showAdvanced,
                 onChanged: (value) => setState(() => _showAdvanced = value),
               ),
               if (_showAdvanced) ...[
                 _algorithmDropdown(
-                  label: '数据加密',
+                  label: strings.dataEncryption,
                   value: _dataFactory,
                   values: CreateRootRequest.dataFactories,
                   onChanged: (value) => setState(() => _dataFactory = value),
                 ),
                 _algorithmDropdown(
-                  label: '文件名加密',
+                  label: strings.fileNameEncryption,
                   value: _nameFactory,
                   values: CreateRootRequest.nameFactories,
                   onChanged: (value) => setState(() => _nameFactory = value),
                 ),
                 _algorithmDropdown(
-                  label: '密码派生',
+                  label: strings.passwordDerivation,
                   value: _deriverFactory,
                   values: CreateRootRequest.deriverFactories,
                   onChanged: (value) => setState(() => _deriverFactory = value),
                 ),
                 DropdownButtonFormField<int>(
                   initialValue: _keyStrengthMs,
-                  decoration: const InputDecoration(labelText: '派生强度'),
+                  decoration: InputDecoration(
+                    labelText: strings.derivationStrength,
+                  ),
                   items: CreateRootRequest.keyStrengthOptions
                       .map((value) => DropdownMenuItem(
                             value: value,
-                            child: Text('$value 毫秒'),
+                            child: Text(strings.durationMilliseconds(value)),
                           ))
                       .toList(),
                   onChanged: (value) {
@@ -294,9 +302,9 @@ class _CreateEncryptedDirectoryDialogState
                   },
                 ),
                 if (_nameFactory == 'None')
-                  const Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: Text('注意：选择“不加密（None）”后，文件名和目录名不会加密。'),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(strings.unencryptedNamesWarning),
                   ),
               ],
             ],
@@ -306,7 +314,7 @@ class _CreateEncryptedDirectoryDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(strings.cancel),
         ),
         ElevatedButton(
           onPressed: () {
@@ -341,7 +349,7 @@ class _CreateEncryptedDirectoryDialogState
               ),
             );
           },
-          child: const Text('创建'),
+          child: Text(strings.create),
         ),
       ],
     );
@@ -360,7 +368,7 @@ class _CreateEncryptedDirectoryDialogState
           .map(
             (item) => DropdownMenuItem(
               value: item,
-              child: Text(_algorithmDisplayName(item)),
+              child: Text(_algorithmDisplayName(context, item)),
             ),
           )
           .toList(),
@@ -370,9 +378,10 @@ class _CreateEncryptedDirectoryDialogState
     );
   }
 
-  String _algorithmDisplayName(String value) {
+  String _algorithmDisplayName(BuildContext context, String value) {
+    final strings = AppLocalizations.of(context)!;
     return switch (value) {
-      'None' => '不加密（None）',
+      'None' => strings.noEncryption,
       _ => value,
     };
   }
@@ -414,20 +423,21 @@ class _PathSelectionDialogState extends State<PathSelectionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Text('选择目录'),
+      title: Text(strings.selectDirectory),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _pathController,
             decoration: InputDecoration(
-              labelText: '目录路径',
-              hintText: '输入目录路径或浏览选择',
+              labelText: strings.directoryPath,
+              hintText: strings.directoryPathHint,
               suffixIcon: IconButton(
                 icon: const Icon(Icons.folder_open),
                 onPressed: _browseDirectory,
-                tooltip: '浏览',
+                tooltip: strings.browse,
               ),
             ),
           ),
@@ -436,7 +446,7 @@ class _PathSelectionDialogState extends State<PathSelectionDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(strings.cancel),
         ),
         ElevatedButton(
           onPressed: () {
@@ -451,7 +461,7 @@ class _PathSelectionDialogState extends State<PathSelectionDialog> {
 
             Navigator.pop(context, path);
           },
-          child: const Text('确定'),
+          child: Text(strings.confirm),
         ),
       ],
     );
@@ -477,21 +487,22 @@ class DeleteDirectoryDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.warning, color: Colors.orange, size: 28),
-          SizedBox(width: 12),
-          Text('确认删除'),
+          const Icon(Icons.warning, color: Colors.orange, size: 28),
+          const SizedBox(width: 12),
+          Text(strings.confirmDirectoryRemoval),
         ],
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '您即将从侧边栏移除加密目录：',
-            style: TextStyle(fontSize: 14),
+          Text(
+            strings.removeEncryptedDirectoryFromSidebar,
+            style: const TextStyle(fontSize: 14),
           ),
           const SizedBox(height: 8),
           Container(
@@ -518,21 +529,21 @@ class DeleteDirectoryDialog extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            '请选择操作：',
-            style: TextStyle(
+          Text(
+            strings.chooseAnAction,
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            '• 仅从侧边栏移除：保留磁盘目录和加密文件',
+            strings.removeFromSidebarOnlyDescription,
             style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
           ),
           const SizedBox(height: 4),
           Text(
-            '• 同时删除磁盘目录：永久删除目录及所有文件',
+            strings.deleteDirectoryFromDiskDescription,
             style: TextStyle(fontSize: 13, color: Colors.red.shade700),
           ),
         ],
@@ -541,13 +552,13 @@ class DeleteDirectoryDialog extends StatelessWidget {
         // Cancel button
         TextButton(
           onPressed: () => Navigator.pop(context, DeleteDirectoryAction.cancel),
-          child: const Text('取消'),
+          child: Text(strings.cancel),
         ),
         // Remove from sidebar only
         ElevatedButton(
           onPressed: () =>
               Navigator.pop(context, DeleteDirectoryAction.removeFromSidebar),
-          child: const Text('仅移除'),
+          child: Text(strings.removeOnly),
         ),
         // Delete from disk (dangerous)
         TextButton(
@@ -556,7 +567,7 @@ class DeleteDirectoryDialog extends StatelessWidget {
           style: TextButton.styleFrom(
             foregroundColor: Colors.red,
           ),
-          child: const Text('删除磁盘目录'),
+          child: Text(strings.deleteDiskDirectory),
         ),
       ],
     );
