@@ -1322,6 +1322,59 @@ void main() {
     expect(fileService.exportOverwriteFlags, [true]);
   });
 
+  testWidgets('directory export rejects replacement on target conflict',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final exportDirectory =
+        Directory.systemTemp.createTempSync('safe-disk-ui-directory-export-');
+    addTearDown(() => exportDirectory.deleteSync(recursive: true));
+    Directory('${exportDirectory.path}/资料').createSync();
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(
+      cryptoService,
+      items: [
+        FileSystemNode(name: '资料', path: '/资料', isDirectory: true),
+      ],
+    );
+    final directoryService = _FakeDirectoryService();
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: directoryService,
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+        selectDirectory: () async => exportDirectory.path,
+        exportTargetExists: (_) async => true,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('资料')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('导出目录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('继续导出'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('目标已存在'), findsOneWidget);
+    expect(find.text('替换'), findsNothing);
+    expect(directoryService.exportDirectoryCalls, isEmpty);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(directoryService.exportDirectoryCalls, isEmpty);
+  });
+
   testWidgets('delete confirmation setting changes the actual delete flow',
       (tester) async {
     SharedPreferences.setMockInitialValues({'confirm_before_delete': false});
@@ -2749,6 +2802,30 @@ class _FakeDirectoryService extends DirectoryService {
         String destination,
         bool overwrite,
       })> importFileCalls = [];
+  final List<({int rootID, String source, String destination})>
+      exportDirectoryCalls = [];
+
+  @override
+  Future<DirectoryTransferResult> decryptDirectory(
+    String srcPath,
+    String destPath,
+    String tempKeyID, {
+    void Function(DirectoryTransferProgress progress)? onProgress,
+    DirectoryTransferCancellationToken? cancellationToken,
+  }) async {
+    exportDirectoryCalls.add((
+      rootID: int.parse(tempKeyID),
+      source: srcPath,
+      destination: destPath,
+    ));
+    onProgress?.call(const DirectoryTransferProgress(
+      percent: 100,
+      currentFile: '资料/已导出.txt',
+      completedFiles: 1,
+      isComplete: true,
+    ));
+    return const DirectoryTransferResult(isComplete: true, processedFiles: 1);
+  }
 
   @override
   Future<List<Map<String, dynamic>>> listUnfinishedOperations(

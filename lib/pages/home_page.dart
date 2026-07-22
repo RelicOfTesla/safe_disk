@@ -1887,7 +1887,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (exportDir == null) return;
     if (!mounted) return;
 
-    final dstDir = '$exportDir/${item.name}';
+    final String? dstDir;
+    try {
+      dstDir = await _resolveDirectoryExportDestination(
+        '$exportDir/${item.name}',
+        operation: strings.exportOperation,
+      );
+    } catch (error) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.exportDirectoryFailed,
+          originalError: error.toString(),
+          operation: 'resolve-directory-export-destination',
+        );
+      }
+      return;
+    }
+    if (dstDir == null || !mounted) return;
     final cancellationToken = DirectoryTransferCancellationToken();
     late final ProgressController progressController;
     progressController = ProgressHelper.showProgressDialog(
@@ -2097,6 +2114,40 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       path: '${parent.path}${Platform.pathSeparator}$availableName',
       overwrite: false,
     );
+  }
+
+  Future<String?> _resolveDirectoryExportDestination(
+    String path, {
+    required String operation,
+  }) async {
+    final destination = Directory(path);
+    final exists = widget.exportTargetExists != null
+        ? await widget.exportTargetExists!(path)
+        : await destination.exists();
+    if (!exists) return path;
+    if (!mounted) return null;
+
+    final resolution = await showEntryConflictDialog(
+      context: context,
+      name: _baseName(destination.path),
+      isDirectory: true,
+      operation: operation,
+      allowReplace: false,
+    );
+    if (resolution == EntryConflictResolution.cancel || !mounted) return null;
+
+    final parent = destination.parent;
+    final existingNames = <String>[];
+    await for (final entry in parent.list(followLinks: false)) {
+      existingNames.add(_baseName(entry.path));
+    }
+    final availableName = nextAvailableEntryName(
+      originalName: _baseName(destination.path),
+      isDirectory: true,
+      existingNames: existingNames,
+      copyLabel: AppLocalizations.of(context)!.copySuffix,
+    );
+    return '${parent.path}${Platform.pathSeparator}$availableName';
   }
 
   Future<void> _batchDelete() async {
