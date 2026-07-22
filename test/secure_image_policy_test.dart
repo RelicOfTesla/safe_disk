@@ -24,9 +24,9 @@ void main() {
       inspectSecureImage(png, maxBytes: png.length - 1),
       throwsA(
         isA<SecureImagePolicyException>().having(
-          (error) => error.message,
-          'message',
-          contains('编码数据超过'),
+          (error) => error.violation,
+          'violation',
+          SecureImagePolicyViolation.encodedDataTooLarge,
         ),
       ),
     );
@@ -34,9 +34,9 @@ void main() {
       inspectSecureImage(png, maxPixels: 5),
       throwsA(
         isA<SecureImagePolicyException>().having(
-          (error) => error.message,
-          'message',
-          contains('解码尺寸超过'),
+          (error) => error.violation,
+          'violation',
+          SecureImagePolicyViolation.decodedPixelsTooLarge,
         ),
       ),
     );
@@ -44,9 +44,9 @@ void main() {
       inspectSecureImage(Uint8List.fromList([1, 2, 3, 4])),
       throwsA(
         isA<SecureImagePolicyException>().having(
-          (error) => error.message,
-          'message',
-          contains('损坏'),
+          (error) => error.violation,
+          'violation',
+          SecureImagePolicyViolation.invalidOrUnsupportedContent,
         ),
       ),
     );

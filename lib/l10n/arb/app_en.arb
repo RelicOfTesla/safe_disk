@@ -31,6 +31,13 @@
   "restoreDefaults": "Restore defaults (not saved)",
   "loadingImage": "Loading image",
   "imageLoadFailed": "Image failed to load",
+  "imageEncodedSizeLimit": "Encoded image data exceeds the {limit} limit.",
+  "@imageEncodedSizeLimit": {"placeholders": {"limit": {"type": "String"}}},
+  "imageContentEmpty": "The image content is empty.",
+  "imageDimensionsInvalid": "The image dimensions are invalid.",
+  "imageDecodedPixelLimit": "Decoded image dimensions exceed the {limit} limit.",
+  "@imageDecodedPixelLimit": {"placeholders": {"limit": {"type": "String"}}},
+  "imageEncryptedContentInvalid": "The encrypted image data could not be read. It may be invalid.",
   "noDisplayableImage": "No displayable image. Choose another image or try again.",
   "viewingImage": "Viewing: {fileName}",
   "@viewingImage": {

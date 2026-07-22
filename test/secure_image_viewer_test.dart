@@ -142,6 +142,24 @@ void main() {
     expect(find.bySemanticsLabel('Viewing: one.png'), findsOneWidget);
   });
 
+  testWidgets('image policy failures follow the active locale', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      home: SecureImageViewer(
+        file: _file('empty.png', '/empty.png'),
+        cryptoService: _ImageCryptoService({'/empty.png': Uint8List(0)}),
+        tempKeyID: 'root-session',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.bySemanticsLabel(
+          'Image failed to load: The image content is empty.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('exposes loading, image, and failure states to assistive tools',
       (tester) async {
     final semantics = tester.ensureSemantics();
@@ -182,7 +200,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(
-      find.bySemanticsLabel('图片加载失败: 无法加载图片：图片内容为空'),
+      find.bySemanticsLabel('图片加载失败: 图片内容为空'),
       findsOneWidget,
     );
 
@@ -428,7 +446,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.widget<material.MaterialApp>(find.byType(material.MaterialApp)).locale,
+      tester
+          .widget<material.MaterialApp>(find.byType(material.MaterialApp))
+          .locale,
       const Locale('en'),
     );
     expect(find.text('remote.png'), findsOneWidget);

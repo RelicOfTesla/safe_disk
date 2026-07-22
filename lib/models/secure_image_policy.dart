@@ -17,13 +17,22 @@ bool isSupportedImageFormat(String? extension) {
   return kSupportedImageFormats.contains(extension.toLowerCase());
 }
 
-class SecureImagePolicyException implements Exception {
-  const SecureImagePolicyException(this.message);
+enum SecureImagePolicyViolation {
+  encodedDataTooLarge,
+  emptyContent,
+  invalidDimensions,
+  decodedPixelsTooLarge,
+  invalidOrUnsupportedContent,
+}
 
-  final String message;
+class SecureImagePolicyException implements Exception {
+  const SecureImagePolicyException(this.violation, {this.limit});
+
+  final SecureImagePolicyViolation violation;
+  final int? limit;
 
   @override
-  String toString() => message;
+  String toString() => 'secure-image-policy:${violation.name}';
 }
 
 class SecureImageMetadata {
@@ -53,7 +62,8 @@ void validateSecureImageEncodedSize(
 }) {
   if (size != null && size > maxBytes) {
     throw SecureImagePolicyException(
-      '图片编码数据超过 ${formatImageByteLimit(maxBytes)} 上限',
+      SecureImagePolicyViolation.encodedDataTooLarge,
+      limit: maxBytes,
     );
   }
 }
@@ -64,7 +74,9 @@ Future<SecureImageMetadata> inspectSecureImage(
   int maxPixels = kMaxSecureImageDecodedPixels,
 }) async {
   if (data.isEmpty) {
-    throw const SecureImagePolicyException('图片内容为空');
+    throw const SecureImagePolicyException(
+      SecureImagePolicyViolation.emptyContent,
+    );
   }
   validateSecureImageEncodedSize(data.length, maxBytes: maxBytes);
 
@@ -77,11 +89,14 @@ Future<SecureImageMetadata> inspectSecureImage(
     final width = descriptor.width;
     final height = descriptor.height;
     if (width <= 0 || height <= 0) {
-      throw const SecureImagePolicyException('图片尺寸无效');
+      throw const SecureImagePolicyException(
+        SecureImagePolicyViolation.invalidDimensions,
+      );
     }
     if (width > maxPixels ~/ height) {
       throw SecureImagePolicyException(
-        '图片解码尺寸超过 ${formatImagePixelLimit(maxPixels)} 上限',
+        SecureImagePolicyViolation.decodedPixelsTooLarge,
+        limit: maxPixels,
       );
     }
     codec = await descriptor.instantiateCodec();
@@ -93,7 +108,9 @@ Future<SecureImageMetadata> inspectSecureImage(
   } on SecureImagePolicyException {
     rethrow;
   } catch (_) {
-    throw const SecureImagePolicyException('图片内容损坏或当前平台不支持该格式');
+    throw const SecureImagePolicyException(
+      SecureImagePolicyViolation.invalidOrUnsupportedContent,
+    );
   } finally {
     codec?.dispose();
     descriptor?.dispose();
@@ -111,5 +128,5 @@ String formatImageByteLimit(int bytes) {
 
 String formatImagePixelLimit(int pixels) {
   if (pixels % 1000000 == 0) return '${pixels ~/ 1000000} MP';
-  return '$pixels 像素';
+  return '$pixels px';
 }

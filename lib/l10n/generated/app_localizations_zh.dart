@@ -102,6 +102,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get imageLoadFailed => '图片加载失败';
 
   @override
+  String imageEncodedSizeLimit(String limit) {
+    return '图片编码数据超过 $limit 上限';
+  }
+
+  @override
+  String get imageContentEmpty => '图片内容为空';
+
+  @override
+  String get imageDimensionsInvalid => '图片尺寸无效';
+
+  @override
+  String imageDecodedPixelLimit(String limit) {
+    return '图片解码尺寸超过 $limit 上限';
+  }
+
+  @override
+  String get imageEncryptedContentInvalid => '无法读取加密图片数据，内容可能无效。';
+
+  @override
   String get noDisplayableImage => '没有可显示的图片。请选择其他图片或重试。';
 
   @override

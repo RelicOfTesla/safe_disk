@@ -31,6 +31,13 @@
   "restoreDefaults": "恢复默认设置（未保存）",
   "loadingImage": "正在加载图片",
   "imageLoadFailed": "图片加载失败",
+  "imageEncodedSizeLimit": "图片编码数据超过 {limit} 上限",
+  "@imageEncodedSizeLimit": {"placeholders": {"limit": {"type": "String"}}},
+  "imageContentEmpty": "图片内容为空",
+  "imageDimensionsInvalid": "图片尺寸无效",
+  "imageDecodedPixelLimit": "图片解码尺寸超过 {limit} 上限",
+  "@imageDecodedPixelLimit": {"placeholders": {"limit": {"type": "String"}}},
+  "imageEncryptedContentInvalid": "无法读取加密图片数据，内容可能无效。",
   "noDisplayableImage": "没有可显示的图片。请选择其他图片或重试。",
   "viewingImage": "正在查看：{fileName}",
   "@viewingImage": {

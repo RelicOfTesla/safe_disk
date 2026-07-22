@@ -284,6 +284,36 @@ abstract class AppLocalizations {
   /// **'图片加载失败'**
   String get imageLoadFailed;
 
+  /// No description provided for @imageEncodedSizeLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片编码数据超过 {limit} 上限'**
+  String imageEncodedSizeLimit(String limit);
+
+  /// No description provided for @imageContentEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片内容为空'**
+  String get imageContentEmpty;
+
+  /// No description provided for @imageDimensionsInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片尺寸无效'**
+  String get imageDimensionsInvalid;
+
+  /// No description provided for @imageDecodedPixelLimit.
+  ///
+  /// In zh, this message translates to:
+  /// **'图片解码尺寸超过 {limit} 上限'**
+  String imageDecodedPixelLimit(String limit);
+
+  /// No description provided for @imageEncryptedContentInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法读取加密图片数据，内容可能无效。'**
+  String get imageEncryptedContentInvalid;
+
   /// No description provided for @noDisplayableImage.
   ///
   /// In zh, this message translates to:

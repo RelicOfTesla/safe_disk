@@ -57,7 +57,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   MemoryImage? _imageProvider;
   SecureImageMetadata? _metadata;
   bool _isLoading = true;
-  String? _errorMessage;
+  Object? _loadError;
   int _loadGeneration = 0;
 
   // Image viewing state
@@ -125,8 +125,8 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
         _imageFiles = imageFiles;
         _currentIndex = currentIndex;
       });
-    } catch (e) {
-      debugPrint('Failed to load image list: $e');
+    } catch (error) {
+      debugPrint('secure-image-list-load-failed:$error');
     }
   }
 
@@ -139,7 +139,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
       if (mounted) {
         setState(() {
           _isLoading = true;
-          _errorMessage = null;
+          _loadError = null;
           _rotation = 0;
         });
       }
@@ -173,14 +173,12 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
         _isLoading = false;
       });
       loadedData = null;
-    } catch (e) {
+    } catch (error) {
       loadedData?.fillRange(0, loadedData.length, 0);
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = e is SecureImagePolicyException
-            ? '无法加载图片：${e.message}'
-            : '无法加载图片：图片解密失败或内容无效';
+        _loadError = error;
       });
     }
   }
@@ -425,11 +423,12 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
       );
     }
 
-    if (_errorMessage != null) {
+    if (_loadError != null) {
+      final errorMessage = _loadErrorMessage(strings, _loadError!);
       return Semantics(
         container: true,
         explicitChildNodes: true,
-        label: '${strings.imageLoadFailed}: $_errorMessage',
+        label: '${strings.imageLoadFailed}: $errorMessage',
         liveRegion: true,
         child: Center(
           child: Column(
@@ -440,7 +439,7 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Text(
-                  _errorMessage!,
+                  errorMessage,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -536,5 +535,22 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
         ),
       ),
     );
+  }
+
+  String _loadErrorMessage(AppLocalizations strings, Object error) {
+    if (error is! SecureImagePolicyException) {
+      return strings.imageEncryptedContentInvalid;
+    }
+    return switch (error.violation) {
+      SecureImagePolicyViolation.encodedDataTooLarge =>
+        strings.imageEncodedSizeLimit(formatImageByteLimit(error.limit!)),
+      SecureImagePolicyViolation.emptyContent => strings.imageContentEmpty,
+      SecureImagePolicyViolation.invalidDimensions =>
+        strings.imageDimensionsInvalid,
+      SecureImagePolicyViolation.decodedPixelsTooLarge =>
+        strings.imageDecodedPixelLimit(formatImagePixelLimit(error.limit!)),
+      SecureImagePolicyViolation.invalidOrUnsupportedContent =>
+        strings.imageDecodeFailedDescription,
+    };
   }
 }

@@ -12,17 +12,17 @@
 - `CJK 待人工复核`：可能是协议、日志或测试数据，须登记理由后才可排除。
 - 英文候选用于发现未本地化 fallback；技术标识、URL、协议字段不应翻译。
 
-候选总数：114
+候选总数：105
 
 ## 按分类统计
 
 | 分类 | 候选数 |
 | --- | ---: |
-| CJK 待人工复核 | 27 |
-| 直接 UI 文案 | 3 |
-| 直接 UI 英文文案 | 4 |
+| CJK 待人工复核 | 26 |
+| 直接 UI 文案 | 1 |
+| 直接 UI 英文文案 | 3 |
 | 错误/反馈英文文案 | 64 |
-| 错误/服务边界文案 | 16 |
+| 错误/服务边界文案 | 11 |
 
 ## 按文件统计
 
@@ -35,13 +35,11 @@
 | `lib/services/document_window_client.dart` | 9 |
 | `lib/utils/error_diagnostics.dart` | 9 |
 | `lib/native/native_lib.dart` | 8 |
-| `lib/models/secure_image_policy.dart` | 6 |
 | `lib/services/clipboard_helper.dart` | 6 |
 | `lib/services/content_window_host_bridge.dart` | 6 |
 | `lib/services/document_session_broker.dart` | 5 |
 | `lib/services/secure_entry_move_service.dart` | 4 |
 | `lib/services/crypto_service.dart` | 3 |
-| `lib/widgets/secure_image_viewer.dart` | 3 |
 | `lib/native/bindings.dart` | 2 |
 | `lib/services/remote_document_crypto_service.dart` | 2 |
 | `lib/main.dart` | 1 |
@@ -53,7 +51,6 @@
 
 | 分类 | 文件 | 行号 | 字符串 | 源码上下文 |
 | --- | --- | ---: | --- | --- |
-| CJK 待人工复核 | `lib/models/secure_image_policy.dart` | 114 | $pixels 像素 | return '$pixels 像素'; |
 | CJK 待人工复核 | `lib/services/clipboard_helper.dart` | 32 | 已取消：成功 $filesProcessed 个，失败 $filesFailed 个 | return '已取消：成功 $filesProcessed 个，失败 $filesFailed 个'; |
 | CJK 待人工复核 | `lib/services/clipboard_helper.dart` | 35 | 完成：成功粘贴 $filesProcessed 个文件 | return '完成：成功粘贴 $filesProcessed 个文件'; |
 | CJK 待人工复核 | `lib/services/clipboard_helper.dart` | 37 | 完成：成功 $filesProcessed 个，失败 $filesFailed 个 | return '完成：成功 $filesProcessed 个，失败 $filesFailed 个'; |
@@ -81,12 +78,9 @@
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 57 | [路径已隐藏] | (_) => '[路径已隐藏]', |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 60 | ${result.substring(0, _maxDetailLength)}\n[详细信息已截断] | result = '${result.substring(0, _maxDetailLength)}\n[详细信息已截断]'; |
 | 直接 UI 文案 | `lib/services/content_window_host_bridge.dart` | 336 | 不支持的内容窗口调用：${call.method} | message: '不支持的内容窗口调用：${call.method}', |
-| 直接 UI 文案 | `lib/widgets/secure_image_viewer.dart` | 182 | 无法加载图片：${e.message} | ? '无法加载图片：${e.message}' |
-| 直接 UI 文案 | `lib/widgets/secure_image_viewer.dart` | 183 | 无法加载图片：图片解密失败或内容无效 | : '无法加载图片：图片解密失败或内容无效'; |
 | 直接 UI 英文文案 | `lib/main.dart` | 197 | Safe Disk | title: 'Safe Disk', |
 | 直接 UI 英文文案 | `lib/pages/home_page.dart` | 1776 | Unknown error | originalError: progress.error ?? 'Unknown error', |
 | 直接 UI 英文文案 | `lib/widgets/entry_conflict_dialog.dart` | 128 | No conflict-free entry name could be generated | throw StateError('No conflict-free entry name could be generated'); |
-| 直接 UI 英文文案 | `lib/widgets/secure_image_viewer.dart` | 129 | Failed to load image list: $e | debugPrint('Failed to load image list: $e'); |
 | 错误/反馈英文文案 | `lib/models/ffi_results.dart` | 45 | Operation failed | throw Exception(error ?? 'Operation failed'); |
 | 错误/反馈英文文案 | `lib/models/ffi_results.dart` | 48 | No data returned | throw Exception('No data returned'); |
 | 错误/反馈英文文案 | `lib/models/ffi_results.dart` | 72 | Operation failed | throw Exception(error ?? 'Operation failed'); |
@@ -151,11 +145,6 @@
 | 错误/反馈英文文案 | `lib/services/incremental_encrypt_service.dart` | 443 | Failed to get block info | onError?.call(result.error ?? 'Failed to get block info'); |
 | 错误/反馈英文文案 | `lib/services/incremental_encrypt_service.dart` | 465 | Failed to get all block info | onError?.call(result.error ?? 'Failed to get all block info'); |
 | 错误/反馈英文文案 | `lib/services/settings_service.dart` | 139 | unsupported application locale | locale, 'locale', 'unsupported application locale'); |
-| 错误/服务边界文案 | `lib/models/secure_image_policy.dart` | 56 | 图片编码数据超过 ${formatImageByteLimit(maxBytes)} 上限 | '图片编码数据超过 ${formatImageByteLimit(maxBytes)} 上限', |
-| 错误/服务边界文案 | `lib/models/secure_image_policy.dart` | 67 | 图片内容为空 | throw const SecureImagePolicyException('图片内容为空'); |
-| 错误/服务边界文案 | `lib/models/secure_image_policy.dart` | 80 | 图片尺寸无效 | throw const SecureImagePolicyException('图片尺寸无效'); |
-| 错误/服务边界文案 | `lib/models/secure_image_policy.dart` | 84 | 图片解码尺寸超过 ${formatImagePixelLimit(maxPixels)} 上限 | '图片解码尺寸超过 ${formatImagePixelLimit(maxPixels)} 上限', |
-| 错误/服务边界文案 | `lib/models/secure_image_policy.dart` | 96 | 图片内容损坏或当前平台不支持该格式 | throw const SecureImagePolicyException('图片内容损坏或当前平台不支持该格式'); |
 | 错误/服务边界文案 | `lib/services/content_window_host_bridge.dart` | 305 | revision 或 content 格式无效 | throw const FormatException('revision 或 content 格式无效'); |
 | 错误/服务边界文案 | `lib/services/content_window_host_bridge.dart` | 317 | content 格式无效 | throw const FormatException('content 格式无效'); |
 | 错误/服务边界文案 | `lib/services/content_window_host_bridge.dart` | 326 | dirty 格式无效 | if (dirty is! bool) throw const FormatException('dirty 格式无效'); |

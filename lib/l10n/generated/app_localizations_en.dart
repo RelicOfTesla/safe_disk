@@ -107,6 +107,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageLoadFailed => 'Image failed to load';
 
   @override
+  String imageEncodedSizeLimit(String limit) {
+    return 'Encoded image data exceeds the $limit limit.';
+  }
+
+  @override
+  String get imageContentEmpty => 'The image content is empty.';
+
+  @override
+  String get imageDimensionsInvalid => 'The image dimensions are invalid.';
+
+  @override
+  String imageDecodedPixelLimit(String limit) {
+    return 'Decoded image dimensions exceed the $limit limit.';
+  }
+
+  @override
+  String get imageEncryptedContentInvalid =>
+      'The encrypted image data could not be read. It may be invalid.';
+
+  @override
   String get noDisplayableImage =>
       'No displayable image. Choose another image or try again.';
 
