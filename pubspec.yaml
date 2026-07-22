@@ -45,6 +45,7 @@ dependencies:
   
   # File selector for export/import
   file_selector: ^1.0.3
+  desktop_drop: ^0.7.1
   desktop_multi_window:
     path: third_party/desktop_multi_window
   charset_converter: ^2.4.0
