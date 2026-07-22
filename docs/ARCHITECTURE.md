@@ -47,8 +47,7 @@ lib/
 │   ├── bindings.dart         # FFI 底层绑定（C 函数声明）
 │   └── native_lib.dart       # FFI 高层封装（Dart API）
 ├── models/
-│   ├── cryption_config.dart  # 加密配置模型
-│   └── ffi_results.dart      # FFI 返回结果模型
+│   └── cryption_config.dart  # 加密配置模型
 ├── pages/
 │   └── home_page.dart        # 主页面（文件浏览器、侧边栏）
 ├── services/
@@ -221,10 +220,9 @@ TransferService 内禁止裸 `string` 路径，强制使用四种类型：
 - 文件操作：读取、写入、删除、重命名
 - 加密操作：加密文件、解密文件
 - 传输操作：目录导入、目录导出（异步，带回调）
-- 增量加密：流式加密/解密接口
 - 内存管理：`ClearSecureMemory`
 
-> 其中“增量加密”和 `ClearSecureMemory` 属于设计/规划口径，是否已真正暴露到当前 FFI 导出面，请以代码审计状态和 `exports.go` / `bindings.dart` 为准。
+> `ClearSecureMemory` 已有当前 FFI 绑定；增量加密仅保留历史设计归档，不属于当前 FFI API。具体以代码审计状态和 `exports.go` / `bindings.dart` 为准。
 
 ### CLI（直接调用）
 
@@ -264,6 +262,6 @@ go build -buildmode=c-shared -o libsafedisk_native.dylib
 
 1. **密钥缓存**: Go 侧通过 tempKeyID 机制缓存密钥
 2. **懒加载**: 目录按需扫描，不预加载全部文件
-3. **异步解密**: 大文件通过增量加密接口分块处理
+3. **异步传输**: 大文件 import/export 通过 Transfer V3 worker isolate 执行，不在 Flutter 主 isolate 全量缓冲
 4. **内存保护**: 敏感数据用后立即通过 MemZero 清零
 5. **原子化传输**: 避免全文件缓冲，边处理边持久化进度

@@ -118,7 +118,7 @@ Transfer V3 的 import 同步 ABI 和 callback ABI 均显式携带 `overwrite` �
 
 当前 Dart 已绑定 V3 import/export、unfinished marker、convert recover/convert root。尚未绑定：
 
-- 增量加密 C ABI。`NativeLib` 仅保留返回 `success:false` 的 unsupported JSON stub，避免设计草稿代码导致 Dart 编译失败。
+- 增量加密 C ABI。`NativeLib` 没有对应 API；过去无原生导出、无调用且必定失败的 Dart 占位桩已删除。
 
 ## 生命周期设计
 
@@ -284,12 +284,13 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 
 ## 增量加密接口
 
-`docs/design/FFI_INCREMENTAL_ENCRYPTION.md` 当前应视为设计文档，不是当前活跃实现证明。
+`docs/design/FFI_INCREMENTAL_ENCRYPTION.md` 当前为历史设计归档，不是当前活跃实现证明。
 
 当前情况：
 
 - `exports.go` 没有 `Incremental*` 或 `Stream*` 导出。
 - `bindings.dart` 没有增量加密绑定。
+- `NativeLib`、`ffi_results.dart` 和 `incremental_encrypt_service.dart` 没有增量包装；无引用的历史 Dart 死路径已在 2026-07-23 删除。
 - `crypto_data` 中存在 `CryptModeIncremental` 枚举，但当前生产算法主要报告普通模式。
 
 处理原则：
@@ -302,7 +303,7 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 
 | 问题 | 影响 | 建议优先级 |
 |------|------|------------|
-| 增量加密 FFI 仅有设计文档 | 文档容易误导进度判断 | P2 |
+| 增量加密 FFI 仅保留历史设计归档 | 未来重新立项时需避免误当现有 API | P2 |
 
 ## 验收标准
 

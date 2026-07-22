@@ -1,7 +1,6 @@
-# FFI 接口文档 - 增量加密模块
+# 历史设计归档 - 增量加密 FFI 模块
 
-> 这是接口设计文档，不是实现完成证明。
-> 当前是否可用，请以 `native/ffi_sec_fs/exports.go`、`lib/native/bindings.dart` 和 [CODE_AUDIT_STATUS.md](../CODE_AUDIT_STATUS.md) 为准。
+> **状态：未实现且已从活跃 Dart API 清理（2026-07-23）。** `native/ffi_sec_fs` 没有这些接口导出；此前的 Dart 服务和 `NativeLib` 占位桩均无调用且会返回失败。本文件保留原始设想，供未来重新设计时参考，不得作为当前能力或 API 约定。
 
 ## 概述
 

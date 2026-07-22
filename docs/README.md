@@ -59,7 +59,7 @@
 | [archive/CRYPTO_PACKAGE_REFACTOR_ANALYSIS.md](archive/CRYPTO_PACKAGE_REFACTOR_ANALYSIS.md) | crypto 包重构分析 | 历史分析 |
 | [design/STREAM_V3_DESIGN.md](design/STREAM_V3_DESIGN.md) | Stream V3 格式设计 | 设计文档 |
 | [design/STREAM_V3_ROADMAP.md](design/STREAM_V3_ROADMAP.md) | Stream V3 实施路线 | 已按实际代码重审为百分比 |
-| [design/FFI_INCREMENTAL_ENCRYPTION.md](design/FFI_INCREMENTAL_ENCRYPTION.md) | 增量加密 FFI 设计 | 设计文档，不是实现证明 |
+| [design/FFI_INCREMENTAL_ENCRYPTION.md](design/FFI_INCREMENTAL_ENCRYPTION.md) | 增量加密 FFI 历史设计 | 历史归档；当前没有活跃 API |
 | [design/WALKER_RESOURCE_DESIGN.md](design/WALKER_RESOURCE_DESIGN.md) | secure walker 工作集与错误传播 | 实施中 |
 | [design/DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 大目录 cursor 与 UI 增量加载 | 设计中 |
 | [design/AUTO_LOCK_DESIGN.md](design/AUTO_LOCK_DESIGN.md) | 应用生命周期下的 root 自动锁定与密钥清理 | 第一阶段已实现，桌面验收未完成 |

@@ -903,62 +903,6 @@ class NativeLib {
       calloc.free(operationIDPtr);
     }
   }
-
-  // ==================== Unsupported Incremental API Stubs ====================
-
-  String incrementalEncryptorCreate(
-          String dstPath, String keyBase64, int chunkSizeKB) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalEncryptorAddBlock(int handleID, String dataBase64) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalEncryptorFinalize(int handleID) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalEncryptorClose(int handleID) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalDecryptorOpen(String srcPath, String keyBase64) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalDecryptorDecryptBlock(int handleID, int blockIndex) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalDecryptorDecryptRange(
-          int handleID, int offset, int length) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalDecryptorDecryptAll(int handleID) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalDecryptorVerifyBlockIntegrity(
-          int handleID, int blockIndex) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalDecryptorVerifyIntegrity(int handleID) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalDecryptorGetBlockInfo(int handleID, int blockIndex) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalDecryptorGetAllBlockInfo(int handleID) =>
-      _unsupportedIncrementalResult();
-
-  String incrementalDecryptorClose(int handleID) =>
-      _unsupportedIncrementalResult();
-
-  String isIncrementalFile(String path) => _unsupportedIncrementalResult();
-
-  String getIncrementalFileInfo(String path) => _unsupportedIncrementalResult();
-
-  String _unsupportedIncrementalResult() {
-    return jsonEncode({
-      'success': false,
-      'error':
-          'Incremental encryption FFI is not part of the active Safe Disk API.',
-    });
-  }
 }
 
 abstract final class _TransferWorkerKind {

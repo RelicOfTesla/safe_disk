@@ -2,7 +2,7 @@
 
 > 以当前可执行代码为准，不以历史 TODO 或路线图为准。
 
-最后审计时间：2026-07-13
+最后审计时间：2026-07-23
 
 ## 总结
 
@@ -12,7 +12,7 @@
 - Go 默认 root helper 固定为 `aes-ctr + none + argon2id`；Flutter 主界面新建 root 显式使用 `aes-ctr + aes-gcm-name`。所有 KDF 创建均使用每 root 随机 salt；打开时严格按配置 factory，不再依赖 registry map 的随机首项或缺字段猜测。
 - FFI 层存在，已暴露 Transfer V3 import/export、runtime progress callback、unfinished marker 和 convert 基础接口。
 - Flutter service 层目录导入/导出已接 V3，并通过 worker isolate 执行耗时 FFI；主 UI 已接基础 rootID 读写、目录导入/导出进度、真实 runtime cancel 和 unfinished marker 感知。
-- 增量加密 FFI 有设计文档，但不在当前活跃导出/绑定面上；Dart `NativeLib` 只保留 unsupported JSON stub，防止设计草稿阻塞编译。
+- 增量加密 FFI 有历史设计文档，但不在当前活跃导出/绑定面上；无 Dart 包装或 `NativeLib` 占位桩，不能从 Flutter 调用。
 - 当前全量 `dart analyze` 为 0 issue。
 - FFI 相关目标文件分析可通过，真实 Dart FFI 集成测试可验证 CLI-created root 由 Dart 写读、Dart/FFI-created root 由 CLI import/export 操作，并验证 V3 runtime progress callback、调用 isolate 非阻塞、listener 异常和失败 marker 清理。
 
@@ -60,7 +60,7 @@
 - 安全记事本已完成。
 - 图片浏览器已完成。
 - 目录导入/导出 UI 已有可注入选择器的 `HomePage` 整页测试，覆盖未认证 root 不提前读取、错误/正确密码、文件 import 冲突取消/替换、目录保留两者/合并确认、导入异常恢复和 unfinished operation 全量重跑；marker 保存 overwrite 决策。这些证据只证明当前 transfer 交互闭环，不代表整个 UI 已完成。
-- 增量加密 FFI 已发布并可从 Flutter 实际使用；当前仅有明确返回 unsupported 的 Dart stub。
+- 增量加密 FFI 已发布并可从 Flutter 实际使用；当前没有活跃 Dart API 或原生导出。
 - 整个 UI 已完成。
 
 ## 使用规则
