@@ -91,7 +91,7 @@ void main() {
       isTrue,
     );
     expect(find.byKey(const Key('secure-clipboard-monitor')), findsOneWidget);
-    await tester.tap(find.byTooltip('开始编辑'));
+    await tester.tap(find.byTooltip('Start editing'));
     await tester.pump();
 
     await tester.enterText(
@@ -100,7 +100,7 @@ void main() {
     );
     await tester.pump();
     expect(client.dirtyStates, contains(true));
-    await tester.tap(find.byTooltip('保存'));
+    await tester.tap(find.byTooltip('Save'));
     await tester.pumpAndSettle();
     expect(client.content, 'native edit');
 

@@ -506,6 +506,81 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notepadSave => 'Save';
 
   @override
+  String get notepadSaveFailed => 'Save failed';
+
+  @override
+  String get notepadSaving => 'Saving';
+
+  @override
+  String get notepadUnsaved => 'Unsaved';
+
+  @override
+  String get notepadSaved => 'Saved';
+
+  @override
+  String get notepadReadOnly => 'Read-only';
+
+  @override
+  String get notepadEditing => 'Editing';
+
+  @override
+  String notepadCharacterCount(int count) {
+    return '$count characters';
+  }
+
+  @override
+  String get notepadDraftSaveFailed => 'Could not save recovery draft';
+
+  @override
+  String get notepadSavingDraft => 'Saving recovery draft';
+
+  @override
+  String get notepadDraftSaved => 'Recovery draft saved';
+
+  @override
+  String get notepadClipboardMonitor => 'Clipboard monitor';
+
+  @override
+  String get notepadClipboardEmpty => 'No short text in the clipboard';
+
+  @override
+  String get notepadRefreshClipboard => 'Refresh clipboard now';
+
+  @override
+  String get notepadClearClipboard => 'Clear system clipboard';
+
+  @override
+  String get notepadFindHint => 'Find (\\n means newline)';
+
+  @override
+  String notepadFindPosition(int current, int total) {
+    return '$current/$total';
+  }
+
+  @override
+  String get notepadFindPrevious => 'Find previous';
+
+  @override
+  String get notepadFindNext => 'Find next';
+
+  @override
+  String get notepadReplace => 'Replace';
+
+  @override
+  String get notepadReplaceAll => 'Replace all';
+
+  @override
+  String get notepadNoMatches => 'No matches found';
+
+  @override
+  String get notepadSelectMatchFirst => 'Select a match first';
+
+  @override
+  String notepadReplacedCount(int count) {
+    return 'Replaced $count matches';
+  }
+
+  @override
   String get detailedErrors => 'Show detailed error information';
 
   @override

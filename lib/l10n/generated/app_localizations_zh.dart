@@ -457,6 +457,81 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notepadSave => '保存';
 
   @override
+  String get notepadSaveFailed => '保存失败';
+
+  @override
+  String get notepadSaving => '正在保存';
+
+  @override
+  String get notepadUnsaved => '未保存';
+
+  @override
+  String get notepadSaved => '已保存';
+
+  @override
+  String get notepadReadOnly => '只读';
+
+  @override
+  String get notepadEditing => '编辑';
+
+  @override
+  String notepadCharacterCount(int count) {
+    return '$count 字符';
+  }
+
+  @override
+  String get notepadDraftSaveFailed => '无法保存恢复草稿';
+
+  @override
+  String get notepadSavingDraft => '正在保存草稿';
+
+  @override
+  String get notepadDraftSaved => '已保存恢复草稿';
+
+  @override
+  String get notepadClipboardMonitor => '剪贴板监视';
+
+  @override
+  String get notepadClipboardEmpty => '剪贴板中没有短文本';
+
+  @override
+  String get notepadRefreshClipboard => '立即刷新剪贴板';
+
+  @override
+  String get notepadClearClipboard => '快速清空系统剪贴板';
+
+  @override
+  String get notepadFindHint => '查找（\\n 表示换行）';
+
+  @override
+  String notepadFindPosition(int current, int total) {
+    return '$current/$total';
+  }
+
+  @override
+  String get notepadFindPrevious => '查找上一个';
+
+  @override
+  String get notepadFindNext => '查找下一个';
+
+  @override
+  String get notepadReplace => '替换';
+
+  @override
+  String get notepadReplaceAll => '全部替换';
+
+  @override
+  String get notepadNoMatches => '未找到匹配项';
+
+  @override
+  String get notepadSelectMatchFirst => '请先选择匹配项';
+
+  @override
+  String notepadReplacedCount(int count) {
+    return '已替换 $count 处';
+  }
+
+  @override
   String get detailedErrors => '显示详细错误信息';
 
   @override

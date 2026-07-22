@@ -968,6 +968,144 @@ abstract class AppLocalizations {
   /// **'保存'**
   String get notepadSave;
 
+  /// No description provided for @notepadSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存失败'**
+  String get notepadSaveFailed;
+
+  /// No description provided for @notepadSaving.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在保存'**
+  String get notepadSaving;
+
+  /// No description provided for @notepadUnsaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'未保存'**
+  String get notepadUnsaved;
+
+  /// No description provided for @notepadSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存'**
+  String get notepadSaved;
+
+  /// No description provided for @notepadReadOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'只读'**
+  String get notepadReadOnly;
+
+  /// No description provided for @notepadEditing.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑'**
+  String get notepadEditing;
+
+  /// No description provided for @notepadCharacterCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 字符'**
+  String notepadCharacterCount(int count);
+
+  /// No description provided for @notepadDraftSaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法保存恢复草稿'**
+  String get notepadDraftSaveFailed;
+
+  /// No description provided for @notepadSavingDraft.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在保存草稿'**
+  String get notepadSavingDraft;
+
+  /// No description provided for @notepadDraftSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已保存恢复草稿'**
+  String get notepadDraftSaved;
+
+  /// No description provided for @notepadClipboardMonitor.
+  ///
+  /// In zh, this message translates to:
+  /// **'剪贴板监视'**
+  String get notepadClipboardMonitor;
+
+  /// No description provided for @notepadClipboardEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'剪贴板中没有短文本'**
+  String get notepadClipboardEmpty;
+
+  /// No description provided for @notepadRefreshClipboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即刷新剪贴板'**
+  String get notepadRefreshClipboard;
+
+  /// No description provided for @notepadClearClipboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'快速清空系统剪贴板'**
+  String get notepadClearClipboard;
+
+  /// No description provided for @notepadFindHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找（\\n 表示换行）'**
+  String get notepadFindHint;
+
+  /// No description provided for @notepadFindPosition.
+  ///
+  /// In zh, this message translates to:
+  /// **'{current}/{total}'**
+  String notepadFindPosition(int current, int total);
+
+  /// No description provided for @notepadFindPrevious.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找上一个'**
+  String get notepadFindPrevious;
+
+  /// No description provided for @notepadFindNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找下一个'**
+  String get notepadFindNext;
+
+  /// No description provided for @notepadReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'替换'**
+  String get notepadReplace;
+
+  /// No description provided for @notepadReplaceAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'全部替换'**
+  String get notepadReplaceAll;
+
+  /// No description provided for @notepadNoMatches.
+  ///
+  /// In zh, this message translates to:
+  /// **'未找到匹配项'**
+  String get notepadNoMatches;
+
+  /// No description provided for @notepadSelectMatchFirst.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先选择匹配项'**
+  String get notepadSelectMatchFirst;
+
+  /// No description provided for @notepadReplacedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已替换 {count} 处'**
+  String notepadReplacedCount(int count);
+
   /// No description provided for @detailedErrors.
   ///
   /// In zh, this message translates to:

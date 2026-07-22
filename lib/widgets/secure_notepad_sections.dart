@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/secure_notepad_controller.dart';
+import '../l10n/generated/app_localizations.dart';
 
 class SecureNotepadStatusBar extends StatelessWidget {
   const SecureNotepadStatusBar({
@@ -30,13 +31,14 @@ class SecureNotepadStatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     final statusText = saveError != null
-        ? '保存失败'
+        ? strings.notepadSaveFailed
         : isSaving
-            ? '正在保存'
+            ? strings.notepadSaving
             : hasChanges
-                ? '未保存'
-                : '已保存';
+                ? strings.notepadUnsaved
+                : strings.notepadSaved;
     final statusColor = saveError != null
         ? Theme.of(context).colorScheme.error
         : hasChanges
@@ -66,7 +68,7 @@ class SecureNotepadStatusBar extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            isReadOnly ? '只读' : '编辑',
+            isReadOnly ? strings.notepadReadOnly : strings.notepadEditing,
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const Spacer(),
@@ -80,7 +82,7 @@ class SecureNotepadStatusBar extends StatelessWidget {
             const SizedBox(width: 12),
           ],
           Text(
-            '$characterCount 字符',
+            strings.notepadCharacterCount(characterCount),
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (isSavingDraft || hasDraftBackup || draftError != null) ...[
@@ -97,10 +99,10 @@ class SecureNotepadStatusBar extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               draftError != null
-                  ? '无法保存恢复草稿'
+                  ? strings.notepadDraftSaveFailed
                   : isSavingDraft
-                      ? '正在保存草稿'
-                      : '已保存恢复草稿',
+                      ? strings.notepadSavingDraft
+                      : strings.notepadDraftSaved,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -128,6 +130,7 @@ class SecureClipboardMonitorBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return Material(
       key: const Key('secure-clipboard-monitor'),
       color: Theme.of(context).colorScheme.tertiaryContainer,
@@ -138,13 +141,13 @@ class SecureClipboardMonitorBar extends StatelessWidget {
             const Icon(Icons.content_paste_search, size: 18),
             const SizedBox(width: 8),
             Text(
-              '剪贴板监视',
+              strings.notepadClipboardMonitor,
               style: Theme.of(context).textTheme.labelLarge,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                error ?? preview ?? '剪贴板中没有短文本',
+                error ?? preview ?? strings.notepadClipboardEmpty,
                 key: const Key('secure-clipboard-preview'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -158,17 +161,17 @@ class SecureClipboardMonitorBar extends StatelessWidget {
             IconButton(
               onPressed: onRefresh,
               icon: const Icon(Icons.refresh, size: 18),
-              tooltip: '立即刷新剪贴板',
+              tooltip: strings.notepadRefreshClipboard,
             ),
             IconButton(
               onPressed: onClear,
               icon: const Icon(Icons.cleaning_services_outlined, size: 18),
-              tooltip: '快速清空系统剪贴板',
+              tooltip: strings.notepadClearClipboard,
             ),
             IconButton(
               onPressed: onClose,
               icon: const Icon(Icons.close, size: 18),
-              tooltip: '停止剪贴板监视',
+              tooltip: strings.notepadStopClipboardMonitoring,
             ),
           ],
         ),
@@ -220,7 +223,7 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
     );
     setState(() => _findResult = result);
     if (result == null) {
-      _showMessage('未找到匹配项');
+      _showMessage(AppLocalizations.of(context)!.notepadNoMatches);
     }
   }
 
@@ -229,7 +232,7 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
       _findQuery,
       _replaceController.text,
     )) {
-      _showMessage('请先选择匹配项');
+      _showMessage(AppLocalizations.of(context)!.notepadSelectMatchFirst);
     }
   }
 
@@ -238,7 +241,12 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
       _findQuery,
       _replaceController.text,
     );
-    _showMessage(count == 0 ? '未找到匹配项' : '已替换 $count 处');
+    final strings = AppLocalizations.of(context)!;
+    _showMessage(
+      count == 0
+          ? strings.notepadNoMatches
+          : strings.notepadReplacedCount(count),
+    );
   }
 
   String get _findQuery => _findController.text.replaceAll(r'\n', '\n');
@@ -251,6 +259,7 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -280,12 +289,12 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
                 controller: _findController,
                 focusNode: widget.focusNode,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: r'查找（\n 表示换行）',
+                decoration: InputDecoration(
+                  hintText: strings.notepadFindHint,
                   isDense: true,
                   contentPadding:
-                      EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  border: OutlineInputBorder(),
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  border: const OutlineInputBorder(),
                 ),
                 onChanged: (_) {
                   setState(() => _findResult = null);
@@ -297,46 +306,51 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
           if (_findResult != null)
             Padding(
               padding: const EdgeInsets.only(left: 8),
-              child: Text('${_findResult!.current}/${_findResult!.total}'),
+              child: Text(
+                strings.notepadFindPosition(
+                  _findResult!.current,
+                  _findResult!.total,
+                ),
+              ),
             ),
           IconButton(
             icon: const Icon(Icons.arrow_upward),
             onPressed: () => _find(backwards: true),
-            tooltip: '查找上一个',
+            tooltip: strings.notepadFindPrevious,
           ),
           IconButton(
             icon: const Icon(Icons.arrow_downward),
             onPressed: () => _find(),
-            tooltip: '查找下一个',
+            tooltip: strings.notepadFindNext,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
               controller: _replaceController,
               enabled: !widget.readOnly,
-              decoration: const InputDecoration(
-                hintText: '替换',
+              decoration: InputDecoration(
+                hintText: strings.notepadReplace,
                 isDense: true,
                 contentPadding:
-                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                border: OutlineInputBorder(),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                border: const OutlineInputBorder(),
               ),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.find_replace),
             onPressed: widget.readOnly ? null : _replace,
-            tooltip: '替换',
+            tooltip: strings.notepadReplace,
           ),
           IconButton(
             icon: const Icon(Icons.close),
             onPressed: widget.onClose,
-            tooltip: '关闭查找',
+            tooltip: strings.notepadCloseFind,
           ),
           IconButton(
             icon: const Icon(Icons.sync),
             onPressed: widget.readOnly ? null : _replaceAll,
-            tooltip: '全部替换',
+            tooltip: strings.notepadReplaceAll,
           ),
         ],
       ),

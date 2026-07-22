@@ -25,7 +25,7 @@
 | 通用对话框与错误 | `pages/dialogs.dart`、`widgets/error_dialog.dart`、`widgets/enhanced_snackbar.dart`、`widgets/copyable_snackbar.dart`、`widgets/progress_dialog.dart`、`widgets/batch_operation_result_dialog.dart` | 错误 descriptor、创建加密目录、路径选择、目录移除确认与批量结果对话框已完成；批量统计、失败详情、创建密码选项、路径输入、删除操作和关闭按钮都有英文 widget 覆盖。进度面板的时间、计数、当前文件，以及重跑、导入、导出和批量删除调用点的标题/状态/结果已迁移；未完成传输确认已迁移并有英文 widget 覆盖，批量删除确认已迁移且保留中文行为覆盖，尚缺英文专门断言 |
 | 目录浏览与操作 | `widgets/file_browser.dart`、`widgets/file_item_actions.dart`、`widgets/directory_background_actions.dart`、`widgets/directory_tree.dart`、`widgets/property_overlay.dart`、`widgets/entry_conflict_dialog.dart` | 已完成：筛选、排序、分页、视图模式、空态、条目类型与读屏语义，重命名校验、属性、动作面板、目录树读取/分页/重试，以及冲突确认/批量策略/自动命名后缀均进入 ARB；后续只需随主页的其余确认对话框迁移 |
 | Root 与侧边栏 | `widgets/sidebar.dart`、`widgets/root_directory_action_dialog.dart`、`widgets/root_directory_properties.dart`、`widgets/root_password_change_dialog.dart`、`widgets/password_prompt.dart` | 已完成；共享属性浮层也已支持按 locale 显示标签与在长文本下滚动 |
-| 安全记事本 | `widgets/secure_notepad.dart`、`widgets/secure_notepad_sections.dart`、`windows/secure_notepad_window.dart` | 主窗口的草稿恢复、关闭确认、编辑工具栏、加载重试已迁移；保存状态、剪贴板监视、查找替换与子窗口错误壳未完成；错误组件已可本地化 |
+| 安全记事本 | `widgets/secure_notepad.dart`、`widgets/secure_notepad_sections.dart`、`windows/secure_notepad_window.dart` | 已完成：主窗口草稿恢复、关闭确认、编辑工具栏、加载重试、保存/草稿状态、剪贴板监视和查找替换，以及子窗口启动错误壳均进入 ARB；错误组件可本地化。仍待按 D 批次补全子窗口实际编辑路径的英文视觉与读屏验收 |
 | 图片浏览 | `widgets/secure_image_viewer.dart` | 已完成：工具栏与导航快捷键、动图帧数、加载/空态/解码失败、重试和读屏标签均进入 ARB；中文与英文 widget 覆盖缩放工具栏和查看语义。仍待三平台真实读屏与字号/截断验收 |
 
 ## 提取规则

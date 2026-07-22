@@ -50,6 +50,28 @@ void main() {
     expect(find.text('已保存'), findsOneWidget);
   });
 
+  testWidgets('localizes notepad status, clipboard monitor, and find UI',
+      (tester) async {
+    await _openNotepad(
+      tester,
+      _FakeCryptoService('alpha beta alpha'),
+      initiallyReadOnly: true,
+      initiallyMonitorClipboard: true,
+      locale: const Locale('en'),
+    );
+
+    expect(find.text('Read-only'), findsOneWidget);
+    expect(find.text('Clipboard monitor'), findsOneWidget);
+    expect(find.byTooltip('Refresh clipboard now'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Find and replace'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Find (\\n means newline)'), findsOneWidget);
+    expect(find.byTooltip('Find previous'), findsOneWidget);
+    expect(find.byTooltip('Replace all'), findsOneWidget);
+  });
+
   testWidgets('notepad load error hides raw diagnostics unless enabled',
       (tester) async {
     await _openNotepad(
@@ -414,12 +436,13 @@ Future<void> _openNotepad(
   CryptoService service, {
   bool initiallyReadOnly = false,
   bool initiallyMonitorClipboard = false,
+  Locale locale = const Locale('zh'),
   VoidCallback? onSaved,
   SystemTextClipboard systemClipboard = const FlutterSystemTextClipboard(),
   Duration clipboardMonitorInterval = Duration.zero,
 }) async {
   await tester.pumpWidget(MaterialApp(
-    locale: const Locale('zh'),
+    locale: locale,
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: Builder(
