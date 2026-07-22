@@ -2,7 +2,7 @@
 
 ## 状态
 
-第一批实现已完成自动锁定的子窗口预处理链路：主窗口使用每个 `WindowController` 的专用通道请求 `document.prepareLock`；记事本把脏文本写为同目录加密草稿后冻结编辑；桥接层收齐确认后才撤销 capability 并关闭窗口。此状态不代表 `UI-39` 完成，仍缺统一 close gate、重新解锁竞争和三平台真实窗口验收。
+第一批实现已完成自动锁定的子窗口预处理链路：主窗口使用每个 `WindowController` 的专用通道请求 `document.prepareLock`；记事本把脏文本写为同目录加密草稿后冻结编辑；桥接层收齐确认后才撤销 capability 并关闭窗口。自动、手动结束会话和改密关闭现按 root session 使用同一 FIFO gate。此状态不代表 `UI-39` 完成，仍缺重新解锁竞争和三平台真实窗口验收。
 
 ## 当前边界与可用能力
 
@@ -46,12 +46,12 @@
 ## 竞争与超时
 
 - 当前生命周期回调在关闭 root 前后验证 path/session ID；重新解锁获得新 session ID 时，旧计划不得关闭新 root。预处理期间的重新解锁竞争尚缺专门回归。
-- 手动结束会话、改密关闭和 TTL 关闭共用每 root 串行 close gate仍未实现；目前自动锁定仅以全局运行标志防止自身重入，不能把此限制误记为已完成。
+- 自动锁定、手动结束会话和改密关闭共用每 root session 的 FIFO close gate；进入 gate 后重新验证 path/session 身份并读取关闭决策。该实现尚缺真实重新解锁、子窗口标题栏关闭及多操作交错的桌面 E2E。
 - 请求超时后不撤销 token，防止迟到草稿写入落到已关闭 root；主窗口只记录失败并等待用户处理。
 
 ## 测试门槛
 
 - controller/endpoint：脏文本落草稿、草稿失败不确认、token/request ID 校验，以及超时后迟到完成会取消冻结已覆盖；重复请求和保存中的实际子窗口仍缺。
 - bridge：按 token 请求、确认后才 revoke/close、拒绝时不关闭已覆盖；超时、窗口消失和原生 close 失败仍缺。
-- Home：hidden/paused、TTL 成功关闭 clean 内容窗口、拒绝时保持 root 已覆盖；手动关闭和重新解锁竞争仍缺。
+- Home：hidden/paused、TTL 成功关闭 clean 内容窗口、拒绝时保持 root，以及 gate 重构后的既有关闭行为已覆盖；手动关闭与重新解锁的主动竞争仍缺。
 - 桌面：Linux、Windows、macOS 实测多窗口、标题栏关闭、休眠恢复和强制关闭子窗口。

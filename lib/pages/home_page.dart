@@ -113,6 +113,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isLoading = false;
   bool _autoLockOnBackground = SettingsService.defaultAutoCloseSession;
   bool _isAutoLocking = false;
+  final Map<String, Future<void>> _rootCloseTails = {};
   Timer? _idleTimer;
   String? _pendingAutoLockSummary;
   String? _lastIdleAutoLockSummary;
@@ -256,50 +257,53 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         final sessionID = directory.tempKeyID;
         if (sessionID == null) continue;
         if (sessionIDs != null && !sessionIDs.contains(sessionID)) continue;
-        final decision = _rootCloseCoordinator.inspect(sessionID);
-        final nativeWindowCount =
-            _contentWindowBridge.nativeWindowCountForRoot(sessionID);
-        // Only child windows can participate in the prepare-lock protocol.
-        // An in-process editor remains visible and must keep the root open.
-        if (decision.windowCount != nativeWindowCount) {
-          skippedCount++;
-          continue;
-        }
         try {
-          if (!_isCurrentDirectorySession(directory.path, sessionID)) continue;
-          if (nativeWindowCount != 0 &&
-              !await _contentWindowBridge.prepareAndCloseRootWindows(
-                sessionID,
-              )) {
-            failedCount++;
-            continue;
-          }
-          if (nativeWindowCount == 0 &&
-              decision.disposition != RootCloseDisposition.closeImmediately) {
-            skippedCount++;
-            continue;
-          }
-          await _disposeCurrentDirectoryPageSession(directory.path, sessionID);
-          if (!_isCurrentDirectorySession(directory.path, sessionID)) continue;
-          if (!_closeSession(sessionID)) {
-            failedCount++;
-            continue;
-          }
-          _secureClipboard.removeSession(sessionID);
-          _rootCloseCoordinator.releaseRoot(sessionID);
-          _idleTracker.remove(sessionID);
-          if (mounted) {
-            _replaceWithLockedDirectory(
-              directory,
-              EncryptedDirectory(
-                path: directory.path,
-                config: directory.config,
-                isVerified: false,
-                displayAlias: directory.displayAlias,
-              ),
-            );
-          }
-          lockedCount++;
+          await _runRootCloseOperation(sessionID, () async {
+            if (!_isCurrentDirectorySession(directory.path, sessionID)) return;
+            final decision = _rootCloseCoordinator.inspect(sessionID);
+            final nativeWindowCount =
+                _contentWindowBridge.nativeWindowCountForRoot(sessionID);
+            // Only child windows can participate in the prepare-lock protocol.
+            // An in-process editor remains visible and must keep the root open.
+            if (decision.windowCount != nativeWindowCount) {
+              skippedCount++;
+              return;
+            }
+            if (nativeWindowCount != 0 &&
+                !await _contentWindowBridge.prepareAndCloseRootWindows(
+                  sessionID,
+                )) {
+              failedCount++;
+              return;
+            }
+            if (nativeWindowCount == 0 &&
+                decision.disposition != RootCloseDisposition.closeImmediately) {
+              skippedCount++;
+              return;
+            }
+            await _disposeCurrentDirectoryPageSession(
+                directory.path, sessionID);
+            if (!_isCurrentDirectorySession(directory.path, sessionID)) return;
+            if (!_closeSession(sessionID)) {
+              failedCount++;
+              return;
+            }
+            _secureClipboard.removeSession(sessionID);
+            _rootCloseCoordinator.releaseRoot(sessionID);
+            _idleTracker.remove(sessionID);
+            if (mounted) {
+              _replaceWithLockedDirectory(
+                directory,
+                EncryptedDirectory(
+                  path: directory.path,
+                  config: directory.config,
+                  isVerified: false,
+                  displayAlias: directory.displayAlias,
+                ),
+              );
+            }
+            lockedCount++;
+          });
         } catch (_) {
           failedCount++;
         }
@@ -331,6 +335,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           (directory) =>
               directory.path == path && directory.tempKeyID == sessionID,
         );
+  }
+
+  Future<T> _runRootCloseOperation<T>(
+    String sessionID,
+    Future<T> Function() operation,
+  ) async {
+    final previous = _rootCloseTails[sessionID];
+    final completion = Completer<void>();
+    _rootCloseTails[sessionID] = completion.future;
+    if (previous != null) await previous;
+    try {
+      return await operation();
+    } finally {
+      completion.complete();
+      if (identical(_rootCloseTails[sessionID], completion.future)) {
+        _rootCloseTails.remove(sessionID);
+      }
+    }
   }
 
   Future<void> _disposeCurrentDirectoryPageSession(
@@ -909,6 +931,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
 
     final sessionID = dir.tempKeyID;
+    if (sessionID != null) {
+      await _runRootCloseOperation(
+        sessionID,
+        () => _closeDirectoryAfterDecision(dir, action, sessionID, strings),
+      );
+      return;
+    }
+    await _closeDirectoryAfterDecision(dir, action, null, strings);
+  }
+
+  Future<void> _closeDirectoryAfterDecision(
+    EncryptedDirectory dir,
+    RootDirectoryAction action,
+    String? sessionID,
+    AppLocalizations strings,
+  ) async {
+    if (sessionID != null && !_isCurrentDirectorySession(dir.path, sessionID)) {
+      return;
+    }
     final closeDecision =
         sessionID == null ? null : _rootCloseCoordinator.inspect(sessionID);
     if (closeDecision?.disposition ==
@@ -972,7 +1013,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (sessionID != null) {
       await _disposeCurrentDirectoryPageSession(dir.path, sessionID);
     }
-    if (!_closeSession(dir.tempKeyID)) {
+    if (!_closeSession(sessionID)) {
       if (mounted) {
         ErrorHelper.showError(
           context,
@@ -1039,6 +1080,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<bool> _lockRootForPasswordChange(EncryptedDirectory directory) async {
     final sessionID = directory.tempKeyID;
     if (sessionID == null) return true;
+    return _runRootCloseOperation(
+      sessionID,
+      () => _lockRootForPasswordChangeAfterGate(directory, sessionID),
+    );
+  }
+
+  Future<bool> _lockRootForPasswordChangeAfterGate(
+    EncryptedDirectory directory,
+    String sessionID,
+  ) async {
+    if (!_isCurrentDirectorySession(directory.path, sessionID)) return false;
     final decision = _rootCloseCoordinator.inspect(sessionID);
     if (decision.disposition != RootCloseDisposition.closeImmediately) {
       final strings = AppLocalizations.of(context)!;
