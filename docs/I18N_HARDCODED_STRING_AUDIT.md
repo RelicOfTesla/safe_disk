@@ -12,17 +12,16 @@
 - `CJK 待人工复核`：可能是协议、日志或测试数据，须登记理由后才可排除。
 - 英文候选用于发现未本地化 fallback；技术标识、URL、协议字段不应翻译。
 
-候选总数：105
+候选总数：99
 
 ## 按分类统计
 
 | 分类 | 候选数 |
 | --- | ---: |
 | CJK 待人工复核 | 26 |
-| 直接 UI 文案 | 1 |
 | 直接 UI 英文文案 | 3 |
 | 错误/反馈英文文案 | 64 |
-| 错误/服务边界文案 | 11 |
+| 错误/服务边界文案 | 6 |
 
 ## 按文件统计
 
@@ -36,7 +35,6 @@
 | `lib/utils/error_diagnostics.dart` | 9 |
 | `lib/native/native_lib.dart` | 8 |
 | `lib/services/clipboard_helper.dart` | 6 |
-| `lib/services/content_window_host_bridge.dart` | 6 |
 | `lib/services/document_session_broker.dart` | 5 |
 | `lib/services/secure_entry_move_service.dart` | 4 |
 | `lib/services/crypto_service.dart` | 3 |
@@ -77,7 +75,6 @@
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 53 | [路径已隐藏] | (_) => '[路径已隐藏]', |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 57 | [路径已隐藏] | (_) => '[路径已隐藏]', |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 60 | ${result.substring(0, _maxDetailLength)}\n[详细信息已截断] | result = '${result.substring(0, _maxDetailLength)}\n[详细信息已截断]'; |
-| 直接 UI 文案 | `lib/services/content_window_host_bridge.dart` | 336 | 不支持的内容窗口调用：${call.method} | message: '不支持的内容窗口调用：${call.method}', |
 | 直接 UI 英文文案 | `lib/main.dart` | 197 | Safe Disk | title: 'Safe Disk', |
 | 直接 UI 英文文案 | `lib/pages/home_page.dart` | 1776 | Unknown error | originalError: progress.error ?? 'Unknown error', |
 | 直接 UI 英文文案 | `lib/widgets/entry_conflict_dialog.dart` | 128 | No conflict-free entry name could be generated | throw StateError('No conflict-free entry name could be generated'); |
@@ -145,11 +142,6 @@
 | 错误/反馈英文文案 | `lib/services/incremental_encrypt_service.dart` | 443 | Failed to get block info | onError?.call(result.error ?? 'Failed to get block info'); |
 | 错误/反馈英文文案 | `lib/services/incremental_encrypt_service.dart` | 465 | Failed to get all block info | onError?.call(result.error ?? 'Failed to get all block info'); |
 | 错误/反馈英文文案 | `lib/services/settings_service.dart` | 139 | unsupported application locale | locale, 'locale', 'unsupported application locale'); |
-| 错误/服务边界文案 | `lib/services/content_window_host_bridge.dart` | 305 | revision 或 content 格式无效 | throw const FormatException('revision 或 content 格式无效'); |
-| 错误/服务边界文案 | `lib/services/content_window_host_bridge.dart` | 317 | content 格式无效 | throw const FormatException('content 格式无效'); |
-| 错误/服务边界文案 | `lib/services/content_window_host_bridge.dart` | 326 | dirty 格式无效 | if (dirty is! bool) throw const FormatException('dirty 格式无效'); |
-| 错误/服务边界文案 | `lib/services/content_window_host_bridge.dart` | 354 | 请求参数必须是 map | if (arguments is! Map) throw const FormatException('请求参数必须是 map'); |
-| 错误/服务边界文案 | `lib/services/content_window_host_bridge.dart` | 361 | $key 格式无效 | throw FormatException('$key 格式无效'); |
 | 错误/服务边界文案 | `lib/services/document_session_broker.dart` | 205 | 窗口内容版本已过期，请重新加载后再保存 | throw const DocumentSessionConflict('窗口内容版本已过期，请重新加载后再保存'); |
 | 错误/服务边界文案 | `lib/services/document_session_broker.dart` | 213 | 文件已被另一个窗口修改，已阻止覆盖 | throw const DocumentSessionConflict('文件已被另一个窗口修改，已阻止覆盖'); |
 | 错误/服务边界文案 | `lib/services/document_window_client.dart` | 147 | 主窗口返回了无效的文档快照 | throw StateError('主窗口返回了无效的文档快照'); |

@@ -302,7 +302,7 @@ class ContentWindowHostBridge {
           final revision = arguments['revision'];
           final content = arguments['content'];
           if (revision is! int || content is! Uint8List) {
-            throw const FormatException('revision 或 content 格式无效');
+            throw const FormatException('invalid-document-save-payload');
           }
           return _snapshotMap(await _broker.save(
             token: token,
@@ -314,7 +314,7 @@ class ContentWindowHostBridge {
         case 'document.draftWrite':
           final content = arguments['content'];
           if (content is! Uint8List) {
-            throw const FormatException('content 格式无效');
+            throw const FormatException('invalid-document-draft-content');
           }
           await _broker.writeDraft(token, content);
           return null;
@@ -323,7 +323,9 @@ class ContentWindowHostBridge {
           return null;
         case 'document.setDirty':
           final dirty = arguments['dirty'];
-          if (dirty is! bool) throw const FormatException('dirty 格式无效');
+          if (dirty is! bool) {
+            throw const FormatException('invalid-document-dirty-state');
+          }
           _broker.setDirty(token, dirty);
           return null;
         case 'document.closed':
@@ -333,7 +335,7 @@ class ContentWindowHostBridge {
         default:
           throw PlatformException(
             code: 'unsupported_method',
-            message: '不支持的内容窗口调用：${call.method}',
+            message: 'unsupported-content-window-method',
           );
       }
     } on DocumentSessionConflict catch (error) {
@@ -351,14 +353,16 @@ class ContentWindowHostBridge {
 
   Map<Object?, Object?> _arguments(MethodCall call) {
     final arguments = call.arguments;
-    if (arguments is! Map) throw const FormatException('请求参数必须是 map');
+    if (arguments is! Map) {
+      throw const FormatException('invalid-content-window-arguments');
+    }
     return arguments.cast<Object?, Object?>();
   }
 
   String _requiredString(Map<Object?, Object?> arguments, String key) {
     final value = arguments[key];
     if (value is! String || value.isEmpty) {
-      throw FormatException('$key 格式无效');
+      throw FormatException('invalid-content-window-$key');
     }
     return value;
   }

@@ -91,6 +91,49 @@ void main() {
     expect(broker.containsToken(lease.token), isFalse);
   });
 
+  test('returns stable protocol markers for invalid window calls', () async {
+    final broker = DocumentSessionBroker(
+      cryptoService: _BridgeCryptoService('initial'),
+    );
+    final lease = broker.open(
+      rootSessionID: '7',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(
+      broker: broker,
+      platform: platform,
+    );
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(lease, localePreference: 'en');
+
+    await expectLater(
+      platform.call('document.save', {'token': lease.token}),
+      throwsA(
+        isA<PlatformException>()
+            .having((error) => error.code, 'code', 'invalid_request')
+            .having(
+              (error) => error.message,
+              'message',
+              'invalid-document-save-payload',
+            ),
+      ),
+    );
+    await expectLater(
+      platform.call('document.unknown', {'token': lease.token}),
+      throwsA(
+        isA<PlatformException>()
+            .having((error) => error.code, 'code', 'unsupported_method')
+            .having(
+              (error) => error.message,
+              'message',
+              'unsupported-content-window-method',
+            ),
+      ),
+    );
+  });
+
   test('releases a lease when a native window disappears unexpectedly',
       () async {
     final broker = DocumentSessionBroker(
