@@ -1826,6 +1826,78 @@ abstract class AppLocalizations {
   /// **'导入目录'**
   String get importDirectory;
 
+  /// No description provided for @allFiles.
+  ///
+  /// In zh, this message translates to:
+  /// **'所有文件'**
+  String get allFiles;
+
+  /// No description provided for @fileImportCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件导入成功：{name}'**
+  String fileImportCompleted(String name);
+
+  /// No description provided for @fileExportCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'文件导出成功：{path}'**
+  String fileExportCompleted(String path);
+
+  /// No description provided for @confirmPlaintextExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'确认导出明文'**
+  String get confirmPlaintextExport;
+
+  /// No description provided for @confirmPlaintextExportDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'“{name}”将以未加密形式写入你选择的位置。导出后的副本不再受 Safe Disk 保护，是否继续？'**
+  String confirmPlaintextExportDescription(String name);
+
+  /// No description provided for @continueExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续导出'**
+  String get continueExport;
+
+  /// No description provided for @copiedNameToSystemClipboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'已将明文名称复制到系统剪贴板'**
+  String get copiedNameToSystemClipboard;
+
+  /// No description provided for @copiedPathToSystemClipboard.
+  ///
+  /// In zh, this message translates to:
+  /// **'已将明文逻辑路径复制到系统剪贴板'**
+  String get copiedPathToSystemClipboard;
+
+  /// No description provided for @copiedForPaste.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制“{name}”，请选择目标目录粘贴'**
+  String copiedForPaste(String name);
+
+  /// No description provided for @cutForMove.
+  ///
+  /// In zh, this message translates to:
+  /// **'已剪切“{name}”，请选择目标目录移动'**
+  String cutForMove(String name);
+
+  /// No description provided for @copiedManyForPaste.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制 {count} 个文件，请选择目标目录粘贴'**
+  String copiedManyForPaste(int count);
+
+  /// No description provided for @cutManyForMove.
+  ///
+  /// In zh, this message translates to:
+  /// **'已剪切 {count} 个文件，请选择目标目录移动'**
+  String cutManyForMove(int count);
+
   /// No description provided for @unlockDirectoryPrompt.
   ///
   /// In zh, this message translates to:

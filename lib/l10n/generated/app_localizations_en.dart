@@ -1048,6 +1048,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importDirectory => 'Import directory';
 
   @override
+  String get allFiles => 'All files';
+
+  @override
+  String fileImportCompleted(String name) {
+    return 'File imported: $name';
+  }
+
+  @override
+  String fileExportCompleted(String path) {
+    return 'File exported: $path';
+  }
+
+  @override
+  String get confirmPlaintextExport => 'Confirm plaintext export';
+
+  @override
+  String confirmPlaintextExportDescription(String name) {
+    return '\"$name\" will be written unencrypted to the selected location. The exported copy will no longer be protected by Safe Disk. Continue?';
+  }
+
+  @override
+  String get continueExport => 'Continue export';
+
+  @override
+  String get copiedNameToSystemClipboard =>
+      'Plaintext name copied to the system clipboard';
+
+  @override
+  String get copiedPathToSystemClipboard =>
+      'Plaintext logical path copied to the system clipboard';
+
+  @override
+  String copiedForPaste(String name) {
+    return 'Copied \"$name\". Select a destination directory to paste.';
+  }
+
+  @override
+  String cutForMove(String name) {
+    return 'Cut \"$name\". Select a destination directory to move it.';
+  }
+
+  @override
+  String copiedManyForPaste(int count) {
+    return 'Copied $count files. Select a destination directory to paste.';
+  }
+
+  @override
+  String cutManyForMove(int count) {
+    return 'Cut $count files. Select a destination directory to move them.';
+  }
+
+  @override
   String get unlockDirectoryPrompt => 'Enter the password to unlock:';
 
   @override

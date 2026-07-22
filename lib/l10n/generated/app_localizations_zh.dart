@@ -959,6 +959,56 @@ class AppLocalizationsZh extends AppLocalizations {
   String get importDirectory => '导入目录';
 
   @override
+  String get allFiles => '所有文件';
+
+  @override
+  String fileImportCompleted(String name) {
+    return '文件导入成功：$name';
+  }
+
+  @override
+  String fileExportCompleted(String path) {
+    return '文件导出成功：$path';
+  }
+
+  @override
+  String get confirmPlaintextExport => '确认导出明文';
+
+  @override
+  String confirmPlaintextExportDescription(String name) {
+    return '“$name”将以未加密形式写入你选择的位置。导出后的副本不再受 Safe Disk 保护，是否继续？';
+  }
+
+  @override
+  String get continueExport => '继续导出';
+
+  @override
+  String get copiedNameToSystemClipboard => '已将明文名称复制到系统剪贴板';
+
+  @override
+  String get copiedPathToSystemClipboard => '已将明文逻辑路径复制到系统剪贴板';
+
+  @override
+  String copiedForPaste(String name) {
+    return '已复制“$name”，请选择目标目录粘贴';
+  }
+
+  @override
+  String cutForMove(String name) {
+    return '已剪切“$name”，请选择目标目录移动';
+  }
+
+  @override
+  String copiedManyForPaste(int count) {
+    return '已复制 $count 个文件，请选择目标目录粘贴';
+  }
+
+  @override
+  String cutManyForMove(int count) {
+    return '已剪切 $count 个文件，请选择目标目录移动';
+  }
+
+  @override
   String get unlockDirectoryPrompt => '请输入密码以解锁：';
 
   @override

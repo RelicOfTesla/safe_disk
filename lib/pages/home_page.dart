@@ -1435,13 +1435,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       case FileItemAction.copyName:
         await Clipboard.setData(ClipboardData(text: item.name));
         if (mounted) {
-          ErrorHelper.showInfo(context, '已将明文名称复制到系统剪贴板');
+          ErrorHelper.showInfo(
+            context,
+            AppLocalizations.of(context)!.copiedNameToSystemClipboard,
+          );
         }
         return;
       case FileItemAction.copyPath:
         await Clipboard.setData(ClipboardData(text: item.path));
         if (mounted) {
-          ErrorHelper.showInfo(context, '已将明文逻辑路径复制到系统剪贴板');
+          ErrorHelper.showInfo(
+            context,
+            AppLocalizations.of(context)!.copiedPathToSystemClipboard,
+          );
         }
         return;
       case FileItemAction.properties:
@@ -1461,7 +1467,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _importFile() async {
     if (!_validateSession()) return;
 
-    const typeGroup = XTypeGroup(label: '所有文件');
+    final typeGroup = XTypeGroup(label: AppLocalizations.of(context)!.allFiles);
     final XFile? file = widget.selectFile != null
         ? await widget.selectFile!([typeGroup])
         : await openFile(acceptedTypeGroups: [typeGroup]);
@@ -1512,7 +1518,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await _loadCurrentPath();
 
       if (mounted) {
-        ErrorHelper.showSuccess(context, '文件导入成功：$destinationName');
+        ErrorHelper.showSuccess(
+          context,
+          AppLocalizations.of(context)!.fileImportCompleted(destinationName),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -1666,7 +1675,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         overwrite: destination.overwrite,
       );
       if (mounted) {
-        ErrorHelper.showSuccess(context, '文件导出成功：${destination.path}');
+        ErrorHelper.showSuccess(
+          context,
+          AppLocalizations.of(context)!.fileExportCompleted(destination.path),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -1987,22 +1999,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<bool> _confirmPlaintextExport(FileSystemNode item) async {
+    final strings = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('确认导出明文'),
-        content: Text(
-          '“${item.name}”将以未加密形式写入你选择的位置。'
-          '导出后的副本不再受 Safe Disk 保护，是否继续？',
-        ),
+        title: Text(strings.confirmPlaintextExport),
+        content: Text(strings.confirmPlaintextExportDescription(item.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('取消'),
+            child: Text(strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('继续导出'),
+            child: Text(strings.continueExport),
           ),
         ],
       ),
@@ -2019,7 +2029,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       isDirectory: item.isDirectory,
     ));
     setState(() {});
-    ErrorHelper.showSuccess(context, '已复制“${item.name}”，请选择目标目录粘贴');
+    ErrorHelper.showSuccess(
+      context,
+      AppLocalizations.of(context)!.copiedForPaste(item.name),
+    );
   }
 
   void _cutItem(FileSystemNode item) {
@@ -2031,7 +2044,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       isDirectory: item.isDirectory,
     ));
     setState(() {});
-    ErrorHelper.showSuccess(context, '已剪切“${item.name}”，请选择目标目录移动');
+    ErrorHelper.showSuccess(
+      context,
+      AppLocalizations.of(context)!.cutForMove(item.name),
+    );
   }
 
   void _copySelected({required bool move}) {
@@ -2059,8 +2075,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ErrorHelper.showSuccess(
       context,
       move
-          ? '已剪切 ${entries.length} 个文件，请选择目标目录移动'
-          : '已复制 ${entries.length} 个文件，请选择目标目录粘贴',
+          ? AppLocalizations.of(context)!.cutManyForMove(entries.length)
+          : AppLocalizations.of(context)!.copiedManyForPaste(entries.length),
     );
   }
 
