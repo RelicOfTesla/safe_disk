@@ -83,6 +83,12 @@ typedef SecFileDeleteC = Pointer<Utf8> Function(
 typedef SecFileDeleteDart = Pointer<Utf8> Function(
     int rootID, Pointer<Utf8> path);
 
+// sec_directory_delete_tree: (rootID, path) -> JSON string
+typedef SecDirectoryDeleteTreeC = Pointer<Utf8> Function(
+    Int64 rootID, Pointer<Utf8> path);
+typedef SecDirectoryDeleteTreeDart = Pointer<Utf8> Function(
+    int rootID, Pointer<Utf8> path);
+
 // sec_rename: (rootID, oldPath, newPath) -> JSON string
 typedef SecRenameC = Pointer<Utf8> Function(
     Int64 rootID, Pointer<Utf8> oldPath, Pointer<Utf8> newPath);
@@ -255,6 +261,7 @@ class NativeBindings {
   late final SecFileSeekDart secFileSeek;
   late final SecFileTruncateDart secFileTruncate;
   late final SecFileDeleteDart secFileDelete;
+  late final SecDirectoryDeleteTreeDart secDirectoryDeleteTree;
   late final SecRenameDart secRename;
   late final SecCopyEntryDart secCopyEntry;
   late final SecCreateEntryDart secCreateEmptyFile;
@@ -357,6 +364,9 @@ class NativeBindings {
             'sec_file_truncate');
     secFileDelete = _lib!
         .lookupFunction<SecFileDeleteC, SecFileDeleteDart>('sec_file_delete');
+    secDirectoryDeleteTree = _lib!
+        .lookupFunction<SecDirectoryDeleteTreeC, SecDirectoryDeleteTreeDart>(
+            'sec_directory_delete_tree');
     secRename = _lib!.lookupFunction<SecRenameC, SecRenameDart>('sec_rename');
     secCopyEntry =
         _lib!.lookupFunction<SecCopyEntryC, SecCopyEntryDart>('sec_copy_entry');

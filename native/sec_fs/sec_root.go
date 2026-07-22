@@ -230,6 +230,25 @@ func (r *secRootImpl) DeleteFile(path RelativeViewPath) error {
 	return nil
 }
 
+// DeleteDirectoryTree removes a non-root directory after encrypting and
+// validating the view path.
+func (r *secRootImpl) DeleteDirectoryTree(path RelativeViewPath) error {
+	if r == nil {
+		return ErrRootClosed
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.closed {
+		return ErrRootClosed
+	}
+
+	_, fullPath, err := viewPathToStorePathCheck(r.rootPathInfo, path, r.nameCryptor, false)
+	if err != nil {
+		return err
+	}
+	return deleteDirectoryTree(path, fullPath)
+}
+
 // FileExists checks if a file exists at the given relative view path.
 func (r *secRootImpl) FileExists(path RelativeViewPath) bool {
 	if r == nil {

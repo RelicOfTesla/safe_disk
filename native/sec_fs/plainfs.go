@@ -199,6 +199,25 @@ func (p *PlainFS) DeleteFile(path RelativeViewPath) error {
 	return nil
 }
 
+// DeleteDirectoryTree removes a non-root plain directory using the same path
+// containment checks as every other PlainFS operation.
+func (p *PlainFS) DeleteDirectoryTree(path RelativeViewPath) error {
+	if p == nil {
+		return ErrRootClosed
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.closed {
+		return ErrRootClosed
+	}
+
+	fullPath, err := p.resolvePath(string(path))
+	if err != nil {
+		return err
+	}
+	return deleteDirectoryTree(path, FullStorePath(fullPath))
+}
+
 // FileExists checks if a file exists at the given relative view path.
 func (p *PlainFS) FileExists(path RelativeViewPath) bool {
 	if p == nil {

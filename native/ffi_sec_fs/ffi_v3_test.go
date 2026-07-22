@@ -173,6 +173,17 @@ func TestCopyEntryFFICopiesAcrossEncryptedRootsAndRequiresOverwrite(t *testing.T
 	if response["data"].(map[string]interface{})["data"].(string) == "" {
 		t.Fatal("copied encrypted file returned empty data")
 	}
+	assertSuccess(t, DeleteDirectoryTree_FFI(sourceID, "目录"))
+	if jsonSuccess(QuickReadFile_FFI(sourceID, "目录/中文.txt")) {
+		t.Fatal("source directory remains after FFI tree delete")
+	}
+	var rejectedRoot Response
+	if err := json.Unmarshal([]byte(DeleteDirectoryTree_FFI(sourceID, "")), &rejectedRoot); err != nil {
+		t.Fatal(err)
+	}
+	if rejectedRoot.Success || rejectedRoot.Code != ErrorCodeInvalidPath {
+		t.Fatalf("root delete response = %#v, want invalid path failure", rejectedRoot)
+	}
 }
 
 func TestCreateEntryFFICreatesEncryptedNamesWithoutReplacing(t *testing.T) {

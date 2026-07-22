@@ -233,6 +233,14 @@ func errorResponse(err error) string {
 		return ErrorWithCode(err.Error(), ErrorCodeTransferMarkerCorrupt)
 	case errors.Is(err, sec_transfer.ErrTransferV3NotRegistered):
 		return ErrorWithCode(err.Error(), ErrorCodeTransferV3Unavailable)
+	case errors.Is(err, sec_fs.ErrInvalidPath):
+		return ErrorWithCode(err.Error(), ErrorCodeInvalidPath)
+	case errors.Is(err, sec_fs.ErrPathTraversal):
+		return ErrorWithCode(err.Error(), ErrorCodePathTraversal)
+	case errors.Is(err, sec_fs.ErrNotADirectory):
+		return ErrorWithCode(err.Error(), ErrorCodeNotDirectory)
+	case errors.Is(err, sec_fs.ErrUnsupportedOperation):
+		return ErrorWithCode(err.Error(), ErrorCodeUnsupportedOperation)
 	}
 	return ErrorResponse(err.Error())
 }
@@ -685,13 +693,27 @@ func TruncateFile_FFI(fileID int64, size int64) string {
 // Returns a JSON string indicating success or failure.
 func DeleteFile_FFI(rootID int64, path string) string {
 	entry, ok := RootStore.Get(rootID)
-	root := entry.Root
 	if !ok {
 		return errorResponseStr("root not found")
 	}
 
-	err := root.DeleteFile(sec_fs.RelativeViewPath(path))
+	err := entry.Root.DeleteFile(sec_fs.RelativeViewPath(path))
 	if err != nil {
+		return errorResponse(err)
+	}
+
+	return Success()
+}
+
+// DeleteDirectoryTree_FFI removes a non-root directory from a secure root.
+// Returns a JSON string indicating success or failure.
+func DeleteDirectoryTree_FFI(rootID int64, path string) string {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
+		return errorResponseStr("root not found")
+	}
+
+	if err := entry.Root.DeleteDirectoryTree(sec_fs.RelativeViewPath(path)); err != nil {
 		return errorResponse(err)
 	}
 

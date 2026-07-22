@@ -1793,14 +1793,8 @@ abstract class AppLocalizations {
   /// No description provided for @moveSourceDeleteFailed.
   ///
   /// In zh, this message translates to:
-  /// **'目标已复制，但无法删除源文件。源文件和目标均已保留，请确认内容后手动删除源文件。'**
+  /// **'目标已复制，但无法删除源项。源项和目标均已保留，请确认内容后手动删除源项。'**
   String get moveSourceDeleteFailed;
-
-  /// No description provided for @moveDirectoryUnsupported.
-  ///
-  /// In zh, this message translates to:
-  /// **'跨目录或替换已有目录的移动暂不支持。请改用复制，确认内容后手动删除源目录。'**
-  String get moveDirectoryUnsupported;
 
   /// No description provided for @clipboardMultipleEntries.
   ///

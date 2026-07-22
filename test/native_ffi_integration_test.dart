@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe_disk/controllers/secure_notepad_controller.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/models/cryption_config.dart';
 import 'package:safe_disk/native/native_lib.dart';
 import 'package:safe_disk/services/crypto_service.dart';
@@ -447,6 +448,38 @@ void main() {
         'moved content',
       );
 
+      await crypto.writeTextFile(sourceID, '待移动目录/子目录/记录.txt', 'tree');
+      await SecureEntryMoveService(crypto).move(
+        entry: SecureClipboardEntry(
+          sourcePath: '$sourceRootPath/待移动目录',
+          sourceSessionID: '$sourceID',
+          name: '待移动目录',
+          isDirectory: true,
+          operation: SecureClipboardOperation.move,
+        ),
+        destinationPath: '$destinationRootPath/已移动目录',
+        destinationSessionID: '$destinationID',
+        overwrite: false,
+      );
+      expect(
+        await crypto.fileExists(sourceID, '待移动目录/子目录/记录.txt'),
+        isFalse,
+      );
+      expect(
+        await crypto.readTextFile(destinationID, '已移动目录/子目录/记录.txt'),
+        'tree',
+      );
+      await expectLater(
+        crypto.deleteDirectoryBySession(sourceRootPath, '$sourceID'),
+        throwsA(
+          isA<NativeOperationException>().having(
+            (error) => error.code,
+            'code',
+            NativeErrorCode.invalidPath,
+          ),
+        ),
+      );
+
       await crypto.writeTextFile(destinationID, '导入.txt', 'old import');
       final directories = DirectoryService();
       await expectLater(
@@ -621,6 +654,9 @@ void main() {
       expect(diskNames, isNot(contains('私人图片')));
 
       await tester.pumpWidget(MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: SecureImageViewer(
           file: EncryptedFile(
             name: image.name,

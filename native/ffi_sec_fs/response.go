@@ -11,6 +11,10 @@ const (
 	ErrorCodeRootSessionNotFound    = 1201
 	ErrorCodeTransferMarkerCorrupt  = 1202
 	ErrorCodeTransferV3Unavailable  = 1203
+	ErrorCodeInvalidPath            = 1301
+	ErrorCodePathTraversal          = 1302
+	ErrorCodeNotDirectory           = 1303
+	ErrorCodeUnsupportedOperation   = 1304
 )
 
 // Response represents a standard FFI response structure.

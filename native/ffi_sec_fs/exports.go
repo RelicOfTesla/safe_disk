@@ -127,6 +127,12 @@ func sec_file_delete(rootID C.int64_t, path *C.char) *C.char {
 	return C.CString(result)
 }
 
+//export sec_directory_delete_tree
+func sec_directory_delete_tree(rootID C.int64_t, path *C.char) *C.char {
+	result := DeleteDirectoryTree_FFI(int64(rootID), C.GoString(path))
+	return C.CString(result)
+}
+
 //export sec_rename
 func sec_rename(rootID C.int64_t, oldPath *C.char, newPath *C.char) *C.char {
 	result := Rename_FFI(

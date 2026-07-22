@@ -70,6 +70,10 @@ type ISecRoot interface {
 	// DeleteFile deletes the file at the given relative view path.
 	DeleteFile(path RelativeViewPath) error
 
+	// DeleteDirectoryTree removes a non-root directory and every entry below it.
+	// Implementations must reject path escapes and symbolic links.
+	DeleteDirectoryTree(path RelativeViewPath) error
+
 	// FileExists returns true if a file exists at the given relative view path.
 	FileExists(path RelativeViewPath) bool
 

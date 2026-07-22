@@ -1592,6 +1592,143 @@ void main() {
     expect(find.byKey(const Key('file-clipboard-status')), findsNothing);
   });
 
+  testWidgets('cross-root directory cut resolves conflict then deletes source',
+      (tester) async {
+    const sourceRoot = '/tmp/safe-disk-home-test/source-vault';
+    const destinationRoot = '/tmp/safe-disk-home-test/destination-vault';
+    final cryptoService = _FakeCryptoService(
+      sourceRoot,
+      additionalRootPaths: const [destinationRoot],
+    );
+    final fileService = _FakeFileService(cryptoService, items: [
+      FileSystemNode(
+        name: '资料',
+        path: '$sourceRoot/资料',
+        isDirectory: true,
+      ),
+    ]);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(
+          sourceRoot,
+          rootPaths: const [sourceRoot, destinationRoot],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('source-vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('资料')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('剪切'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('destination-vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('移动到当前目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('目标已存在'), findsOneWidget);
+    await tester.tap(find.text('保留两者'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.copyCalls, [
+      (
+        sourcePath: '$sourceRoot/资料',
+        sourceSessionID: '7',
+        destinationPath: '$destinationRoot/资料 - 副本',
+        destinationSessionID: '8',
+        overwrite: false,
+      ),
+    ]);
+    expect(cryptoService.deletedDirectories, [
+      (path: '$sourceRoot/资料', sessionID: '7'),
+    ]);
+    expect(find.byKey(const Key('file-clipboard-status')), findsNothing);
+  });
+
+  testWidgets('cross-root directory partial move keeps clipboard entry',
+      (tester) async {
+    const sourceRoot = '/tmp/safe-disk-home-test/source-failure-vault';
+    const destinationRoot =
+        '/tmp/safe-disk-home-test/destination-failure-vault';
+    final cryptoService = _FakeCryptoService(
+      sourceRoot,
+      additionalRootPaths: const [destinationRoot],
+      failDirectoryDelete: true,
+    );
+    final fileService = _FakeFileService(cryptoService, items: [
+      FileSystemNode(
+        name: '资料',
+        path: '$sourceRoot/资料',
+        isDirectory: true,
+      ),
+    ]);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(
+          sourceRoot,
+          rootPaths: const [sourceRoot, destinationRoot],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('source-failure-vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('资料')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('剪切'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('destination-failure-vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('移动到当前目录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保留两者'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.copyCalls, hasLength(1));
+    expect(cryptoService.deletedDirectories, [
+      (path: '$sourceRoot/资料', sessionID: '7'),
+    ]);
+    expect(
+      find.textContaining('目标已复制，但无法删除源项。源项和目标均已保留，请确认内容后手动删除源项。'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('file-clipboard-status')), findsOneWidget);
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('blank-area menu creates entries and item menu stays separate',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
@@ -2304,6 +2441,7 @@ class _FakeCryptoService extends CryptoService {
     this.rootPath, {
     this.additionalRootPaths = const [],
     this.deleteFailures = const {},
+    this.failDirectoryDelete = false,
     this.copyFailures = const {},
     this.writeGate,
     this.passwordChangeable = false,
@@ -2312,6 +2450,7 @@ class _FakeCryptoService extends CryptoService {
   final String rootPath;
   final List<String> additionalRootPaths;
   final Set<String> deleteFailures;
+  final bool failDirectoryDelete;
   final Set<String> copyFailures;
   final Completer<void>? writeGate;
   final bool passwordChangeable;
@@ -2320,6 +2459,7 @@ class _FakeCryptoService extends CryptoService {
   final List<int> closedRootIDs = [];
   final List<(String oldPassword, String newPassword)> passwordChanges = [];
   final List<({String path, String sessionID})> deletedFiles = [];
+  final List<({String path, String sessionID})> deletedDirectories = [];
   final List<({String oldPath, String newPath, String sessionID})> renameCalls =
       [];
   final List<
@@ -2397,6 +2537,14 @@ class _FakeCryptoService extends CryptoService {
     deletedFiles.add((path: path, sessionID: tempKeyID));
     if (deleteFailures.contains(path)) {
       throw StateError('delete failed');
+    }
+  }
+
+  @override
+  Future<void> deleteDirectoryBySession(String path, String tempKeyID) async {
+    deletedDirectories.add((path: path, sessionID: tempKeyID));
+    if (failDirectoryDelete) {
+      throw StateError('directory delete failed');
     }
   }
 

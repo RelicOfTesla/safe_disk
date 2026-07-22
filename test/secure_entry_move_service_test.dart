@@ -63,8 +63,32 @@ void main() {
     ]);
   });
 
-  test('cross-root directory move is rejected before copying', () async {
+  test('cross-root directory move copies before deleting the source tree',
+      () async {
     final crypto = _MoveCryptoService();
+    final service = SecureEntryMoveService(crypto);
+    const directory = SecureClipboardEntry(
+      sourcePath: '/folder',
+      sourceSessionID: '1',
+      name: 'folder',
+      isDirectory: true,
+      operation: SecureClipboardOperation.move,
+    );
+
+    await service.move(
+      entry: directory,
+      destinationPath: '/target/folder',
+      destinationSessionID: '2',
+      overwrite: false,
+    );
+    expect(crypto.operations, [
+      'copy:1:/folder:2:/target/folder:false',
+      'delete-directory:1:/folder',
+    ]);
+  });
+
+  test('directory copy failure does not delete the source tree', () async {
+    final crypto = _MoveCryptoService(failCopy: true);
     final service = SecureEntryMoveService(crypto);
     const directory = SecureClipboardEntry(
       sourcePath: '/folder',
@@ -81,16 +105,48 @@ void main() {
         destinationSessionID: '2',
         overwrite: false,
       ),
-      throwsA(isA<SecureEntryMoveDirectoryUnsupported>()),
+      throwsA(isA<StateError>()),
     );
-    expect(crypto.operations, isEmpty);
+    expect(crypto.operations, ['copy:1:/folder:2:/target/folder:false']);
+  });
+
+  test('directory source deletion failure is reported as partial', () async {
+    final crypto = _MoveCryptoService(failDirectoryDelete: true);
+    final service = SecureEntryMoveService(crypto);
+    const directory = SecureClipboardEntry(
+      sourcePath: '/folder',
+      sourceSessionID: '1',
+      name: 'folder',
+      isDirectory: true,
+      operation: SecureClipboardOperation.move,
+    );
+
+    await expectLater(
+      service.move(
+        entry: directory,
+        destinationPath: '/target/folder',
+        destinationSessionID: '2',
+        overwrite: true,
+      ),
+      throwsA(isA<SecureEntryMovePartialFailure>()),
+    );
+    expect(crypto.operations, [
+      'copy:1:/folder:2:/target/folder:true',
+      'delete-directory:1:/folder',
+    ]);
   });
 }
 
 class _MoveCryptoService extends CryptoService {
-  _MoveCryptoService({this.failDelete = false});
+  _MoveCryptoService({
+    this.failCopy = false,
+    this.failDelete = false,
+    this.failDirectoryDelete = false,
+  });
 
+  final bool failCopy;
   final bool failDelete;
+  final bool failDirectoryDelete;
   final List<String> operations = [];
 
   @override
@@ -114,11 +170,18 @@ class _MoveCryptoService extends CryptoService {
       'copy:$sourceSessionID:$sourcePath:'
       '$destinationSessionID:$destinationPath:$overwrite',
     );
+    if (failCopy) throw StateError('copy failed');
   }
 
   @override
   Future<void> deleteFileBySession(String path, String tempKeyID) async {
     operations.add('delete:$tempKeyID:$path');
     if (failDelete) throw StateError('delete failed');
+  }
+
+  @override
+  Future<void> deleteDirectoryBySession(String path, String tempKeyID) async {
+    operations.add('delete-directory:$tempKeyID:$path');
+    if (failDirectoryDelete) throw StateError('directory delete failed');
   }
 }

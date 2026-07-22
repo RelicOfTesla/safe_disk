@@ -111,6 +111,7 @@ extern char* sec_file_write(int64_t fileID, char* data, int size);
 extern char* sec_file_seek(int64_t fileID, int64_t offset, int whence);
 extern char* sec_file_truncate(int64_t fileID, int64_t size);
 extern char* sec_file_delete(int64_t rootID, char* path);
+extern char* sec_directory_delete_tree(int64_t rootID, char* path);
 extern char* sec_rename(int64_t rootID, char* oldPath, char* newPath);
 extern char* sec_copy_entry(int64_t srcRootID, char* srcPath, int64_t dstRootID, char* dstPath, int overwrite);
 extern char* sec_create_empty_file(int64_t rootID, char* path);

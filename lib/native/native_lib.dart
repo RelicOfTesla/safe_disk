@@ -35,6 +35,10 @@ abstract final class NativeErrorCode {
   static const rootSessionNotFound = 1201;
   static const transferMarkerCorrupt = 1202;
   static const transferV3Unavailable = 1203;
+  static const invalidPath = 1301;
+  static const pathTraversal = 1302;
+  static const notDirectory = 1303;
+  static const unsupportedOperation = 1304;
 }
 
 /// Native library wrapper for Safe Disk FFI operations.
@@ -262,6 +266,18 @@ class NativeLib {
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secFileDelete');
+    } finally {
+      calloc.free(pathPtr);
+    }
+  }
+
+  /// Deletes a non-root directory tree from a secure root.
+  void secDirectoryDeleteTree(int rootID, String path) {
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final resultPtr = _bindings.secDirectoryDeleteTree(rootID, pathPtr);
+      final data = _parseJson(_ptrToString(resultPtr));
+      _checkResult(data, 'secDirectoryDeleteTree');
     } finally {
       calloc.free(pathPtr);
     }

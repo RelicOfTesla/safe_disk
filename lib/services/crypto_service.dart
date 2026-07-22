@@ -159,6 +159,14 @@ class CryptoService {
     await deleteFile(rootID, relativePath);
   }
 
+  Future<void> deleteDirectoryBySession(String path, String tempKeyID) async {
+    final rootID = int.parse(tempKeyID);
+    final relativePath = relativePathForRoot(rootID, path);
+    await Future.microtask(
+      () => _native.secDirectoryDeleteTree(rootID, relativePath),
+    );
+  }
+
   Future<bool> fileExistsBySession(String path, String tempKeyID) async {
     final rootID = int.parse(tempKeyID);
     final relativePath = relativePathForRoot(rootID, path);

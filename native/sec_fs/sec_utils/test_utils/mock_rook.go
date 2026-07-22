@@ -49,6 +49,14 @@ func (m *mockSecRoot) DeleteFile(path sec_fs.RelativeViewPath) error {
 	return nil
 }
 
+func (m *mockSecRoot) DeleteDirectoryTree(path sec_fs.RelativeViewPath) error {
+	if m.failOnOp == "DeleteDirectoryTree" {
+		return fmt.Errorf("mock error: DeleteDirectoryTree")
+	}
+	delete(m.directories, string(path))
+	return nil
+}
+
 func (m *mockSecRoot) FileExists(path sec_fs.RelativeViewPath) bool {
 	_, exists := m.files[string(path)]
 	return exists

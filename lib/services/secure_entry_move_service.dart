@@ -10,13 +10,6 @@ class SecureEntryMovePartialFailure implements Exception {
   String toString() => 'secure-entry-move-source-delete-failed';
 }
 
-class SecureEntryMoveDirectoryUnsupported implements Exception {
-  const SecureEntryMoveDirectoryUnsupported();
-
-  @override
-  String toString() => 'secure-entry-move-directory-unsupported';
-}
-
 class SecureEntryMoveService {
   const SecureEntryMoveService(this._cryptoService);
 
@@ -37,10 +30,6 @@ class SecureEntryMoveService {
       );
       return;
     }
-    if (entry.isDirectory) {
-      throw const SecureEntryMoveDirectoryUnsupported();
-    }
-
     await _cryptoService.copyBySession(
       sourcePath: entry.sourcePath,
       sourceSessionID: entry.sourceSessionID,
@@ -49,10 +38,17 @@ class SecureEntryMoveService {
       overwrite: overwrite,
     );
     try {
-      await _cryptoService.deleteFileBySession(
-        entry.sourcePath,
-        entry.sourceSessionID,
-      );
+      if (entry.isDirectory) {
+        await _cryptoService.deleteDirectoryBySession(
+          entry.sourcePath,
+          entry.sourceSessionID,
+        );
+      } else {
+        await _cryptoService.deleteFileBySession(
+          entry.sourcePath,
+          entry.sourceSessionID,
+        );
+      }
     } catch (error) {
       throw SecureEntryMovePartialFailure(error);
     }

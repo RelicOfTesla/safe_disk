@@ -941,12 +941,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get clipboardPastePending => '待粘贴';
 
   @override
-  String get moveSourceDeleteFailed =>
-      '目标已复制，但无法删除源文件。源文件和目标均已保留，请确认内容后手动删除源文件。';
-
-  @override
-  String get moveDirectoryUnsupported =>
-      '跨目录或替换已有目录的移动暂不支持。请改用复制，确认内容后手动删除源目录。';
+  String get moveSourceDeleteFailed => '目标已复制，但无法删除源项。源项和目标均已保留，请确认内容后手动删除源项。';
 
   @override
   String clipboardMultipleEntries(String name, int count) {

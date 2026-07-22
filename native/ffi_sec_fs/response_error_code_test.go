@@ -21,6 +21,10 @@ func TestErrorResponseUsesStableCodesForClassifiableRootErrors(t *testing.T) {
 		{name: "invalid config", err: sec_fs.ErrInvalidConfig, code: ErrorCodeInvalidConfig},
 		{name: "corrupt transfer marker", err: sec_transfer.ErrTransferMarkerCorrupt, code: ErrorCodeTransferMarkerCorrupt},
 		{name: "transfer unavailable", err: sec_transfer.ErrTransferV3NotRegistered, code: ErrorCodeTransferV3Unavailable},
+		{name: "invalid path", err: sec_fs.ErrInvalidPath, code: ErrorCodeInvalidPath},
+		{name: "path traversal", err: sec_fs.ErrPathTraversal, code: ErrorCodePathTraversal},
+		{name: "not directory", err: sec_fs.ErrNotADirectory, code: ErrorCodeNotDirectory},
+		{name: "unsupported operation", err: sec_fs.ErrUnsupportedOperation, code: ErrorCodeUnsupportedOperation},
 		{
 			name: "wrapped invalid password",
 			err:  fmt.Errorf("open root: %w", sec_fs.ErrInvalidPassword),

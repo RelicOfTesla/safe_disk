@@ -2318,12 +2318,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         );
       } else if (failures.isNotEmpty) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: 'batch-paste-failed',
-          operation: 'batch-paste',
-        );
+        if (entries.first.isMove) {
+          await showBatchOperationResultDialog(
+            context: context,
+            operation:
+                entries.first.isMove ? strings.batchMove : strings.batchPaste,
+            result: BatchOperationResult(
+              total: 1,
+              succeeded: 0,
+              skipped: 0,
+              failures: failures,
+              unprocessed: 0,
+              remaining: _secureClipboard.entryCount,
+              cancelled: false,
+            ),
+          );
+        } else {
+          ErrorHelper.showError(
+            context,
+            errorType: ErrorType.operationFailed,
+            originalError: 'batch-paste-failed',
+            operation: 'batch-paste',
+          );
+        }
       } else {
         ErrorHelper.showSuccess(
           context,
@@ -2348,7 +2365,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String _clipboardMoveFailureReason(AppLocalizations strings, Object error) {
     return switch (error) {
       SecureEntryMovePartialFailure() => strings.moveSourceDeleteFailed,
-      SecureEntryMoveDirectoryUnsupported() => strings.moveDirectoryUnsupported,
       _ => ErrorDiagnostics.sanitize(
           error.toString(),
           labels: strings.errorDiagnosticsLabels(),
