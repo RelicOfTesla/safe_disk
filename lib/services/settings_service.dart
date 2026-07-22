@@ -83,14 +83,6 @@ class SettingsService {
     return 'custom';
   }
 
-  /// Get key strength display name (localized)
-  String getKeyStrengthDisplayName(int ms) {
-    if (ms <= 500) return '快速 (0.5秒)';
-    if (ms <= 1000) return '平衡 (1秒)';
-    if (ms <= 2000) return '强密钥 (2秒)';
-    return '最强 (5秒)';
-  }
-
   // ==================== Session TTL Settings ====================
 
   /// Get session TTL in seconds
@@ -148,20 +140,6 @@ class SettingsService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLocale, locale);
-  }
-
-  /// Get theme mode display name (localized)
-  String getThemeModeDisplayName(String mode) {
-    switch (mode) {
-      case 'system':
-        return '跟随系统';
-      case 'light':
-        return '亮色主题';
-      case 'dark':
-        return '暗色主题';
-      default:
-        return '跟随系统';
-    }
   }
 
   // ==================== UI Preferences ====================
@@ -222,7 +200,11 @@ class SettingsService {
 
   Future<void> setNotepadAutoSaveSeconds(int seconds) async {
     if (!notepadAutoSaveOptions.contains(seconds)) {
-      throw ArgumentError.value(seconds, 'seconds', '不支持的自动保存间隔');
+      throw ArgumentError.value(
+        seconds,
+        'seconds',
+        'unsupported-notepad-autosave-interval',
+      );
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyNotepadAutoSaveSeconds, seconds);

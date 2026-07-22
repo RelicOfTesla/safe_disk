@@ -101,6 +101,7 @@
 
 ## 本轮验证状态
 
+- 2026-07-22 设置服务本地化边界回归：移除未使用且返回中文展示文本的 KDF/主题 API，自动保存间隔校验说明改为稳定技术标识；`flutter test --no-pub test/settings_service_test.dart -r compact` 共 5 项通过。审计候选由 68 降至 59，设置服务已无候选。
 - 2026-07-22 多语言主页剩余操作回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/home_page_unlock_widget_test.dart -r compact` 共 47 项通过。批量粘贴摘要/失败 operation、新建、重命名、删除确认和删除成功均进入 ARB；审计候选总数由 99 降至 68，`home_page.dart` 已无候选。英文路径仍缺覆盖新增提示的专门断言，主页未计为完整英文桌面验收。
 - 2026-07-22 多语言主页导入导出与剪贴板首批回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/home_page_unlock_widget_test.dart -r compact` 共 47 项通过。文件选择、文件导入/导出成功、明文导出确认、复制名称/路径、单项与批量复制/剪切提示均已进入 ARB；候选总数由 113 降至 99，主页由 45 降至 31。批量粘贴结果和新建/重命名/删除仍待迁移，新增英文提示尚缺专门断言。
 - 2026-07-22 多语言 root 会话与自动锁定回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/home_page_unlock_widget_test.dart -r compact` 共 47 项通过。覆盖英文 root 会话移除提示和可滚动的长 root 操作对话框；自动锁定摘要、内容窗口/活动保存阻断、改密前阻断与成功状态均由 ARB 呈现。审计报告由 133 项降至 113 项，主页由 65 项降至 45 项。

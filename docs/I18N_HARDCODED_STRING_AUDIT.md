@@ -6,14 +6,13 @@
 它列出所有 CJK 字符串，以及常见 UI 构造位置的 ASCII 字符串。
 候选项需要人工分类：领域操作标识、技术诊断和仅供开发者使用的文本不应直接迁入 ARB。
 
-候选总数：68
+候选总数：59
 
 ## 按文件统计
 
 | 文件 | 候选数 |
 | --- | ---: |
 | `lib/services/document_window_client.dart` | 9 |
-| `lib/services/settings_service.dart` | 9 |
 | `lib/utils/error_diagnostics.dart` | 9 |
 | `lib/controllers/secure_notepad_controller.dart` | 7 |
 | `lib/models/secure_image_policy.dart` | 6 |
@@ -74,15 +73,6 @@
 | `lib/services/secure_entry_move_service.dart` | 12 | CJK 字符串 | 请确认后手动删除源文件。原始错误：$cause | '请确认后手动删除源文件。原始错误：$cause'; |
 | `lib/services/secure_entry_move_service.dart` | 38 | CJK 字符串 | 跨 root 或替换已有目录的移动尚不安全：当前缺少递归删除源目录接口。 | '跨 root 或替换已有目录的移动尚不安全：当前缺少递归删除源目录接口。' |
 | `lib/services/secure_entry_move_service.dart` | 39 | CJK 字符串 | 可改用复制，确认内容后再手动删除源目录。 | '可改用复制，确认内容后再手动删除源目录。', |
-| `lib/services/settings_service.dart` | 88 | CJK 字符串 | 快速 (0.5秒) | if (ms <= 500) return '快速 (0.5秒)'; |
-| `lib/services/settings_service.dart` | 89 | CJK 字符串 | 平衡 (1秒) | if (ms <= 1000) return '平衡 (1秒)'; |
-| `lib/services/settings_service.dart` | 90 | CJK 字符串 | 强密钥 (2秒) | if (ms <= 2000) return '强密钥 (2秒)'; |
-| `lib/services/settings_service.dart` | 91 | CJK 字符串 | 最强 (5秒) | return '最强 (5秒)'; |
-| `lib/services/settings_service.dart` | 157 | CJK 字符串 | 跟随系统 | return '跟随系统'; |
-| `lib/services/settings_service.dart` | 159 | CJK 字符串 | 亮色主题 | return '亮色主题'; |
-| `lib/services/settings_service.dart` | 161 | CJK 字符串 | 暗色主题 | return '暗色主题'; |
-| `lib/services/settings_service.dart` | 163 | CJK 字符串 | 跟随系统 | return '跟随系统'; |
-| `lib/services/settings_service.dart` | 225 | CJK 字符串 | 不支持的自动保存间隔 | throw ArgumentError.value(seconds, 'seconds', '不支持的自动保存间隔'); |
 | `lib/utils/error_diagnostics.dart` | 17 | CJK 字符串 | 错误类型：${type.name} | '错误类型：${type.name}', |
 | `lib/utils/error_diagnostics.dart` | 18 | CJK 字符串 | 操作阶段：$operation | if (operation != null && operation.isNotEmpty) '操作阶段：$operation', |
 | `lib/utils/error_diagnostics.dart` | 19 | CJK 字符串 | 底层错误：$sanitized | '底层错误：$sanitized', |
