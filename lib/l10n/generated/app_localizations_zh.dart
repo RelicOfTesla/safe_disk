@@ -1024,6 +1024,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get importDirectory => '导入目录';
 
   @override
+  String get dropImportHere => '松开以导入到当前加密目录';
+
+  @override
   String get allFiles => '所有文件';
 
   @override

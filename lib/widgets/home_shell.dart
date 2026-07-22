@@ -5,11 +5,13 @@ import '../models/cryption_config.dart';
 import '../models/view_mode.dart';
 import '../services/file_service.dart';
 import '../services/secure_clipboard_service.dart';
+import '../services/drag_drop_controller.dart';
 import 'file_browser.dart';
 import 'import_actions.dart';
 import 'password_prompt.dart';
 import 'sidebar.dart';
 import 'welcome_screen.dart';
+import 'secure_external_drop_target.dart';
 
 enum _BatchSelectionAction { selectAll, export, delete }
 
@@ -55,6 +57,7 @@ class HomeShell extends StatelessWidget {
     required this.onCloseCurrentRoot,
     required this.onToggleSelectMode,
     required this.onSelectionToggle,
+    required this.onExternalDrop,
     this.loading = false,
     this.canPaste = false,
     this.clipboardEntry,
@@ -116,6 +119,7 @@ class HomeShell extends StatelessWidget {
   final VoidCallback onCloseCurrentRoot;
   final ValueChanged<bool> onToggleSelectMode;
   final void Function(FileSystemNode item, bool selected) onSelectionToggle;
+  final ValueChanged<List<DragDropCandidate>> onExternalDrop;
 
   @override
   Widget build(BuildContext context) {
@@ -294,29 +298,33 @@ class HomeShell extends StatelessWidget {
         if (clipboardEntry != null)
           _buildClipboardBanner(context, clipboardEntry!),
         Expanded(
-          child: FileBrowser(
-            items: items,
-            currentPath: currentPath,
+          child: SecureExternalDropTarget(
             rootPath: directory.path,
-            viewMode: viewMode,
-            isSelectMode: selectMode,
-            selectedFiles: selectedFiles,
-            fileService: fileService,
-            onNavigateToDirectory: onNavigateToDirectory,
-            onNavigateUp: onNavigateUp,
-            onOpenItem: onOpenItem,
-            onItemLongPress: onShowItemOptions,
-            onItemSecondaryTap: onShowItemContextMenu,
-            onBackgroundSecondaryTap: onShowBackgroundContextMenu,
-            onViewModeChanged: onViewModeChanged,
-            onToggleSelectMode: onToggleSelectMode,
-            onSelectionToggle: onSelectionToggle,
-            onSelectAll: onSelectAll,
-            hasMore: hasMore,
-            isLoadingMore: isLoadingMore,
-            loadMoreError: loadMoreError,
-            onLoadMore: onLoadMore,
-            onRetryLoadMore: onRetryLoadMore,
+            onDrop: onExternalDrop,
+            child: FileBrowser(
+              items: items,
+              currentPath: currentPath,
+              rootPath: directory.path,
+              viewMode: viewMode,
+              isSelectMode: selectMode,
+              selectedFiles: selectedFiles,
+              fileService: fileService,
+              onNavigateToDirectory: onNavigateToDirectory,
+              onNavigateUp: onNavigateUp,
+              onOpenItem: onOpenItem,
+              onItemLongPress: onShowItemOptions,
+              onItemSecondaryTap: onShowItemContextMenu,
+              onBackgroundSecondaryTap: onShowBackgroundContextMenu,
+              onViewModeChanged: onViewModeChanged,
+              onToggleSelectMode: onToggleSelectMode,
+              onSelectionToggle: onSelectionToggle,
+              onSelectAll: onSelectAll,
+              hasMore: hasMore,
+              isLoadingMore: isLoadingMore,
+              loadMoreError: loadMoreError,
+              onLoadMore: onLoadMore,
+              onRetryLoadMore: onRetryLoadMore,
+            ),
           ),
         ),
       ],

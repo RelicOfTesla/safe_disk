@@ -1121,6 +1121,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importDirectory => 'Import directory';
 
   @override
+  String get dropImportHere =>
+      'Drop to import into the current encrypted directory';
+
+  @override
   String get allFiles => 'All files';
 
   @override

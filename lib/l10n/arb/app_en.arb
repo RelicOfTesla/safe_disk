@@ -350,6 +350,7 @@
   "moreDirectoryActions": "More directory actions",
   "importFile": "Import file",
   "importDirectory": "Import directory",
+  "dropImportHere": "Drop to import into the current encrypted directory",
   "allFiles": "All files",
   "encryptedDirectoryCreated": "Encrypted directory created",
   "encryptedRootFound": "Encrypted root found: {path}",

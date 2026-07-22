@@ -6,6 +6,7 @@ import 'package:safe_disk/models/view_mode.dart';
 import 'package:safe_disk/services/file_service.dart';
 import 'package:safe_disk/services/secure_clipboard_service.dart';
 import 'package:safe_disk/widgets/home_shell.dart';
+import 'package:safe_disk/widgets/secure_external_drop_target.dart';
 
 void main() {
   testWidgets('home shell localizes batch selection and clipboard status',
@@ -26,6 +27,7 @@ void main() {
     expect(find.byTooltip('Exit selection mode'), findsOneWidget);
     expect(find.byTooltip('Copy selected'), findsOneWidget);
     expect(find.byTooltip('Cut selected'), findsOneWidget);
+    expect(find.byType(SecureExternalDropTarget), findsOneWidget);
 
     await tester.pumpWidget(
       _localizedShell(
@@ -105,6 +107,7 @@ Widget _localizedShell({
       onCloseCurrentRoot: () {},
       onToggleSelectMode: (_) {},
       onSelectionToggle: (_, __) {},
+      onExternalDrop: (_) {},
       clipboardEntry: clipboardEntry,
       clipboardEntryCount: clipboardEntryCount,
       canPaste: canPaste,

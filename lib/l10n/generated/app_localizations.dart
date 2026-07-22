@@ -1940,6 +1940,12 @@ abstract class AppLocalizations {
   /// **'导入目录'**
   String get importDirectory;
 
+  /// No description provided for @dropImportHere.
+  ///
+  /// In zh, this message translates to:
+  /// **'松开以导入到当前加密目录'**
+  String get dropImportHere;
+
   /// No description provided for @allFiles.
   ///
   /// In zh, this message translates to:

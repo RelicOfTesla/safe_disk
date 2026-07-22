@@ -24,6 +24,7 @@ import '../services/root_close_coordinator.dart';
 import '../services/root_idle_tracker.dart';
 import '../services/secure_notepad_policy.dart';
 import '../services/content_window_host_bridge.dart';
+import '../services/drag_drop_controller.dart';
 import '../utils/error_messages.dart';
 import '../utils/error_diagnostics.dart';
 import '../utils/unlock_error_classifier.dart';
@@ -102,6 +103,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late final RootCloseCoordinator _rootCloseCoordinator;
   late final RootIdleTracker _idleTracker;
   late final ContentWindowHostBridge _contentWindowBridge;
+  final DragDropController _dragDropController = const DragDropController();
 
   final List<EncryptedDirectory> _openedDirs = [];
   EncryptedDirectory? _currentDir;
@@ -1562,16 +1564,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         : await openFile(acceptedTypeGroups: [typeGroup]);
     if (file == null || !mounted) return;
 
-    var destinationName = file.name;
+    await _importFilePath(file.path, file.name);
+  }
+
+  Future<void> _importFilePath(String sourcePath, String sourceName) async {
+    if (!_validateSession()) return;
+
+    var destinationName = sourceName;
     var overwrite = false;
     if (_items
-        .any((item) => item.name.toLowerCase() == file.name.toLowerCase())) {
+        .any((item) => item.name.toLowerCase() == sourceName.toLowerCase())) {
       final existing = _items.firstWhere(
-        (item) => item.name.toLowerCase() == file.name.toLowerCase(),
+        (item) => item.name.toLowerCase() == sourceName.toLowerCase(),
       );
       final resolution = await showEntryConflictDialog(
         context: context,
-        name: file.name,
+        name: sourceName,
         isDirectory: false,
         operation: AppLocalizations.of(context)!.importOperation,
         allowReplace: !existing.isDirectory,
@@ -1579,7 +1587,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (resolution == EntryConflictResolution.cancel || !mounted) return;
       if (resolution == EntryConflictResolution.keepBoth) {
         destinationName = nextAvailableEntryName(
-          originalName: file.name,
+          originalName: sourceName,
           isDirectory: false,
           existingNames: _items.map((item) => item.name),
           copyLabel: AppLocalizations.of(context)!.copySuffix,
@@ -1600,7 +1608,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           : '$currentRelative/$destinationName';
       await _directoryService.importFile(
         rootID,
-        file.path,
+        sourcePath,
         destination,
         overwrite: overwrite,
       );
@@ -1627,12 +1635,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _importDirectory() async {
     if (!_validateSession()) return;
-    final strings = AppLocalizations.of(context)!;
 
     final sourcePath = widget.selectDirectory != null
         ? await widget.selectDirectory!()
         : await getDirectoryPath();
     if (sourcePath == null || !mounted) return;
+    await _importDirectoryPath(sourcePath);
+  }
+
+  Future<void> _importDirectoryPath(String sourcePath) async {
+    if (!_validateSession()) return;
+    final strings = AppLocalizations.of(context)!;
     if (isPathInsideDirectory(sourcePath, _currentDir!.path)) {
       ErrorHelper.showError(
         context,
@@ -1738,6 +1751,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           errorType: ErrorType.importDirectoryFailed,
           originalError: e.toString(),
         );
+      }
+    }
+  }
+
+  Future<void> _importDroppedCandidates(
+    List<DragDropCandidate> candidates,
+  ) async {
+    if (!_validateSession()) return;
+    final directory = _currentDir!;
+    final requests = _dragDropController.importRequests(
+      candidates: candidates,
+      rootPath: directory.path,
+    );
+    for (final request in requests) {
+      if (!mounted || !_validateSession()) return;
+      switch (request.kind) {
+        case DragDropImportKind.file:
+          await _importFilePath(
+            request.path,
+            File(request.path).uri.pathSegments.last,
+          );
+        case DragDropImportKind.directory:
+          await _importDirectoryPath(request.path);
       }
     }
   }
@@ -2673,6 +2709,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onUnlock: _verifyPassword,
             onImportFile: _importFile,
             onImportDirectory: _importDirectory,
+            onExternalDrop: (candidates) {
+              unawaited(_importDroppedCandidates(candidates));
+            },
             onPaste: () => _pasteClipboard(),
             onClearClipboard: () {
               _secureClipboard.clear();

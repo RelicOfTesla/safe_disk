@@ -350,6 +350,7 @@
   "moreDirectoryActions": "更多目录操作",
   "importFile": "导入文件",
   "importDirectory": "导入目录",
+  "dropImportHere": "松开以导入到当前加密目录",
   "allFiles": "所有文件",
   "encryptedDirectoryCreated": "加密目录创建成功",
   "encryptedRootFound": "已找到加密根目录：{path}",
