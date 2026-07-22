@@ -39,9 +39,9 @@
 
 ## 静态审计
 
-执行 `dart run tool/audit_i18n_strings.dart` 会更新 [I18N_HARDCODED_STRING_AUDIT.md](../I18N_HARDCODED_STRING_AUDIT.md)。脚本扫描 `lib/**/*.dart` 中的 CJK 字符串和常见 UI 构造位置的 ASCII 字符串，排除生成的 l10n 文件与 `lib/testing/`；报告按文件计数并列出文件、行号、字符串和源码上下文。
+执行 `dart run tool/audit_i18n_strings.dart` 会更新 [I18N_HARDCODED_STRING_AUDIT.md](../I18N_HARDCODED_STRING_AUDIT.md)。脚本以词法方式扫描 `lib/**/*.dart` 的单行、多行和 raw 字符串，忽略注释并排除生成的 `lib/l10n/`；它全量列出 CJK 字符串，并补充 UI/错误反馈上下文中的可见英文。需要核对测试字面量时，使用 `--include-test`。
 
-该报告是待分类基线，不是自动完成判定。每项仍须标记为用户可见文案、领域/协议标识、技术诊断或开发者文本；前一类必须迁入 ARB，其他类别须保留可审计的理由。每个迁移批次前后均重新执行脚本，并在提交中包含更新后的报告。
+该报告按“直接 UI 文案”“错误/服务边界文案”“CJK 待人工复核”和英文候选分类，是待分类基线，不是自动完成判定。错误/服务层文案不得直接迁入 ARB，应先改为稳定状态或错误码，再由 UI 层映射；协议、日志和开发者文本须保留可审计的排除理由。每个迁移批次前后均重新执行脚本，并在提交中包含更新后的报告。
 
 ## 迁移批次与完成定义
 
