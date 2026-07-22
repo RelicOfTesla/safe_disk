@@ -2,7 +2,22 @@
 
 > 本文件只接收进度 100% 的任务。每项必须写清验收边界和自动化实际功能测试；范围外能力不得由此推断为完成。
 >
-> 最后审计：2026-07-13。
+> 最后审计：2026-07-23。
+
+## 2026-07 FFI 回归
+
+### UI-59 真实 FFI 图片集成测试本地化壳：100%
+
+验收边界：
+
+- WebP 真实 FFI 集成用例以应用相同的中文 locale、`AppLocalizations.localizationsDelegates` 和 `supportedLocales` 构建 `SecureImageViewer`。
+- 测试壳不再因缺少 `AppLocalizations` 在构建期触发空值断言。
+- 本任务只修复测试环境的本地化依赖；不代表图片浏览器在三平台的视觉、codec 或读屏验收完成。
+
+实际测试证据：
+
+- 使用重新构建的 `/tmp/safe_disk_ffi_ui58/libffi_sec_fs.so` 执行 `flutter test --no-pub test/native_ffi_integration_test.dart -r compact`，12 项全部通过。
+- `dart analyze` 通过。
 
 ## 2026-07 属性可访问性
 
