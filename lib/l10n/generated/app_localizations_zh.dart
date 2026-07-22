@@ -69,9 +69,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get languagePreviewHint => '语言会立即预览；保存后会在下次启动时保留。';
 
   @override
-  String get englishPreviewNotice => '英文界面仍在完善，部分页面暂时会显示中文。';
-
-  @override
   String get saveChanges => '保存设置更改？';
 
   @override

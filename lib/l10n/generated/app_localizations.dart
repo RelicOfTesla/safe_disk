@@ -218,12 +218,6 @@ abstract class AppLocalizations {
   /// **'语言会立即预览；保存后会在下次启动时保留。'**
   String get languagePreviewHint;
 
-  /// No description provided for @englishPreviewNotice.
-  ///
-  /// In zh, this message translates to:
-  /// **'英文界面仍在完善，部分页面暂时会显示中文。'**
-  String get englishPreviewNotice;
-
   /// No description provided for @saveChanges.
   ///
   /// In zh, this message translates to:

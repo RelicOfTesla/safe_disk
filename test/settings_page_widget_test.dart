@@ -82,7 +82,7 @@ void main() {
     expect(
       find.text(
           'English is still being translated. Some screens may remain in Chinese.'),
-      findsOneWidget,
+      findsNothing,
     );
   });
 

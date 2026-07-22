@@ -73,10 +73,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'The language is previewed immediately and is kept after saving.';
 
   @override
-  String get englishPreviewNotice =>
-      'English is still being translated. Some screens may remain in Chinese.';
-
-  @override
   String get saveChanges => 'Save settings changes?';
 
   @override

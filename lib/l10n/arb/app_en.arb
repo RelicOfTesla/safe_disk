@@ -20,7 +20,6 @@
   "themeDark": "Dark",
   "themePreviewHint": "The theme is previewed immediately and is kept after saving.",
   "languagePreviewHint": "The language is previewed immediately and is kept after saving.",
-  "englishPreviewNotice": "English is still being translated. Some screens may remain in Chinese.",
   "saveChanges": "Save settings changes?",
   "unsavedSettings": "Your changes have not been saved.",
   "cancel": "Cancel",

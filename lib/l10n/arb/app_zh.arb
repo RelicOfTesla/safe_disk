@@ -20,7 +20,6 @@
   "themeDark": "暗色主题",
   "themePreviewHint": "主题会立即预览；保存后会在下次启动时保留。",
   "languagePreviewHint": "语言会立即预览；保存后会在下次启动时保留。",
-  "englishPreviewNotice": "英文界面仍在完善，部分页面暂时会显示中文。",
   "saveChanges": "保存设置更改？",
   "unsavedSettings": "当前修改尚未保存。",
   "cancel": "取消",

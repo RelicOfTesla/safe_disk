@@ -344,13 +344,6 @@ class _SettingsPageState extends State<SettingsPage> {
               },
             ),
           ),
-          if (_locale == appLocaleEnglish) ...[
-            const SizedBox(height: 8),
-            Text(
-              strings.englishPreviewNotice,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
         ],
       );
 
