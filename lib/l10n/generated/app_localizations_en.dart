@@ -487,6 +487,116 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String progressMinutesSeconds(int minutes, int seconds) {
+    return '$minutes min $seconds sec';
+  }
+
+  @override
+  String progressEstimatedRemaining(String duration) {
+    return 'Estimated remaining: $duration';
+  }
+
+  @override
+  String progressProcessed(int current, int total) {
+    return 'Processed: $current / $total';
+  }
+
+  @override
+  String progressCurrentFile(String name) {
+    return 'Current: $name';
+  }
+
+  @override
+  String get rerunUnfinishedTransfers => 'Rerun unfinished imports and exports';
+
+  @override
+  String get preparing => 'Preparing...';
+
+  @override
+  String get operationNotCancellableYet =>
+      'This operation cannot be cancelled yet.';
+
+  @override
+  String rerunningUnfinishedProgress(int current, int total) {
+    return 'Rerunning $current of $total...';
+  }
+
+  @override
+  String get unfinishedTransfersRerunCompleted =>
+      'Unfinished imports and exports were rerun.';
+
+  @override
+  String get unfinishedTransfersRerunCancelled =>
+      'Rerun cancelled. The unfinished state was kept.';
+
+  @override
+  String get preparingImport => 'Preparing import...';
+
+  @override
+  String get preparingExport => 'Preparing export...';
+
+  @override
+  String get preparingDelete => 'Preparing deletion...';
+
+  @override
+  String get preparingCannotCancel =>
+      'Preparing; cancellation is unavailable...';
+
+  @override
+  String get importing => 'Importing...';
+
+  @override
+  String get exporting => 'Exporting...';
+
+  @override
+  String get deleting => 'Deleting...';
+
+  @override
+  String directoryImportCompleted(int count) {
+    return 'Imported $count files.';
+  }
+
+  @override
+  String get transferCancelledWithUnfinishedState =>
+      'The operation was cancelled. You can clean the unfinished state the next time this directory is opened.';
+
+  @override
+  String directoryExportCompleted(int count) {
+    return 'Exported $count files.';
+  }
+
+  @override
+  String get batchExport => 'Batch export';
+
+  @override
+  String batchExportCompleted(int success, int failed) {
+    return 'Export completed: $success succeeded, $failed failed.';
+  }
+
+  @override
+  String batchExportCompletedAll(int count) {
+    return 'Export completed: $count files succeeded.';
+  }
+
+  @override
+  String batchExportCancelled(int success, int failed) {
+    return 'Export cancelled: $success succeeded, $failed failed.';
+  }
+
+  @override
+  String get batchDelete => 'Batch delete';
+
+  @override
+  String batchDeleteCancelled(int success, int remaining) {
+    return 'Batch deletion cancelled: $success succeeded; $remaining items remain selected.';
+  }
+
+  @override
+  String batchDeleteCompleted(int count) {
+    return 'Deleted $count files.';
+  }
+
+  @override
   String get disabled => 'Off';
 
   @override

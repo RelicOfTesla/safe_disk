@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/widgets/progress_dialog.dart';
 
 void main() {
@@ -9,6 +10,9 @@ void main() {
     var allowCancel = false;
 
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(
         builder: (context) => ElevatedButton(
           onPressed: () {
@@ -44,5 +48,28 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('传输中'), findsNothing);
     expect(controller.isCancelled, isTrue);
+  });
+
+  testWidgets('progress dialog formats its labels in the active locale',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      locale: Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: ProgressDialog(
+        title: 'Export directory',
+        progress: ProgressInfo(
+          current: 2,
+          total: 5,
+          currentFileName: 'report.txt',
+          estimatedSecondsRemaining: 65,
+        ),
+      ),
+    ));
+
+    expect(find.text('Processed: 2 / 5'), findsOneWidget);
+    expect(find.text('Current: report.txt'), findsOneWidget);
+    expect(find.text('Estimated remaining: 1 min 5 sec'), findsOneWidget);
+    expect(find.text('Cancel'), findsNothing);
   });
 }

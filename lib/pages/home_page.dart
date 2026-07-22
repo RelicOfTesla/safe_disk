@@ -779,17 +779,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     int rootID,
     List<Map<String, dynamic>> markers,
   ) async {
+    final strings = AppLocalizations.of(context)!;
     DirectoryTransferCancellationToken? currentToken;
     late final ProgressController progressController;
     progressController = ProgressHelper.showProgressDialog(
       context,
-      title: '全量重跑导入/导出',
+      title: strings.rerunUnfinishedTransfers,
       total: 100,
-      status: '正在准备...',
+      status: strings.preparing,
       onCancel: () {
         final accepted = currentToken?.cancel() ?? false;
         if (!accepted) {
-          progressController.update(status: '当前操作尚未可取消...');
+          progressController.update(status: strings.operationNotCancellableYet);
         }
         return accepted;
       },
@@ -800,7 +801,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         currentToken = DirectoryTransferCancellationToken();
         progressController.update(
           current: 0,
-          status: '正在重跑 ${index + 1}/${markers.length}...',
+          status:
+              strings.rerunningUnfinishedProgress(index + 1, markers.length),
         );
         await _directoryService.rerunUnfinishedOperation(
           rootID,
@@ -810,21 +812,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             progressController.update(
               current: progress.percent,
               currentFileName: progress.currentFile,
-              status: '正在重跑 ${index + 1}/${markers.length}...',
+              status: strings.rerunningUnfinishedProgress(
+                index + 1,
+                markers.length,
+              ),
             );
           },
         );
       }
       if (mounted && !progressController.isCancelled) {
         progressController.close(context);
-        ErrorHelper.showSuccess(context, '未完成导入/导出已全量重跑');
+        ErrorHelper.showSuccess(
+            context, strings.unfinishedTransfersRerunCompleted);
       }
     } catch (e) {
       if (mounted && !progressController.isCancelled) {
         progressController.close(context);
       }
       if (mounted && currentToken?.isCancelled == true) {
-        ErrorHelper.showInfo(context, '重跑已取消，未完成状态已保留');
+        ErrorHelper.showInfo(
+            context, strings.unfinishedTransfersRerunCancelled);
       } else if (mounted) {
         ErrorHelper.showError(
           context,
@@ -1506,6 +1513,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _importDirectory() async {
     if (!_validateSession()) return;
+    final strings = AppLocalizations.of(context)!;
 
     final sourcePath = widget.selectDirectory != null
         ? await widget.selectDirectory!()
@@ -1562,13 +1570,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     late final ProgressController progressController;
     progressController = ProgressHelper.showProgressDialog(
       context,
-      title: '导入目录',
+      title: strings.importDirectory,
       total: 100,
-      status: '正在准备导入...',
+      status: strings.preparingImport,
       onCancel: () {
         final accepted = cancellationToken.cancel();
         if (!accepted) {
-          progressController.update(status: '正在准备，暂时无法取消...');
+          progressController.update(status: strings.preparingCannotCancel);
         }
         return accepted;
       },
@@ -1586,7 +1594,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           progressController.update(
             current: progress.percent,
             currentFileName: progress.currentFile,
-            status: '正在导入...',
+            status: strings.importing,
           );
         },
       );
@@ -1596,14 +1604,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (!mounted) return;
       await _loadCurrentPath();
       if (mounted) {
-        ErrorHelper.showSuccess(context, '目录导入完成：$completedFiles 个文件');
+        ErrorHelper.showSuccess(
+          context,
+          strings.directoryImportCompleted(completedFiles),
+        );
       }
     } catch (e) {
       if (mounted && !progressController.isCancelled) {
         progressController.close(context);
       }
       if (mounted && cancellationToken.isCancelled) {
-        ErrorHelper.showInfo(context, '导入已取消，可在下次打开目录时清理未完成状态');
+        ErrorHelper.showInfo(
+          context,
+          strings.transferCancelledWithUnfinishedState,
+        );
       } else if (mounted) {
         ErrorHelper.showError(
           context,
@@ -1651,6 +1665,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _exportDirectory(FileSystemNode item) async {
     if (!_validateSession()) return;
+    final strings = AppLocalizations.of(context)!;
     if (!await _confirmPlaintextExport(item)) return;
 
     final String? exportDir = widget.selectDirectory != null
@@ -1664,13 +1679,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     late final ProgressController progressController;
     progressController = ProgressHelper.showProgressDialog(
       context,
-      title: '导出目录',
+      title: strings.exportDirectory,
       total: 100,
-      status: '正在准备导出...',
+      status: strings.preparingExport,
       onCancel: () {
         final accepted = cancellationToken.cancel();
         if (!accepted) {
-          progressController.update(status: '正在准备，暂时无法取消...');
+          progressController.update(status: strings.preparingCannotCancel);
         }
         return accepted;
       },
@@ -1686,7 +1701,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           progressController.update(
             current: jobProgress.percent,
             currentFileName: jobProgress.currentFile,
-            status: '正在导出...',
+            status: strings.exporting,
           );
         },
       );
@@ -1697,12 +1712,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       if (mounted) {
         if (progress.isCancelled) {
-          ErrorHelper.showInfo(context, '导出已取消，可在下次打开目录时清理未完成状态');
+          ErrorHelper.showInfo(
+            context,
+            strings.transferCancelledWithUnfinishedState,
+          );
         } else if (progress.isComplete &&
             !progress.isFailed &&
             !progress.isCancelled) {
-          ErrorHelper.showSuccess(
-              context, '导出完成：${progress.processedFiles} 个文件');
+          ErrorHelper.showSuccess(context,
+              strings.directoryExportCompleted(progress.processedFiles));
         } else if (progress.isFailed) {
           ErrorHelper.showError(
             context,
@@ -1716,7 +1734,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         progressController.close(context);
       }
       if (mounted && progressController.isCancelled) {
-        ErrorHelper.showInfo(context, '导出已取消，可在下次打开目录时清理未完成状态');
+        ErrorHelper.showInfo(
+          context,
+          strings.transferCancelledWithUnfinishedState,
+        );
       } else if (mounted) {
         ErrorHelper.showError(
           context,
@@ -1729,6 +1750,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _batchExport() async {
     if (!_validateSession()) return;
+    final strings = AppLocalizations.of(context)!;
 
     final String? exportDir = widget.selectDirectory != null
         ? await widget.selectDirectory!()
@@ -1753,9 +1775,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final totalFiles = jobs.length;
     final progressController = ProgressHelper.showProgressDialog(
       context,
-      title: '批量导出',
+      title: strings.batchExport,
       total: totalFiles,
-      status: '正在准备导出...',
+      status: strings.preparingExport,
     );
 
     final startTime = DateTime.now();
@@ -1769,7 +1791,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         progressController.update(
           current: successCount + failCount + 1,
           currentFileName: job.item.name,
-          status: '正在导出...',
+          status: strings.exporting,
         );
         progressController.estimateTimeRemaining(
           startTime: startTime,
@@ -1800,12 +1822,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       if (mounted && !progressController.isCancelled) {
         final message = failCount > 0
-            ? '导出完成：成功 $successCount 个，失败 $failCount 个'
-            : '导出完成：成功 $successCount 个文件';
+            ? strings.batchExportCompleted(successCount, failCount)
+            : strings.batchExportCompletedAll(successCount);
         ErrorHelper.showSuccess(context, message);
       } else if (mounted && progressController.isCancelled) {
         ErrorHelper.showInfo(
-            context, '导出已取消：成功 $successCount 个，失败 $failCount 个');
+            context, strings.batchExportCancelled(successCount, failCount));
       }
     } catch (e) {
       if (mounted && !progressController.isCancelled) {
@@ -1865,6 +1887,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _batchDelete() async {
     if (!_validateSession() || _selectedFiles.isEmpty) return;
+    final strings = AppLocalizations.of(context)!;
     final selected = Set<FileSystemNode>.from(_selectedFiles);
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1891,9 +1914,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     final progressController = ProgressHelper.showProgressDialog(
       context,
-      title: '批量删除',
+      title: strings.batchDelete,
       total: selected.length,
-      status: '正在准备删除...',
+      status: strings.preparingDelete,
     );
     final succeeded = <FileSystemNode>{};
     final failed = <FileSystemNode>{};
@@ -1903,7 +1926,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       progressController.update(
         current: processed + 1,
         currentFileName: item.name,
-        status: '正在删除...',
+        status: strings.deleting,
       );
       try {
         await _cryptoService.deleteFileBySession(
@@ -1931,8 +1954,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (progressController.isCancelled) {
       ErrorHelper.showInfo(
         context,
-        '批量删除已取消：成功 ${succeeded.length} 个，'
-        '剩余 ${_selectedFiles.length} 个仍保持选择',
+        strings.batchDeleteCancelled(succeeded.length, _selectedFiles.length),
       );
     } else if (failed.isNotEmpty) {
       ErrorHelper.showError(
@@ -1942,7 +1964,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             '失败项已保留选择，可重试或退出选择模式。',
       );
     } else {
-      ErrorHelper.showSuccess(context, '已删除 ${succeeded.length} 个文件');
+      ErrorHelper.showSuccess(
+          context, strings.batchDeleteCompleted(succeeded.length));
     }
   }
 

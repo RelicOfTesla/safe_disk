@@ -872,6 +872,168 @@ abstract class AppLocalizations {
   /// **'{count} 天'**
   String durationDays(int count);
 
+  /// No description provided for @progressMinutesSeconds.
+  ///
+  /// In zh, this message translates to:
+  /// **'{minutes} 分 {seconds} 秒'**
+  String progressMinutesSeconds(int minutes, int seconds);
+
+  /// No description provided for @progressEstimatedRemaining.
+  ///
+  /// In zh, this message translates to:
+  /// **'预计剩余：{duration}'**
+  String progressEstimatedRemaining(String duration);
+
+  /// No description provided for @progressProcessed.
+  ///
+  /// In zh, this message translates to:
+  /// **'已处理：{current} / {total}'**
+  String progressProcessed(int current, int total);
+
+  /// No description provided for @progressCurrentFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前：{name}'**
+  String progressCurrentFile(String name);
+
+  /// No description provided for @rerunUnfinishedTransfers.
+  ///
+  /// In zh, this message translates to:
+  /// **'全量重跑导入/导出'**
+  String get rerunUnfinishedTransfers;
+
+  /// No description provided for @preparing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备…'**
+  String get preparing;
+
+  /// No description provided for @operationNotCancellableYet.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前操作尚未可取消。'**
+  String get operationNotCancellableYet;
+
+  /// No description provided for @rerunningUnfinishedProgress.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在重跑 {current}/{total}…'**
+  String rerunningUnfinishedProgress(int current, int total);
+
+  /// No description provided for @unfinishedTransfersRerunCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'未完成导入/导出已全量重跑。'**
+  String get unfinishedTransfersRerunCompleted;
+
+  /// No description provided for @unfinishedTransfersRerunCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'重跑已取消，未完成状态已保留。'**
+  String get unfinishedTransfersRerunCancelled;
+
+  /// No description provided for @preparingImport.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备导入…'**
+  String get preparingImport;
+
+  /// No description provided for @preparingExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备导出…'**
+  String get preparingExport;
+
+  /// No description provided for @preparingDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备删除…'**
+  String get preparingDelete;
+
+  /// No description provided for @preparingCannotCancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在准备，暂时无法取消…'**
+  String get preparingCannotCancel;
+
+  /// No description provided for @importing.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在导入…'**
+  String get importing;
+
+  /// No description provided for @exporting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在导出…'**
+  String get exporting;
+
+  /// No description provided for @deleting.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在删除…'**
+  String get deleting;
+
+  /// No description provided for @directoryImportCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录导入完成：{count} 个文件'**
+  String directoryImportCompleted(int count);
+
+  /// No description provided for @transferCancelledWithUnfinishedState.
+  ///
+  /// In zh, this message translates to:
+  /// **'操作已取消，可在下次打开目录时清理未完成状态。'**
+  String get transferCancelledWithUnfinishedState;
+
+  /// No description provided for @directoryExportCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出完成：{count} 个文件'**
+  String directoryExportCompleted(int count);
+
+  /// No description provided for @batchExport.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量导出'**
+  String get batchExport;
+
+  /// No description provided for @batchExportCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出完成：成功 {success} 个，失败 {failed} 个'**
+  String batchExportCompleted(int success, int failed);
+
+  /// No description provided for @batchExportCompletedAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出完成：成功 {count} 个文件'**
+  String batchExportCompletedAll(int count);
+
+  /// No description provided for @batchExportCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'导出已取消：成功 {success} 个，失败 {failed} 个'**
+  String batchExportCancelled(int success, int failed);
+
+  /// No description provided for @batchDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除'**
+  String get batchDelete;
+
+  /// No description provided for @batchDeleteCancelled.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量删除已取消：成功 {success} 个，剩余 {remaining} 个仍保持选择'**
+  String batchDeleteCancelled(int success, int remaining);
+
+  /// No description provided for @batchDeleteCompleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除 {count} 个文件'**
+  String batchDeleteCompleted(int count);
+
   /// No description provided for @disabled.
   ///
   /// In zh, this message translates to:

@@ -415,6 +415,111 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String progressMinutesSeconds(int minutes, int seconds) {
+    return '$minutes 分 $seconds 秒';
+  }
+
+  @override
+  String progressEstimatedRemaining(String duration) {
+    return '预计剩余：$duration';
+  }
+
+  @override
+  String progressProcessed(int current, int total) {
+    return '已处理：$current / $total';
+  }
+
+  @override
+  String progressCurrentFile(String name) {
+    return '当前：$name';
+  }
+
+  @override
+  String get rerunUnfinishedTransfers => '全量重跑导入/导出';
+
+  @override
+  String get preparing => '正在准备…';
+
+  @override
+  String get operationNotCancellableYet => '当前操作尚未可取消。';
+
+  @override
+  String rerunningUnfinishedProgress(int current, int total) {
+    return '正在重跑 $current/$total…';
+  }
+
+  @override
+  String get unfinishedTransfersRerunCompleted => '未完成导入/导出已全量重跑。';
+
+  @override
+  String get unfinishedTransfersRerunCancelled => '重跑已取消，未完成状态已保留。';
+
+  @override
+  String get preparingImport => '正在准备导入…';
+
+  @override
+  String get preparingExport => '正在准备导出…';
+
+  @override
+  String get preparingDelete => '正在准备删除…';
+
+  @override
+  String get preparingCannotCancel => '正在准备，暂时无法取消…';
+
+  @override
+  String get importing => '正在导入…';
+
+  @override
+  String get exporting => '正在导出…';
+
+  @override
+  String get deleting => '正在删除…';
+
+  @override
+  String directoryImportCompleted(int count) {
+    return '目录导入完成：$count 个文件';
+  }
+
+  @override
+  String get transferCancelledWithUnfinishedState => '操作已取消，可在下次打开目录时清理未完成状态。';
+
+  @override
+  String directoryExportCompleted(int count) {
+    return '导出完成：$count 个文件';
+  }
+
+  @override
+  String get batchExport => '批量导出';
+
+  @override
+  String batchExportCompleted(int success, int failed) {
+    return '导出完成：成功 $success 个，失败 $failed 个';
+  }
+
+  @override
+  String batchExportCompletedAll(int count) {
+    return '导出完成：成功 $count 个文件';
+  }
+
+  @override
+  String batchExportCancelled(int success, int failed) {
+    return '导出已取消：成功 $success 个，失败 $failed 个';
+  }
+
+  @override
+  String get batchDelete => '批量删除';
+
+  @override
+  String batchDeleteCancelled(int success, int remaining) {
+    return '批量删除已取消：成功 $success 个，剩余 $remaining 个仍保持选择';
+  }
+
+  @override
+  String batchDeleteCompleted(int count) {
+    return '已删除 $count 个文件';
+  }
+
+  @override
   String get disabled => '关闭';
 
   @override

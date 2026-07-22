@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/generated/app_localizations.dart';
 
 /// Progress info for long-running operations
 class ProgressInfo {
@@ -19,22 +20,6 @@ class ProgressInfo {
   double get progress => total > 0 ? current / total : 0;
   double get progressPercent => progress * 100;
   bool get isComplete => current >= total && total > 0;
-
-  String get formattedTimeRemaining {
-    if (estimatedSecondsRemaining == null || estimatedSecondsRemaining! < 0) {
-      return '';
-    }
-    final seconds = estimatedSecondsRemaining!.round();
-    if (seconds < 60) {
-      return '$seconds 秒';
-    }
-    final minutes = seconds ~/ 60;
-    final remainingSeconds = seconds % 60;
-    if (remainingSeconds == 0) {
-      return '$minutes 分钟';
-    }
-    return '$minutes 分 $remainingSeconds 秒';
-  }
 
   ProgressInfo copyWith({
     int? current,
@@ -84,7 +69,11 @@ class _ProgressDialogState extends State<ProgressDialog> {
   @override
   Widget build(BuildContext context) {
     final progress = widget.progress;
-    final timeRemaining = progress.formattedTimeRemaining;
+    final strings = AppLocalizations.of(context)!;
+    final timeRemaining = _formatTimeRemaining(
+      strings,
+      progress.estimatedSecondsRemaining,
+    );
 
     return AlertDialog(
       title: Row(
@@ -138,7 +127,7 @@ class _ProgressDialogState extends State<ProgressDialog> {
               ),
               if (timeRemaining.isNotEmpty)
                 Text(
-                  '预计剩余：$timeRemaining',
+                  strings.progressEstimatedRemaining(timeRemaining),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
             ],
@@ -147,7 +136,7 @@ class _ProgressDialogState extends State<ProgressDialog> {
 
           // File count
           Text(
-            '已处理：${progress.current} / ${progress.total}',
+            strings.progressProcessed(progress.current, progress.total),
             style: const TextStyle(fontSize: 13),
           ),
 
@@ -155,7 +144,7 @@ class _ProgressDialogState extends State<ProgressDialog> {
           if (progress.currentFileName != null) ...[
             const SizedBox(height: 8),
             Text(
-              '当前：${progress.currentFileName}',
+              strings.progressCurrentFile(progress.currentFileName!),
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey.shade700,
@@ -175,6 +164,21 @@ class _ProgressDialogState extends State<ProgressDialog> {
       ],
     );
   }
+}
+
+String _formatTimeRemaining(
+  AppLocalizations strings,
+  double? estimatedSecondsRemaining,
+) {
+  if (estimatedSecondsRemaining == null || estimatedSecondsRemaining < 0) {
+    return '';
+  }
+  final seconds = estimatedSecondsRemaining.round();
+  if (seconds < 60) return strings.durationSeconds(seconds);
+  final minutes = seconds ~/ 60;
+  final remainingSeconds = seconds % 60;
+  if (remainingSeconds == 0) return strings.durationMinutes(minutes);
+  return strings.progressMinutesSeconds(minutes, remainingSeconds);
 }
 
 /// Controller for progress dialog
