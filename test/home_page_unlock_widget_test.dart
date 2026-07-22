@@ -382,7 +382,7 @@ void main() {
     expect(cryptoService.closedRootIDs, [7]);
   });
 
-  testWidgets('idle TTL keeps a root with a content window open',
+  testWidgets('idle TTL prepares and locks a root with a clean content window',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
     var now = DateTime(2026, 7, 18, 12);
@@ -431,9 +431,57 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pump(const Duration(seconds: 3));
     await tester.pump(const Duration(milliseconds: 300));
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(platform.closedTokens, hasLength(1));
+    expect(find.text('照片.png'), findsNothing);
+    expect(find.text('已自动锁定 1 个目录'), findsOneWidget);
+  });
+
+  testWidgets(
+      'background auto-lock keeps root open when a content window rejects preparation',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final platform = _FakeContentWindowPlatform()..prepareResult = false;
+    addTearDown(platform.dispose);
+    final image = FileSystemNode(
+      name: '照片.png',
+      path: '/照片.png',
+      isDirectory: false,
+      size: 128,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService, items: [image]),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService: _AutoLockSettingsService(enabled: true),
+        contentWindowPlatform: platform,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('照片.png')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在新窗口中查看'));
+    await tester.pumpAndSettle();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+
     expect(cryptoService.closedRootIDs, isEmpty);
+    expect(platform.closedTokens, isEmpty);
     expect(find.text('照片.png'), findsOneWidget);
-    expect(find.textContaining('未强制关闭'), findsOneWidget);
   });
 
   testWidgets('idle TTL keeps a root with a dirty secure notepad open',
@@ -731,7 +779,7 @@ void main() {
     expect(platform.openedImages.single.values, isNot(contains('/照片.png')));
   });
 
-  testWidgets('background auto-lock keeps a root with a content window open',
+  testWidgets('background auto-lock prepares and closes a clean content window',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
     final cryptoService = _FakeCryptoService(rootPath);
@@ -775,11 +823,12 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump();
     await tester.pump();
-    expect(cryptoService.closedRootIDs, isEmpty);
+    await tester.pumpAndSettle();
+    expect(cryptoService.closedRootIDs, [7]);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(find.text('照片.png'), findsOneWidget);
+    expect(find.text('照片.png'), findsNothing);
   });
 
   testWidgets('oversized image is rejected before opening a native window',
@@ -2800,6 +2849,8 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
       StreamController<Set<String>>.broadcast();
   final List<Map<String, String>> openedImages = [];
   var notepadOpenRequests = 0;
+  Set<String> closedTokens = {};
+  bool prepareResult = true;
 
   @override
   Stream<Set<String>> get aliveTokens => _alive.stream;
@@ -2832,7 +2883,26 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
   }
 
   @override
-  Future<void> closeTokens(Set<String> tokens) async {}
+  Future<void> closeTokens(Set<String> tokens) async {
+    closedTokens = {...closedTokens, ...tokens};
+  }
+
+  @override
+  Future<void> cancelTokenLock({
+    required String token,
+    required String lockRequestID,
+  }) async {}
+
+  @override
+  Future<ContentWindowLockResponse> prepareTokenForLock({
+    required String token,
+    required String lockRequestID,
+  }) async =>
+      ContentWindowLockResponse(
+        token: token,
+        lockRequestID: lockRequestID,
+        prepared: prepareResult,
+      );
 
   @override
   Future<void> setHostHandler(ContentWindowCallHandler? handler) async {}

@@ -257,12 +257,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (sessionID == null) continue;
         if (sessionIDs != null && !sessionIDs.contains(sessionID)) continue;
         final decision = _rootCloseCoordinator.inspect(sessionID);
-        if (decision.disposition != RootCloseDisposition.closeImmediately) {
+        final nativeWindowCount =
+            _contentWindowBridge.nativeWindowCountForRoot(sessionID);
+        // Only child windows can participate in the prepare-lock protocol.
+        // An in-process editor remains visible and must keep the root open.
+        if (decision.windowCount != nativeWindowCount) {
           skippedCount++;
           continue;
         }
         try {
           if (!_isCurrentDirectorySession(directory.path, sessionID)) continue;
+          if (nativeWindowCount != 0 &&
+              !await _contentWindowBridge.prepareAndCloseRootWindows(
+                sessionID,
+              )) {
+            failedCount++;
+            continue;
+          }
+          if (nativeWindowCount == 0 &&
+              decision.disposition != RootCloseDisposition.closeImmediately) {
+            skippedCount++;
+            continue;
+          }
           await _disposeCurrentDirectoryPageSession(directory.path, sessionID);
           if (!_isCurrentDirectorySession(directory.path, sessionID)) continue;
           if (!_closeSession(sessionID)) {

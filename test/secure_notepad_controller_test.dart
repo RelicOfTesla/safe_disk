@@ -145,6 +145,40 @@ void main() {
     expect(controller.hasDraftBackup, isTrue);
   });
 
+  test('prepares a dirty notepad for lock by writing a secure draft', () async {
+    final service = _FakeCryptoService('initial');
+    final controller = _controller(service);
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    controller.textController.text = 'recover after lock';
+
+    expect(await controller.prepareForLock(), isTrue);
+    expect(controller.isPreparingForLock, isTrue);
+    expect(controller.isReadOnly, isTrue);
+    expect(service.originalWrites, isEmpty);
+    expect(service.draftWrites, ['recover after lock']);
+    controller.cancelLockPreparation();
+    expect(controller.isPreparingForLock, isFalse);
+    expect(controller.isReadOnly, isFalse);
+  });
+
+  test('does not acknowledge lock preparation when draft persistence fails',
+      () async {
+    final service = _FakeCryptoService('initial');
+    final controller = _controller(
+      service,
+      draftStore: _FailingDraftStore(service),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.textController.text = 'cannot persist';
+
+    expect(await controller.prepareForLock(), isFalse);
+    expect(controller.isPreparingForLock, isFalse);
+    expect(controller.isReadOnly, isFalse);
+  });
+
   test('restores a draft and explicit save removes it', () async {
     final service = _FakeCryptoService('original');
     final draftPath = SecureNotepadDraftStore.draftPathFor('/vault/note.txt');

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/services.dart';
@@ -27,7 +28,29 @@ abstract class ContentWindowPlatform {
 
   Future<void> closeTokens(Set<String> tokens);
 
+  Future<ContentWindowLockResponse> prepareTokenForLock({
+    required String token,
+    required String lockRequestID,
+  });
+
+  Future<void> cancelTokenLock({
+    required String token,
+    required String lockRequestID,
+  });
+
   Stream<Set<String>> get aliveTokens;
+}
+
+class ContentWindowLockResponse {
+  const ContentWindowLockResponse({
+    required this.token,
+    required this.lockRequestID,
+    required this.prepared,
+  });
+
+  final String token;
+  final String lockRequestID;
+  final bool prepared;
 }
 
 class DesktopMultiWindowPlatform implements ContentWindowPlatform {
@@ -120,6 +143,47 @@ class DesktopMultiWindowPlatform implements ContentWindowPlatform {
   }
 
   @override
+  Future<ContentWindowLockResponse> prepareTokenForLock({
+    required String token,
+    required String lockRequestID,
+  }) async {
+    final controller = _controllers[token];
+    if (controller == null) {
+      throw StateError('content-window-controller-not-found');
+    }
+    final response = await controller.invokeMethod<Map<dynamic, dynamic>>(
+      'document.prepareLock',
+      {'token': token, 'lockRequestID': lockRequestID},
+    );
+    final responseToken = response?['token'];
+    final responseRequestID = response?['lockRequestID'];
+    final status = response?['status'];
+    if (responseToken is! String ||
+        responseRequestID is! String ||
+        status is! String) {
+      throw const FormatException('invalid-content-window-lock-response');
+    }
+    return ContentWindowLockResponse(
+      token: responseToken,
+      lockRequestID: responseRequestID,
+      prepared: status == 'prepared',
+    );
+  }
+
+  @override
+  Future<void> cancelTokenLock({
+    required String token,
+    required String lockRequestID,
+  }) async {
+    final controller = _controllers[token];
+    if (controller == null) return;
+    await controller.invokeMethod<void>(
+      'document.cancelLock',
+      {'token': token, 'lockRequestID': lockRequestID},
+    );
+  }
+
+  @override
   Stream<Set<String>> get aliveTokens async* {
     await for (final _ in onWindowsChanged) {
       final controllers = await WindowController.getAll();
@@ -193,11 +257,13 @@ class ContentWindowHostBridge {
   ContentWindowHostBridge({
     required DocumentSessionBroker broker,
     ContentWindowPlatform? platform,
+    this.lockPreparationTimeout = const Duration(seconds: 10),
   })  : _broker = broker,
         _platform = platform ?? DesktopMultiWindowPlatform();
 
   final DocumentSessionBroker _broker;
   final ContentWindowPlatform _platform;
+  final Duration lockPreparationTimeout;
   final Set<String> _nativeTokens = {};
   StreamSubscription<Set<String>>? _windowSubscription;
   bool _started = false;
@@ -282,6 +348,84 @@ class ContentWindowHostBridge {
       _nativeTokens.remove(token);
     }
   }
+
+  int nativeWindowCountForRoot(String rootSessionID) =>
+      _nativeTokensForRoot(rootSessionID).length;
+
+  /// Requests every native content window to secure its local state before
+  /// revoking the root capability. Any missing, failed, or late reply leaves
+  /// all tokens and windows untouched.
+  Future<bool> prepareAndCloseRootWindows(String rootSessionID) async {
+    final tokens = _nativeTokensForRoot(rootSessionID);
+    if (tokens.isEmpty) return true;
+    final lockRequestID = _newLockRequestID();
+    try {
+      final responses = await Future.wait(
+        tokens.map(
+          (token) => _platform
+              .prepareTokenForLock(
+                token: token,
+                lockRequestID: lockRequestID,
+              )
+              .timeout(lockPreparationTimeout),
+        ),
+      );
+      if (responses.length != tokens.length ||
+          responses.map((response) => response.token).toSet().length !=
+              tokens.length ||
+          responses.any((response) =>
+              !response.prepared ||
+              response.lockRequestID != lockRequestID ||
+              !tokens.contains(response.token))) {
+        await _cancelRootLockPreparation(tokens, lockRequestID);
+        return false;
+      }
+      // A child can disappear or another child can open while RPC is pending.
+      // In either case the confirmation set is no longer a safe root snapshot.
+      if (!_sameNativeTokenSet(rootSessionID, tokens)) {
+        await _cancelRootLockPreparation(tokens, lockRequestID);
+        return false;
+      }
+      await _broker.revokeRootSessions(rootSessionID);
+      await _platform.closeTokens(tokens);
+      _nativeTokens.removeAll(tokens);
+      return true;
+    } catch (_) {
+      await _cancelRootLockPreparation(tokens, lockRequestID);
+      return false;
+    }
+  }
+
+  Future<void> _cancelRootLockPreparation(
+    Set<String> tokens,
+    String lockRequestID,
+  ) async {
+    await Future.wait(
+      tokens.map(
+        (token) async {
+          try {
+            await _platform.cancelTokenLock(
+              token: token,
+              lockRequestID: lockRequestID,
+            );
+          } catch (_) {
+            // A disappeared child cannot retain a usable root capability.
+          }
+        },
+      ),
+    );
+  }
+
+  Set<String> _nativeTokensForRoot(String rootSessionID) =>
+      _broker.tokensForRoot(rootSessionID).intersection(_nativeTokens);
+
+  bool _sameNativeTokenSet(String rootSessionID, Set<String> expected) {
+    final actual = _nativeTokensForRoot(rootSessionID);
+    return actual.length == expected.length && actual.containsAll(expected);
+  }
+
+  String _newLockRequestID() =>
+      '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
 
   void _reconcileWindows(Set<String> aliveTokens) {
     final closedTokens = _nativeTokens.difference(aliveTokens);

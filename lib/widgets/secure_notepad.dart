@@ -35,6 +35,7 @@ class SecureNotepad extends StatefulWidget {
     this.documentLease,
     this.onDirtyChanged,
     this.onClosed,
+    this.onControllerReady,
   });
 
   final EncryptedFile file;
@@ -50,6 +51,7 @@ class SecureNotepad extends StatefulWidget {
   final DocumentLease? documentLease;
   final ValueChanged<bool>? onDirtyChanged;
   final VoidCallback? onClosed;
+  final ValueChanged<SecureNotepadController>? onControllerReady;
 
   @override
   State<SecureNotepad> createState() => _SecureNotepadState();
@@ -82,6 +84,7 @@ class _SecureNotepadState extends State<SecureNotepad>
       documentLease: widget.documentLease,
       onDirtyChanged: widget.onDirtyChanged,
     )..addListener(_onControllerChanged);
+    widget.onControllerReady?.call(_controller);
     WidgetsBinding.instance.addObserver(this);
     _monitorClipboard = widget.initiallyMonitorClipboard;
     if (_monitorClipboard) _startClipboardTimer();

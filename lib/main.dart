@@ -6,6 +6,7 @@ import 'l10n/app_locale.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'pages/home_page.dart';
 import 'services/content_window_host_bridge.dart';
+import 'services/content_window_lock_endpoint.dart';
 import 'services/document_window_client.dart';
 import 'services/remote_document_crypto_service.dart';
 import 'services/settings_service.dart';
@@ -23,6 +24,8 @@ Future<void> main() async {
   final contentWindow = await _currentContentWindow();
   if (contentWindow != null) {
     final arguments = contentWindow.arguments;
+    final lockEndpoint = ContentWindowLockEndpoint(token: arguments.token);
+    await _setContentWindowLockHandler(contentWindow.controller, lockEndpoint);
     final settings = SettingsService();
     final localePreference =
         arguments.localePreference ?? await settings.getLocale();
@@ -49,12 +52,16 @@ Future<void> main() async {
       initialSnapshot: snapshot,
     );
     if (arguments.kind == DesktopMultiWindowPlatform.imageWindowKind) {
+      lockEndpoint.setPrepareForLock(() async => true);
       runApp(SafeDiskImageWindow(
         arguments: arguments,
         client: client,
         cryptoService: cryptoService,
         themeMode: themeMode,
         locale: locale,
+        onClosed: () => unawaited(
+          _setContentWindowLockHandler(contentWindow.controller, null),
+        ),
       ));
       _showContentWindowAfterFirstFrame(contentWindow.controller);
       return;
@@ -73,11 +80,30 @@ Future<void> main() async {
       initiallyMonitorClipboard: initiallyMonitorClipboard,
       themeMode: themeMode,
       locale: locale,
+      onControllerReady: (controller) {
+        lockEndpoint.setPrepareForLock(controller.prepareForLock);
+        lockEndpoint.setCancelLockPreparation(controller.cancelLockPreparation);
+      },
+      onClosed: () => unawaited(
+        _setContentWindowLockHandler(contentWindow.controller, null),
+      ),
     ));
     _showContentWindowAfterFirstFrame(contentWindow.controller);
     return;
   }
   runApp(const SafeDiskApp());
+}
+
+Future<void> _setContentWindowLockHandler(
+  WindowController controller,
+  ContentWindowLockEndpoint? endpoint,
+) async {
+  try {
+    await controller.setWindowMethodHandler(endpoint?.handle);
+  } catch (_) {
+    // A missing per-window RPC keeps the root open during auto-lock; it must
+    // not prevent the child from displaying its existing safe error state.
+  }
 }
 
 Future<bool> _readDetailedErrorReports(SettingsService settings) async {

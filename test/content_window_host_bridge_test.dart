@@ -220,6 +220,58 @@ void main() {
     expect(broker.containsToken(lease.token), isFalse);
   });
 
+  test('prepares every content window before revoking its root capability',
+      () async {
+    final broker = DocumentSessionBroker(
+      cryptoService: _BridgeCryptoService('initial'),
+    );
+    final lease = broker.open(
+      rootSessionID: '7',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(broker: broker, platform: platform);
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(lease, localePreference: 'zh');
+    platform.onPrepareToken = (token, requestID) async {
+      expect(token, lease.token);
+      expect(requestID, isNotEmpty);
+      expect(broker.containsToken(token), isTrue);
+      return ContentWindowLockResponse(
+        token: token,
+        lockRequestID: requestID,
+        prepared: true,
+      );
+    };
+
+    expect(await bridge.prepareAndCloseRootWindows('7'), isTrue);
+    expect(platform.preparedTokens, {lease.token});
+    expect(platform.closedTokens, {lease.token});
+    expect(broker.containsToken(lease.token), isFalse);
+  });
+
+  test('keeps every token open when any content window rejects lock prepare',
+      () async {
+    final broker = DocumentSessionBroker(
+      cryptoService: _BridgeCryptoService('initial'),
+    );
+    final lease = broker.open(
+      rootSessionID: '7',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform()..prepareResult = false;
+    final bridge = ContentWindowHostBridge(broker: broker, platform: platform);
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(lease, localePreference: 'zh');
+
+    expect(await bridge.prepareAndCloseRootWindows('7'), isFalse);
+    expect(platform.closedTokens, isEmpty);
+    expect(platform.cancelledTokens, {lease.token});
+    expect(broker.containsToken(lease.token), isTrue);
+  });
+
   test('waits for an accepted save before closing the native root window',
       () async {
     final crypto = _DelayedWriteBridgeCryptoService('initial');
@@ -372,6 +424,11 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
       StreamController<Set<String>>.broadcast();
   ContentWindowCallHandler? handler;
   Future<void> Function(Set<String> tokens)? onCloseTokens;
+  Future<ContentWindowLockResponse> Function(String token, String requestID)?
+      onPrepareToken;
+  Set<String> preparedTokens = {};
+  Set<String> cancelledTokens = {};
+  bool prepareResult = true;
   Set<String> closedTokens = {};
 
   @override
@@ -413,6 +470,28 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
   Future<void> closeTokens(Set<String> tokens) async {
     closedTokens = {...tokens};
     await onCloseTokens?.call(tokens);
+  }
+
+  @override
+  Future<ContentWindowLockResponse> prepareTokenForLock({
+    required String token,
+    required String lockRequestID,
+  }) async {
+    preparedTokens = {...preparedTokens, token};
+    return onPrepareToken?.call(token, lockRequestID) ??
+        ContentWindowLockResponse(
+          token: token,
+          lockRequestID: lockRequestID,
+          prepared: prepareResult,
+        );
+  }
+
+  @override
+  Future<void> cancelTokenLock({
+    required String token,
+    required String lockRequestID,
+  }) async {
+    cancelledTokens = {...cancelledTokens, token};
   }
 
   @override

@@ -62,6 +62,7 @@ class SecureNotepadController extends ChangeNotifier {
   bool _applyingHistory = false;
   bool _disposed = false;
   Timer? _autoSaveTimer;
+  Future<bool>? _activeSave;
   Future<void>? _activeDraftWrite;
   String? _lastDraftText;
   String? _recoveryDraftText;
@@ -70,6 +71,7 @@ class SecureNotepadController extends ChangeNotifier {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isSavingDraft = false;
+  bool _isPreparingForLock = false;
   bool _hasDraftBackup = false;
   bool _hasChanges = false;
   bool _isReadOnly;
@@ -86,7 +88,8 @@ class SecureNotepadController extends ChangeNotifier {
   bool get hasDraftBackup => _hasDraftBackup;
   bool get hasRecoveryDraft => _recoveryDraftText != null;
   bool get hasChanges => _hasChanges;
-  bool get isReadOnly => _isReadOnly;
+  bool get isReadOnly => _isReadOnly || _isPreparingForLock;
+  bool get isPreparingForLock => _isPreparingForLock;
   SecureNotepadLoadError? get loadError => _loadError;
   String? get loadTechnicalError => _loadTechnicalError;
   String? get saveError => _saveError;
@@ -145,7 +148,18 @@ class SecureNotepadController extends ChangeNotifier {
   }
 
   Future<bool> save() async {
-    if (_isSaving) return false;
+    final activeSave = _activeSave;
+    if (activeSave != null) return activeSave;
+    final save = _saveInternal();
+    _activeSave = save;
+    try {
+      return await save;
+    } finally {
+      if (identical(_activeSave, save)) _activeSave = null;
+    }
+  }
+
+  Future<bool> _saveInternal() async {
     if (!_hasChanges) return true;
 
     _isSaving = true;
@@ -250,6 +264,55 @@ class SecureNotepadController extends ChangeNotifier {
     final content = textController.text;
     if (content == _lastDraftText) return true;
 
+    return _writeDraft(content);
+  }
+
+  /// Freezes the editor and persists the newest unsaved text as a secure
+  /// sibling draft. A successful preparation intentionally remains frozen
+  /// until the host closes this content window.
+  Future<bool> prepareForLock() async {
+    if (_disposed || _isLoading) return false;
+    if (!_isPreparingForLock) {
+      _isPreparingForLock = true;
+      notifyListeners();
+    }
+    try {
+      while (true) {
+        final activeSave = _activeSave;
+        if (activeSave != null) await activeSave;
+        final activeDraftWrite = _activeDraftWrite;
+        if (activeDraftWrite != null) await activeDraftWrite;
+        if (!_hasChanges || textController.text == _lastDraftText) {
+          return true;
+        }
+        final content = textController.text;
+        if (!await _writeDraft(content)) return _cancelLockPreparation();
+        // A queued text event can arrive just as the editor becomes read-only.
+        // Persist again rather than acknowledging a stale draft.
+        if (textController.text == content) return true;
+      }
+    } catch (_) {
+      return _cancelLockPreparation();
+    }
+  }
+
+  bool _cancelLockPreparation() {
+    _isPreparingForLock = false;
+    if (!_disposed) notifyListeners();
+    return false;
+  }
+
+  /// Re-enables editing when another content window rejects the same root
+  /// lock operation after this editor has already prepared its draft.
+  void cancelLockPreparation() {
+    if (!_isPreparingForLock) return;
+    _isPreparingForLock = false;
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<bool> _writeDraft(String content) async {
+    if (_isSavingDraft) return false;
+
     _isSavingDraft = true;
     _draftError = null;
     _draftTechnicalError = null;
@@ -273,6 +336,7 @@ class SecureNotepadController extends ChangeNotifier {
   }
 
   void toggleReadOnly() {
+    if (_isPreparingForLock) return;
     _isReadOnly = !_isReadOnly;
     notifyListeners();
     if (!_isReadOnly) {

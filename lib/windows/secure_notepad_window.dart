@@ -6,6 +6,7 @@ import '../models/cryption_config.dart';
 import '../services/content_window_host_bridge.dart';
 import '../services/document_window_client.dart';
 import '../services/remote_document_crypto_service.dart';
+import '../controllers/secure_notepad_controller.dart';
 import '../widgets/secure_notepad.dart';
 import '../theme/app_theme.dart';
 import '../l10n/generated/app_localizations.dart';
@@ -24,6 +25,8 @@ class SafeDiskNotepadWindow extends StatelessWidget {
     this.initiallyMonitorClipboard = false,
     this.themeMode = ThemeMode.system,
     this.locale,
+    this.onControllerReady,
+    this.onClosed,
   });
 
   final ContentWindowArguments arguments;
@@ -34,6 +37,8 @@ class SafeDiskNotepadWindow extends StatelessWidget {
   final bool initiallyMonitorClipboard;
   final ThemeMode themeMode;
   final Locale? locale;
+  final ValueChanged<SecureNotepadController>? onControllerReady;
+  final VoidCallback? onClosed;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +64,8 @@ class SafeDiskNotepadWindow extends StatelessWidget {
         initiallyReadOnly: initiallyReadOnly,
         initiallyMonitorClipboard: initiallyMonitorClipboard,
         onDirtyChanged: (dirty) => _ignoreChannelError(client.setDirty(dirty)),
+        onControllerReady: onControllerReady,
+        onClosed: onClosed,
       ),
     );
   }

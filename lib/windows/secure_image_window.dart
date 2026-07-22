@@ -17,6 +17,7 @@ class SafeDiskImageWindow extends StatelessWidget {
     required this.cryptoService,
     this.themeMode = ThemeMode.system,
     this.locale,
+    this.onClosed,
   });
 
   final ContentWindowArguments arguments;
@@ -24,6 +25,7 @@ class SafeDiskImageWindow extends StatelessWidget {
   final RemoteDocumentCryptoService cryptoService;
   final ThemeMode themeMode;
   final Locale? locale;
+  final VoidCallback? onClosed;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +47,7 @@ class SafeDiskImageWindow extends StatelessWidget {
         ),
         cryptoService: cryptoService,
         tempKeyID: arguments.token,
+        onClosed: onClosed,
       ),
     );
   }
