@@ -9,6 +9,7 @@ class ContentWindowLockEndpoint {
   Future<bool> Function()? _prepareForLock;
   VoidCallback? _cancelLockPreparation;
   String? _preparedRequestID;
+  final Set<String> _cancelledRequestIDs = {};
 
   void setPrepareForLock(Future<bool> Function() prepareForLock) {
     _prepareForLock = prepareForLock;
@@ -38,6 +39,7 @@ class ContentWindowLockEndpoint {
     }
     final requestID = arguments['lockRequestID'] as String;
     if (call.method == 'document.cancelLock') {
+      _cancelledRequestIDs.add(requestID);
       if (_preparedRequestID == requestID) {
         _preparedRequestID = null;
         _cancelLockPreparation?.call();
@@ -50,6 +52,14 @@ class ContentWindowLockEndpoint {
     }
     final prepareForLock = _prepareForLock;
     final prepared = prepareForLock != null && await prepareForLock();
+    if (_cancelledRequestIDs.remove(requestID)) {
+      _cancelLockPreparation?.call();
+      return {
+        'token': token,
+        'lockRequestID': requestID,
+        'status': 'cancelled',
+      };
+    }
     _preparedRequestID = prepared ? requestID : null;
     return {
       'token': token,

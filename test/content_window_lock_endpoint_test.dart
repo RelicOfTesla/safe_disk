@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe_disk/services/content_window_lock_endpoint.dart';
@@ -76,6 +78,27 @@ void main() {
       'token': 'capability-token',
       'lockRequestID': 'request-1',
     }));
+    expect(cancellations, 1);
+  });
+
+  test('cancels a preparation that completes after the host timeout', () async {
+    final prepared = Completer<bool>();
+    var cancellations = 0;
+    final endpoint = ContentWindowLockEndpoint(token: 'capability-token')
+      ..setPrepareForLock(() => prepared.future)
+      ..setCancelLockPreparation(() => cancellations++);
+    final preparing = endpoint.handle(const MethodCall('document.prepareLock', {
+      'token': 'capability-token',
+      'lockRequestID': 'request-1',
+    }));
+
+    await endpoint.handle(const MethodCall('document.cancelLock', {
+      'token': 'capability-token',
+      'lockRequestID': 'request-1',
+    }));
+    prepared.complete(true);
+
+    expect(await preparing, containsPair('status', 'cancelled'));
     expect(cancellations, 1);
   });
 }

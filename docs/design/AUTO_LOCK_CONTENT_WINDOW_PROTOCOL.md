@@ -51,7 +51,7 @@
 
 ## 测试门槛
 
-- controller/endpoint：脏文本落草稿、草稿失败不确认、token/request ID 校验已覆盖；迟到回复、重复请求和保存中的实际子窗口仍缺。
+- controller/endpoint：脏文本落草稿、草稿失败不确认、token/request ID 校验，以及超时后迟到完成会取消冻结已覆盖；重复请求和保存中的实际子窗口仍缺。
 - bridge：按 token 请求、确认后才 revoke/close、拒绝时不关闭已覆盖；超时、窗口消失和原生 close 失败仍缺。
 - Home：hidden/paused、TTL 成功关闭 clean 内容窗口、拒绝时保持 root 已覆盖；手动关闭和重新解锁竞争仍缺。
 - 桌面：Linux、Windows、macOS 实测多窗口、标题栏关闭、休眠恢复和强制关闭子窗口。
