@@ -409,6 +409,54 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notepadMonitorClipboardHint => '仅显示短文本预览，不写入文件或设置';
 
   @override
+  String get notepadRecoveryDraftFound => '发现安全草稿';
+
+  @override
+  String get notepadRecoveryDraftDescription => '发现上次未完成编辑的加密草稿。是否恢复到编辑器？';
+
+  @override
+  String get notepadDiscardDraft => '放弃草稿';
+
+  @override
+  String get notepadRestoreDraft => '恢复草稿';
+
+  @override
+  String get notepadUnsavedChanges => '未保存的更改';
+
+  @override
+  String get notepadSaveBeforeClosing => '关闭前是否保存更改？';
+
+  @override
+  String get notepadDontSave => '不保存';
+
+  @override
+  String get notepadStartEditing => '开始编辑';
+
+  @override
+  String get notepadSwitchReadOnly => '切换为只读';
+
+  @override
+  String get notepadUndoShortcut => '撤销（Ctrl/Cmd+Z）';
+
+  @override
+  String get notepadRedoShortcut => '重做（Ctrl/Cmd+Shift+Z）';
+
+  @override
+  String get notepadFindReplace => '查找/替换';
+
+  @override
+  String get notepadCloseFind => '关闭查找';
+
+  @override
+  String get notepadStopClipboardMonitoring => '停止剪贴板监视';
+
+  @override
+  String get notepadMonitorClipboardAction => '监视剪贴板';
+
+  @override
+  String get notepadSave => '保存';
+
+  @override
   String get detailedErrors => '显示详细错误信息';
 
   @override

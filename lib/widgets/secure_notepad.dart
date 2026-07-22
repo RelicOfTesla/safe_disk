@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/generated/app_localizations.dart';
+
 import '../controllers/secure_notepad_controller.dart';
 import '../models/cryption_config.dart';
 import '../services/crypto_service.dart';
@@ -105,22 +107,21 @@ class _SecureNotepadState extends State<SecureNotepad>
   }
 
   Future<void> _showDraftRecoveryDialog() async {
+    final strings = AppLocalizations.of(context)!;
     final action = await showDialog<String>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('发现安全草稿'),
-        content: const Text(
-          '发现上次未完成编辑的加密草稿。是否恢复到编辑器？',
-        ),
+        title: Text(strings.notepadRecoveryDraftFound),
+        content: Text(strings.notepadRecoveryDraftDescription),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, 'discard'),
-            child: const Text('放弃草稿'),
+            child: Text(strings.notepadDiscardDraft),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, 'restore'),
-            child: const Text('恢复草稿'),
+            child: Text(strings.notepadRestoreDraft),
           ),
         ],
       ),
@@ -275,23 +276,24 @@ class _SecureNotepadState extends State<SecureNotepad>
 
   Future<bool> _confirmClose() async {
     if (!_controller.hasChanges) return true;
+    final strings = AppLocalizations.of(context)!;
     final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('未保存的更改'),
-        content: const Text('关闭前是否保存更改？'),
+        title: Text(strings.notepadUnsavedChanges),
+        content: Text(strings.notepadSaveBeforeClosing),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, 'cancel'),
-            child: const Text('取消'),
+            child: Text(strings.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, 'discard'),
-            child: const Text('不保存'),
+            child: Text(strings.notepadDontSave),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, 'save'),
-            child: const Text('保存'),
+            child: Text(strings.notepadSave),
           ),
         ],
       ),
@@ -312,6 +314,7 @@ class _SecureNotepadState extends State<SecureNotepad>
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyF, control: true):
@@ -352,22 +355,26 @@ class _SecureNotepadState extends State<SecureNotepad>
                   _controller.isReadOnly ? Icons.edit : Icons.visibility,
                 ),
                 onPressed: _controller.toggleReadOnly,
-                tooltip: _controller.isReadOnly ? '开始编辑' : '切换为只读',
+                tooltip: _controller.isReadOnly
+                    ? strings.notepadStartEditing
+                    : strings.notepadSwitchReadOnly,
               ),
               IconButton(
                 icon: const Icon(Icons.undo),
                 onPressed: _controller.canUndo ? _controller.undo : null,
-                tooltip: '撤销（Ctrl/Cmd+Z）',
+                tooltip: strings.notepadUndoShortcut,
               ),
               IconButton(
                 icon: const Icon(Icons.redo),
                 onPressed: _controller.canRedo ? _controller.redo : null,
-                tooltip: '重做（Ctrl/Cmd+Shift+Z）',
+                tooltip: strings.notepadRedoShortcut,
               ),
               IconButton(
                 icon: Icon(_showFindReplace ? Icons.search_off : Icons.search),
                 onPressed: _showFindReplace ? _hideFind : _showFind,
-                tooltip: _showFindReplace ? '关闭查找' : '查找/替换',
+                tooltip: _showFindReplace
+                    ? strings.notepadCloseFind
+                    : strings.notepadFindReplace,
               ),
               IconButton(
                 icon: Icon(
@@ -376,7 +383,9 @@ class _SecureNotepadState extends State<SecureNotepad>
                       : Icons.content_paste_outlined,
                 ),
                 onPressed: _toggleClipboardMonitor,
-                tooltip: _monitorClipboard ? '停止剪贴板监视' : '监视剪贴板',
+                tooltip: _monitorClipboard
+                    ? strings.notepadStopClipboardMonitoring
+                    : strings.notepadMonitorClipboardAction,
               ),
               if (_controller.hasChanges)
                 IconButton(
@@ -388,7 +397,7 @@ class _SecureNotepadState extends State<SecureNotepad>
                         )
                       : const Icon(Icons.save),
                   onPressed: _controller.isSaving ? null : _save,
-                  tooltip: '保存',
+                  tooltip: strings.notepadSave,
                 ),
             ],
           ),
@@ -413,7 +422,7 @@ class _SecureNotepadState extends State<SecureNotepad>
             const SizedBox(height: 16),
             FilledButton(
               onPressed: _loadDocument,
-              child: const Text('重试'),
+              child: Text(AppLocalizations.of(context)!.retry),
             ),
           ],
         ),

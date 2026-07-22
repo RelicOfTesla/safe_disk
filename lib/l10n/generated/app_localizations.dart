@@ -872,6 +872,102 @@ abstract class AppLocalizations {
   /// **'仅显示短文本预览，不写入文件或设置'**
   String get notepadMonitorClipboardHint;
 
+  /// No description provided for @notepadRecoveryDraftFound.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现安全草稿'**
+  String get notepadRecoveryDraftFound;
+
+  /// No description provided for @notepadRecoveryDraftDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'发现上次未完成编辑的加密草稿。是否恢复到编辑器？'**
+  String get notepadRecoveryDraftDescription;
+
+  /// No description provided for @notepadDiscardDraft.
+  ///
+  /// In zh, this message translates to:
+  /// **'放弃草稿'**
+  String get notepadDiscardDraft;
+
+  /// No description provided for @notepadRestoreDraft.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复草稿'**
+  String get notepadRestoreDraft;
+
+  /// No description provided for @notepadUnsavedChanges.
+  ///
+  /// In zh, this message translates to:
+  /// **'未保存的更改'**
+  String get notepadUnsavedChanges;
+
+  /// No description provided for @notepadSaveBeforeClosing.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭前是否保存更改？'**
+  String get notepadSaveBeforeClosing;
+
+  /// No description provided for @notepadDontSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'不保存'**
+  String get notepadDontSave;
+
+  /// No description provided for @notepadStartEditing.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始编辑'**
+  String get notepadStartEditing;
+
+  /// No description provided for @notepadSwitchReadOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'切换为只读'**
+  String get notepadSwitchReadOnly;
+
+  /// No description provided for @notepadUndoShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销（Ctrl/Cmd+Z）'**
+  String get notepadUndoShortcut;
+
+  /// No description provided for @notepadRedoShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'重做（Ctrl/Cmd+Shift+Z）'**
+  String get notepadRedoShortcut;
+
+  /// No description provided for @notepadFindReplace.
+  ///
+  /// In zh, this message translates to:
+  /// **'查找/替换'**
+  String get notepadFindReplace;
+
+  /// No description provided for @notepadCloseFind.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭查找'**
+  String get notepadCloseFind;
+
+  /// No description provided for @notepadStopClipboardMonitoring.
+  ///
+  /// In zh, this message translates to:
+  /// **'停止剪贴板监视'**
+  String get notepadStopClipboardMonitoring;
+
+  /// No description provided for @notepadMonitorClipboardAction.
+  ///
+  /// In zh, this message translates to:
+  /// **'监视剪贴板'**
+  String get notepadMonitorClipboardAction;
+
+  /// No description provided for @notepadSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get notepadSave;
+
   /// No description provided for @detailedErrors.
   ///
   /// In zh, this message translates to:

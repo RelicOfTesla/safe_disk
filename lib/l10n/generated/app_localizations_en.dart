@@ -457,6 +457,55 @@ class AppLocalizationsEn extends AppLocalizations {
       'Only show a short text preview; do not write it to files or settings.';
 
   @override
+  String get notepadRecoveryDraftFound => 'Secure draft found';
+
+  @override
+  String get notepadRecoveryDraftDescription =>
+      'An encrypted draft from an unfinished edit was found. Restore it to the editor?';
+
+  @override
+  String get notepadDiscardDraft => 'Discard draft';
+
+  @override
+  String get notepadRestoreDraft => 'Restore draft';
+
+  @override
+  String get notepadUnsavedChanges => 'Unsaved changes';
+
+  @override
+  String get notepadSaveBeforeClosing => 'Save changes before closing?';
+
+  @override
+  String get notepadDontSave => 'Don\'t save';
+
+  @override
+  String get notepadStartEditing => 'Start editing';
+
+  @override
+  String get notepadSwitchReadOnly => 'Switch to read-only';
+
+  @override
+  String get notepadUndoShortcut => 'Undo (Ctrl/Cmd+Z)';
+
+  @override
+  String get notepadRedoShortcut => 'Redo (Ctrl/Cmd+Shift+Z)';
+
+  @override
+  String get notepadFindReplace => 'Find and replace';
+
+  @override
+  String get notepadCloseFind => 'Close find';
+
+  @override
+  String get notepadStopClipboardMonitoring => 'Stop clipboard monitoring';
+
+  @override
+  String get notepadMonitorClipboardAction => 'Monitor clipboard';
+
+  @override
+  String get notepadSave => 'Save';
+
+  @override
   String get detailedErrors => 'Show detailed error information';
 
   @override
