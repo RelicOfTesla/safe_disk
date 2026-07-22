@@ -394,6 +394,58 @@ class AppLocalizationsZh extends AppLocalizations {
   String get lockWhenHiddenHint => '仅锁定没有内容窗口、未保存修改或活动写入的目录；其他目录不会被强制关闭';
 
   @override
+  String get messageListSeparator => '；';
+
+  @override
+  String autoLockSummaryLocked(int count) {
+    return '已自动锁定 $count 个目录';
+  }
+
+  @override
+  String autoLockSummarySkipped(int count) {
+    return '$count 个目录含内容窗口或未完成保存，未强制关闭';
+  }
+
+  @override
+  String autoLockSummaryFailed(int count) {
+    return '$count 个目录锁定失败';
+  }
+
+  @override
+  String get rootActiveWritesTitle => '正在保存内容';
+
+  @override
+  String rootActiveWritesDescription(int count) {
+    return '当前有 $count 个内容保存操作尚未完成，请等待保存结束后再关闭会话。';
+  }
+
+  @override
+  String get rootUnsavedContentTitle => '存在未保存内容';
+
+  @override
+  String rootUnsavedContentDescription(String documents) {
+    return '请先处理以下内容窗口，再结束会话：\n\n$documents';
+  }
+
+  @override
+  String get acknowledge => '知道了';
+
+  @override
+  String get rootDirectoryDeleted => '本地加密目录已永久删除';
+
+  @override
+  String get rootHistoryRemoved => '目录历史已移除，本地磁盘内容保持不变';
+
+  @override
+  String get passwordChangeBlockedBySaving => '当前目录正在保存内容，请等待保存完成后再修改密码。';
+
+  @override
+  String get passwordChangeBlockedByDocuments => '请先关闭或保存该目录中的内容窗口，再修改密码。';
+
+  @override
+  String get passwordChangedUnlockAgain => '密码已修改，请使用新密码重新解锁目录';
+
+  @override
   String get notepadDraftInterval => '安全草稿保存间隔';
 
   @override

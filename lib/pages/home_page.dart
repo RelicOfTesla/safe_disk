@@ -291,11 +291,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _isAutoLocking = false;
     }
     if (!mounted) return;
+    final strings = AppLocalizations.of(context)!;
     final messages = <String>[];
-    if (lockedCount > 0) messages.add('已自动锁定 $lockedCount 个目录');
-    if (skippedCount > 0) messages.add('$skippedCount 个目录含内容窗口或未完成保存，未强制关闭');
-    if (failedCount > 0) messages.add('$failedCount 个目录锁定失败');
-    if (messages.isNotEmpty) _pendingAutoLockSummary = messages.join('；');
+    if (lockedCount > 0) {
+      messages.add(strings.autoLockSummaryLocked(lockedCount));
+    }
+    if (skippedCount > 0) {
+      messages.add(strings.autoLockSummarySkipped(skippedCount));
+    }
+    if (failedCount > 0) {
+      messages.add(strings.autoLockSummaryFailed(failedCount));
+    }
+    if (messages.isNotEmpty) {
+      _pendingAutoLockSummary = messages.join(strings.messageListSeparator);
+    }
   }
 
   bool _isCurrentDirectorySession(String path, String sessionID) {
@@ -855,6 +864,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _closeDirectory(EncryptedDirectory dir) async {
+    final strings = AppLocalizations.of(context)!;
     final action = await showRootDirectoryActionDialog(
       context: context,
       directoryName: _baseName(dir.path),
@@ -877,15 +887,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('正在保存内容'),
+          title: Text(strings.rootActiveWritesTitle),
           content: Text(
-            '当前有 ${closeDecision!.activeWriteCount} 个内容保存操作尚未完成，'
-            '请等待保存结束后再关闭会话。',
+            strings.rootActiveWritesDescription(
+              closeDecision!.activeWriteCount,
+            ),
           ),
           actions: [
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('知道了'),
+              child: Text(strings.acknowledge),
             ),
           ],
         ),
@@ -897,15 +908,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('存在未保存内容'),
+          title: Text(strings.rootUnsavedContentTitle),
           content: Text(
-            '请先处理以下内容窗口，再结束会话：\n\n'
-            '${closeDecision!.dirtyDocumentNames.join('\n')}',
+            strings.rootUnsavedContentDescription(
+              closeDecision!.dirtyDocumentNames.join('\n'),
+            ),
           ),
           actions: [
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('知道了'),
+              child: Text(strings.acknowledge),
             ),
           ],
         ),
@@ -920,7 +932,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ErrorHelper.showError(
             context,
             errorType: ErrorType.operationFailed,
-            originalError: '内容窗口关闭失败：$error',
+            originalError: error.toString(),
+            operation: 'close-root-content-windows',
           );
         }
         return;
@@ -935,7 +948,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ErrorHelper.showError(
           context,
           errorType: ErrorType.operationFailed,
-          originalError: '无法结束当前 root 会话',
+          originalError: 'close-root-session-failed',
+          operation: 'close-root-session',
         );
       }
       return;
@@ -961,7 +975,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ErrorHelper.showError(
             context,
             errorType: ErrorType.operationFailed,
-            originalError: '本地目录删除失败，历史记录已保留：$error',
+            originalError: error.toString(),
+            operation: 'delete-root-directory',
           );
         }
         return;
@@ -986,8 +1001,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ErrorHelper.showSuccess(
         context,
         action == RootDirectoryAction.deleteDirectory
-            ? '本地加密目录已永久删除'
-            : '目录历史已移除，本地磁盘内容保持不变',
+            ? strings.rootDirectoryDeleted
+            : strings.rootHistoryRemoved,
       );
     }
   }
@@ -997,10 +1012,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (sessionID == null) return true;
     final decision = _rootCloseCoordinator.inspect(sessionID);
     if (decision.disposition != RootCloseDisposition.closeImmediately) {
+      final strings = AppLocalizations.of(context)!;
       final message =
           decision.disposition == RootCloseDisposition.blockedByActiveWrites
-              ? '当前目录正在保存内容，请等待保存完成后再修改密码。'
-              : '请先关闭或保存该目录中的内容窗口，再修改密码。';
+              ? strings.passwordChangeBlockedBySaving
+              : strings.passwordChangeBlockedByDocuments;
       if (mounted) ErrorHelper.showInfo(context, message);
       return false;
     }
@@ -1012,7 +1028,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ErrorHelper.showError(
             context,
             errorType: ErrorType.operationFailed,
-            originalError: '内容窗口关闭失败：$error',
+            originalError: error.toString(),
             operation: 'change-root-password/close-windows',
           );
         }
@@ -1025,7 +1041,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ErrorHelper.showError(
           context,
           errorType: ErrorType.operationFailed,
-          originalError: '无法结束当前目录会话',
+          originalError: 'change-root-password-close-session-failed',
           operation: 'change-root-password/close-session',
         );
       }
@@ -1048,6 +1064,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _changeRootPassword(EncryptedDirectory directory) async {
+    final strings = AppLocalizations.of(context)!;
     if (!rootSupportsPasswordChange(directory)) {
       await showUnsupportedRootPasswordChange(
         context: context,
@@ -1079,7 +1096,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             displayAlias: directory.displayAlias,
           ),
         );
-        ErrorHelper.showSuccess(context, '密码已修改，请使用新密码重新解锁目录');
+        ErrorHelper.showSuccess(context, strings.passwordChangedUnlockAgain);
       }
     } catch (error) {
       if (mounted) {

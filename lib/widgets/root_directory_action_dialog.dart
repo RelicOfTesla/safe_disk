@@ -16,50 +16,55 @@ Future<RootDirectoryAction?> showRootDirectoryActionDialog({
       return AlertDialog(
         title: Text(strings.rootDirectoryActions),
         content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                key: const Key('root-action-end-session'),
-                enabled: hasActiveSession,
-                leading: const Icon(Icons.lock_outline),
-                title: Text(strings.endSessionOnly),
-                subtitle: Text(
-                  hasActiveSession
-                      ? strings.endSessionDescription(directoryName)
-                      : strings.directoryAlreadyLocked,
+          constraints: BoxConstraints(
+            maxWidth: 520,
+            maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.55,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  key: const Key('root-action-end-session'),
+                  enabled: hasActiveSession,
+                  leading: const Icon(Icons.lock_outline),
+                  title: Text(strings.endSessionOnly),
+                  subtitle: Text(
+                    hasActiveSession
+                        ? strings.endSessionDescription(directoryName)
+                        : strings.directoryAlreadyLocked,
+                  ),
+                  onTap: hasActiveSession
+                      ? () => Navigator.pop(
+                            dialogContext,
+                            RootDirectoryAction.endSession,
+                          )
+                      : null,
                 ),
-                onTap: hasActiveSession
-                    ? () => Navigator.pop(
-                          dialogContext,
-                          RootDirectoryAction.endSession,
-                        )
-                    : null,
-              ),
-              ListTile(
-                key: const Key('root-action-remove-history'),
-                leading: const Icon(Icons.playlist_remove),
-                title: Text(strings.endSessionAndRemoveHistory),
-                subtitle: Text(strings.removeHistoryDescription),
-                onTap: () => Navigator.pop(
-                  dialogContext,
-                  RootDirectoryAction.removeHistory,
+                ListTile(
+                  key: const Key('root-action-remove-history'),
+                  leading: const Icon(Icons.playlist_remove),
+                  title: Text(strings.endSessionAndRemoveHistory),
+                  subtitle: Text(strings.removeHistoryDescription),
+                  onTap: () => Navigator.pop(
+                    dialogContext,
+                    RootDirectoryAction.removeHistory,
+                  ),
                 ),
-              ),
-              ListTile(
-                key: const Key('root-action-delete-directory'),
-                leading: const Icon(Icons.delete_forever_outlined),
-                iconColor: Theme.of(context).colorScheme.error,
-                textColor: Theme.of(context).colorScheme.error,
-                title: Text(strings.endSessionRemoveHistoryAndDelete),
-                subtitle: Text(strings.deleteDirectoryDescription),
-                onTap: () => Navigator.pop(
-                  dialogContext,
-                  RootDirectoryAction.deleteDirectory,
+                ListTile(
+                  key: const Key('root-action-delete-directory'),
+                  leading: const Icon(Icons.delete_forever_outlined),
+                  iconColor: Theme.of(context).colorScheme.error,
+                  textColor: Theme.of(context).colorScheme.error,
+                  title: Text(strings.endSessionRemoveHistoryAndDelete),
+                  subtitle: Text(strings.deleteDirectoryDescription),
+                  onTap: () => Navigator.pop(
+                    dialogContext,
+                    RootDirectoryAction.deleteDirectory,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [

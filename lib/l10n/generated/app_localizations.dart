@@ -842,6 +842,90 @@ abstract class AppLocalizations {
   /// **'仅锁定没有内容窗口、未保存修改或活动写入的目录；其他目录不会被强制关闭'**
   String get lockWhenHiddenHint;
 
+  /// No description provided for @messageListSeparator.
+  ///
+  /// In zh, this message translates to:
+  /// **'；'**
+  String get messageListSeparator;
+
+  /// No description provided for @autoLockSummaryLocked.
+  ///
+  /// In zh, this message translates to:
+  /// **'已自动锁定 {count} 个目录'**
+  String autoLockSummaryLocked(int count);
+
+  /// No description provided for @autoLockSummarySkipped.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个目录含内容窗口或未完成保存，未强制关闭'**
+  String autoLockSummarySkipped(int count);
+
+  /// No description provided for @autoLockSummaryFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'{count} 个目录锁定失败'**
+  String autoLockSummaryFailed(int count);
+
+  /// No description provided for @rootActiveWritesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在保存内容'**
+  String get rootActiveWritesTitle;
+
+  /// No description provided for @rootActiveWritesDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前有 {count} 个内容保存操作尚未完成，请等待保存结束后再关闭会话。'**
+  String rootActiveWritesDescription(int count);
+
+  /// No description provided for @rootUnsavedContentTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'存在未保存内容'**
+  String get rootUnsavedContentTitle;
+
+  /// No description provided for @rootUnsavedContentDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先处理以下内容窗口，再结束会话：\n\n{documents}'**
+  String rootUnsavedContentDescription(String documents);
+
+  /// No description provided for @acknowledge.
+  ///
+  /// In zh, this message translates to:
+  /// **'知道了'**
+  String get acknowledge;
+
+  /// No description provided for @rootDirectoryDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地加密目录已永久删除'**
+  String get rootDirectoryDeleted;
+
+  /// No description provided for @rootHistoryRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'目录历史已移除，本地磁盘内容保持不变'**
+  String get rootHistoryRemoved;
+
+  /// No description provided for @passwordChangeBlockedBySaving.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前目录正在保存内容，请等待保存完成后再修改密码。'**
+  String get passwordChangeBlockedBySaving;
+
+  /// No description provided for @passwordChangeBlockedByDocuments.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先关闭或保存该目录中的内容窗口，再修改密码。'**
+  String get passwordChangeBlockedByDocuments;
+
+  /// No description provided for @passwordChangedUnlockAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码已修改，请使用新密码重新解锁目录'**
+  String get passwordChangedUnlockAgain;
+
   /// No description provided for @notepadDraftInterval.
   ///
   /// In zh, this message translates to:

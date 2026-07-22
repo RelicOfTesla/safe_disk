@@ -439,6 +439,62 @@ class AppLocalizationsEn extends AppLocalizations {
       'Only lock directories without content windows, unsaved changes, or active writes. Other directories are not forced closed.';
 
   @override
+  String get messageListSeparator => '; ';
+
+  @override
+  String autoLockSummaryLocked(int count) {
+    return '$count directories were locked automatically';
+  }
+
+  @override
+  String autoLockSummarySkipped(int count) {
+    return '$count directories have content windows or pending saves and were left open';
+  }
+
+  @override
+  String autoLockSummaryFailed(int count) {
+    return '$count directories could not be locked';
+  }
+
+  @override
+  String get rootActiveWritesTitle => 'Saving content';
+
+  @override
+  String rootActiveWritesDescription(int count) {
+    return '$count content save operations are still running. Wait for them to finish before ending the session.';
+  }
+
+  @override
+  String get rootUnsavedContentTitle => 'Unsaved content';
+
+  @override
+  String rootUnsavedContentDescription(String documents) {
+    return 'Handle these content windows before ending the session:\n\n$documents';
+  }
+
+  @override
+  String get acknowledge => 'OK';
+
+  @override
+  String get rootDirectoryDeleted => 'Encrypted directory permanently deleted';
+
+  @override
+  String get rootHistoryRemoved =>
+      'Directory history removed. Files on disk were kept.';
+
+  @override
+  String get passwordChangeBlockedBySaving =>
+      'This directory is saving content. Wait for the save to finish before changing its password.';
+
+  @override
+  String get passwordChangeBlockedByDocuments =>
+      'Close or save this directory\'s content windows before changing its password.';
+
+  @override
+  String get passwordChangedUnlockAgain =>
+      'Password changed. Unlock the directory again with the new password.';
+
+  @override
   String get notepadDraftInterval => 'Secure draft save interval';
 
   @override

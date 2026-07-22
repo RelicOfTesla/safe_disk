@@ -1781,6 +1781,47 @@ void main() {
     expect(find.text('vault'), findsNothing);
   });
 
+  testWidgets('root session removal follows the active English locale',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final persistenceService = _FakePersistenceService(rootPath);
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: persistenceService,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+    ScaffoldMessenger.of(tester.element(find.byType(HomePage)))
+        .clearSnackBars();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('More directory actions'));
+    await tester.pumpAndSettle();
+    final removeHistory = find.byKey(const Key('root-action-remove-history'));
+    await tester.ensureVisible(removeHistory);
+    await tester.pumpAndSettle();
+    await tester.tap(removeHistory);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.text('Directory history removed. Files on disk were kept.'),
+      findsOneWidget,
+    );
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(find.text('vault'), findsNothing);
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('deleting a root requires its exact name and removes history',
       (tester) async {
     final root = Directory.systemTemp.createTempSync('safe-disk-root-delete-');
