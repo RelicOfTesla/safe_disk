@@ -242,6 +242,12 @@ abstract class AppLocalizations {
   /// **'取消'**
   String get cancel;
 
+  /// No description provided for @save.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get save;
+
   /// No description provided for @discardChanges.
   ///
   /// In zh, this message translates to:
@@ -1681,6 +1687,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'清除别名'**
   String get clearAlias;
+
+  /// No description provided for @directoryAliasTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'设置目录显示别名'**
+  String get directoryAliasTitle;
+
+  /// No description provided for @directoryAliasLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'别名'**
+  String get directoryAliasLabel;
+
+  /// No description provided for @directoryAliasHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空将恢复目录名'**
+  String get directoryAliasHint;
 
   /// No description provided for @closeOrRemoveDirectory.
   ///

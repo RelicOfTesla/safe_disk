@@ -81,6 +81,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cancel => '取消';
 
   @override
+  String get save => '保存';
+
+  @override
   String get discardChanges => '放弃修改';
 
   @override
@@ -875,6 +878,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get clearAlias => '清除别名';
+
+  @override
+  String get directoryAliasTitle => '设置目录显示别名';
+
+  @override
+  String get directoryAliasLabel => '别名';
+
+  @override
+  String get directoryAliasHint => '留空将恢复目录名';
 
   @override
   String get closeOrRemoveDirectory => '关闭或移除目录';

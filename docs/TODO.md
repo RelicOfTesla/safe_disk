@@ -101,6 +101,7 @@
 
 ## 本轮验证状态
 
+- 2026-07-22 多语言目录别名回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/sidebar_widget_test.dart test/home_page_unlock_widget_test.dart -r compact` 共 50 项通过。新增英文侧边栏别名入口断言，目录别名弹窗的标题、字段和提示均已改由 ARB 呈现；主页的会话关闭、导入导出和文件操作提示仍待迁移。
 - 2026-07-22 多语言欢迎引导与进度取消回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/dialogs_localization_test.dart test/progress_dialog_widget_test.dart -r compact` 共 6 项通过。覆盖欢迎引导第一页和下一页的英文标题/动作，以及可取消进度框的英文 `Cancel`。主页操作提示尚未迁移。
 - 2026-07-22 多语言安全记事本分区回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/secure_notepad_widget_test.dart -r compact` 共 14 项通过，`document_window_client_test.dart` 4 项通过，完整 `flutter test --no-pub --timeout 180s -r compact` 为 223 项通过、12 项跳过。新增英文用例覆盖只读状态、剪贴板监视、刷新操作和查找替换栏；子窗口测试覆盖启动错误页的英文 locale 快照及英文编辑/保存工具提示。安全记事本仍缺 Linux/Windows/macOS 英文视觉、截断与读屏实测。
 - 2026-07-22 多语言图片浏览器回归：`flutter gen-l10n`、`flutter analyze --no-pub`、`flutter test --no-pub test/secure_image_viewer_test.dart` 共 11 项通过；完整 `flutter test --no-pub --timeout 180s -r compact` 为 225 项通过、12 项因未设置 `SAFE_DISK_FFI_LIBRARY` 跳过。覆盖中文缩放/旋转/滚轮、加载和解码失败语义，以及英文工具栏快捷键和查看文件语义；测试夹具明确注入 locale，原生图片子窗口断言继续验证 locale 透传。真实桌面读屏和字号/截断验收未完成。

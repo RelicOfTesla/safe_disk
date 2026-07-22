@@ -111,4 +111,41 @@ void main() {
     expect(find.text('Open or create encrypted directory'), findsOneWidget);
     expect(find.textContaining('No directories are open yet.'), findsOneWidget);
   });
+
+  testWidgets('Sidebar alias action follows the active English locale',
+      (tester) async {
+    final directory = EncryptedDirectory(
+      path: '/safe/root-name',
+      config: CryptionConfig(const {}),
+    );
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: SidebarWidget(
+          openedDirs: [directory],
+          currentDir: directory,
+          drawerPinned: true,
+          onOpenDirectory: () {},
+          onCloseDirectory: (_) {},
+          onSwitchDirectory: (_) {},
+          onRenameDirectory: (_) {},
+          onShowProperties: (_) {},
+          onChangePassword: (_) {},
+          onTogglePin: (_) async {},
+        ),
+      ),
+    ));
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('root-name')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Set alias'), findsOneWidget);
+  });
 }

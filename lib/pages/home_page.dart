@@ -383,28 +383,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return;
     }
     final controller = TextEditingController(text: directory.displayAlias);
+    final strings = AppLocalizations.of(context)!;
     final alias = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('设置目录显示别名'),
+        title: Text(strings.directoryAliasTitle),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLength: 64,
-          decoration: const InputDecoration(
-            labelText: '别名',
-            hintText: '留空将恢复目录名',
+          decoration: InputDecoration(
+            labelText: strings.directoryAliasLabel,
+            hintText: strings.directoryAliasHint,
           ),
           onSubmitted: (value) => Navigator.pop(dialogContext, value),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('取消'),
+            child: Text(strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: const Text('保存'),
+            child: Text(strings.save),
           ),
         ],
       ),

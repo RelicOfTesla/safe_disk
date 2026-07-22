@@ -86,6 +86,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancel => 'Cancel';
 
   @override
+  String get save => 'Save';
+
+  @override
   String get discardChanges => 'Discard changes';
 
   @override
@@ -960,6 +963,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get clearAlias => 'Clear alias';
+
+  @override
+  String get directoryAliasTitle => 'Set directory display alias';
+
+  @override
+  String get directoryAliasLabel => 'Alias';
+
+  @override
+  String get directoryAliasHint => 'Leave empty to restore the directory name';
 
   @override
   String get closeOrRemoveDirectory => 'Close or remove directory';
