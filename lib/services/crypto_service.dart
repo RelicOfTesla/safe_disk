@@ -77,6 +77,16 @@ class CryptoService {
     _native.secRootChangePassword(rootPath, oldPassword, newPassword);
   }
 
+  /// Returns public password-reminder metadata. An empty value means unset.
+  String readRootPasswordHint(String rootPath) {
+    return _native.secRootReadPasswordHint(rootPath);
+  }
+
+  /// Verifies [password] before atomically updating password-reminder metadata.
+  void updateRootPasswordHint(String rootPath, String password, String hint) {
+    _native.secRootUpdatePasswordHint(rootPath, password, hint);
+  }
+
   /// Finds the nearest parent directory containing `_cryption.json`.
   String findCryptionRoot(String path) {
     var current = FileSystemEntity.isDirectorySync(path)

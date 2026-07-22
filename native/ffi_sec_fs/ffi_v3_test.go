@@ -81,6 +81,33 @@ func TestPasswordChangeableRootFFIRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRootPasswordHintFFILifecycle(t *testing.T) {
+	rootPath := filepath.Join(t.TempDir(), "root")
+	assertSuccess(t, CreateRootConfig_FFI(
+		rootPath,
+		"correct-password",
+		`{"dataFactory":"AES-CTR","nameFactory":"None","keyStrengthMs":1,"passwordHint":"first pet"}`,
+	))
+	read := assertSuccess(t, ReadRootPasswordHint_FFI(rootPath))
+	if got := read["data"].(map[string]interface{})["hint"]; got != "first pet" {
+		t.Fatalf("hint = %q, want first pet", got)
+	}
+
+	if response := UpdateRootPasswordHint_FFI(rootPath, "wrong-password", "must not replace"); jsonSuccess(response) {
+		t.Fatalf("wrong password unexpectedly updated hint: %s", response)
+	}
+	read = assertSuccess(t, ReadRootPasswordHint_FFI(rootPath))
+	if got := read["data"].(map[string]interface{})["hint"]; got != "first pet" {
+		t.Fatalf("wrong password changed hint to %q", got)
+	}
+
+	assertSuccess(t, UpdateRootPasswordHint_FFI(rootPath, "correct-password", ""))
+	read = assertSuccess(t, ReadRootPasswordHint_FFI(rootPath))
+	if got := read["data"].(map[string]interface{})["hint"]; got != "" {
+		t.Fatalf("cleared hint = %q, want empty", got)
+	}
+}
+
 func TestTransferV3UnfinishedUsesStableMissingSessionCode(t *testing.T) {
 	var response Response
 	if err := json.Unmarshal([]byte(TransferV3ListUnfinished_FFI(-1)), &response); err != nil {

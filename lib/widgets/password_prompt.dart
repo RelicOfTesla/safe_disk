@@ -11,6 +11,7 @@ class PasswordPrompt extends StatefulWidget {
     super.key,
     required this.directoryPath,
     required this.onUnlock,
+    this.passwordHint = '',
   });
 
   /// Path of the directory to unlock (display only).
@@ -21,6 +22,9 @@ class PasswordPrompt extends StatefulWidget {
   /// If verification fails, the prompt will clear and refocus automatically.
   final Future<void> Function(String password) onUnlock;
 
+  /// Public metadata. It is intentionally hidden until the user requests it.
+  final String passwordHint;
+
   @override
   State<PasswordPrompt> createState() => _PasswordPromptState();
 }
@@ -29,6 +33,7 @@ class _PasswordPromptState extends State<PasswordPrompt> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   bool _isVerifying = false;
+  bool _showPasswordHint = false;
 
   @override
   void initState() {
@@ -86,6 +91,34 @@ class _PasswordPromptState extends State<PasswordPrompt> {
               style: Theme.of(context).textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),
+            if (widget.passwordHint.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () {
+                  setState(() => _showPasswordHint = !_showPasswordHint);
+                },
+                icon: Icon(_showPasswordHint
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined),
+                label: Text(_showPasswordHint
+                    ? strings.hidePasswordHint
+                    : strings.showPasswordHint),
+              ),
+              if (_showPasswordHint) ...[
+                const SizedBox(height: 4),
+                Text(
+                  widget.passwordHint,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  strings.passwordHintPublicNotice,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ],
             const SizedBox(height: 24),
             TextField(
               controller: _controller,

@@ -184,6 +184,44 @@ class NativeLib {
     }
   }
 
+  /// Reads public password-reminder metadata without opening the root.
+  String secRootReadPasswordHint(String rootPath) {
+    final rootPathPtr = rootPath.toNativeUtf8();
+    try {
+      final resultPtr = _bindings.secRootReadPasswordHint(rootPathPtr);
+      final data = _parseJson(_ptrToString(resultPtr));
+      _checkResult(data, 'secRootReadPasswordHint');
+      return data['data']['hint'] as String;
+    } finally {
+      calloc.free(rootPathPtr);
+    }
+  }
+
+  /// Verifies [password] and atomically updates public password-reminder
+  /// metadata. An empty hint clears an existing hint.
+  void secRootUpdatePasswordHint(
+    String rootPath,
+    String password,
+    String hint,
+  ) {
+    final rootPathPtr = rootPath.toNativeUtf8();
+    final passwordPtr = password.toNativeUtf8();
+    final hintPtr = hint.toNativeUtf8();
+    try {
+      final resultPtr = _bindings.secRootUpdatePasswordHint(
+        rootPathPtr,
+        passwordPtr,
+        hintPtr,
+      );
+      final data = _parseJson(_ptrToString(resultPtr));
+      _checkResult(data, 'secRootUpdatePasswordHint');
+    } finally {
+      calloc.free(rootPathPtr);
+      calloc.free(passwordPtr);
+      calloc.free(hintPtr);
+    }
+  }
+
   // ==================== File Operations ====================
 
   /// Opens a file within a secure root.

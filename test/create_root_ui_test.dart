@@ -116,6 +116,8 @@ void main() {
     expect(find.text('密码派生'), findsOneWidget);
     expect(find.text('派生强度'), findsOneWidget);
     expect(find.text('允许以后修改密码'), findsOneWidget);
+    expect(find.text('密码提示'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).at(2), 'first pet');
 
     await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
     await tester.pumpAndSettle();
@@ -130,6 +132,7 @@ void main() {
     expect(result?.nameFactory, 'None');
     expect(result?.deriverFactory, 'Argon2id');
     expect(result?.passwordChangeable, isFalse);
+    expect(result?.passwordHint, 'first pet');
   });
 }
 

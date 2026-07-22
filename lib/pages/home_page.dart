@@ -41,6 +41,7 @@ import '../widgets/directory_background_actions.dart';
 import '../widgets/root_directory_action_dialog.dart';
 import '../widgets/root_directory_properties.dart';
 import '../widgets/root_password_change_dialog.dart';
+import '../widgets/root_password_hint_dialog.dart';
 import 'dialogs.dart';
 import 'settings_page.dart';
 
@@ -1188,6 +1189,65 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           errorType: ErrorType.operationFailed,
           originalError: error.toString(),
           operation: 'change-root-password',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _manageRootPasswordHint(EncryptedDirectory directory) async {
+    final strings = AppLocalizations.of(context)!;
+    if (!directory.isVerified ||
+        _cryptoService.rootIDForPath(directory.path) == null) {
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.directoryNotVerified,
+        originalError: 'password-hint-root-session-not-open',
+        operation: 'password-hint/update',
+      );
+      return;
+    }
+    final request = await showRootPasswordHintDialog(
+      context: context,
+      directoryName: directory.displayAlias ?? _baseName(directory.path),
+      currentHint: directory.config.passwordHint,
+    );
+    if (request == null || !mounted) return;
+
+    setState(() => _isLoading = true);
+    try {
+      _cryptoService.updateRootPasswordHint(
+        directory.path,
+        request.password,
+        request.hint,
+      );
+      final updatedConfig = _cryptoService.loadConfig(directory.path);
+      if (mounted) {
+        setState(() {
+          final index =
+              _openedDirs.indexWhere((item) => item.path == directory.path);
+          final latestDirectory = index >= 0 ? _openedDirs[index] : _currentDir;
+          final updatedDirectory = latestDirectory?.copyWith(
+            config: updatedConfig,
+          );
+          if (index >= 0 && updatedDirectory != null) {
+            _openedDirs[index] = updatedDirectory;
+          }
+          if (_currentDir?.path == directory.path) {
+            _currentDir = updatedDirectory ??
+                _currentDir!.copyWith(config: updatedConfig);
+          }
+        });
+        ErrorHelper.showSuccess(context, strings.passwordHintUpdated);
+      }
+    } catch (error) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: error.toString(),
+          operation: 'password-hint/update',
         );
       }
     } finally {
@@ -2697,6 +2757,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               unawaited(showRootDirectoryProperties(
                 context: context,
                 directory: directory,
+                onManagePasswordHint: directory.isVerified
+                    ? () => _manageRootPasswordHint(directory)
+                    : null,
               ));
             },
             onChangeRootPassword: (directory) {

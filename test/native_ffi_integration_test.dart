@@ -80,6 +80,56 @@ void main() {
       expect(native.secReadDir(rootID, '目录').single['name'], '笔记.txt');
     });
 
+    test('reads and updates public password hints through the native ABI',
+        () async {
+      final tmp = await Directory.systemTemp.createTemp('safe-disk-hint-');
+      addTearDown(() async {
+        if (await tmp.exists()) await tmp.delete(recursive: true);
+      });
+
+      final rootPath = '${tmp.path}/root';
+      const password = 'correct-password';
+      final native = NativeLib.instance;
+      native.secCreateRootConfig(
+        rootPath,
+        password,
+        jsonEncode({
+          'dataFactory': 'AES-CTR',
+          'nameFactory': 'None',
+          'keyStrengthMs': 1,
+          'passwordHint': 'first pet',
+        }),
+      );
+
+      expect(native.secRootReadPasswordHint(rootPath), 'first pet');
+      expect(
+        () => native.secRootUpdatePasswordHint(
+          rootPath,
+          'wrong-password',
+          'must not replace',
+        ),
+        throwsA(
+          isA<NativeOperationException>()
+              .having((error) => error.code, 'code', 1001),
+        ),
+      );
+      expect(native.secRootReadPasswordHint(rootPath), 'first pet');
+
+      native.secRootUpdatePasswordHint(rootPath, password, 'school mascot');
+      expect(native.secRootReadPasswordHint(rootPath), 'school mascot');
+      native.secRootUpdatePasswordHint(rootPath, password, '');
+      expect(native.secRootReadPasswordHint(rootPath), isEmpty);
+
+      final rootID = native.secRootOpen(rootPath, password, '');
+      addTearDown(() {
+        try {
+          native.secRootClose(rootID);
+        } catch (_) {
+          // The session is best-effort cleanup for an integration test.
+        }
+      });
+    });
+
     test(
         'handles encrypted file and directory names through root and transfer APIs',
         () async {

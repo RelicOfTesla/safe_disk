@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../l10n/generated/app_localizations.dart';
@@ -8,6 +10,7 @@ import 'property_overlay.dart';
 Future<void> showRootDirectoryProperties({
   required BuildContext context,
   required EncryptedDirectory directory,
+  Future<void> Function()? onManagePasswordHint,
 }) {
   final strings = AppLocalizations.of(context)!;
   final config = directory.config.toJson();
@@ -49,12 +52,32 @@ Future<void> showRootDirectoryProperties({
           ? strings.passwordChangeDirectly
           : strings.passwordChangeMigrationRequired,
     ),
+    if (directory.isVerified)
+      PropertyValue(
+        strings.passwordHint,
+        directory.config.passwordHint.isEmpty
+            ? strings.passwordHintNotSet
+            : directory.config.passwordHint,
+        copyable: false,
+      ),
   ];
   return showPropertyOverlay(
     context: context,
     title: strings.rootDirectoryProperties,
     values: values,
     notice: Text(strings.rootPropertiesSensitiveNotice),
+    actionsBuilder: onManagePasswordHint == null
+        ? null
+        : (context, close) => Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonal(
+                onPressed: () {
+                  close();
+                  unawaited(onManagePasswordHint());
+                },
+                child: Text(strings.managePasswordHint),
+              ),
+            ),
   );
 }
 

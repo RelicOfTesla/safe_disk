@@ -18,6 +18,7 @@ Future<void> showPropertyOverlay({
   required String title,
   required List<PropertyValue> values,
   Widget? notice,
+  Widget Function(BuildContext context, VoidCallback close)? actionsBuilder,
 }) {
   final overlay = Overlay.of(context, rootOverlay: true);
   final completed = Completer<void>();
@@ -36,6 +37,7 @@ Future<void> showPropertyOverlay({
       title: title,
       values: values,
       notice: notice,
+      actionsBuilder: actionsBuilder,
       onClose: close,
     ),
   );
@@ -49,11 +51,14 @@ class _PropertyOverlay extends StatelessWidget {
     required this.values,
     required this.onClose,
     this.notice,
+    this.actionsBuilder,
   });
 
   final String title;
   final List<PropertyValue> values;
   final Widget? notice;
+  final Widget Function(BuildContext context, VoidCallback close)?
+      actionsBuilder;
   final VoidCallback onClose;
 
   @override
@@ -114,6 +119,10 @@ class _PropertyOverlay extends StatelessWidget {
                               if (notice != null) ...[
                                 const SizedBox(height: 4),
                                 notice!,
+                              ],
+                              if (actionsBuilder != null) ...[
+                                const SizedBox(height: 8),
+                                actionsBuilder!(context, onClose),
                               ],
                               Align(
                                 alignment: Alignment.centerRight,

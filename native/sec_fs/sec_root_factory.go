@@ -56,6 +56,10 @@ type CreateRootOptions struct {
 	// PasswordChangeable stores a random content key wrapped by a
 	// password-derived key, allowing password changes without data rewrite.
 	PasswordChangeable bool
+
+	// PasswordHint is public metadata that can help a user remember the
+	// password. It is never used for authentication or key derivation.
+	PasswordHint string
 }
 
 // CreateRootOption is a functional option for configuring CreateRootConfig.
@@ -95,6 +99,13 @@ func WithKeyStrengthMs(ms int) CreateRootOption {
 func WithConfigFileName(name string) CreateRootOption {
 	return func(o *CreateRootOptions) {
 		o.ConfigFileName = name
+	}
+}
+
+// WithPasswordHint stores optional public password-reminder metadata.
+func WithPasswordHint(hint string) CreateRootOption {
+	return func(o *CreateRootOptions) {
+		o.PasswordHint = hint
 	}
 }
 
@@ -329,6 +340,9 @@ func createRootConfig(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, opti
 	if keyInfo == nil {
 		return nil, NewConfigError("keyInfo", "keyInfo is required", nil)
 	}
+	if err := validatePasswordHint(opts.PasswordHint); err != nil {
+		return nil, err
+	}
 
 	// Ensure root directory exists
 	if err := os.MkdirAll(string(rootPath), SecureDirMode); err != nil {
@@ -414,6 +428,9 @@ func createRootConfig(rootPath FullStorePath, keyInfo crypto_hkdf.IKeyInfo, opti
 	if err := writePasswordVerifier(cfg, keyInfo.GetKey()); err != nil {
 		return nil, err
 	}
+	if err := writePasswordHint(cfg, opts.PasswordHint); err != nil {
+		return nil, err
+	}
 
 	return cfg, nil
 }
@@ -448,6 +465,9 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 	// Validate parameters
 	if rootPath == "" {
 		return nil, "", ErrInvalidPath
+	}
+	if err := validatePasswordHint(opts.PasswordHint); err != nil {
+		return nil, "", err
 	}
 
 	// Ensure root directory exists
@@ -563,6 +583,9 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 		}
 	}
 	if err := writePasswordVerifier(cfg, keyInfo.GetKey()); err != nil {
+		return nil, "", err
+	}
+	if err := writePasswordHint(cfg, opts.PasswordHint); err != nil {
 		return nil, "", err
 	}
 	if opts.PasswordChangeable {

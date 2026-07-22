@@ -306,7 +306,7 @@ func stageRootConfig(cfgPath string) (string, *config.FileConfig, error) {
 	if err != nil {
 		return "", nil, NewConfigError("config", "failed to read current config", err)
 	}
-	temp, err := os.CreateTemp(filepath.Dir(cfgPath), ".cryption-password-change-*")
+	temp, err := os.CreateTemp(filepath.Dir(cfgPath), ".safe_disk.root-config-*")
 	if err != nil {
 		return "", nil, NewConfigError("config", "failed to create staged config", err)
 	}

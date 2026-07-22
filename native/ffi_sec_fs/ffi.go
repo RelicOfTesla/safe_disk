@@ -426,6 +426,7 @@ func (m *ffiIgnoreMatcher) shouldIgnore(name string, isDir bool, names map[strin
 //   - keyStrengthMs: key strength in milliseconds (int)
 //   - configFileName: custom config file name (string)
 //   - passwordChangeable: create a root that supports password changes (bool)
+//   - passwordHint: optional public password reminder (UTF-8, up to 256 bytes)
 func parseCreateRootOptions(optionsJSON string) []sec_fs.CreateRootOption {
 	if optionsJSON == "" {
 		return nil
@@ -467,6 +468,10 @@ func parseCreateRootOptions(optionsJSON string) []sec_fs.CreateRootOption {
 
 	if passwordChangeable, ok := optsMap["passwordChangeable"].(bool); ok {
 		options = append(options, sec_fs.WithPasswordChangeable(passwordChangeable))
+	}
+
+	if passwordHint, ok := optsMap["passwordHint"].(string); ok {
+		options = append(options, sec_fs.WithPasswordHint(passwordHint))
 	}
 
 	return options
@@ -571,6 +576,29 @@ func ChangeRootPassword_FFI(rootPath, oldPassword, newPassword string) string {
 		sec_fs.FullStorePath(rootPath),
 		oldPassword,
 		newPassword,
+	); err != nil {
+		return errorResponse(err)
+	}
+	return Success()
+}
+
+// ReadRootPasswordHint_FFI returns public password reminder metadata without
+// opening the root. An absent or cleared hint is returned as an empty string.
+func ReadRootPasswordHint_FFI(rootPath string) string {
+	hint, err := sec_fs.ReadRootPasswordHint(sec_fs.FullStorePath(rootPath))
+	if err != nil {
+		return errorResponse(err)
+	}
+	return SuccessWithData(map[string]string{"hint": hint})
+}
+
+// UpdateRootPasswordHint_FFI validates the current password and atomically
+// replaces the root config with the new public hint metadata.
+func UpdateRootPasswordHint_FFI(rootPath, password, hint string) string {
+	if err := sec_fs.UpdateRootPasswordHintQuick(
+		sec_fs.FullStorePath(rootPath),
+		password,
+		hint,
 	); err != nil {
 		return errorResponse(err)
 	}

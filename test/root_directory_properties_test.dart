@@ -20,6 +20,7 @@ void main() {
       'argon2_salt': 'secret-salt',
       'argon2_time': 3,
       'argon2_memory': 65536,
+      'sec_password_hint': '第一只宠物',
     }),
   );
 
@@ -49,6 +50,7 @@ void main() {
     expect(find.text('secret-challenge'), findsNothing);
     expect(find.text('secret-tag'), findsNothing);
     expect(find.text('secret-salt'), findsNothing);
+    expect(find.text('第一只宠物'), findsOneWidget);
   });
 
   testWidgets('当前格式明确拒绝伪原地改密', (tester) async {
@@ -104,6 +106,37 @@ void main() {
 
     expect(find.text('可直接修改'), findsOneWidget);
     expect(rootSupportsPasswordChange(changeableDirectory), isTrue);
+  });
+
+  testWidgets('unlocked root properties close before opening hint management',
+      (tester) async {
+    var managed = false;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showRootDirectoryProperties(
+            context: context,
+            directory: directory,
+            onManagePasswordHint: () async {
+              managed = true;
+            },
+          ),
+          child: const Text('打开'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('打开'));
+    await tester.pump();
+    final manageButton = find.text('管理密码提示');
+    await tester.ensureVisible(manageButton);
+    await tester.tap(manageButton);
+    await tester.pump();
+
+    expect(managed, isTrue);
+    expect(find.byKey(const Key('property-overlay')), findsNothing);
   });
 
   testWidgets('root properties use the active English locale', (tester) async {

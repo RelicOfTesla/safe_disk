@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -80,6 +81,72 @@ func TestCreateRootConfigQuickUsesExplicitSecureDefaults(t *testing.T) {
 	deriverFactory, err := cfg.GetStr("sec_deriver_factory")
 	require.NoError(t, err)
 	require.Equal(t, sec_fs.DefaultDeriverFactoryName, deriverFactory)
+}
+
+func TestRootPasswordHintLifecycle(t *testing.T) {
+	for _, passwordChangeable := range []bool{false, true} {
+		t.Run(map[bool]string{false: "legacy", true: "changeable"}[passwordChangeable], func(t *testing.T) {
+			rootPath := sec_fs.FullStorePath(filepath.Join(t.TempDir(), "root"))
+			const password = "correct-password"
+			_, _, err := sec_fs.CreateRootConfigQuick(
+				rootPath,
+				password,
+				sec_fs.WithKeyStrengthMs(1),
+				sec_fs.WithPasswordChangeable(passwordChangeable),
+				sec_fs.WithPasswordHint("stored safely in public metadata"),
+			)
+			require.NoError(t, err)
+
+			hint, err := sec_fs.ReadRootPasswordHint(rootPath)
+			require.NoError(t, err)
+			require.Equal(t, "stored safely in public metadata", hint)
+
+			err = sec_fs.UpdateRootPasswordHintQuick(rootPath, "wrong-password", "must not replace")
+			require.ErrorIs(t, err, sec_fs.ErrInvalidPassword)
+			hint, err = sec_fs.ReadRootPasswordHint(rootPath)
+			require.NoError(t, err)
+			require.Equal(t, "stored safely in public metadata", hint)
+
+			err = sec_fs.UpdateRootPasswordHintQuick(rootPath, password, strings.Repeat("a", 257))
+			require.ErrorIs(t, err, sec_fs.ErrInvalidConfig)
+			err = sec_fs.UpdateRootPasswordHintQuick(rootPath, password, string([]byte{0xff}))
+			require.ErrorIs(t, err, sec_fs.ErrInvalidConfig)
+			hint, err = sec_fs.ReadRootPasswordHint(rootPath)
+			require.NoError(t, err)
+			require.Equal(t, "stored safely in public metadata", hint)
+
+			require.NoError(t, sec_fs.UpdateRootPasswordHintQuick(rootPath, password, ""))
+			hint, err = sec_fs.ReadRootPasswordHint(rootPath)
+			require.NoError(t, err)
+			require.Empty(t, hint)
+
+			root, err := sec_fs.OpenRootQuick(rootPath, password)
+			require.NoError(t, err)
+			require.NoError(t, root.Close())
+			wrongRoot, err := sec_fs.OpenRootQuick(rootPath, "wrong-password")
+			require.Nil(t, wrongRoot)
+			require.ErrorIs(t, err, sec_fs.ErrInvalidPassword)
+		})
+	}
+}
+
+func TestCreateRootPasswordHintValidationAndAbsentDefault(t *testing.T) {
+	rootPath := sec_fs.FullStorePath(filepath.Join(t.TempDir(), "root"))
+	_, _, err := sec_fs.CreateRootConfigQuick(rootPath, "password", sec_fs.WithKeyStrengthMs(1))
+	require.NoError(t, err)
+	hint, err := sec_fs.ReadRootPasswordHint(rootPath)
+	require.NoError(t, err)
+	require.Empty(t, hint)
+
+	invalidPath := sec_fs.FullStorePath(filepath.Join(t.TempDir(), "invalid"))
+	_, _, err = sec_fs.CreateRootConfigQuick(
+		invalidPath,
+		"password",
+		sec_fs.WithPasswordHint(string([]byte{0xff})),
+	)
+	require.ErrorIs(t, err, sec_fs.ErrInvalidConfig)
+	_, statErr := os.Stat(string(invalidPath))
+	require.True(t, os.IsNotExist(statErr), "invalid hint must fail before creating a root")
 }
 
 func TestOpenRootQuickRejectsRootWithoutPasswordVerifier(t *testing.T) {

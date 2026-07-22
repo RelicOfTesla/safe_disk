@@ -2162,6 +2162,78 @@ abstract class AppLocalizations {
   /// **'密码'**
   String get password;
 
+  /// No description provided for @passwordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码提示'**
+  String get passwordHint;
+
+  /// No description provided for @showPasswordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示密码提示'**
+  String get showPasswordHint;
+
+  /// No description provided for @hidePasswordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'隐藏密码提示'**
+  String get hidePasswordHint;
+
+  /// No description provided for @passwordHintCreationNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅用于帮助回忆密码；能访问此目录的人可看到它，不能用于找回密码。'**
+  String get passwordHintCreationNotice;
+
+  /// No description provided for @passwordHintPublicNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'提示会显示给能访问此目录的人，不能用于找回密码。'**
+  String get passwordHintPublicNotice;
+
+  /// No description provided for @passwordHintTooLong.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码提示最多 256 字节'**
+  String get passwordHintTooLong;
+
+  /// No description provided for @passwordHintNotSet.
+  ///
+  /// In zh, this message translates to:
+  /// **'未设置'**
+  String get passwordHintNotSet;
+
+  /// No description provided for @managePasswordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'管理密码提示'**
+  String get managePasswordHint;
+
+  /// No description provided for @passwordHintEditNotice.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入新提示，或留空以清除。提示会显示给能访问此目录的人，不能用于找回密码。'**
+  String get passwordHintEditNotice;
+
+  /// No description provided for @passwordHintPasswordRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入当前密码以更新密码提示'**
+  String get passwordHintPasswordRequired;
+
+  /// No description provided for @savePasswordHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存提示'**
+  String get savePasswordHint;
+
+  /// No description provided for @passwordHintUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码提示已更新'**
+  String get passwordHintUpdated;
+
   /// No description provided for @unlock.
   ///
   /// In zh, this message translates to:

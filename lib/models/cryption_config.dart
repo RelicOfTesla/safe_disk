@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// CryptionConfig - JSON container for encryption configuration
 ///
 /// This class does NOT parse specific fields. It stores the raw JSON
@@ -21,6 +23,15 @@ class CryptionConfig {
   String get version => _json['version'] as String? ?? '1.0';
   String get algorithm => _json['algorithm'] as String? ?? 'AES-256-GCM';
   bool get mutable => _json['mutable'] as bool? ?? false;
+
+  /// Public password-reminder metadata. Invalid stored values are not shown.
+  String get passwordHint {
+    final value = _json['sec_password_hint'];
+    if (value is! String || value.isEmpty || utf8.encode(value).length > 256) {
+      return '';
+    }
+    return value;
+  }
 }
 
 class QuickListEntry {

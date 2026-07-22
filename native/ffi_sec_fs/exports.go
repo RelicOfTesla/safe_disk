@@ -78,6 +78,20 @@ func sec_root_change_password(rootPath *C.char, oldPassword *C.char, newPassword
 	return C.CString(result)
 }
 
+//export sec_root_read_password_hint
+func sec_root_read_password_hint(rootPath *C.char) *C.char {
+	return C.CString(ReadRootPasswordHint_FFI(C.GoString(rootPath)))
+}
+
+//export sec_root_update_password_hint
+func sec_root_update_password_hint(rootPath *C.char, password *C.char, hint *C.char) *C.char {
+	return C.CString(UpdateRootPasswordHint_FFI(
+		C.GoString(rootPath),
+		C.GoString(password),
+		C.GoString(hint),
+	))
+}
+
 // ==================== File Operations ====================
 
 //export sec_file_open

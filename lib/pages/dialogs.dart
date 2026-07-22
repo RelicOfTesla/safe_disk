@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 import '../l10n/generated/app_localizations.dart';
@@ -176,6 +178,7 @@ class _CreateEncryptedDirectoryDialogState
     extends State<CreateEncryptedDirectoryDialog> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _passwordHintController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _showAdvanced = false;
@@ -184,11 +187,13 @@ class _CreateEncryptedDirectoryDialogState
   String _deriverFactory = 'Argon2id';
   int _keyStrengthMs = 1000;
   bool _passwordChangeable = true;
+  bool _passwordHintTooLong = false;
 
   @override
   void dispose() {
     _passwordController.dispose();
     _confirmController.dispose();
+    _passwordHintController.dispose();
     super.dispose();
   }
 
@@ -294,6 +299,26 @@ class _CreateEncryptedDirectoryDialogState
                     if (value != null) setState(() => _keyStrengthMs = value);
                   },
                 ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passwordHintController,
+                  minLines: 2,
+                  maxLines: 3,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  onChanged: (_) {
+                    if (_passwordHintTooLong) {
+                      setState(() => _passwordHintTooLong = false);
+                    }
+                  },
+                  decoration: InputDecoration(
+                    labelText: strings.passwordHint,
+                    helperText: strings.passwordHintCreationNotice,
+                    errorText: _passwordHintTooLong
+                        ? strings.passwordHintTooLong
+                        : null,
+                  ),
+                ),
                 if (_nameFactory == 'None')
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
@@ -330,6 +355,11 @@ class _CreateEncryptedDirectoryDialogState
               return;
             }
 
+            if (utf8.encode(_passwordHintController.text).length > 256) {
+              setState(() => _passwordHintTooLong = true);
+              return;
+            }
+
             Navigator.pop(
               context,
               CreateRootRequest(
@@ -339,6 +369,7 @@ class _CreateEncryptedDirectoryDialogState
                 deriverFactory: _deriverFactory,
                 keyStrengthMs: _keyStrengthMs,
                 passwordChangeable: _passwordChangeable,
+                passwordHint: _passwordHintController.text,
               ),
             );
           },

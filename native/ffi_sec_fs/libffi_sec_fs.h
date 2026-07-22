@@ -104,6 +104,8 @@ extern char* sec_dir_cursor_read_page(int64_t cursorID, int limit);
 extern char* sec_dir_cursor_close(int64_t cursorID);
 extern char* sec_create_root_config(char* rootPath, char* password, char* optionsJSON);
 extern char* sec_root_change_password(char* rootPath, char* oldPassword, char* newPassword);
+extern char* sec_root_read_password_hint(char* rootPath);
+extern char* sec_root_update_password_hint(char* rootPath, char* password, char* hint);
 extern char* sec_file_open(int64_t rootID, char* path, int mode);
 extern char* sec_file_close(int64_t fileID);
 extern char* sec_file_read(int64_t fileID, int size);

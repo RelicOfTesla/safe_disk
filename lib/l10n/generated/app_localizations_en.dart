@@ -1276,6 +1276,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String get password => 'Password';
 
   @override
+  String get passwordHint => 'Password hint';
+
+  @override
+  String get showPasswordHint => 'Show password hint';
+
+  @override
+  String get hidePasswordHint => 'Hide password hint';
+
+  @override
+  String get passwordHintCreationNotice =>
+      'Helps you remember the password. Anyone with access to this directory can see it; it cannot recover your password.';
+
+  @override
+  String get passwordHintPublicNotice =>
+      'Anyone with access to this directory can see this hint. It cannot recover your password.';
+
+  @override
+  String get passwordHintTooLong => 'Password hints are limited to 256 bytes.';
+
+  @override
+  String get passwordHintNotSet => 'Not set';
+
+  @override
+  String get managePasswordHint => 'Manage password hint';
+
+  @override
+  String get passwordHintEditNotice =>
+      'Enter a new hint, or leave it empty to clear it. Anyone with access to this directory can see it; it cannot recover your password.';
+
+  @override
+  String get passwordHintPasswordRequired =>
+      'Enter the current password to update the password hint.';
+
+  @override
+  String get savePasswordHint => 'Save hint';
+
+  @override
+  String get passwordHintUpdated => 'Password hint updated.';
+
+  @override
   String get unlock => 'Unlock';
 
   @override

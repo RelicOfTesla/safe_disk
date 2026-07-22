@@ -8,6 +8,7 @@ class CreateRootRequest {
     this.deriverFactory = 'Argon2id',
     this.keyStrengthMs = 1000,
     this.passwordChangeable = true,
+    this.passwordHint = '',
   });
 
   // Secure interactive subset of native/sec_fs/crypto_all. RC4 and the
@@ -23,6 +24,7 @@ class CreateRootRequest {
   final String deriverFactory;
   final int keyStrengthMs;
   final bool passwordChangeable;
+  final String passwordHint;
 
   String get optionsJSON => jsonEncode({
         'dataFactory': dataFactory,
@@ -30,5 +32,6 @@ class CreateRootRequest {
         'deriverFactory': deriverFactory,
         'keyStrengthMs': keyStrengthMs,
         'passwordChangeable': passwordChangeable,
+        'passwordHint': passwordHint,
       });
 }

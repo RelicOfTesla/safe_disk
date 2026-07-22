@@ -47,6 +47,18 @@ typedef SecRootChangePasswordDart = Pointer<Utf8> Function(
     Pointer<Utf8> oldPassword,
     Pointer<Utf8> newPassword);
 
+// sec_root_read_password_hint: (rootPath) -> JSON
+typedef SecRootReadPasswordHintC = Pointer<Utf8> Function(
+    Pointer<Utf8> rootPath);
+typedef SecRootReadPasswordHintDart = Pointer<Utf8> Function(
+    Pointer<Utf8> rootPath);
+
+// sec_root_update_password_hint: (rootPath, password, hint) -> JSON
+typedef SecRootUpdatePasswordHintC = Pointer<Utf8> Function(
+    Pointer<Utf8> rootPath, Pointer<Utf8> password, Pointer<Utf8> hint);
+typedef SecRootUpdatePasswordHintDart = Pointer<Utf8> Function(
+    Pointer<Utf8> rootPath, Pointer<Utf8> password, Pointer<Utf8> hint);
+
 // sec_file_open: (rootID, path, mode) -> JSON string
 typedef SecFileOpenC = Pointer<Utf8> Function(
     Int64 rootID, Pointer<Utf8> path, Int32 mode);
@@ -254,6 +266,8 @@ class NativeBindings {
   late final SecRootCloseDart secRootClose;
   late final SecCreateRootConfigDart secCreateRootConfig;
   late final SecRootChangePasswordDart secRootChangePassword;
+  late final SecRootReadPasswordHintDart secRootReadPasswordHint;
+  late final SecRootUpdatePasswordHintDart secRootUpdatePasswordHint;
   late final SecFileOpenDart secFileOpen;
   late final SecFileCloseDart secFileClose;
   late final SecFileReadDart secFileRead;
@@ -349,6 +363,11 @@ class NativeBindings {
     secRootChangePassword = _lib!
         .lookupFunction<SecRootChangePasswordC, SecRootChangePasswordDart>(
             'sec_root_change_password');
+    secRootReadPasswordHint = _lib!
+        .lookupFunction<SecRootReadPasswordHintC, SecRootReadPasswordHintDart>(
+            'sec_root_read_password_hint');
+    secRootUpdatePasswordHint = _lib!.lookupFunction<SecRootUpdatePasswordHintC,
+        SecRootUpdatePasswordHintDart>('sec_root_update_password_hint');
     secFileOpen =
         _lib!.lookupFunction<SecFileOpenC, SecFileOpenDart>('sec_file_open');
     secFileClose =

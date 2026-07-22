@@ -290,6 +290,7 @@ class HomeShell extends StatelessWidget {
       return PasswordPrompt(
         directoryPath: directory.path,
         onUnlock: onUnlock,
+        passwordHint: directory.config.passwordHint,
       );
     }
 

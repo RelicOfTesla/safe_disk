@@ -1173,6 +1173,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get password => '密码';
 
   @override
+  String get passwordHint => '密码提示';
+
+  @override
+  String get showPasswordHint => '显示密码提示';
+
+  @override
+  String get hidePasswordHint => '隐藏密码提示';
+
+  @override
+  String get passwordHintCreationNotice => '仅用于帮助回忆密码；能访问此目录的人可看到它，不能用于找回密码。';
+
+  @override
+  String get passwordHintPublicNotice => '提示会显示给能访问此目录的人，不能用于找回密码。';
+
+  @override
+  String get passwordHintTooLong => '密码提示最多 256 字节';
+
+  @override
+  String get passwordHintNotSet => '未设置';
+
+  @override
+  String get managePasswordHint => '管理密码提示';
+
+  @override
+  String get passwordHintEditNotice => '输入新提示，或留空以清除。提示会显示给能访问此目录的人，不能用于找回密码。';
+
+  @override
+  String get passwordHintPasswordRequired => '请输入当前密码以更新密码提示';
+
+  @override
+  String get savePasswordHint => '保存提示';
+
+  @override
+  String get passwordHintUpdated => '密码提示已更新';
+
+  @override
   String get unlock => '解锁';
 
   @override
