@@ -4,6 +4,23 @@
 >
 > 最后审计：2026-07-13。
 
+## 2026-07 属性可访问性
+
+### UI-55 属性对话框的属性值复制与选中：100%
+
+验收边界：
+
+- 属性值使用 `SelectableText`，支持平台原生的鼠标选择和键盘复制。
+- 非空且明确安全的值提供带标签的复制按钮；反馈只说明已复制属性值，不回显内容。
+- `PropertyValue.copyable: false` 没有复制入口，防止密码、密钥或未来敏感字段写入系统剪贴板。
+- 本任务不替代 Windows、macOS 和 Linux 实机选择、快捷键与读屏验收。
+
+实际测试证据：
+
+- `test/property_overlay_test.dart` 覆盖安全值写入系统剪贴板、反馈文案、可选中文本和敏感字段无复制入口。
+- `test/file_item_actions_test.dart`、`test/root_directory_properties_test.dart` 覆盖文件/root 属性入口。
+- `flutter analyze --no-pub` 通过；完整 `flutter test --no-pub --timeout 180s -r compact` 为 236 通过、12 跳过。
+
 ## 2026-07 基础安全
 
 ### 新 root 安全默认值与随机 salt：100%

@@ -1545,6 +1545,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String copyPropertyValue(String label) {
+    return 'Copy $label';
+  }
+
+  @override
+  String get propertyValueCopied => 'Property value copied';
+
+  @override
   String get filterCurrentDirectoryHint =>
       'Filter files and folders in the current directory...';
 

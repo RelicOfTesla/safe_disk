@@ -1427,6 +1427,14 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String copyPropertyValue(String label) {
+    return '复制$label';
+  }
+
+  @override
+  String get propertyValueCopied => '已复制属性值';
+
+  @override
   String get filterCurrentDirectoryHint => '筛选当前目录的文件和文件夹…';
 
   @override

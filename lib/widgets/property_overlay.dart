@@ -6,10 +6,11 @@ import 'package:flutter/services.dart';
 import '../l10n/generated/app_localizations.dart';
 
 class PropertyValue {
-  const PropertyValue(this.label, this.value);
+  const PropertyValue(this.label, this.value, {this.copyable = true});
 
   final String label;
   final String value;
+  final bool copyable;
 }
 
 Future<void> showPropertyOverlay({
@@ -145,6 +146,8 @@ class _PropertyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context)!;
+    final displayValue = value.value.isEmpty ? strings.unknown : value.value;
+    final canCopy = value.copyable && value.value.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -158,10 +161,33 @@ class _PropertyRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(value.value.isEmpty ? strings.unknown : value.value),
+            child: SelectableText(
+              displayValue,
+              key: Key('property-value-${value.label}'),
+            ),
           ),
+          if (canCopy)
+            Semantics(
+              button: true,
+              label: strings.copyPropertyValue(value.label),
+              child: IconButton(
+                key: Key('copy-property-${value.label}'),
+                tooltip: strings.copyPropertyValue(value.label),
+                icon: const Icon(Icons.copy_outlined),
+                onPressed: () => _copyValue(context),
+              ),
+            ),
         ],
       ),
+    );
+  }
+
+  Future<void> _copyValue(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: value.value));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(AppLocalizations.of(context)!.propertyValueCopied)),
     );
   }
 }

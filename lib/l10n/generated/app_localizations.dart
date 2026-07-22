@@ -2642,6 +2642,18 @@ abstract class AppLocalizations {
   /// **'{label}：'**
   String propertyLabel(String label);
 
+  /// No description provided for @copyPropertyValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制{label}'**
+  String copyPropertyValue(String label);
+
+  /// No description provided for @propertyValueCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制属性值'**
+  String get propertyValueCopied;
+
   /// No description provided for @filterCurrentDirectoryHint.
   ///
   /// In zh, this message translates to:
