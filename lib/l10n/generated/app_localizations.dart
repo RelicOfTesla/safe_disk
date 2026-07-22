@@ -1106,6 +1106,78 @@ abstract class AppLocalizations {
   /// **'已替换 {count} 处'**
   String notepadReplacedCount(int count);
 
+  /// No description provided for @welcomeGuideWelcomeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'欢迎使用 Safe Disk'**
+  String get welcomeGuideWelcomeTitle;
+
+  /// No description provided for @welcomeGuideWelcomeContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'Safe Disk 是一款安全的加密文件管理器，帮助您保护私密数据。\n\n所有文件都使用 AES-256-GCM 加密算法保护，确保只有您能访问。'**
+  String get welcomeGuideWelcomeContent;
+
+  /// No description provided for @welcomeGuideEncryptedDirectoryTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'加密目录'**
+  String get welcomeGuideEncryptedDirectoryTitle;
+
+  /// No description provided for @welcomeGuideEncryptedDirectoryContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建加密目录来保护您的文件：\n\n- 打开目录：打开已有的加密目录\n- 创建目录：创建新的加密目录\n\n加密目录中的所有文件都会自动加密保护。'**
+  String get welcomeGuideEncryptedDirectoryContent;
+
+  /// No description provided for @welcomeGuideFeaturesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'核心功能'**
+  String get welcomeGuideFeaturesTitle;
+
+  /// No description provided for @welcomeGuideFeaturesContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'- 文件浏览：浏览和管理加密目录中的文件\n- 安全记事本：编辑文本文件（.txt, .md）\n- 图片浏览器：查看加密的图片文件\n- 批量导出：选择多个文件一次性导出'**
+  String get welcomeGuideFeaturesContent;
+
+  /// No description provided for @welcomeGuideSecurityTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全提示'**
+  String get welcomeGuideSecurityTitle;
+
+  /// No description provided for @welcomeGuideSecurityContent.
+  ///
+  /// In zh, this message translates to:
+  /// **'- 请牢记密码！密码丢失后无法恢复文件\n- 建议使用强密码（12位以上，混合字符）\n- 密钥仅在内存中缓存，关闭应用后自动清除\n- 定期备份重要加密目录'**
+  String get welcomeGuideSecurityContent;
+
+  /// No description provided for @welcomeGuideDontShowAgain.
+  ///
+  /// In zh, this message translates to:
+  /// **'不再显示此引导'**
+  String get welcomeGuideDontShowAgain;
+
+  /// No description provided for @skip.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过'**
+  String get skip;
+
+  /// No description provided for @next.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步'**
+  String get next;
+
+  /// No description provided for @getStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始使用'**
+  String get getStarted;
+
   /// No description provided for @detailedErrors.
   ///
   /// In zh, this message translates to:

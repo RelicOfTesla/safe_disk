@@ -581,6 +581,46 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get welcomeGuideWelcomeTitle => 'Welcome to Safe Disk';
+
+  @override
+  String get welcomeGuideWelcomeContent =>
+      'Safe Disk is an encrypted file manager that helps protect your private data.\n\nAll files are protected with AES-256-GCM encryption so that only you can access them.';
+
+  @override
+  String get welcomeGuideEncryptedDirectoryTitle => 'Encrypted directories';
+
+  @override
+  String get welcomeGuideEncryptedDirectoryContent =>
+      'Create encrypted directories to protect your files:\n\n- Open directory: Open an existing encrypted directory\n- Create directory: Create a new encrypted directory\n\nAll files in an encrypted directory are protected automatically.';
+
+  @override
+  String get welcomeGuideFeaturesTitle => 'Core features';
+
+  @override
+  String get welcomeGuideFeaturesContent =>
+      '- File browser: Browse and manage files in encrypted directories\n- Secure notepad: Edit text files (.txt, .md)\n- Image viewer: View encrypted image files\n- Batch export: Export multiple files at once';
+
+  @override
+  String get welcomeGuideSecurityTitle => 'Security tips';
+
+  @override
+  String get welcomeGuideSecurityContent =>
+      '- Keep your password safe. Files cannot be recovered if it is lost.\n- Use a strong password (12 or more characters with mixed character types).\n- Keys are kept only in memory and are cleared when the app closes.\n- Back up important encrypted directories regularly.';
+
+  @override
+  String get welcomeGuideDontShowAgain => 'Don\'t show this guide again';
+
+  @override
+  String get skip => 'Skip';
+
+  @override
+  String get next => 'Next';
+
+  @override
+  String get getStarted => 'Get started';
+
+  @override
   String get detailedErrors => 'Show detailed error information';
 
   @override

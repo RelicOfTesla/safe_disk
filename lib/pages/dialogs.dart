@@ -16,51 +16,40 @@ class WelcomeGuideDialog extends StatefulWidget {
 }
 
 class _WelcomeGuideDialogState extends State<WelcomeGuideDialog> {
+  static const _guidePageCount = 4;
+
   int _currentPage = 0;
   bool _neverShowAgain = false;
 
-  final List<_GuidePage> _pages = const [
-    _GuidePage(
-      icon: Icons.lock_outline,
-      iconColor: Colors.blue,
-      title: '欢迎使用 Safe Disk',
-      content: '''Safe Disk 是一款安全的加密文件管理器，帮助您保护私密数据。
-
-所有文件都使用 AES-256-GCM 加密算法保护，确保只有您能访问。''',
-    ),
-    _GuidePage(
-      icon: Icons.folder_special,
-      iconColor: Colors.orange,
-      title: '加密目录',
-      content: '''创建加密目录来保护您的文件：
-
-• 打开目录：打开已有的加密目录
-• 创建目录：创建新的加密目录
-
-加密目录中的所有文件都会自动加密保护。''',
-    ),
-    _GuidePage(
-      icon: Icons.insert_drive_file,
-      iconColor: Colors.green,
-      title: '核心功能',
-      content: '''• 文件浏览：浏览和管理加密目录中的文件
-• 安全记事本：编辑文本文件（.txt, .md）
-• 图片浏览器：查看加密的图片文件
-• 批量导出：选择多个文件一次性导出''',
-    ),
-    _GuidePage(
-      icon: Icons.security,
-      iconColor: Colors.red,
-      title: '安全提示',
-      content: '''• 请牢记密码！密码丢失后无法恢复文件
-• 建议使用强密码（12位以上，混合字符）
-• 密钥仅在内存中缓存，关闭应用后自动清除
-• 定期备份重要加密目录''',
-    ),
-  ];
+  List<_GuidePage> _pages(AppLocalizations strings) => [
+        _GuidePage(
+          icon: Icons.lock_outline,
+          iconColor: Colors.blue,
+          title: strings.welcomeGuideWelcomeTitle,
+          content: strings.welcomeGuideWelcomeContent,
+        ),
+        _GuidePage(
+          icon: Icons.folder_special,
+          iconColor: Colors.orange,
+          title: strings.welcomeGuideEncryptedDirectoryTitle,
+          content: strings.welcomeGuideEncryptedDirectoryContent,
+        ),
+        _GuidePage(
+          icon: Icons.insert_drive_file,
+          iconColor: Colors.green,
+          title: strings.welcomeGuideFeaturesTitle,
+          content: strings.welcomeGuideFeaturesContent,
+        ),
+        _GuidePage(
+          icon: Icons.security,
+          iconColor: Colors.red,
+          title: strings.welcomeGuideSecurityTitle,
+          content: strings.welcomeGuideSecurityContent,
+        ),
+      ];
 
   void _nextPage() {
-    if (_currentPage < _pages.length - 1) {
+    if (_currentPage < _guidePageCount - 1) {
       setState(() => _currentPage++);
     } else {
       _complete();
@@ -78,7 +67,9 @@ class _WelcomeGuideDialogState extends State<WelcomeGuideDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final page = _pages[_currentPage];
+    final strings = AppLocalizations.of(context)!;
+    final pages = _pages(strings);
+    final page = pages[_currentPage];
 
     return AlertDialog(
       title: Row(
@@ -105,7 +96,7 @@ class _WelcomeGuideDialogState extends State<WelcomeGuideDialog> {
           // Page indicator
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_pages.length, (index) {
+            children: List.generate(pages.length, (index) {
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 width: 8,
@@ -121,7 +112,7 @@ class _WelcomeGuideDialogState extends State<WelcomeGuideDialog> {
           ),
           const SizedBox(height: 16),
           // "Don't show again" checkbox (only on last page)
-          if (_currentPage == _pages.length - 1)
+          if (_currentPage == _guidePageCount - 1)
             Row(
               children: [
                 Checkbox(
@@ -130,10 +121,10 @@ class _WelcomeGuideDialogState extends State<WelcomeGuideDialog> {
                     setState(() => _neverShowAgain = value ?? false);
                   },
                 ),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    '不再显示此引导',
-                    style: TextStyle(fontSize: 13),
+                    strings.welcomeGuideDontShowAgain,
+                    style: const TextStyle(fontSize: 13),
                   ),
                 ),
               ],
@@ -143,11 +134,13 @@ class _WelcomeGuideDialogState extends State<WelcomeGuideDialog> {
       actions: [
         TextButton(
           onPressed: _skip,
-          child: const Text('跳过'),
+          child: Text(strings.skip),
         ),
         ElevatedButton(
           onPressed: _nextPage,
-          child: Text(_currentPage < _pages.length - 1 ? '下一步' : '开始使用'),
+          child: Text(
+            _currentPage < pages.length - 1 ? strings.next : strings.getStarted,
+          ),
         ),
       ],
     );

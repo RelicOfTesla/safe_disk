@@ -64,12 +64,16 @@ void main() {
           currentFileName: 'report.txt',
           estimatedSecondsRemaining: 65,
         ),
+        canCancel: true,
+        onCancel: _onCancel,
       ),
     ));
 
     expect(find.text('Processed: 2 / 5'), findsOneWidget);
     expect(find.text('Current: report.txt'), findsOneWidget);
     expect(find.text('Estimated remaining: 1 min 5 sec'), findsOneWidget);
-    expect(find.text('Cancel'), findsNothing);
+    expect(find.text('Cancel'), findsOneWidget);
   });
 }
+
+void _onCancel() {}

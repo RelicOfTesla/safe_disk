@@ -159,7 +159,7 @@ class _ProgressDialogState extends State<ProgressDialog> {
         if (widget.canCancel && widget.onCancel != null)
           TextButton(
             onPressed: widget.onCancel,
-            child: const Text('取消'),
+            child: Text(strings.cancel),
           ),
       ],
     );

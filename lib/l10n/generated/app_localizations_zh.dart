@@ -532,6 +532,46 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get welcomeGuideWelcomeTitle => '欢迎使用 Safe Disk';
+
+  @override
+  String get welcomeGuideWelcomeContent =>
+      'Safe Disk 是一款安全的加密文件管理器，帮助您保护私密数据。\n\n所有文件都使用 AES-256-GCM 加密算法保护，确保只有您能访问。';
+
+  @override
+  String get welcomeGuideEncryptedDirectoryTitle => '加密目录';
+
+  @override
+  String get welcomeGuideEncryptedDirectoryContent =>
+      '创建加密目录来保护您的文件：\n\n- 打开目录：打开已有的加密目录\n- 创建目录：创建新的加密目录\n\n加密目录中的所有文件都会自动加密保护。';
+
+  @override
+  String get welcomeGuideFeaturesTitle => '核心功能';
+
+  @override
+  String get welcomeGuideFeaturesContent =>
+      '- 文件浏览：浏览和管理加密目录中的文件\n- 安全记事本：编辑文本文件（.txt, .md）\n- 图片浏览器：查看加密的图片文件\n- 批量导出：选择多个文件一次性导出';
+
+  @override
+  String get welcomeGuideSecurityTitle => '安全提示';
+
+  @override
+  String get welcomeGuideSecurityContent =>
+      '- 请牢记密码！密码丢失后无法恢复文件\n- 建议使用强密码（12位以上，混合字符）\n- 密钥仅在内存中缓存，关闭应用后自动清除\n- 定期备份重要加密目录';
+
+  @override
+  String get welcomeGuideDontShowAgain => '不再显示此引导';
+
+  @override
+  String get skip => '跳过';
+
+  @override
+  String get next => '下一步';
+
+  @override
+  String get getStarted => '开始使用';
+
+  @override
   String get detailedErrors => '显示详细错误信息';
 
   @override

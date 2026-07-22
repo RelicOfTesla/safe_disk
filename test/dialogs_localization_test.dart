@@ -4,6 +4,31 @@ import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/pages/dialogs.dart';
 
 void main() {
+  testWidgets('welcome guide follows the active locale', (tester) async {
+    await tester.pumpWidget(_app(
+      child: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showDialog<void>(
+            context: context,
+            builder: (_) => const WelcomeGuideDialog(),
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Welcome to Safe Disk'), findsOneWidget);
+    expect(find.text('Skip'), findsOneWidget);
+    expect(find.text('Next'), findsOneWidget);
+
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text('Encrypted directories'), findsOneWidget);
+  });
+
   testWidgets('create encrypted directory dialog follows the active locale',
       (tester) async {
     await tester.pumpWidget(_app(

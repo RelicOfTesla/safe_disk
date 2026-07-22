@@ -20,9 +20,9 @@
 
 | 模块 | 文件 | 当前迁移状态 |
 | --- | --- | --- |
-| 应用壳与入口 | `pages/home_page.dart`、`widgets/home_shell.dart`、`widgets/welcome_screen.dart`、`widgets/native_library_startup_error.dart` | 原生库与内容窗口启动错误、欢迎页、主壳、侧边栏、导入入口和解锁提示已完成；主页中的文件/目录操作仍随下一批迁移 |
+| 应用壳与入口 | `pages/home_page.dart`、`widgets/home_shell.dart`、`widgets/welcome_screen.dart`、`widgets/native_library_startup_error.dart` | 原生库与内容窗口启动错误、欢迎页、主壳、侧边栏、导入入口和解锁提示已完成；2026-07-22 静态复核发现 `home_page.dart` 的别名、会话关闭、导入导出、文件剪贴板、新建/重命名/删除及成功/失败提示仍有大量硬编码，不能计为主页已完成 |
 | 设置 | `pages/settings_page.dart` | 已完成，全部用户文案和时长格式经 ARB 呈现；英文提示仅说明其他模块仍未完成 |
-| 通用对话框与错误 | `pages/dialogs.dart`、`widgets/error_dialog.dart`、`widgets/enhanced_snackbar.dart`、`widgets/copyable_snackbar.dart`、`widgets/progress_dialog.dart`、`widgets/batch_operation_result_dialog.dart` | 错误 descriptor、创建加密目录、路径选择、目录移除确认与批量结果对话框已完成；批量统计、失败详情、创建密码选项、路径输入、删除操作和关闭按钮都有英文 widget 覆盖。进度面板的时间、计数、当前文件，以及重跑、导入、导出和批量删除调用点的标题/状态/结果已迁移；未完成传输确认已迁移并有英文 widget 覆盖，批量删除确认已迁移且保留中文行为覆盖，尚缺英文专门断言 |
+| 通用对话框与错误 | `pages/dialogs.dart`、`widgets/error_dialog.dart`、`widgets/enhanced_snackbar.dart`、`widgets/copyable_snackbar.dart`、`widgets/progress_dialog.dart`、`widgets/batch_operation_result_dialog.dart` | 错误 descriptor、创建加密目录、路径选择、目录移除确认与批量结果对话框已完成；批量统计、失败详情、创建密码选项、路径输入、删除操作和关闭按钮都有英文 widget 覆盖。进度面板的时间、计数、当前文件和取消按钮，以及重跑、导入、导出和批量删除调用点的标题/状态/结果已迁移；欢迎引导的四页内容、跳过/下一步/开始使用也已迁移并有英文 widget 覆盖。未完成传输确认已迁移并有英文 widget 覆盖，批量删除确认已迁移且保留中文行为覆盖，尚缺英文专门断言 |
 | 目录浏览与操作 | `widgets/file_browser.dart`、`widgets/file_item_actions.dart`、`widgets/directory_background_actions.dart`、`widgets/directory_tree.dart`、`widgets/property_overlay.dart`、`widgets/entry_conflict_dialog.dart` | 已完成：筛选、排序、分页、视图模式、空态、条目类型与读屏语义，重命名校验、属性、动作面板、目录树读取/分页/重试，以及冲突确认/批量策略/自动命名后缀均进入 ARB；后续只需随主页的其余确认对话框迁移 |
 | Root 与侧边栏 | `widgets/sidebar.dart`、`widgets/root_directory_action_dialog.dart`、`widgets/root_directory_properties.dart`、`widgets/root_password_change_dialog.dart`、`widgets/password_prompt.dart` | 已完成；共享属性浮层也已支持按 locale 显示标签与在长文本下滚动 |
 | 安全记事本 | `widgets/secure_notepad.dart`、`widgets/secure_notepad_sections.dart`、`windows/secure_notepad_window.dart` | 已完成：主窗口草稿恢复、关闭确认、编辑工具栏、加载重试、保存/草稿状态、剪贴板监视和查找替换，以及子窗口启动错误壳均进入 ARB；错误组件可本地化。仍待按 D 批次补全子窗口实际编辑路径的英文视觉与读屏验收 |
