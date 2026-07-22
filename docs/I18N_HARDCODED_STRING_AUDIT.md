@@ -12,14 +12,14 @@
 - `CJK 待人工复核`：可能是协议、日志或测试数据，须登记理由后才可排除。
 - 英文候选用于发现未本地化 fallback；技术标识、URL、协议字段不应翻译。
 
-候选总数：76
+候选总数：60
 
 ## 按分类统计
 
 | 分类 | 候选数 |
 | --- | ---: |
-| CJK 待人工复核 | 12 |
-| 错误/反馈英文文案 | 64 |
+| CJK 待人工复核 | 9 |
+| 错误/反馈英文文案 | 51 |
 
 ## 按文件统计
 
@@ -27,11 +27,9 @@
 | --- | ---: |
 | `lib/models/ffi_results.dart` | 17 |
 | `lib/services/incremental_encrypt_service.dart` | 11 |
-| `lib/services/clipboard_service.dart` | 10 |
 | `lib/services/directory_service.dart` | 9 |
 | `lib/utils/error_diagnostics.dart` | 9 |
 | `lib/native/native_lib.dart` | 8 |
-| `lib/services/clipboard_helper.dart` | 6 |
 | `lib/services/crypto_service.dart` | 3 |
 | `lib/native/bindings.dart` | 2 |
 | `lib/services/settings_service.dart` | 1 |
@@ -40,9 +38,6 @@
 
 | 分类 | 文件 | 行号 | 字符串 | 源码上下文 |
 | --- | --- | ---: | --- | --- |
-| CJK 待人工复核 | `lib/services/clipboard_helper.dart` | 32 | 已取消：成功 $filesProcessed 个，失败 $filesFailed 个 | return '已取消：成功 $filesProcessed 个，失败 $filesFailed 个'; |
-| CJK 待人工复核 | `lib/services/clipboard_helper.dart` | 35 | 完成：成功粘贴 $filesProcessed 个文件 | return '完成：成功粘贴 $filesProcessed 个文件'; |
-| CJK 待人工复核 | `lib/services/clipboard_helper.dart` | 37 | 完成：成功 $filesProcessed 个，失败 $filesFailed 个 | return '完成：成功 $filesProcessed 个，失败 $filesFailed 个'; |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 17 | 错误类型：${type.name} | '错误类型：${type.name}', |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 18 | 操作阶段：$operation | if (operation != null && operation.isNotEmpty) '操作阶段：$operation', |
 | CJK 待人工复核 | `lib/utils/error_diagnostics.dart` | 19 | 底层错误：$sanitized | '底层错误：$sanitized', |
@@ -79,19 +74,6 @@
 | 错误/反馈英文文案 | `lib/native/native_lib.dart` | 959 | Incremental encryption FFI is not part of the active Safe Disk API. | 'Incremental encryption FFI is not part of the active Safe Disk API.', |
 | 错误/反馈英文文案 | `lib/native/native_lib.dart` | 1030 | unsupported transfer kind | throw ArgumentError.value(kind, 'kind', 'unsupported transfer kind'); |
 | 错误/反馈英文文案 | `lib/native/native_lib.dart` | 1070 | TransferCancellationToken cannot be reused | throw StateError('TransferCancellationToken cannot be reused'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_helper.dart` | 103 | Failed to read clipboard | errors: [clipboardResult.error ?? 'Failed to read clipboard'], |
-| 错误/反馈英文文案 | `lib/services/clipboard_helper.dart` | 153 | Failed to paste: ${item.path} | errors.add('Failed to paste: ${item.path}'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_helper.dart` | 246 | Failed: $relativePath - $e | errors.add('Failed: $relativePath - $e'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_service.dart` | 86 | No items to copy | return ClipboardResult.failure('No items to copy'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_service.dart` | 93 | Directory not found: ${item.path} | return ClipboardResult.failure('Directory not found: ${item.path}'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_service.dart` | 97 | File not found: ${item.path} | return ClipboardResult.failure('File not found: ${item.path}'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_service.dart` | 108 | Unsupported platform | return ClipboardResult.failure('Unsupported platform'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_service.dart` | 111 | Failed to copy: $e | return ClipboardResult.failure('Failed to copy: $e'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_service.dart` | 141 | Unsupported platform | return ClipboardResult.failure('Unsupported platform'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_service.dart` | 143 | Failed to paste: $e | return ClipboardResult.failure('Failed to paste: $e'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_service.dart` | 216 | Failed to set clipboard data | return ClipboardResult.failure('Failed to set clipboard data'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_service.dart` | 363 | No files in clipboard | return ClipboardResult.failure('No files in clipboard'); |
-| 错误/反馈英文文案 | `lib/services/clipboard_service.dart` | 528 | No files in clipboard | return ClipboardResult.failure('No files in clipboard'); |
 | 错误/反馈英文文案 | `lib/services/crypto_service.dart` | 61 | Encrypted root must be created in an empty directory | 'Encrypted root must be created in an empty directory', |
 | 错误/反馈英文文案 | `lib/services/crypto_service.dart` | 120 | Root $rootID is not open | throw StateError('Root $rootID is not open'); |
 | 错误/反馈英文文案 | `lib/services/crypto_service.dart` | 135 | Root $rootID is not open | throw StateError('Root $rootID is not open'); |
