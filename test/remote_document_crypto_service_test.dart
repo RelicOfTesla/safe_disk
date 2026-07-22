@@ -73,8 +73,14 @@ void main() {
       autoSaveInterval: Duration.zero,
       initiallyReadOnly: true,
       initiallyMonitorClipboard: true,
+      locale: const Locale('en'),
     ));
     await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).locale,
+      const Locale('en'),
+    );
 
     expect(
       tester

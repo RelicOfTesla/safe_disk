@@ -18,7 +18,6 @@ void main() {
     await service.setNotepadAutoSaveSeconds(60);
 
     expect(await service.getNotepadAutoSaveSeconds(), 60);
-    expect(service.getNotepadAutoSaveDisplayName(60), '1 分钟');
   });
 
   test('rejects unsupported secure notepad auto-save intervals', () async {
@@ -49,5 +48,18 @@ void main() {
     expect(await service.getDetailedErrorReports(), isFalse);
     await service.setDetailedErrorReports(true);
     expect(await service.getDetailedErrorReports(), isTrue);
+  });
+
+  test('locale preference defaults safely and rejects unsupported values',
+      () async {
+    final service = SettingsService();
+
+    expect(await service.getLocale(), SettingsService.defaultLocale);
+    await service.setLocale('en');
+    expect(await service.getLocale(), 'en');
+    await expectLater(service.setLocale('fr'), throwsArgumentError);
+
+    SharedPreferences.setMockInitialValues({'locale': 'fr'});
+    expect(await SettingsService().getLocale(), SettingsService.defaultLocale);
   });
 }

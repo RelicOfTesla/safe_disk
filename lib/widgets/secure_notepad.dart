@@ -88,7 +88,17 @@ class _SecureNotepadState extends State<SecureNotepad>
 
   Future<void> _loadDocument() async {
     await _controller.load();
-    if (!mounted || !_controller.hasRecoveryDraft) return;
+    if (!mounted) return;
+    if (_controller.loadError != null) {
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.loadFileFailed,
+        originalError: _controller.loadTechnicalError,
+        operation: '读取安全记事本',
+      );
+      return;
+    }
+    if (!_controller.hasRecoveryDraft) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _showDraftRecoveryDialog();
     });
@@ -125,7 +135,7 @@ class _SecureNotepadState extends State<SecureNotepad>
         ErrorHelper.showError(
           context,
           errorType: ErrorType.operationFailed,
-          originalError: _controller.draftError,
+          originalError: _controller.draftTechnicalError,
         );
       }
     }

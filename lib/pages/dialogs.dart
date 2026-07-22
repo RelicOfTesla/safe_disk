@@ -189,6 +189,7 @@ class _CreateEncryptedDirectoryDialogState
   String _nameFactory = 'AES-256-GCM';
   String _deriverFactory = 'Argon2id';
   int _keyStrengthMs = 1000;
+  bool _passwordChangeable = true;
 
   @override
   void dispose() {
@@ -210,6 +211,9 @@ class _CreateEncryptedDirectoryDialogState
               TextField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
+                autocorrect: false,
+                enableSuggestions: false,
+                keyboardType: TextInputType.visiblePassword,
                 decoration: InputDecoration(
                   labelText: '密码',
                   suffixIcon: IconButton(
@@ -218,6 +222,7 @@ class _CreateEncryptedDirectoryDialogState
                         : Icons.visibility_off),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
+                    tooltip: _obscurePassword ? '显示密码' : '隐藏密码',
                   ),
                 ),
               ),
@@ -225,6 +230,9 @@ class _CreateEncryptedDirectoryDialogState
               TextField(
                 controller: _confirmController,
                 obscureText: _obscureConfirm,
+                autocorrect: false,
+                enableSuggestions: false,
+                keyboardType: TextInputType.visiblePassword,
                 decoration: InputDecoration(
                   labelText: '确认密码',
                   suffixIcon: IconButton(
@@ -233,8 +241,17 @@ class _CreateEncryptedDirectoryDialogState
                         : Icons.visibility_off),
                     onPressed: () =>
                         setState(() => _obscureConfirm = !_obscureConfirm),
+                    tooltip: _obscureConfirm ? '显示密码' : '隐藏密码',
                   ),
                 ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('允许以后修改密码'),
+                subtitle: const Text('推荐：不重加密已有文件即可修改密码'),
+                value: _passwordChangeable,
+                onChanged: (value) =>
+                    setState(() => _passwordChangeable = value),
               ),
               const SizedBox(height: 8),
               SwitchListTile(
@@ -320,6 +337,7 @@ class _CreateEncryptedDirectoryDialogState
                 nameFactory: _nameFactory,
                 deriverFactory: _deriverFactory,
                 keyStrengthMs: _keyStrengthMs,
+                passwordChangeable: _passwordChangeable,
               ),
             );
           },
@@ -339,12 +357,24 @@ class _CreateEncryptedDirectoryDialogState
       initialValue: value,
       decoration: InputDecoration(labelText: label),
       items: values
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .map(
+            (item) => DropdownMenuItem(
+              value: item,
+              child: Text(_algorithmDisplayName(item)),
+            ),
+          )
           .toList(),
       onChanged: (selected) {
         if (selected != null) onChanged(selected);
       },
     );
+  }
+
+  String _algorithmDisplayName(String value) {
+    return switch (value) {
+      'None' => '不加密（None）',
+      _ => value,
+    };
   }
 }
 

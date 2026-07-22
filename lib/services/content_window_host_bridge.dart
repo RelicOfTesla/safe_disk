@@ -15,12 +15,14 @@ abstract class ContentWindowPlatform {
     required String token,
     required String documentID,
     required String title,
+    required String localePreference,
   });
 
   Future<bool> openImage({
     required String token,
     required String documentID,
     required String title,
+    required String localePreference,
   });
 
   Future<void> closeTokens(Set<String> tokens);
@@ -32,7 +34,8 @@ class DesktopMultiWindowPlatform implements ContentWindowPlatform {
   DesktopMultiWindowPlatform();
 
   static const hostChannelName = 'safe_disk/document_host/v1';
-  static const argumentVersion = 1;
+  static const argumentVersion = 2;
+  static const legacyArgumentVersion = 1;
   static const notepadWindowKind = 'secure_notepad';
   static const imageWindowKind = 'secure_image';
 
@@ -52,12 +55,14 @@ class DesktopMultiWindowPlatform implements ContentWindowPlatform {
     required String token,
     required String documentID,
     required String title,
+    required String localePreference,
   }) {
     return _openContentWindow(
       kind: notepadWindowKind,
       token: token,
       documentID: documentID,
       title: title,
+      localePreference: localePreference,
     );
   }
 
@@ -66,12 +71,14 @@ class DesktopMultiWindowPlatform implements ContentWindowPlatform {
     required String token,
     required String documentID,
     required String title,
+    required String localePreference,
   }) {
     return _openContentWindow(
       kind: imageWindowKind,
       token: token,
       documentID: documentID,
       title: title,
+      localePreference: localePreference,
     );
   }
 
@@ -80,6 +87,7 @@ class DesktopMultiWindowPlatform implements ContentWindowPlatform {
     required String token,
     required String documentID,
     required String title,
+    required String localePreference,
   }) async {
     final controller = await WindowController.create(
       WindowConfiguration(
@@ -93,6 +101,7 @@ class DesktopMultiWindowPlatform implements ContentWindowPlatform {
           'token': token,
           'documentID': documentID,
           'title': title,
+          'localePreference': localePreference,
         }),
       ),
     );
@@ -128,7 +137,9 @@ class DesktopMultiWindowPlatform implements ContentWindowPlatform {
     if (value.isEmpty) return null;
     try {
       final json = jsonDecode(value);
-      if (json is! Map<String, dynamic> || json['version'] != argumentVersion) {
+      if (json is! Map<String, dynamic> ||
+          (json['version'] != argumentVersion &&
+              json['version'] != legacyArgumentVersion)) {
         return null;
       }
       final kind = json['kind'];
@@ -136,6 +147,7 @@ class DesktopMultiWindowPlatform implements ContentWindowPlatform {
       final token = json['token'];
       final documentID = json['documentID'];
       final title = json['title'];
+      final localePreference = json['localePreference'];
       if (token is! String ||
           token.isEmpty ||
           documentID is! String ||
@@ -144,11 +156,16 @@ class DesktopMultiWindowPlatform implements ContentWindowPlatform {
           title.isEmpty) {
         return null;
       }
+      if (localePreference != null &&
+          (localePreference is! String || localePreference.isEmpty)) {
+        return null;
+      }
       return ContentWindowArguments(
         kind: kind as String,
         token: token,
         documentID: documentID,
         title: title,
+        localePreference: localePreference as String?,
       );
     } catch (_) {
       return null;
@@ -162,12 +179,14 @@ class ContentWindowArguments {
     required this.token,
     required this.documentID,
     required this.title,
+    this.localePreference,
   });
 
   final String kind;
   final String token;
   final String documentID;
   final String title;
+  final String? localePreference;
 }
 
 class ContentWindowHostBridge {
@@ -207,20 +226,28 @@ class ContentWindowHostBridge {
     }
   }
 
-  Future<bool> openNotepad(DocumentLease lease) async {
-    return _open(lease, _platform.openNotepad);
+  Future<bool> openNotepad(
+    DocumentLease lease, {
+    required String localePreference,
+  }) async {
+    return _open(lease, localePreference, _platform.openNotepad);
   }
 
-  Future<bool> openImage(DocumentLease lease) async {
-    return _open(lease, _platform.openImage);
+  Future<bool> openImage(
+    DocumentLease lease, {
+    required String localePreference,
+  }) async {
+    return _open(lease, localePreference, _platform.openImage);
   }
 
   Future<bool> _open(
     DocumentLease lease,
+    String localePreference,
     Future<bool> Function({
       required String token,
       required String documentID,
       required String title,
+      required String localePreference,
     }) openWindow,
   ) async {
     try {
@@ -229,6 +256,7 @@ class ContentWindowHostBridge {
         token: lease.token,
         documentID: lease.documentID,
         title: lease.displayName,
+        localePreference: localePreference,
       );
       if (opened) _nativeTokens.add(lease.token);
       return opened;
@@ -245,10 +273,13 @@ class ContentWindowHostBridge {
     final tokens = _broker.tokensForRoot(rootSessionID).intersection(
           _nativeTokens,
         );
+    // A native close is asynchronous. Revoke before awaiting it so a window
+    // that is still tearing down cannot use its token after the root changes.
+    // Existing writes finish while the native root is still available.
+    await _broker.revokeRootSessions(rootSessionID);
     await _platform.closeTokens(tokens);
     for (final token in tokens) {
       _nativeTokens.remove(token);
-      _broker.close(token);
     }
   }
 

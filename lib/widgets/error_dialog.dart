@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../l10n/error_localizations.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../utils/error_messages.dart';
 import '../services/error_reporting_service.dart';
 import '../utils/error_diagnostics.dart';
@@ -21,7 +23,8 @@ class ErrorDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final error = ErrorMessages.getError(errorType);
+    final localizations = AppLocalizations.of(context)!;
+    final error = localizations.errorMessage(errorType);
     final details = ErrorReportingService.detailedErrorsEnabled &&
             originalError != null &&
             originalError!.isNotEmpty
@@ -82,9 +85,9 @@ class ErrorDialog extends StatelessWidget {
           if (details != null) ...[
             const SizedBox(height: 16),
             ExpansionTile(
-              title: const Text(
-                '技术详情',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+              title: Text(
+                localizations.technicalDetails,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
               tilePadding: EdgeInsets.zero,
               children: [
@@ -106,11 +109,11 @@ class ErrorDialog extends StatelessWidget {
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: details));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('已复制错误信息')),
+                      SnackBar(content: Text(localizations.errorDetailsCopied)),
                     );
                   },
                   icon: const Icon(Icons.copy, size: 14),
-                  label: const Text('复制'),
+                  label: Text(localizations.copy),
                 ),
               ],
             ),
@@ -120,12 +123,12 @@ class ErrorDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('关闭'),
+          child: Text(localizations.close),
         ),
         if (onRetry != null)
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('重试'),
+            child: Text(localizations.retry),
           ),
       ],
     );

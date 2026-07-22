@@ -417,6 +417,7 @@ func (m *ffiIgnoreMatcher) shouldIgnore(name string, isDir bool, names map[strin
 //   - deriverFactory: key deriver factory name (string)
 //   - keyStrengthMs: key strength in milliseconds (int)
 //   - configFileName: custom config file name (string)
+//   - passwordChangeable: create a root that supports password changes (bool)
 func parseCreateRootOptions(optionsJSON string) []sec_fs.CreateRootOption {
 	if optionsJSON == "" {
 		return nil
@@ -454,6 +455,10 @@ func parseCreateRootOptions(optionsJSON string) []sec_fs.CreateRootOption {
 	// Parse configFileName
 	if configFileName, ok := optsMap["configFileName"].(string); ok && configFileName != "" {
 		options = append(options, sec_fs.WithConfigFileName(configFileName))
+	}
+
+	if passwordChangeable, ok := optsMap["passwordChangeable"].(bool); ok {
+		options = append(options, sec_fs.WithPasswordChangeable(passwordChangeable))
 	}
 
 	return options
@@ -535,7 +540,8 @@ func CloseRoot_FFI(rootID int64) string {
 //	  "nameFactory": "AES-256-GCM",
 //	  "deriverFactory": "PBKDF2",
 //	  "keyStrengthMs": 100,
-//	  "configFileName": "_cryption.json"
+//	  "configFileName": "_cryption.json",
+//	  "passwordChangeable": true
 //	}
 func CreateRootConfig_FFI(rootPath string, password string, optionsJSON string) string {
 	// Parse create options
@@ -547,6 +553,19 @@ func CreateRootConfig_FFI(rootPath string, password string, optionsJSON string) 
 		return errorResponse(err)
 	}
 
+	return Success()
+}
+
+// ChangeRootPassword_FFI changes the password of a password-changeable root.
+// Legacy roots return an explicit unsupported-format error.
+func ChangeRootPassword_FFI(rootPath, oldPassword, newPassword string) string {
+	if err := sec_fs.ChangeRootPasswordQuick(
+		sec_fs.FullStorePath(rootPath),
+		oldPassword,
+		newPassword,
+	); err != nil {
+		return errorResponse(err)
+	}
 	return Success()
 }
 

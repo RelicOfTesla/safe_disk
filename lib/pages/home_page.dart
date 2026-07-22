@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:file_selector/file_selector.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../models/cryption_config.dart';
 import '../models/batch_operation_result.dart';
 import '../models/secure_image_policy.dart';
@@ -20,6 +21,7 @@ import '../services/secure_entry_move_service.dart';
 import '../services/document_session_broker.dart';
 import '../services/root_close_coordinator.dart';
 import '../services/root_idle_tracker.dart';
+import '../services/secure_notepad_policy.dart';
 import '../services/content_window_host_bridge.dart';
 import '../utils/error_messages.dart';
 import '../utils/error_diagnostics.dart';
@@ -36,6 +38,7 @@ import '../widgets/entry_conflict_dialog.dart';
 import '../widgets/directory_background_actions.dart';
 import '../widgets/root_directory_action_dialog.dart';
 import '../widgets/root_directory_properties.dart';
+import '../widgets/root_password_change_dialog.dart';
 import 'dialogs.dart';
 import 'settings_page.dart';
 
@@ -52,6 +55,7 @@ class HomePage extends StatefulWidget {
     this.persistenceService,
     this.settingsService,
     this.onThemeModeChanged,
+    this.onLocaleChanged,
     this.selectDirectory,
     this.selectFile,
     this.selectSaveLocation,
@@ -68,6 +72,7 @@ class HomePage extends StatefulWidget {
   final DirectoryPersistenceService? persistenceService;
   final SettingsService? settingsService;
   final ValueChanged<ThemeMode>? onThemeModeChanged;
+  final ValueChanged<Locale?>? onLocaleChanged;
   final Future<String?> Function()? selectDirectory;
   final Future<XFile?> Function(List<XTypeGroup> acceptedTypeGroups)?
       selectFile;
@@ -981,6 +986,109 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  Future<bool> _lockRootForPasswordChange(EncryptedDirectory directory) async {
+    final sessionID = directory.tempKeyID;
+    if (sessionID == null) return true;
+    final decision = _rootCloseCoordinator.inspect(sessionID);
+    if (decision.disposition != RootCloseDisposition.closeImmediately) {
+      final message =
+          decision.disposition == RootCloseDisposition.blockedByActiveWrites
+              ? '当前目录正在保存内容，请等待保存完成后再修改密码。'
+              : '请先关闭或保存该目录中的内容窗口，再修改密码。';
+      if (mounted) ErrorHelper.showInfo(context, message);
+      return false;
+    }
+    if (decision.windowCount != 0) {
+      try {
+        await _contentWindowBridge.closeRootWindows(sessionID);
+      } catch (error) {
+        if (mounted) {
+          ErrorHelper.showError(
+            context,
+            errorType: ErrorType.operationFailed,
+            originalError: '内容窗口关闭失败：$error',
+            operation: 'change-root-password/close-windows',
+          );
+        }
+        return false;
+      }
+    }
+    await _disposeCurrentDirectoryPageSession(directory.path, sessionID);
+    if (!_closeSession(sessionID)) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: '无法结束当前目录会话',
+          operation: 'change-root-password/close-session',
+        );
+      }
+      return false;
+    }
+    _secureClipboard.removeSession(sessionID);
+    _rootCloseCoordinator.releaseRoot(sessionID);
+    _idleTracker.remove(sessionID);
+    if (mounted) {
+      _replaceWithLockedDirectory(
+        directory,
+        EncryptedDirectory(
+          path: directory.path,
+          config: directory.config,
+          displayAlias: directory.displayAlias,
+        ),
+      );
+    }
+    return true;
+  }
+
+  Future<void> _changeRootPassword(EncryptedDirectory directory) async {
+    if (!rootSupportsPasswordChange(directory)) {
+      await showUnsupportedRootPasswordChange(
+        context: context,
+        directory: directory,
+      );
+      return;
+    }
+    final request = await showRootPasswordChangeDialog(
+      context: context,
+      directoryName: directory.displayAlias ?? _baseName(directory.path),
+    );
+    if (request == null || !mounted) return;
+    if (!await _lockRootForPasswordChange(directory) || !mounted) return;
+
+    setState(() => _isLoading = true);
+    try {
+      _cryptoService.changeRootPassword(
+        directory.path,
+        request.oldPassword,
+        request.newPassword,
+      );
+      final updatedConfig = _cryptoService.loadConfig(directory.path);
+      if (mounted) {
+        _replaceWithLockedDirectory(
+          directory,
+          EncryptedDirectory(
+            path: directory.path,
+            config: updatedConfig,
+            displayAlias: directory.displayAlias,
+          ),
+        );
+        ErrorHelper.showSuccess(context, '密码已修改，请使用新密码重新解锁目录');
+      }
+    } catch (error) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: error.toString(),
+          operation: 'change-root-password',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   void _replaceWithLockedDirectory(
     EncryptedDirectory directory,
     EncryptedDirectory lockedDirectory,
@@ -1048,6 +1156,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         rootSessionID: directory.tempKeyID!,
         path: item.path,
         displayName: item.name,
+        knownContentBytes: item.size,
+        maxContentBytes: kMaxSecureNotepadContentBytes,
       );
       await Navigator.push(
         context,
@@ -1069,6 +1179,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         ),
       );
+    } on DocumentContentLimitExceeded catch (_) {
+      if (mounted) {
+        ErrorHelper.showInfo(
+          context,
+          '文件超过 $kSecureNotepadContentLimitLabel，暂不支持用安全记事本打开。',
+        );
+      }
     } catch (error) {
       if (mounted) {
         ErrorHelper.showError(
@@ -1085,17 +1202,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (item.isDirectory || directory?.tempKeyID == null) return;
     DocumentLease? lease;
     try {
+      final localePreference = await _settingsService.getLocale();
+      if (!mounted) return;
       lease = _documentBroker.open(
         rootSessionID: directory!.tempKeyID!,
         path: item.path,
         displayName: item.name,
+        knownContentBytes: item.size,
+        maxContentBytes: kMaxSecureNotepadContentBytes,
       );
-      if (await _contentWindowBridge.openNotepad(lease)) return;
+      if (await _contentWindowBridge.openNotepad(
+        lease,
+        localePreference: localePreference,
+      )) {
+        return;
+      }
       _documentBroker.close(lease.token);
       lease = null;
       if (!mounted) return;
       ErrorHelper.showInfo(context, '当前平台尚未启用原生内容窗口，已在主窗口打开');
       await _openNotepad(item);
+    } on DocumentContentLimitExceeded catch (_) {
+      if (lease != null) _documentBroker.close(lease.token);
+      if (mounted) {
+        ErrorHelper.showInfo(
+          context,
+          '文件超过 $kSecureNotepadContentLimitLabel，暂不支持用安全记事本打开。',
+        );
+      }
     } catch (error) {
       if (lease != null) _documentBroker.close(lease.token);
       if (mounted) {
@@ -1134,6 +1268,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (item.isDirectory || directory?.tempKeyID == null) return;
     DocumentLease? lease;
     try {
+      final localePreference = await _settingsService.getLocale();
+      if (!mounted) return;
       lease = _documentBroker.open(
         rootSessionID: directory!.tempKeyID!,
         path: item.path,
@@ -1142,7 +1278,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         maxContentBytes: kMaxSecureImageEncodedBytes,
         readOnly: true,
       );
-      if (await _contentWindowBridge.openImage(lease)) return;
+      if (await _contentWindowBridge.openImage(
+        lease,
+        localePreference: localePreference,
+      )) {
+        return;
+      }
       _documentBroker.close(lease.token);
       lease = null;
       if (!mounted) return;
@@ -1205,6 +1346,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       case DirectoryBackgroundAction.refresh:
         await _loadCurrentPath();
         return;
+    }
+  }
+
+  Offset _keyboardContextMenuPosition() {
+    final renderObject = Overlay.of(context).context.findRenderObject();
+    if (renderObject is! RenderBox) return Offset.zero;
+    return renderObject.size.center(Offset.zero);
+  }
+
+  void _showKeyboardContextMenu() {
+    final target =
+        _selectedFiles.length == 1 ? _selectedFiles.single : _keyboardTarget;
+    final position = _keyboardContextMenuPosition();
+    if (target != null && _items.any((item) => item.path == target.path)) {
+      unawaited(_showFileContextMenu(target, position));
+    } else {
+      unawaited(_showBackgroundContextMenu(position));
     }
   }
 
@@ -1297,7 +1455,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         context: context,
         name: file.name,
         isDirectory: false,
-        operation: '导入',
+        operation: AppLocalizations.of(context)!.importOperation,
         allowReplace: !existing.isDirectory,
       );
       if (resolution == EntryConflictResolution.cancel || !mounted) return;
@@ -1306,6 +1464,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           originalName: file.name,
           isDirectory: false,
           existingNames: _items.map((item) => item.name),
+          copyLabel: AppLocalizations.of(context)!.copySuffix,
         );
       } else {
         overwrite = true;
@@ -1355,8 +1514,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (isPathInsideDirectory(sourcePath, _currentDir!.path)) {
       ErrorHelper.showError(
         context,
-        errorType: ErrorType.importDirectoryFailed,
-        originalError: 'Source directory is inside the encrypted root',
+        errorType: ErrorType.importDirectoryInsideCurrentRoot,
       );
       return;
     }
@@ -1378,7 +1536,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         context: context,
         name: sourceName,
         isDirectory: true,
-        operation: '导入',
+        operation: AppLocalizations.of(context)!.importOperation,
         allowReplace: existing.isDirectory,
       );
       if (resolution == EntryConflictResolution.cancel || !mounted) return;
@@ -1387,6 +1545,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           originalName: sourceName,
           isDirectory: true,
           existingNames: _items.map((item) => item.name),
+          copyLabel: AppLocalizations.of(context)!.copySuffix,
         );
         final separator = destPath.lastIndexOf('/');
         destPath = separator < 0
@@ -1465,7 +1624,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (saveLocation == null || !mounted) return;
     final destination = await _resolveExportDestination(
       saveLocation.path,
-      operation: '导出',
+      operation: AppLocalizations.of(context)!.exportOperation,
     );
     if (destination == null || !mounted) return;
 
@@ -1581,7 +1740,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     for (final item in _selectedFiles) {
       final destination = await _resolveExportDestination(
         '$exportDir/${item.name}',
-        operation: '批量导出',
+        operation: AppLocalizations.of(context)!.batchExportOperation,
       );
       if (destination == null || !mounted) return;
       jobs.add((
@@ -1696,6 +1855,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       originalName: name,
       isDirectory: false,
       existingNames: existingNames,
+      copyLabel: AppLocalizations.of(context)!.copySuffix,
     );
     return (
       path: '${parent.path}${Platform.pathSeparator}$availableName',
@@ -1980,7 +2140,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             context: context,
             name: destinationName,
             isDirectory: entry.isDirectory,
-            operation: entries.length == 1 ? '粘贴' : '批量粘贴',
+            operation: entries.length == 1
+                ? AppLocalizations.of(context)!.pasteOperation
+                : AppLocalizations.of(context)!.batchPasteOperation,
             allowReplace: allowReplace,
             allowApplyToAll: entries.length > 1,
           );
@@ -1994,6 +2156,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               originalName: entry.name,
               isDirectory: entry.isDirectory,
               existingNames: destinationItems.map((item) => item.name),
+              copyLabel: AppLocalizations.of(context)!.copySuffix,
             );
           } else {
             overwrite = true;
@@ -2229,6 +2392,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         builder: (context) => SettingsPage(
           settingsService: _settingsService,
           onThemeModeChanged: widget.onThemeModeChanged,
+          onLocaleChanged: widget.onLocaleChanged,
         ),
       ),
     );
@@ -2263,6 +2427,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             unawaited(_renameItem(target));
           }
         },
+        const SingleActivator(LogicalKeyboardKey.contextMenu):
+            _showKeyboardContextMenu,
+        const SingleActivator(LogicalKeyboardKey.f10, shift: true):
+            _showKeyboardContextMenu,
       },
       child: Listener(
         onPointerDown: (_) => _touchCurrentRoot(),
@@ -2302,10 +2470,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ));
             },
             onChangeRootPassword: (directory) {
-              unawaited(showUnsupportedRootPasswordChange(
-                context: context,
-                directory: directory,
-              ));
+              unawaited(_changeRootPassword(directory));
             },
             onToggleDrawerPin: (pinned) async {
               setState(() => _drawerPinned = pinned);

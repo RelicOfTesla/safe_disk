@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
+
 enum EntryConflictResolution {
   cancel,
   keepBoth,
@@ -49,30 +51,31 @@ Future<EntryConflictResolution> showEntryConflictDialog({
   bool allowReplace = true,
   bool allowApplyToAll = false,
 }) async {
+  final strings = AppLocalizations.of(context)!;
   final detail = !allowReplace
-      ? '源和目标类型不兼容，或源与目标是同一条目。请选择“保留两者”生成新名称。'
+      ? strings.conflictReplacementUnavailable
       : isDirectory
-          ? '选择“合并并替换”会保留目标目录独有的内容，并替换其中的同名文件。'
-          : '选择“替换”会用新内容替换现有文件。';
+          ? strings.conflictDirectoryReplaceDetail
+          : strings.conflictFileReplaceDetail;
   final result = await showDialog<EntryConflictResolution>(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('目标已存在'),
-      content: Text('“$name”已存在，无法直接$operation。\n\n$detail'),
+      title: Text(strings.conflictTargetExists),
+      content: Text(strings.conflictDescription(name, operation, detail)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(
             dialogContext,
             EntryConflictResolution.cancel,
           ),
-          child: const Text('取消'),
+          child: Text(strings.cancel),
         ),
         TextButton(
           onPressed: () => Navigator.pop(
             dialogContext,
             EntryConflictResolution.keepBoth,
           ),
-          child: const Text('保留两者'),
+          child: Text(strings.keepBoth),
         ),
         if (allowApplyToAll)
           TextButton(
@@ -80,7 +83,7 @@ Future<EntryConflictResolution> showEntryConflictDialog({
               dialogContext,
               EntryConflictResolution.keepBothForAll,
             ),
-            child: const Text('全部保留两者'),
+            child: Text(strings.keepBothForAll),
           ),
         if (allowReplace)
           FilledButton(
@@ -88,7 +91,8 @@ Future<EntryConflictResolution> showEntryConflictDialog({
               dialogContext,
               EntryConflictResolution.replace,
             ),
-            child: Text(isDirectory ? '合并并替换' : '替换'),
+            child:
+                Text(isDirectory ? strings.mergeAndReplace : strings.replace),
           ),
         if (allowReplace && allowApplyToAll)
           FilledButton.tonal(
@@ -96,7 +100,7 @@ Future<EntryConflictResolution> showEntryConflictDialog({
               dialogContext,
               EntryConflictResolution.replaceForAll,
             ),
-            child: const Text('全部替换'),
+            child: Text(strings.replaceForAll),
           ),
       ],
     ),
@@ -108,6 +112,7 @@ String nextAvailableEntryName({
   required String originalName,
   required bool isDirectory,
   required Iterable<String> existingNames,
+  required String copyLabel,
 }) {
   final existing = existingNames.map((name) => name.toLowerCase()).toSet();
   final dot = isDirectory ? -1 : originalName.lastIndexOf('.');
@@ -116,9 +121,9 @@ String nextAvailableEntryName({
   final extension = hasExtension ? originalName.substring(dot) : '';
 
   for (var index = 1; index < 10000; index++) {
-    final suffix = index == 1 ? ' - 副本' : ' - 副本 ($index)';
+    final suffix = index == 1 ? ' - $copyLabel' : ' - $copyLabel ($index)';
     final candidate = '$base$suffix$extension';
     if (!existing.contains(candidate.toLowerCase())) return candidate;
   }
-  throw StateError('无法为“$originalName”生成不冲突的名称');
+  throw StateError('No conflict-free entry name could be generated');
 }

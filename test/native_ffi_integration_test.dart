@@ -25,6 +25,60 @@ void main() {
       skip: hasFfiLibrary
           ? null
           : 'Set SAFE_DISK_FFI_LIBRARY to run native FFI tests', () {
+    test('creates a password-changeable root and reopens it with new password',
+        () async {
+      final tmp = await Directory.systemTemp.createTemp('safe-disk-change-');
+      addTearDown(() async {
+        if (await tmp.exists()) await tmp.delete(recursive: true);
+      });
+
+      final rootPath = '${tmp.path}/root';
+      const oldPassword = 'old-password';
+      const newPassword = 'new-password';
+      final native = NativeLib.instance;
+      native.secCreateRootConfig(
+        rootPath,
+        oldPassword,
+        jsonEncode({
+          'dataFactory': 'AES-CTR',
+          'nameFactory': 'AES-256-GCM',
+          'deriverFactory': 'PBKDF2',
+          'keyStrengthMs': 1,
+          'passwordChangeable': true,
+        }),
+      );
+
+      var rootID = native.secRootOpen(rootPath, oldPassword, '');
+      native.secQuickWriteFile(rootID, '目录/笔记.txt', utf8.encode('保留内容'));
+      native.secRootClose(rootID);
+
+      native.secRootChangePassword(rootPath, oldPassword, newPassword);
+      expect(
+        () => native.secRootOpen(rootPath, oldPassword, ''),
+        throwsA(
+          isA<Exception>().having(
+            (error) => error.toString(),
+            'message',
+            contains('invalid password'),
+          ),
+        ),
+      );
+
+      rootID = native.secRootOpen(rootPath, newPassword, '');
+      addTearDown(() {
+        try {
+          native.secRootClose(rootID);
+        } catch (_) {
+          // The session is best-effort cleanup for an integration test.
+        }
+      });
+      expect(
+        utf8.decode(native.secQuickReadFile(rootID, '目录/笔记.txt')),
+        '保留内容',
+      );
+      expect(native.secReadDir(rootID, '目录').single['name'], '笔记.txt');
+    });
+
     test(
         'handles encrypted file and directory names through root and transfer APIs',
         () async {

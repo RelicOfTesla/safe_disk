@@ -1,6 +1,17 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide MaterialApp;
+import 'package:flutter/material.dart' as material show MaterialApp;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/widgets/entry_conflict_dialog.dart';
+
+class MaterialApp extends material.MaterialApp {
+  const MaterialApp({super.key, super.home, Locale? locale})
+      : super(
+          locale: locale ?? const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        );
+}
 
 void main() {
   test('generates a case-insensitive keep-both name before the extension', () {
@@ -9,6 +20,7 @@ void main() {
         originalName: '记录.txt',
         isDirectory: false,
         existingNames: const ['记录.txt'],
+        copyLabel: '副本',
       ),
       '记录 - 副本.txt',
     );
@@ -17,6 +29,7 @@ void main() {
         originalName: '记录.txt',
         isDirectory: false,
         existingNames: const ['记录.txt', '记录 - 副本.TXT'],
+        copyLabel: '副本',
       ),
       '记录 - 副本 (2).txt',
     );
@@ -25,6 +38,7 @@ void main() {
         originalName: '资料.v1',
         isDirectory: true,
         existingNames: const ['资料.v1'],
+        copyLabel: '副本',
       ),
       '资料.v1 - 副本',
     );
@@ -103,5 +117,37 @@ void main() {
     await tester.tap(find.text('全部替换'));
     await tester.pumpAndSettle();
     expect(selected, EntryConflictResolution.replaceForAll);
+  });
+
+  testWidgets('English conflict dialog uses localized actions', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      home: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showEntryConflictDialog(
+            context: context,
+            name: 'note.txt',
+            isDirectory: false,
+            operation: 'paste',
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Destination already exists'), findsOneWidget);
+    expect(find.text('Keep both'), findsOneWidget);
+    expect(find.text('Replace'), findsOneWidget);
+    expect(
+      nextAvailableEntryName(
+        originalName: 'note.txt',
+        isDirectory: false,
+        existingNames: const ['note.txt'],
+        copyLabel: 'copy',
+      ),
+      'note - copy.txt',
+    );
   });
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/generated/app_localizations.dart';
 import '../models/view_mode.dart';
 import '../models/logical_path.dart';
 import '../services/file_service.dart';
@@ -257,6 +259,7 @@ class _FileBrowserState extends State<FileBrowser> {
   // ── Search bar ────────────────────────────────────────────────────
 
   Widget _buildFilterBar() {
+    final strings = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -276,8 +279,9 @@ class _FileBrowserState extends State<FileBrowser> {
         autofocus: true,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          hintText: '筛选当前目录的文件和文件夹…',
-          helperText: _directoryIsIncomplete ? '仅筛选已加载条目；继续加载可扩大范围' : null,
+          hintText: strings.filterCurrentDirectoryHint,
+          helperText:
+              _directoryIsIncomplete ? strings.filterLoadedItemsHint : null,
           prefixIcon: const Icon(Icons.filter_alt_outlined),
           suffixIcon: _filterController.text.isNotEmpty
               ? IconButton(
@@ -309,6 +313,7 @@ class _FileBrowserState extends State<FileBrowser> {
   // ── Toolbar ───────────────────────────────────────────────────────
 
   Widget _buildToolbar() {
+    final strings = AppLocalizations.of(context)!;
     final canNavigateUp = widget.currentPath != null &&
         normalizeLogicalPath(widget.currentPath!) !=
             normalizeLogicalPath(widget.rootPath);
@@ -331,7 +336,7 @@ class _FileBrowserState extends State<FileBrowser> {
               IconButton(
                 icon: const Icon(Icons.arrow_upward),
                 onPressed: canNavigateUp ? _navigateUp : null,
-                tooltip: '返回上级目录',
+                tooltip: strings.navigateUp,
                 constraints: buttonConstraints,
               ),
               if (!compact) ...[
@@ -339,11 +344,15 @@ class _FileBrowserState extends State<FileBrowser> {
                 Expanded(
                   child: Text(
                     directoryIsIncomplete
-                        ? '已加载 ${widget.items.length} 项（'
-                            '${widget.items.where((i) => i.isDirectory).length} 个文件夹，'
-                            '${widget.items.where((i) => !i.isDirectory).length} 个文件）'
-                        : '${widget.items.where((i) => i.isDirectory).length} 个文件夹，'
-                            '${widget.items.where((i) => !i.isDirectory).length} 个文件',
+                        ? strings.directoryIncompleteSummary(
+                            widget.items.length,
+                            widget.items.where((i) => i.isDirectory).length,
+                            widget.items.where((i) => !i.isDirectory).length,
+                          )
+                        : strings.directorySummary(
+                            widget.items.where((i) => i.isDirectory).length,
+                            widget.items.where((i) => !i.isDirectory).length,
+                          ),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -353,8 +362,8 @@ class _FileBrowserState extends State<FileBrowser> {
                 key: const Key('file-sort-menu'),
                 initialValue: _sortOrder,
                 tooltip: directoryIsIncomplete
-                    ? '目录尚未完整加载，暂不可排序'
-                    : '排序：${fileSortOrderLabel(_sortOrder)}',
+                    ? strings.sortUnavailableUntilFullyLoaded
+                    : strings.sortTooltip(_sortOrderLabel(strings, _sortOrder)),
                 icon: const Icon(Icons.sort),
                 constraints: buttonConstraints,
                 onSelected: directoryIsIncomplete
@@ -371,7 +380,12 @@ class _FileBrowserState extends State<FileBrowser> {
                                     ? const Icon(Icons.check, size: 18)
                                     : null,
                               ),
-                              Text(fileSortOrderLabel(order)),
+                              Flexible(
+                                child: Text(
+                                  _sortOrderLabel(strings, order),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ],
                           ),
                         ))
@@ -381,7 +395,9 @@ class _FileBrowserState extends State<FileBrowser> {
                 icon: Icon(
                     _isFiltering ? Icons.filter_alt_off : Icons.filter_alt),
                 onPressed: _toggleFilter,
-                tooltip: _isFiltering ? '关闭当前目录筛选' : '筛选当前目录',
+                tooltip: _isFiltering
+                    ? strings.closeCurrentDirectoryFilter
+                    : strings.filterCurrentDirectory,
                 constraints: buttonConstraints,
               ),
               IconButton(
@@ -391,26 +407,28 @@ class _FileBrowserState extends State<FileBrowser> {
                       : Icons.account_tree_outlined,
                 ),
                 onPressed: _toggleTreeNavigator,
-                tooltip: treePaneVisible ? '隐藏目录导航' : '显示目录导航',
+                tooltip: treePaneVisible
+                    ? strings.hideDirectoryNavigator
+                    : strings.showDirectoryNavigator,
                 constraints: buttonConstraints,
               ),
               if (!compact) const SizedBox(width: 8),
               SegmentedButton<ViewMode>(
                 key: const Key('content-view-mode'),
                 showSelectedIcon: false,
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: ViewMode.list,
                     icon: Tooltip(
-                      message: '列表视图',
-                      child: Icon(Icons.view_list),
+                      message: strings.listView,
+                      child: const Icon(Icons.view_list),
                     ),
                   ),
                   ButtonSegment(
                     value: ViewMode.grid,
                     icon: Tooltip(
-                      message: '网格视图',
-                      child: Icon(Icons.grid_view),
+                      message: strings.gridView,
+                      child: const Icon(Icons.grid_view),
                     ),
                   ),
                 ],
@@ -472,13 +490,14 @@ class _FileBrowserState extends State<FileBrowser> {
   }
 
   Widget _buildContentView(List<FileSystemNode> items, String query) {
+    final strings = AppLocalizations.of(context)!;
     if (widget.loadMoreError != null && items.isEmpty) {
       return _withBackgroundActions(
         Center(
           child: TextButton.icon(
             onPressed: widget.onRetryLoadMore,
             icon: const Icon(Icons.refresh),
-            label: const Text('读取目录失败，刷新后重试'),
+            label: Text(strings.directoryReadFailedRetry),
           ),
         ),
       );
@@ -493,12 +512,12 @@ class _FileBrowserState extends State<FileBrowser> {
             const SizedBox(height: 16),
             Text(
               _directoryIsIncomplete
-                  ? '已加载条目中没有匹配“${_filterController.text}”的内容'
-                  : '当前目录没有匹配“${_filterController.text}”的条目',
+                  ? strings.noMatchInLoadedEntries(_filterController.text)
+                  : strings.noMatchInCurrentDirectory(_filterController.text),
             ),
             if (_directoryIsIncomplete) ...[
               const SizedBox(height: 8),
-              const Text('仍有未加载条目，可继续加载后再筛选'),
+              Text(strings.unloadedEntriesMayMatch),
               const SizedBox(height: 12),
               _buildFilteredLoadMoreAction(),
             ],
@@ -509,7 +528,7 @@ class _FileBrowserState extends State<FileBrowser> {
 
     if (items.isEmpty) {
       return _withBackgroundActions(
-        const Center(child: Text('当前目录为空')),
+        Center(child: Text(strings.currentDirectoryEmpty)),
       );
     }
 
@@ -520,6 +539,7 @@ class _FileBrowserState extends State<FileBrowser> {
   }
 
   Widget _buildFilteredLoadMoreAction() {
+    final strings = AppLocalizations.of(context)!;
     if (widget.isLoadingMore) {
       return const SizedBox(
         width: 24,
@@ -530,7 +550,7 @@ class _FileBrowserState extends State<FileBrowser> {
     return FilledButton.icon(
       onPressed: widget.onLoadMore,
       icon: const Icon(Icons.expand_more),
-      label: const Text('加载更多条目'),
+      label: Text(strings.loadMoreEntries),
     );
   }
 
@@ -639,6 +659,7 @@ class _FileBrowserState extends State<FileBrowser> {
   }
 
   Widget _buildLoadMoreStatus() {
+    final strings = AppLocalizations.of(context)!;
     if (widget.loadMoreError != null) {
       return SliverToBoxAdapter(
         child: Padding(
@@ -647,7 +668,7 @@ class _FileBrowserState extends State<FileBrowser> {
             child: TextButton.icon(
               onPressed: widget.onRetryLoadMore,
               icon: const Icon(Icons.refresh),
-              label: const Text('加载更多失败，刷新后重试'),
+              label: Text(strings.loadMoreFailedRetry),
             ),
           ),
         ),
@@ -660,7 +681,7 @@ class _FileBrowserState extends State<FileBrowser> {
           child: Center(
             child: widget.isLoadingMore
                 ? const CircularProgressIndicator()
-                : const Text('继续滚动以加载更多条目'),
+                : Text(strings.scrollToLoadMore),
           ),
         ),
       );
@@ -730,47 +751,54 @@ class _FileListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onSecondaryTapDown: (details) =>
-          onSecondaryTapDown(details.globalPosition),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(
-              color: isSelected ? colors.primary : Colors.transparent,
-              width: 4,
-            ),
-            bottom: BorderSide(
-              color: colors.outlineVariant.withValues(alpha: 0.45),
+    return Semantics(
+      container: true,
+      label: _entrySemanticsLabel(AppLocalizations.of(context)!, item),
+      selected: isSelected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onSecondaryTapDown: (details) =>
+            onSecondaryTapDown(details.globalPosition),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: isSelected ? colors.primary : Colors.transparent,
+                width: 4,
+              ),
+              bottom: BorderSide(
+                color: colors.outlineVariant.withValues(alpha: 0.45),
+              ),
             ),
           ),
-        ),
-        child: Material(
-          key: ValueKey('file-list-material-${item.path}'),
-          color: isSelected ? colors.primaryContainer : Colors.transparent,
-          child: ListTile(
-            key: ValueKey('file-list-${item.path}'),
-            leading: isSelectMode && !item.isDirectory
-                ? Checkbox(
-                    value: isSelected,
-                    onChanged: (v) => onToggleSelection(v ?? false),
-                  )
-                : Icon(
-                    item.isDirectory
-                        ? Icons.folder
-                        : _getFileIcon(item.extension),
-                    color: item.isDirectory ? Colors.orange : null,
-                  ),
-            title: Text(item.name),
-            subtitle: Text(item.isDirectory
-                ? '${item.children?.length ?? 0} 个项目'
-                : item.formattedSize),
-            trailing: item.isDirectory ? const Icon(Icons.chevron_right) : null,
-            selected: isSelected,
-            onTap: onTap,
-            onLongPress: onLongPress,
+          child: Material(
+            key: ValueKey('file-list-material-${item.path}'),
+            color: isSelected ? colors.primaryContainer : Colors.transparent,
+            child: ListTile(
+              key: ValueKey('file-list-${item.path}'),
+              leading: isSelectMode && !item.isDirectory
+                  ? Checkbox(
+                      value: isSelected,
+                      onChanged: (v) => onToggleSelection(v ?? false),
+                    )
+                  : Icon(
+                      item.isDirectory
+                          ? Icons.folder
+                          : _getFileIcon(item.extension),
+                      color: item.isDirectory ? Colors.orange : null,
+                    ),
+              title: Text(item.name),
+              subtitle: Text(item.isDirectory
+                  ? AppLocalizations.of(context)!
+                      .directoryItemCount(item.children?.length ?? 0)
+                  : item.formattedSize),
+              trailing:
+                  item.isDirectory ? const Icon(Icons.chevron_right) : null,
+              selected: isSelected,
+              onTap: onTap,
+              onLongPress: onLongPress,
+            ),
           ),
         ),
       ),
@@ -796,53 +824,78 @@ class _FileGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onSecondaryTapDown: (details) =>
-          onSecondaryTapDown(details.globalPosition),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Card(
-          key: ValueKey('file-grid-${item.path}'),
-          color: isSelected
-              ? Theme.of(context).colorScheme.primaryContainer
-              : null,
-          elevation: isSelected ? 4 : 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.outlineVariant,
-              width: isSelected ? 2.5 : 1,
+    return Semantics(
+      container: true,
+      label: _entrySemanticsLabel(AppLocalizations.of(context)!, item),
+      selected: isSelected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onSecondaryTapDown: (details) =>
+            onSecondaryTapDown(details.globalPosition),
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Card(
+            key: ValueKey('file-grid-${item.path}'),
+            color: isSelected
+                ? Theme.of(context).colorScheme.primaryContainer
+                : null,
+            elevation: isSelected ? 4 : 1,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.outlineVariant,
+                width: isSelected ? 2.5 : 1,
+              ),
             ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                item.isDirectory ? Icons.folder : _getFileIcon(item.extension),
-                size: 48,
-                color: item.isDirectory ? Colors.orange : null,
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  item.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  item.isDirectory
+                      ? Icons.folder
+                      : _getFileIcon(item.extension),
+                  size: 48,
+                  color: item.isDirectory ? Colors.orange : null,
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    item.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+String _entrySemanticsLabel(AppLocalizations strings, FileSystemNode item) {
+  return strings.fileSystemEntrySemantics(
+    item.name,
+    item.isDirectory ? strings.directory : strings.file,
+  );
+}
+
+String _sortOrderLabel(AppLocalizations strings, FileSortOrder order) {
+  return switch (order) {
+    FileSortOrder.nameAscending => strings.sortNameAscending,
+    FileSortOrder.nameDescending => strings.sortNameDescending,
+    FileSortOrder.modifiedNewest => strings.sortModifiedNewest,
+    FileSortOrder.modifiedOldest => strings.sortModifiedOldest,
+    FileSortOrder.sizeLargest => strings.sortSizeLargest,
+    FileSortOrder.sizeSmallest => strings.sortSizeSmallest,
+  };
 }
 
 /// Map file extension to icon.

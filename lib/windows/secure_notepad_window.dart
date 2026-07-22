@@ -8,6 +8,9 @@ import '../services/document_window_client.dart';
 import '../services/remote_document_crypto_service.dart';
 import '../widgets/secure_notepad.dart';
 import '../theme/app_theme.dart';
+import '../l10n/generated/app_localizations.dart';
+import '../l10n/app_locale.dart';
+import '../utils/error_diagnostics.dart';
 
 class SafeDiskNotepadWindow extends StatelessWidget {
   const SafeDiskNotepadWindow({
@@ -19,6 +22,7 @@ class SafeDiskNotepadWindow extends StatelessWidget {
     this.initiallyReadOnly = false,
     this.initiallyMonitorClipboard = false,
     this.themeMode = ThemeMode.system,
+    this.locale,
   });
 
   final ContentWindowArguments arguments;
@@ -28,11 +32,16 @@ class SafeDiskNotepadWindow extends StatelessWidget {
   final bool initiallyReadOnly;
   final bool initiallyMonitorClipboard;
   final ThemeMode themeMode;
+  final Locale? locale;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: arguments.title,
+      locale: locale,
+      localeResolutionCallback: resolveSafeDiskLocale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       debugShowCheckedModeBanner: false,
       theme: buildSafeDiskTheme(brightness: Brightness.light),
       darkTheme: buildSafeDiskTheme(brightness: Brightness.dark),
@@ -64,50 +73,87 @@ class ContentWindowStartupErrorApp extends StatelessWidget {
     required this.title,
     required this.error,
     required this.onClose,
+    this.locale,
+    this.showDiagnostics = false,
   });
 
   final String title;
   final Object error;
   final Future<void> Function() onClose;
+  final Locale? locale;
+  final bool showDiagnostics;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: title,
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localeResolutionCallback: resolveSafeDiskLocale,
       debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.link_off, size: 48),
-                  const SizedBox(height: 20),
-                  const Text(
-                    '无法连接主窗口',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+      home: _ContentWindowStartupErrorPage(
+        error: error,
+        onClose: onClose,
+        showDiagnostics: showDiagnostics,
+      ),
+    );
+  }
+}
+
+class _ContentWindowStartupErrorPage extends StatelessWidget {
+  const _ContentWindowStartupErrorPage({
+    required this.error,
+    required this.onClose,
+    required this.showDiagnostics,
+  });
+
+  final Object error;
+  final Future<void> Function() onClose;
+  final bool showDiagnostics;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
+    return Scaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.link_off, size: 48),
+                const SizedBox(height: 20),
+                Text(
+                  strings.contentWindowUnavailable,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    '文档会话可能已结束。为避免在失效会话中编辑，请关闭此窗口后从主界面重新打开。',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  strings.contentWindowUnavailableDescription,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                if (showDiagnostics)
                   SelectableText(
-                    error.toString(),
+                    strings.underlyingError(
+                      ErrorDiagnostics.sanitize(error.toString()),
+                    ),
+                    key: const Key('content-window-error-diagnostics'),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: () => _ignoreCloseError(onClose()),
-                    child: const Text('关闭窗口'),
-                  ),
-                ],
-              ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => _ignoreCloseError(onClose()),
+                  child: Text(strings.closeWindow),
+                ),
+              ],
             ),
           ),
         ),

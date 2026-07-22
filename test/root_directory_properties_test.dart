@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/models/cryption_config.dart';
 import 'package:safe_disk/widgets/root_directory_properties.dart';
 
@@ -24,6 +25,9 @@ void main() {
 
   testWidgets('root 属性只显示安全配置字段', (tester) async {
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(
         builder: (context) => TextButton(
           onPressed: () => showRootDirectoryProperties(
@@ -49,6 +53,9 @@ void main() {
 
   testWidgets('当前格式明确拒绝伪原地改密', (tester) async {
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(
         builder: (context) => TextButton(
           onPressed: () => showUnsupportedRootPasswordChange(
@@ -63,8 +70,63 @@ void main() {
     await tester.pump();
 
     expect(find.text('修改密码'), findsOneWidget);
-    expect(find.text('当前加密格式不支持在原目录中安全修改密码'), findsOneWidget);
-    expect(find.textContaining('数据密钥由密码直接派生'), findsOneWidget);
-    expect(find.textContaining('完整导出和导入迁移数据'), findsOneWidget);
+    expect(find.text('此目录不能直接修改密码'), findsOneWidget);
+    expect(find.textContaining('较早的加密格式'), findsOneWidget);
+    expect(find.textContaining('导出并导入需要保留的内容'), findsOneWidget);
+  });
+
+  testWidgets('新格式在属性中显示支持安全改密', (tester) async {
+    final changeableDirectory = EncryptedDirectory(
+      path: '/safe/changeable-root',
+      config: CryptionConfig({
+        'sec_key_envelope_version': 1,
+        'sec_fs_factory': 'AES-CTR',
+        'sec_name_factory': 'AES-256-GCM',
+        'sec_deriver_factory': 'Argon2id',
+      }),
+    );
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showRootDirectoryProperties(
+            context: context,
+            directory: changeableDirectory,
+          ),
+          child: const Text('打开'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('打开'));
+    await tester.pump();
+
+    expect(find.text('可直接修改'), findsOneWidget);
+    expect(rootSupportsPasswordChange(changeableDirectory), isTrue);
+  });
+
+  testWidgets('root properties use the active English locale', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showRootDirectoryProperties(
+            context: context,
+            directory: directory,
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pump();
+
+    expect(find.text('Encrypted directory properties'), findsOneWidget);
+    expect(find.text('Display name:'), findsOneWidget);
+    expect(find.text('Unlocked'), findsOneWidget);
+    expect(find.text('Change password:'), findsOneWidget);
   });
 }

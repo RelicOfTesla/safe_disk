@@ -65,7 +65,7 @@ class _CloseSmokeHostState extends State<_CloseSmokeHost> {
           path: '/note-$index.txt',
           displayName: '关闭测试-$index.txt',
         );
-        if (!await _bridge.openNotepad(lease)) {
+        if (!await _bridge.openNotepad(lease, localePreference: 'zh')) {
           throw StateError('第 $index 个子窗口创建失败');
         }
         if (mounted) setState(() => _status = '已创建第 $index 个子窗口');

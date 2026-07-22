@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import 'file_item_actions.dart';
 
 enum DirectoryBackgroundAction {
@@ -37,7 +38,10 @@ Future<DirectoryBackgroundAction?> showDirectoryBackgroundContextMenu({
               children: [
                 Icon(_actionIcon(action), size: 20),
                 const SizedBox(width: 12),
-                Text(_actionLabel(action)),
+                Flexible(
+                  child:
+                      Text(_actionLabel(AppLocalizations.of(context)!, action)),
+                ),
               ],
             ),
           ),
@@ -52,15 +56,25 @@ Future<String?> showCreateEntryDialog({
 }) {
   return showDialog<String>(
     context: context,
-    builder: (_) => _CreateEntryDialog(isDirectory: isDirectory),
+    builder: (_) {
+      final strings = AppLocalizations.of(context)!;
+      return _CreateEntryDialog(
+        isDirectory: isDirectory,
+        initialName: isDirectory
+            ? strings.newDirectoryDefaultName
+            : strings.newFileDefaultName,
+      );
+    },
   );
 }
 
-String _actionLabel(DirectoryBackgroundAction action) => switch (action) {
-      DirectoryBackgroundAction.newFile => '新建文件',
-      DirectoryBackgroundAction.newDirectory => '新建目录',
-      DirectoryBackgroundAction.paste => '粘贴到当前目录',
-      DirectoryBackgroundAction.refresh => '刷新',
+String _actionLabel(
+        AppLocalizations strings, DirectoryBackgroundAction action) =>
+    switch (action) {
+      DirectoryBackgroundAction.newFile => strings.newFile,
+      DirectoryBackgroundAction.newDirectory => strings.newDirectory,
+      DirectoryBackgroundAction.paste => strings.pasteToCurrentDirectory,
+      DirectoryBackgroundAction.refresh => strings.refresh,
     };
 
 IconData _actionIcon(DirectoryBackgroundAction action) => switch (action) {
@@ -72,9 +86,13 @@ IconData _actionIcon(DirectoryBackgroundAction action) => switch (action) {
     };
 
 class _CreateEntryDialog extends StatefulWidget {
-  const _CreateEntryDialog({required this.isDirectory});
+  const _CreateEntryDialog({
+    required this.isDirectory,
+    required this.initialName,
+  });
 
   final bool isDirectory;
+  final String initialName;
 
   @override
   State<_CreateEntryDialog> createState() => _CreateEntryDialogState();
@@ -87,11 +105,14 @@ class _CreateEntryDialogState extends State<_CreateEntryDialog> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(
-      text: widget.isDirectory ? '新建目录' : '新建文件.txt',
-    )..selection = TextSelection(
+    _controller = TextEditingController(text: widget.initialName)
+      ..selection = TextSelection(
         baseOffset: 0,
-        extentOffset: widget.isDirectory ? 4 : 4,
+        extentOffset: widget.isDirectory
+            ? widget.initialName.length
+            : widget.initialName
+                .lastIndexOf('.')
+                .clamp(0, widget.initialName.length),
       );
   }
 
@@ -104,7 +125,10 @@ class _CreateEntryDialogState extends State<_CreateEntryDialog> {
   void _submit() {
     final error = validateFileItemName(_controller.text);
     if (error != null) {
-      setState(() => _error = error);
+      setState(() {
+        _error =
+            fileItemNameValidationMessage(AppLocalizations.of(context)!, error);
+      });
       return;
     }
     Navigator.pop(context, _controller.text);
@@ -112,14 +136,15 @@ class _CreateEntryDialogState extends State<_CreateEntryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: Text(widget.isDirectory ? '新建目录' : '新建文件'),
+      title: Text(widget.isDirectory ? strings.newDirectory : strings.newFile),
       content: TextField(
         key: const Key('create-entry-name'),
         controller: _controller,
         autofocus: true,
         maxLength: 255,
-        decoration: InputDecoration(labelText: '名称', errorText: _error),
+        decoration: InputDecoration(labelText: strings.name, errorText: _error),
         onChanged: (_) {
           if (_error != null) setState(() => _error = null);
         },
@@ -128,11 +153,11 @@ class _CreateEntryDialogState extends State<_CreateEntryDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(strings.cancel),
         ),
         FilledButton(
           onPressed: _submit,
-          child: const Text('创建'),
+          child: Text(strings.create),
         ),
       ],
     );

@@ -68,6 +68,15 @@ class CryptoService {
     _native.secCreateRootConfig(rootPath, password, optionsJSON);
   }
 
+  /// Changes a password-changeable root's password without rewriting files.
+  void changeRootPassword(
+    String rootPath,
+    String oldPassword,
+    String newPassword,
+  ) {
+    _native.secRootChangePassword(rootPath, oldPassword, newPassword);
+  }
+
   /// Finds the nearest parent directory containing `_cryption.json`.
   String findCryptionRoot(String path) {
     var current = FileSystemEntity.isDirectorySync(path)

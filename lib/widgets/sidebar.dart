@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/generated/app_localizations.dart';
 import '../models/cryption_config.dart';
 import '../models/logical_path.dart';
 
@@ -39,6 +41,7 @@ class SidebarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return Column(
       children: [
         Container(
@@ -54,13 +57,15 @@ class SidebarWidget extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Safe Disk',
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    Text(
+                      strings.appTitle,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
-                      '已打开 ${openedDirs.length} 个目录',
+                      strings.openedDirectoriesCount(openedDirs.length),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -76,7 +81,8 @@ class SidebarWidget extends StatelessWidget {
                     Navigator.pop(context);
                   }
                 },
-                tooltip: drawerPinned ? '取消固定侧边栏' : '固定侧边栏',
+                tooltip:
+                    drawerPinned ? strings.unpinSidebar : strings.pinSidebar,
               ),
             ],
           ),
@@ -93,7 +99,7 @@ class SidebarWidget extends StatelessWidget {
               onOpenDirectory();
             },
             icon: const Icon(Icons.create_new_folder),
-            label: const Text('打开或创建加密目录'),
+            label: Text(strings.openOrCreateEncryptedDirectory),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 40),
             ),
@@ -105,13 +111,13 @@ class SidebarWidget extends StatelessWidget {
         // List of opened directories
         Expanded(
           child: openedDirs.isEmpty
-              ? const Center(
+              ? Center(
                   child: Padding(
-                    padding: EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(16.0),
                     child: Text(
-                      '还没有打开目录\n\n选择“打开或创建加密目录”开始使用',
+                      strings.noOpenedDirectories,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
+                      style: const TextStyle(color: Colors.grey),
                     ),
                   ),
                 )
@@ -136,28 +142,28 @@ class SidebarWidget extends StatelessWidget {
                             details.globalPosition.dy,
                           ),
                           items: [
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: SidebarDirectoryAction.properties,
-                              child: Text('属性'),
+                              child: Text(strings.properties),
                             ),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: SidebarDirectoryAction.changePassword,
-                              child: Text('修改密码'),
+                              child: Text(strings.changePassword),
                             ),
                             const PopupMenuDivider(),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: SidebarDirectoryAction.setAlias,
-                              child: Text('设置别名'),
+                              child: Text(strings.setAlias),
                             ),
                             if (dir.displayAlias != null)
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: SidebarDirectoryAction.clearAlias,
-                                child: Text('清除别名'),
+                                child: Text(strings.clearAlias),
                               ),
                             const PopupMenuDivider(),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: SidebarDirectoryAction.directoryActions,
-                              child: Text('关闭或移除目录'),
+                              child: Text(strings.closeOrRemoveDirectory),
                             ),
                           ],
                         );
@@ -190,7 +196,9 @@ class SidebarWidget extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            dir.isVerified ? '已解锁' : '需要密码',
+                            dir.isVerified
+                                ? strings.directoryUnlocked
+                                : strings.directoryNeedsPassword,
                             style: TextStyle(
                               color:
                                   dir.isVerified ? Colors.green : Colors.orange,
@@ -200,7 +208,7 @@ class SidebarWidget extends StatelessWidget {
                           trailing: IconButton(
                             icon: const Icon(Icons.close, size: 18),
                             onPressed: () => onCloseDirectory(dir),
-                            tooltip: '更多目录操作',
+                            tooltip: strings.moreDirectoryActions,
                           ),
                           onTap: () {
                             if (!drawerPinned && Navigator.canPop(context)) {

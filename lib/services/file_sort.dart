@@ -9,15 +9,6 @@ enum FileSortOrder {
   sizeSmallest,
 }
 
-String fileSortOrderLabel(FileSortOrder order) => switch (order) {
-      FileSortOrder.nameAscending => '名称：A 到 Z',
-      FileSortOrder.nameDescending => '名称：Z 到 A',
-      FileSortOrder.modifiedNewest => '修改时间：最新优先',
-      FileSortOrder.modifiedOldest => '修改时间：最早优先',
-      FileSortOrder.sizeLargest => '大小：最大优先',
-      FileSortOrder.sizeSmallest => '大小：最小优先',
-    };
-
 List<FileSystemNode> sortFileSystemNodes(
   Iterable<FileSystemNode> nodes,
   FileSortOrder order,

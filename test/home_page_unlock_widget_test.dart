@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide MaterialApp;
+import 'package:flutter/material.dart' as material show MaterialApp;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/models/cryption_config.dart';
 import 'package:safe_disk/models/secure_image_policy.dart';
 import 'package:safe_disk/native/native_lib.dart';
@@ -16,6 +18,8 @@ import 'package:safe_disk/services/directory_persistence_service.dart';
 import 'package:safe_disk/services/directory_service.dart';
 import 'package:safe_disk/services/file_service.dart';
 import 'package:safe_disk/services/settings_service.dart';
+import 'package:safe_disk/services/secure_notepad_policy.dart';
+import 'package:safe_disk/utils/error_messages.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -29,6 +33,9 @@ void main() {
     final persistenceService = _FakePersistenceService(rootPath);
 
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: HomePage(
         cryptoService: cryptoService,
         directoryService: _FakeDirectoryService(),
@@ -58,6 +65,9 @@ void main() {
     final fileService = _FakeFileService(cryptoService);
 
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: HomePage(
         cryptoService: cryptoService,
         directoryService: _FakeDirectoryService(),
@@ -96,6 +106,88 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     expect(cryptoService.closedRootIDs, [7]);
+  });
+
+  testWidgets('sidebar changes password only for a password-changeable root',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(
+      rootPath,
+      passwordChangeable: true,
+    );
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('vault').first),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('修改密码'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('root-password-current')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('root-password-current')),
+      'correct-password',
+    );
+    await tester.enterText(
+      find.byKey(const Key('root-password-new')),
+      'new-password',
+    );
+    await tester.enterText(
+      find.byKey(const Key('root-password-confirm')),
+      'new-password',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '修改密码'));
+    await tester.pumpAndSettle();
+
+    expect(
+      cryptoService.passwordChanges,
+      [('correct-password', 'new-password')],
+    );
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(find.text('请输入密码以解锁：'), findsOneWidget);
+  });
+
+  testWidgets('unlock password input disables suggestions and autocorrect',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: _FakeCryptoService(rootPath),
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(_FakeCryptoService(rootPath)),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService: SettingsService(),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+
+    final passwordField = tester.widget<TextField>(find.byType(TextField));
+    expect(passwordField.autocorrect, isFalse);
+    expect(passwordField.enableSuggestions, isFalse);
+    expect(passwordField.keyboardType, TextInputType.visiblePassword);
   });
 
   testWidgets('background lifecycle locks an eligible root when enabled',
@@ -527,6 +619,74 @@ void main() {
     expect(find.text('右键菜单测试内容'), findsOneWidget);
   });
 
+  testWidgets('Menu and Shift+F10 reopen the keyboard target context menu',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+    await tester.pumpAndSettle();
+    expect(find.text('使用安全记事本编辑'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    expect(find.text('使用安全记事本编辑'), findsOneWidget);
+  });
+
+  testWidgets('Menu opens the directory menu when no file target exists',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.contextMenu);
+    await tester.pumpAndSettle();
+
+    expect(find.text('新建文件'), findsOneWidget);
+    expect(find.text('新建目录'), findsOneWidget);
+  });
+
   testWidgets('image context menu opens a capability-based native window',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
@@ -663,6 +823,59 @@ void main() {
     expect(platform.openedImages, isEmpty);
     expect(cryptoService.decryptedPaths, isEmpty);
     expect(find.byType(SnackBar), findsOneWidget);
+  });
+
+  testWidgets('oversized text is rejected before opening either notepad view',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final platform = _FakeContentWindowPlatform();
+    addTearDown(platform.dispose);
+    final textFile = FileSystemNode(
+      name: '超大文本.txt',
+      path: '/超大文本.txt',
+      isDirectory: false,
+      size: kMaxSecureNotepadContentBytes + 1,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService, items: [textFile]),
+        persistenceService: _FakePersistenceService(rootPath),
+        contentWindowPlatform: platform,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    var gesture = await tester.startGesture(
+      tester.getCenter(find.text('超大文本.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('使用安全记事本编辑'));
+    await tester.pump();
+    expect(cryptoService.decryptedPaths, isEmpty);
+    expect(find.byType(SnackBar), findsOneWidget);
+
+    gesture = await tester.startGesture(
+      tester.getCenter(find.text('超大文本.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在新窗口中编辑'));
+    await tester.pumpAndSettle();
+    expect(platform.notepadOpenRequests, 0);
+    expect(cryptoService.decryptedPaths, isEmpty);
   });
 
   testWidgets('file context menu enters selection mode and batch exports',
@@ -1728,6 +1941,40 @@ void main() {
     ]);
   });
 
+  testWidgets('directory import rejects a source inside the encrypted root',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final directoryService = _FakeDirectoryService();
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: directoryService,
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+        selectDirectory: () async => '$rootPath/existing',
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    expect(isPathInsideDirectory('$rootPath/existing', rootPath), isTrue);
+    final descriptor = ErrorMessages.descriptor(
+      ErrorType.importDirectoryInsideCurrentRoot,
+    );
+    expect(descriptor.type, ErrorType.importDirectoryInsideCurrentRoot);
+    expect(descriptor.isCritical, isFalse);
+
+    await tester.tap(find.byTooltip('导入目录'));
+    await tester.pump();
+    await tester.pump();
+    expect(directoryService.importCalls, isEmpty);
+  });
+
   testWidgets('directory import failure closes progress and keeps root open',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
@@ -1735,6 +1982,9 @@ void main() {
     final directoryService = _FakeDirectoryService(importError: 'disk full');
 
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: HomePage(
         cryptoService: cryptoService,
         directoryService: directoryService,
@@ -1865,6 +2115,9 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: HomePage(
         cryptoService: cryptoService,
         directoryService: directoryService,
@@ -1883,6 +2136,23 @@ void main() {
     expect(cryptoService.closedRootIDs, [7]);
     expect(find.text('visible.txt'), findsNothing);
   });
+}
+
+/// Keeps every HomePage test inside the same localization boundary as the app.
+class MaterialApp extends material.MaterialApp {
+  const MaterialApp({
+    super.key,
+    super.home,
+    Locale? locale,
+    Iterable<LocalizationsDelegate<dynamic>>? localizationsDelegates,
+    Iterable<Locale>? supportedLocales,
+  }) : super(
+          locale: locale ?? const Locale('zh'),
+          localizationsDelegates:
+              localizationsDelegates ?? AppLocalizations.localizationsDelegates,
+          supportedLocales:
+              supportedLocales ?? AppLocalizations.supportedLocales,
+        );
 }
 
 const _twoFileRootPath = '/tmp/safe-disk-home-test/two-file-vault';
@@ -1954,6 +2224,7 @@ class _FakeCryptoService extends CryptoService {
     this.deleteFailures = const {},
     this.copyFailures = const {},
     this.writeGate,
+    this.passwordChangeable = false,
   });
 
   final String rootPath;
@@ -1961,9 +2232,11 @@ class _FakeCryptoService extends CryptoService {
   final Set<String> deleteFailures;
   final Set<String> copyFailures;
   final Completer<void>? writeGate;
+  final bool passwordChangeable;
   final List<String> openedPasswords = [];
   final List<String> decryptedPaths = [];
   final List<int> closedRootIDs = [];
+  final List<(String oldPassword, String newPassword)> passwordChanges = [];
   final List<({String path, String sessionID})> deletedFiles = [];
   final List<({String oldPath, String newPath, String sessionID})> renameCalls =
       [];
@@ -1988,7 +2261,18 @@ class _FakeCryptoService extends CryptoService {
         'version': '1.0',
         'dataFactory': 'AES-CTR',
         'nameFactory': 'AES-256-GCM',
+        if (passwordChangeable) 'sec_key_envelope_version': 1,
       });
+
+  @override
+  void changeRootPassword(
+    String rootPath,
+    String oldPassword,
+    String newPassword,
+  ) {
+    if (rootPath != this.rootPath) throw StateError('Unknown root: $rootPath');
+    passwordChanges.add((oldPassword, newPassword));
+  }
 
   @override
   int openRoot(String rootPath, String password, String configJSON) {
@@ -2285,6 +2569,7 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
   final StreamController<Set<String>> _alive =
       StreamController<Set<String>>.broadcast();
   final List<Map<String, String>> openedImages = [];
+  var notepadOpenRequests = 0;
 
   @override
   Stream<Set<String>> get aliveTokens => _alive.stream;
@@ -2294,11 +2579,13 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
     required String token,
     required String documentID,
     required String title,
+    required String localePreference,
   }) async {
     openedImages.add({
       'token': token,
       'documentID': documentID,
       'title': title,
+      'localePreference': localePreference,
     });
     return true;
   }
@@ -2308,8 +2595,11 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
     required String token,
     required String documentID,
     required String title,
-  }) async =>
-      false;
+    required String localePreference,
+  }) async {
+    notepadOpenRequests++;
+    return false;
+  }
 
   @override
   Future<void> closeTokens(Set<String> tokens) async {}

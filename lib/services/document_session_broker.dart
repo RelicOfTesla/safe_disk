@@ -289,6 +289,20 @@ class DocumentSessionBroker {
     );
   }
 
+  /// Stops new calls for a root, then waits for saves already accepted by the
+  /// broker. The caller must keep the native root open until this completes.
+  Future<void> revokeRootSessions(String rootSessionID) async {
+    final sessions = _sessions.values
+        .where((session) => session.rootSessionID == rootSessionID)
+        .toList(growable: false);
+    final documentIDs = sessions.map((session) => session.documentID).toSet();
+    closeRootSessions(rootSessionID);
+    await Future.wait([
+      for (final documentID in documentIDs)
+        if (_saveQueues[documentID] case final queue?) queue,
+    ]);
+  }
+
   RootLeaseSummary summarizeRoot(String rootSessionID) {
     final sessions = _sessions.values
         .where((session) => session.rootSessionID == rootSessionID)
@@ -326,7 +340,9 @@ class DocumentSessionBroker {
 
   _DocumentSession _requireSession(String token) {
     final session = _sessions[token];
-    if (session == null) throw const DocumentSessionNotFound();
+    if (session == null || session.closeRequested) {
+      throw const DocumentSessionNotFound();
+    }
     return session;
   }
 

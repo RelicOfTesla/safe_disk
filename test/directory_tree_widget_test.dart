@@ -1,9 +1,20 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide MaterialApp;
+import 'package:flutter/material.dart' as material show MaterialApp;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/services/crypto_service.dart';
 import 'package:safe_disk/services/directory_page_session.dart';
 import 'package:safe_disk/services/file_service.dart';
 import 'package:safe_disk/widgets/directory_tree.dart';
+
+class MaterialApp extends material.MaterialApp {
+  const MaterialApp({super.key, super.home, Locale? locale})
+      : super(
+          locale: locale ?? const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        );
+}
 
 void main() {
   testWidgets('tree skips file-only cursor pages before showing directories',
@@ -48,6 +59,28 @@ void main() {
     expect(find.text('child.txt'), findsNothing);
     expect(find.text('nested'), findsOneWidget);
     expect(service.reads['/root/folder'], 2);
+  });
+
+  testWidgets('tree load failure displays English retry guidance',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        home: Scaffold(
+          body: DirectoryTreeWidget(
+            rootPath: '/root',
+            fileService: _FailingTreeFileService(),
+            onPathSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Could not read directory tree. Refresh and try again.'),
+      findsOneWidget,
+    );
   });
 }
 
@@ -100,6 +133,24 @@ class _PagedTreeFileService extends FileService {
           ),
         )
         .toList();
+  }
+}
+
+class _FailingTreeFileService extends FileService {
+  @override
+  DirectoryPageSession? openCurrentDirectorySession(
+    String path, {
+    bool retainEntries = true,
+  }) =>
+      null;
+
+  @override
+  Future<List<FileSystemNode>> listCurrentDirectory(
+    String path, {
+    int offset = 0,
+    int? limit,
+  }) async {
+    throw StateError('read failed');
   }
 }
 

@@ -52,6 +52,10 @@ type CreateRootOptions struct {
 	// ConfigFileName specifies the name of the configuration file.
 	// Default: "_cryption.json" if not specified.
 	ConfigFileName string
+
+	// PasswordChangeable stores a random content key wrapped by a
+	// password-derived key, allowing password changes without data rewrite.
+	PasswordChangeable bool
 }
 
 // CreateRootOption is a functional option for configuring CreateRootConfig.
@@ -517,11 +521,19 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 	if err != nil {
 		return nil, "", NewConfigError("sec_deriver_factory", "failed to create deriver", err)
 	}
+	keyLength := requiredKeyLength
+	if keyLength < passwordWrappingKeyLength {
+		keyLength = passwordWrappingKeyLength
+	}
+	derivationKeyLength := keyLength
+	if opts.PasswordChangeable {
+		derivationKeyLength = passwordWrappingKeyLength
+	}
 	keyInfo, err := deriver.NewKey(&crypto_hkdf.MakeKeyParams{
 		Password:      password,
 		StaticSalt:    false,
 		KeyStrengthMs: opts.KeyStrengthMs,
-		KeyLength:     requiredKeyLength,
+		KeyLength:     derivationKeyLength,
 	}, cfg)
 	if err != nil {
 		return nil, "", NewConfigError("key_derivation", "failed to create key", err)
@@ -531,9 +543,18 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 	}
 	defer keyInfo.Destroy()
 
+	contentKey := keyInfo
+	if opts.PasswordChangeable {
+		contentKey, err = newRandomRootKey(keyLength)
+		if err != nil {
+			return nil, "", err
+		}
+		defer contentKey.Destroy()
+	}
+
 	// Create nameCryptor and save its parameters if available
 	if nameFactory != nil {
-		nameContext, contextErr := nameFactory.NewContext(keyInfo, cfg)
+		nameContext, contextErr := nameFactory.NewContext(contentKey, cfg)
 		if nameContext != nil {
 			defer nameContext.Close()
 		}
@@ -543,6 +564,11 @@ func CreateRootConfigQuick(rootPath FullStorePath, password string, options ...C
 	}
 	if err := writePasswordVerifier(cfg, keyInfo.GetKey()); err != nil {
 		return nil, "", err
+	}
+	if opts.PasswordChangeable {
+		if err := writeRootKeyEnvelope(cfg, keyInfo.GetKey(), contentKey.GetKey()); err != nil {
+			return nil, "", err
+		}
 	}
 
 	return cfg, rootPath, nil
@@ -591,21 +617,8 @@ func OpenRootQuick(rootPath FullStorePath, inputPassword string, options ...Open
 		return nil, err
 	}
 
-	keyDeriver, err := deriverFactory.NewDeriver(cfg)
+	keyInfo, err := loadRootKeyForOpen(cfg, deriverFactory, inputPassword)
 	if err != nil {
-		return nil, NewConfigError("sec_deriver_factory", "failed to create deriver", err)
-	}
-
-	// Derive key from password
-	keyInfo, err := keyDeriver.LoadKey(inputPassword, cfg)
-	if err != nil {
-		return nil, NewConfigError("key_derivation", "failed to derive key", err)
-	}
-	if keyInfo == nil {
-		return nil, NewConfigError("key_derivation", "derived key is required", ErrInvalidConfig)
-	}
-	if err := verifyPassword(cfg, keyInfo.GetKey()); err != nil {
-		keyInfo.Destroy()
 		return nil, err
 	}
 

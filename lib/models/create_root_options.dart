@@ -7,6 +7,7 @@ class CreateRootRequest {
     this.nameFactory = 'AES-256-GCM',
     this.deriverFactory = 'Argon2id',
     this.keyStrengthMs = 1000,
+    this.passwordChangeable = true,
   });
 
   // Secure interactive subset of native/sec_fs/crypto_all. RC4 and the
@@ -21,11 +22,13 @@ class CreateRootRequest {
   final String nameFactory;
   final String deriverFactory;
   final int keyStrengthMs;
+  final bool passwordChangeable;
 
   String get optionsJSON => jsonEncode({
         'dataFactory': dataFactory,
         'nameFactory': nameFactory,
         'deriverFactory': deriverFactory,
         'keyStrengthMs': keyStrengthMs,
+        'passwordChangeable': passwordChangeable,
       });
 }

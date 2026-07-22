@@ -12,6 +12,7 @@ class SettingsService {
   static const String _keyKeyStrengthMs = 'key_strength_ms';
   static const String _keySessionTTL = 'session_ttl';
   static const String _keyThemeMode = 'theme_mode';
+  static const String _keyLocale = 'locale';
   static const String _keyListViewMode = 'list_view_mode';
   static const String _keyShowFileExtensions = 'show_file_extensions';
   static const String _keyConfirmBeforeDelete = 'confirm_before_delete';
@@ -26,6 +27,7 @@ class SettingsService {
   static const int defaultKeyStrengthMs = 1000; // 1 second
   static const int defaultSessionTTL = 3600; // 1 hour
   static const String defaultThemeMode = 'system'; // system, light, dark
+  static const String defaultLocale = 'zh'; // system, zh, en
   static const bool defaultShowFileExtensions = true;
   static const bool defaultConfirmBeforeDelete = true;
   static const bool defaultAutoCloseSession = false;
@@ -55,6 +57,7 @@ class SettingsService {
 
   // Theme mode options
   static const List<String> themeModeOptions = ['system', 'light', 'dark'];
+  static const List<String> localeOptions = ['system', 'zh', 'en'];
 
   // ==================== Key Strength Settings ====================
 
@@ -116,14 +119,6 @@ class SettingsService {
     return 'custom';
   }
 
-  /// Get session TTL display name (localized)
-  String getSessionTTLDisplayName(int seconds) {
-    if (seconds == 0) return '永不过期';
-    if (seconds < 3600) return '${seconds ~/ 60} 分钟';
-    if (seconds < 86400) return '${seconds ~/ 3600} 小时';
-    return '${seconds ~/ 86400} 天';
-  }
-
   // ==================== Theme Settings ====================
 
   /// Get theme mode
@@ -136,6 +131,23 @@ class SettingsService {
   Future<void> setThemeMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyThemeMode, mode);
+  }
+
+  // ==================== Language Settings ====================
+
+  Future<String> getLocale() async {
+    final prefs = await SharedPreferences.getInstance();
+    final locale = prefs.getString(_keyLocale) ?? defaultLocale;
+    return localeOptions.contains(locale) ? locale : defaultLocale;
+  }
+
+  Future<void> setLocale(String locale) async {
+    if (!localeOptions.contains(locale)) {
+      throw ArgumentError.value(
+          locale, 'locale', 'unsupported application locale');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLocale, locale);
   }
 
   /// Get theme mode display name (localized)
@@ -248,12 +260,6 @@ class SettingsService {
     await prefs.setBool(_keyDetailedErrorReports, enabled);
   }
 
-  String getNotepadAutoSaveDisplayName(int seconds) {
-    if (seconds == 0) return '关闭';
-    if (seconds < 60) return '$seconds 秒';
-    return '${seconds ~/ 60} 分钟';
-  }
-
   // ==================== Reset to Defaults ====================
 
   /// Reset all settings to defaults
@@ -261,6 +267,7 @@ class SettingsService {
     await setKeyStrengthMs(defaultKeyStrengthMs);
     await setSessionTTL(defaultSessionTTL);
     await setThemeMode(defaultThemeMode);
+    await setLocale(defaultLocale);
     await setShowFileExtensions(defaultShowFileExtensions);
     await setConfirmBeforeDelete(defaultConfirmBeforeDelete);
     await setAutoCloseSession(defaultAutoCloseSession);

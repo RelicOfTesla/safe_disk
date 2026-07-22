@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../models/cryption_config.dart';
 import '../models/view_mode.dart';
 import '../services/file_service.dart';
@@ -124,7 +125,7 @@ class HomeShell extends StatelessWidget {
             drawerPinned && constraints.maxWidth >= 720;
         return Scaffold(
           key: scaffoldKey,
-          appBar: _buildAppBar(effectiveDrawerPinned),
+          appBar: _buildAppBar(context, effectiveDrawerPinned),
           drawer: effectiveDrawerPinned ? null : _buildDrawer(context),
           body: Row(
             children: [
@@ -141,16 +142,20 @@ class HomeShell extends StatelessWidget {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(bool effectiveDrawerPinned) {
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    bool effectiveDrawerPinned,
+  ) {
+    final strings = AppLocalizations.of(context)!;
     return AppBar(
       title: selectMode
-          ? Text('已选择 ${selectedFiles.length} 项')
-          : const Text('Safe Disk'),
+          ? Text(strings.selectedItems(selectedFiles.length))
+          : Text(strings.appTitle),
       leading: selectMode
           ? IconButton(
               icon: const Icon(Icons.close),
               onPressed: onCancelSelection,
-              tooltip: '退出选择模式',
+              tooltip: strings.exitSelectionMode,
             )
           : effectiveDrawerPinned
               ? null
@@ -158,26 +163,29 @@ class HomeShell extends StatelessWidget {
                   icon: const Icon(Icons.menu),
                   onPressed: () => scaffoldKey.currentState?.openDrawer(),
                 ),
-      actions: selectMode ? _buildSelectActions() : _buildNormalActions(),
+      actions: selectMode
+          ? _buildSelectActions(context)
+          : _buildNormalActions(context),
     );
   }
 
-  List<Widget> _buildSelectActions() {
+  List<Widget> _buildSelectActions(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return [
       if (selectedFiles.isNotEmpty)
         IconButton(
           icon: const Icon(Icons.copy_outlined),
           onPressed: onBatchCopy,
-          tooltip: '复制所选项',
+          tooltip: strings.copySelected,
         ),
       if (selectedFiles.isNotEmpty)
         IconButton(
           icon: const Icon(Icons.content_cut),
           onPressed: onBatchCut,
-          tooltip: '剪切所选项',
+          tooltip: strings.cutSelected,
         ),
       PopupMenuButton<_BatchSelectionAction>(
-        tooltip: '更多批量操作',
+        tooltip: strings.moreBatchActions,
         onSelected: (action) {
           switch (action) {
             case _BatchSelectionAction.selectAll:
@@ -192,27 +200,27 @@ class HomeShell extends StatelessWidget {
           }
         },
         itemBuilder: (context) => [
-          const PopupMenuItem(
+          PopupMenuItem(
             value: _BatchSelectionAction.selectAll,
             child: ListTile(
-              leading: Icon(Icons.select_all),
-              title: Text('全选'),
+              leading: const Icon(Icons.select_all),
+              title: Text(strings.selectAll),
             ),
           ),
           if (selectedFiles.isNotEmpty)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: _BatchSelectionAction.export,
               child: ListTile(
-                leading: Icon(Icons.save_alt),
-                title: Text('导出所选项'),
+                leading: const Icon(Icons.save_alt),
+                title: Text(strings.exportSelected),
               ),
             ),
           if (selectedFiles.isNotEmpty)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: _BatchSelectionAction.delete,
               child: ListTile(
-                leading: Icon(Icons.delete_outline),
-                title: Text('删除所选项'),
+                leading: const Icon(Icons.delete_outline),
+                title: Text(strings.deleteSelected),
               ),
             ),
         ],
@@ -220,7 +228,8 @@ class HomeShell extends StatelessWidget {
     ];
   }
 
-  List<Widget> _buildNormalActions() {
+  List<Widget> _buildNormalActions(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return [
       ImportActions(
         onImportFile: onImportFile,
@@ -230,12 +239,12 @@ class HomeShell extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.folder_off_outlined),
           onPressed: onCloseCurrentRoot,
-          tooltip: '关闭目录',
+          tooltip: strings.closeDirectory,
         ),
       IconButton(
         icon: const Icon(Icons.settings_outlined),
         onPressed: onOpenSettings,
-        tooltip: '设置',
+        tooltip: strings.settings,
       ),
     ];
   }
@@ -320,12 +329,23 @@ class HomeShell extends StatelessWidget {
   ) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final strings = AppLocalizations.of(context)!;
         final wide = constraints.maxWidth >= 640;
-        final targetName = currentPath?.split('/').last ?? '当前目录';
+        final targetName =
+            currentPath?.split('/').last ?? strings.currentDirectory;
         final isMove = entry.isMove;
         final count = clipboardEntryCount > 0 ? clipboardEntryCount : 1;
-        final entryLabel = count == 1 ? entry.name : '${entry.name} 等 $count 项';
-        final actionLabel = isMove ? '移动到当前目录' : '粘贴到当前目录';
+        final entryLabel = count == 1
+            ? entry.name
+            : strings.clipboardMultipleEntries(entry.name, count);
+        final actionLabel = isMove
+            ? strings.moveToCurrentDirectory
+            : strings.pasteToCurrentDirectory;
+        final statusLabel = wide
+            ? (isMove ? strings.clipboardMovePending : strings.fileClipboard)
+            : (isMove
+                ? strings.clipboardMovePending
+                : strings.clipboardPastePending);
         return Material(
           key: const Key('file-clipboard-status'),
           color: Theme.of(context).colorScheme.surfaceContainerLow,
@@ -353,9 +373,13 @@ class HomeShell extends StatelessWidget {
                 Expanded(
                   child: Text(
                     wide
-                        ? '${isMove ? '待移动' : '文件剪贴板'} · '
-                            '$entryLabel  →  $targetName'
-                        : '${isMove ? '待移动' : '待粘贴'} · $entryLabel',
+                        ? strings.clipboardStatusWide(
+                            statusLabel,
+                            entryLabel,
+                            targetName,
+                          )
+                        : strings.clipboardStatusNarrow(
+                            statusLabel, entryLabel),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall,
@@ -380,7 +404,7 @@ class HomeShell extends StatelessWidget {
                 IconButton(
                   onPressed: onClearClipboard,
                   icon: const Icon(Icons.close, size: 18),
-                  tooltip: '清空文件剪贴板',
+                  tooltip: strings.clearFileClipboard,
                 ),
               ],
             ),

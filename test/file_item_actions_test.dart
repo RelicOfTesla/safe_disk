@@ -1,8 +1,23 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide MaterialApp;
+import 'package:flutter/material.dart' as material show MaterialApp;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/services/file_service.dart';
 import 'package:safe_disk/widgets/file_item_actions.dart';
+
+class MaterialApp extends material.MaterialApp {
+  const MaterialApp({
+    super.key,
+    super.home,
+    super.navigatorObservers,
+    Locale? locale,
+  }) : super(
+          locale: locale ?? const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        );
+}
 
 void main() {
   test('exposes only actions supported by each item type', () {
@@ -92,37 +107,49 @@ void main() {
     );
   });
 
-  test('uses explicit Chinese labels for plaintext-producing actions', () {
+  test('resolves file action labels from Chinese and English ARB resources',
+      () async {
     final file = _node('记录.txt');
+    final chinese = await AppLocalizations.delegate.load(const Locale('zh'));
+    final english = await AppLocalizations.delegate.load(const Locale('en'));
 
     expect(
-      fileItemActionLabel(FileItemAction.edit, file),
+      fileItemActionLabel(chinese, FileItemAction.edit, file),
       '使用安全记事本编辑',
     );
     expect(
-      fileItemActionLabel(FileItemAction.openInNewWindow, file),
+      fileItemActionLabel(chinese, FileItemAction.openInNewWindow, file),
       '在新窗口中编辑',
     );
     expect(
       fileItemActionLabel(
+        chinese,
         FileItemAction.openInNewWindow,
         _node('照片.webp'),
       ),
       '在新窗口中查看',
     );
     expect(
-      fileItemActionLabel(FileItemAction.export, file),
+      fileItemActionLabel(chinese, FileItemAction.export, file),
       '导出解密文件',
     );
     expect(
-      fileItemActionLabel(FileItemAction.delete, file),
+      fileItemActionLabel(chinese, FileItemAction.delete, file),
       '删除文件',
     );
-    expect(fileItemActionLabel(FileItemAction.select, file), '选择');
-    expect(fileItemActionLabel(FileItemAction.cut, file), '剪切');
+    expect(fileItemActionLabel(chinese, FileItemAction.select, file), '选择');
+    expect(fileItemActionLabel(chinese, FileItemAction.cut, file), '剪切');
     expect(
-      fileItemActionLabel(FileItemAction.copyPath, file),
+      fileItemActionLabel(chinese, FileItemAction.copyPath, file),
       '复制逻辑路径（明文）',
+    );
+    expect(
+      fileItemActionLabel(english, FileItemAction.edit, file),
+      'Edit with Secure Notepad',
+    );
+    expect(
+      fileItemActionLabel(english, FileItemAction.copyPath, file),
+      'Copy logical path (plaintext)',
     );
   });
 
@@ -204,6 +231,32 @@ void main() {
     await tester.tap(find.text('属性'));
     await tester.pump();
     expect(find.text('/vault/冷启动.txt'), findsOneWidget);
+  });
+
+  testWidgets('file action sheet displays English action labels',
+      (tester) async {
+    final item = _node('notes.txt');
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showFileItemActionSheet(
+              context: context,
+              item: item,
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit with Secure Notepad'), findsOneWidget);
+    await tester.drag(find.byType(ListView).last, const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete file'), findsOneWidget);
   });
 }
 

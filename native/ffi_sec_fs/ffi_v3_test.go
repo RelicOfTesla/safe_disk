@@ -56,6 +56,31 @@ func TestTransferV3FFIRoundTrip(t *testing.T) {
 	}
 }
 
+func TestPasswordChangeableRootFFIRoundTrip(t *testing.T) {
+	rootPath := filepath.Join(t.TempDir(), "root")
+	assertSuccess(t, CreateRootConfig_FFI(
+		rootPath,
+		"old-password",
+		`{"dataFactory":"AES-CTR","nameFactory":"AES-256-GCM","deriverFactory":"PBKDF2","keyStrengthMs":1,"passwordChangeable":true}`,
+	))
+	opened := assertSuccess(t, OpenRoot_FFI(rootPath, "old-password", ""))
+	rootID := int64(opened["data"].(map[string]interface{})["root_id"].(float64))
+	assertSuccess(t, QuickWriteFile_FFI(rootID, "保留.txt", []byte("preserved")))
+	assertSuccess(t, CloseRoot_FFI(rootID))
+
+	assertSuccess(t, ChangeRootPassword_FFI(rootPath, "old-password", "new-password"))
+	if response := OpenRoot_FFI(rootPath, "old-password", ""); jsonSuccess(response) {
+		t.Fatalf("old password unexpectedly opened root: %s", response)
+	}
+	opened = assertSuccess(t, OpenRoot_FFI(rootPath, "new-password", ""))
+	rootID = int64(opened["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+	read := assertSuccess(t, QuickReadFile_FFI(rootID, "保留.txt"))
+	if got := read["data"].(map[string]interface{})["data"].(string); got == "" {
+		t.Fatal("content disappeared after password change")
+	}
+}
+
 func TestTransferV3UnfinishedUsesStableMissingSessionCode(t *testing.T) {
 	var response Response
 	if err := json.Unmarshal([]byte(TransferV3ListUnfinished_FFI(-1)), &response); err != nil {

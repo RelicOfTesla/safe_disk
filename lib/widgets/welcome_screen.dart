@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
+
 /// Welcome screen shown when no encrypted directory is opened.
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final strings = AppLocalizations.of(context)!;
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lock, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
+          const Icon(Icons.lock, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
           Text(
-            'Safe Disk',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            strings.appTitle,
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
-          SizedBox(height: 8),
-          Text('加密文件管理器'),
-          SizedBox(height: 32),
+          const SizedBox(height: 8),
+          Text(strings.welcomeProductTagline),
+          const SizedBox(height: 32),
           Text(
-            '请从侧边栏打开或创建加密目录',
-            style: TextStyle(color: Colors.grey),
+            strings.welcomeOpenDirectoryHint,
+            style: const TextStyle(color: Colors.grey),
           ),
         ],
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe_disk/main.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/pages/settings_page.dart';
 import 'package:safe_disk/services/settings_service.dart';
 import 'package:safe_disk/services/error_reporting_service.dart';
@@ -31,13 +32,67 @@ void main() {
         ThemeMode.dark);
   });
 
+  testWidgets('persisted locale is applied to the whole application',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'locale': 'en'});
+
+    await tester.pumpWidget(
+      SafeDiskApp(
+        settingsService: SettingsService(),
+        nativeLibraryProbe: () async {},
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.locale, const Locale('en'));
+    expect(app.supportedLocales, contains(const Locale('zh')));
+    expect(app.localizationsDelegates, isNotEmpty);
+  });
+
+  testWidgets('settings core controls render in English for the English locale',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'locale': 'en'});
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SettingsPage(settingsService: SettingsService()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('Language'), findsOneWidget);
+    expect(find.text('Follow system'), findsOneWidget);
+    expect(find.text('Behavior'), findsOneWidget);
+    expect(find.text('Confirm before deleting'), findsOneWidget);
+    expect(find.text('Lock after inactivity'), findsOneWidget);
+    expect(find.text('1 hour'), findsOneWidget);
+    expect(find.text('Secure draft save interval'), findsOneWidget);
+    expect(find.text('Open notes read-only'), findsOneWidget);
+    expect(find.text('Monitor clipboard by default'), findsOneWidget);
+    expect(find.text('Show detailed error information'), findsOneWidget);
+    expect(find.text('About'), findsOneWidget);
+    expect(find.textContaining('Version 1.0.0'), findsOneWidget);
+    expect(find.textContaining('Encrypted file manager'), findsOneWidget);
+    expect(find.text('删除前确认'), findsNothing);
+    expect(
+      find.text(
+          'English is still being translated. Some screens may remain in Chinese.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('settings use two columns on wide windows and one on narrow',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     await tester.pumpWidget(
-      MaterialApp(home: SettingsPage(settingsService: SettingsService())),
+      _settingsTestApp(home: SettingsPage(settingsService: SettingsService())),
     );
     await tester.pumpAndSettle();
 
@@ -67,7 +122,7 @@ void main() {
     final service = SettingsService();
 
     await tester.pumpWidget(
-      MaterialApp(
+      _settingsTestApp(
         home: Builder(
           builder: (context) => Scaffold(
             body: FilledButton(
@@ -129,7 +184,7 @@ void main() {
       (tester) async {
     final service = SettingsService();
     await tester.pumpWidget(
-      MaterialApp(home: SettingsPage(settingsService: service)),
+      _settingsTestApp(home: SettingsPage(settingsService: service)),
     );
     await tester.pumpAndSettle();
 
@@ -153,7 +208,7 @@ void main() {
       (tester) async {
     final service = SettingsService();
     await tester.pumpWidget(
-      MaterialApp(home: SettingsPage(settingsService: service)),
+      _settingsTestApp(home: SettingsPage(settingsService: service)),
     );
     await tester.pumpAndSettle();
 
@@ -174,7 +229,7 @@ void main() {
       (tester) async {
     final service = SettingsService();
     await tester.pumpWidget(
-      MaterialApp(home: SettingsPage(settingsService: service)),
+      _settingsTestApp(home: SettingsPage(settingsService: service)),
     );
     await tester.pumpAndSettle();
 
@@ -200,7 +255,7 @@ void main() {
     final service = SettingsService();
 
     await tester.pumpWidget(
-      MaterialApp(home: SettingsPage(settingsService: service)),
+      _settingsTestApp(home: SettingsPage(settingsService: service)),
     );
     await tester.pumpAndSettle();
 
@@ -221,7 +276,7 @@ void main() {
       (tester) async {
     final service = SettingsService();
     await tester.pumpWidget(
-      MaterialApp(home: SettingsPage(settingsService: service)),
+      _settingsTestApp(home: SettingsPage(settingsService: service)),
     );
     await tester.pumpAndSettle();
 
@@ -237,4 +292,119 @@ void main() {
     expect(await service.getDetailedErrorReports(), isTrue);
     expect(ErrorReportingService.detailedErrorsEnabled, isTrue);
   });
+
+  testWidgets('language choice previews immediately and persists on save',
+      (tester) async {
+    final previews = <Locale?>[];
+    final service = SettingsService();
+    await tester.pumpWidget(
+      _settingsTestApp(
+        home: SettingsPage(
+          settingsService: service,
+          onLocaleChanged: previews.add,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final locale = find.byKey(const Key('app-locale'));
+    await tester.ensureVisible(locale);
+    await tester.tap(
+      find.descendant(
+          of: locale, matching: find.byType(DropdownButton<String>)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('English').last);
+    await tester.pump();
+
+    expect(previews.last, const Locale('en'));
+    expect(await service.getLocale(), SettingsService.defaultLocale);
+    final save = find.text('保存设置');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(await service.getLocale(), 'en');
+  });
+
+  testWidgets('settings failures hide raw diagnostics by default',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SettingsPage(settingsService: _FailingLoadSettings()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('无法加载设置'), findsOneWidget);
+    expect(find.text('无法读取本机设置。'), findsOneWidget);
+    expect(find.textContaining('private-settings-path'), findsNothing);
+    expect(find.byKey(const Key('error-technical-details')), findsNothing);
+  });
+
+  testWidgets('opted-in settings failures show sanitized diagnostics',
+      (tester) async {
+    ErrorReportingService.configure(detailedErrorsEnabled: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SettingsPage(settingsService: _FailingLoadSettings()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('error-technical-details')), findsOneWidget);
+    expect(find.textContaining('private-settings-path'), findsNothing);
+    expect(find.textContaining('[路径已隐藏]'), findsOneWidget);
+  });
+
+  testWidgets('save failure uses the same protected error presentation',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: SettingsPage(settingsService: _FailingSaveSettings()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('暗色主题'));
+    await tester.pump();
+    final save = find.text('保存设置');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    expect(find.text('无法保存设置'), findsOneWidget);
+    expect(find.text('设置尚未保存。'), findsOneWidget);
+    expect(find.textContaining('private-settings-path'), findsNothing);
+  });
+}
+
+Widget _settingsTestApp(
+    {required Widget home, Locale locale = const Locale('zh')}) {
+  return MaterialApp(
+    locale: locale,
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: home,
+  );
+}
+
+class _FailingLoadSettings extends SettingsService {
+  @override
+  Future<String> getThemeMode() =>
+      Future<String>.error(StateError('read /private-settings-path/theme'));
+}
+
+class _FailingSaveSettings extends SettingsService {
+  @override
+  Future<void> setThemeMode(String mode) =>
+      Future<void>.error(StateError('write /private-settings-path/theme'));
 }

@@ -2,13 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/models/cryption_config.dart';
 import 'package:safe_disk/services/crypto_service.dart';
+import 'package:safe_disk/services/error_reporting_service.dart';
 import 'package:safe_disk/services/secure_notepad_draft_store.dart';
 import 'package:safe_disk/services/system_text_clipboard.dart';
 import 'package:safe_disk/widgets/secure_notepad.dart';
 
 void main() {
+  setUp(() {
+    ErrorReportingService.configure(detailedErrorsEnabled: false);
+  });
+
+  tearDown(() {
+    ErrorReportingService.configure(detailedErrorsEnabled: false);
+  });
+
   testWidgets('switches from read-only mode and saves encrypted text',
       (tester) async {
     final service = _FakeCryptoService('initial');
@@ -40,7 +50,49 @@ void main() {
     expect(find.text('已保存'), findsOneWidget);
   });
 
-  testWidgets('Ctrl+F search focuses, selects and navigates matches',
+  testWidgets('notepad load error hides raw diagnostics unless enabled',
+      (tester) async {
+    await _openNotepad(
+      tester,
+      _FakeCryptoService('initial',
+          readError: 'cannot read /private-note-path'),
+    );
+
+    expect(find.text('无法读取文件内容。请检查文件是否存在且可读，然后重试。'), findsOneWidget);
+    expect(find.textContaining('private-note-path'), findsNothing);
+    expect(find.byKey(const Key('error-technical-details')), findsNothing);
+
+    ErrorReportingService.configure(detailedErrorsEnabled: true);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _openNotepad(
+      tester,
+      _FakeCryptoService('initial',
+          readError: 'cannot read /private-note-path'),
+    );
+    expect(find.byKey(const Key('error-technical-details')), findsOneWidget);
+    expect(find.textContaining('private-note-path'), findsNothing);
+    expect(find.textContaining('[路径已隐藏]'), findsOneWidget);
+  });
+
+  testWidgets('notepad save error hides raw diagnostics by default',
+      (tester) async {
+    await _openNotepad(
+      tester,
+      _FakeCryptoService('initial',
+          writeError: 'cannot write /private-note-path'),
+    );
+    final editor = find.byKey(const Key('secure-notepad-editor'));
+    await tester.enterText(editor, 'changed');
+    await tester.pump();
+    await tester.tap(find.byTooltip('保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('保存失败'), findsOneWidget);
+    expect(find.textContaining('private-note-path'), findsNothing);
+    expect(find.byKey(const Key('error-technical-details')), findsNothing);
+  });
+
+  testWidgets('Ctrl+F search focuses and both Enter keys navigate matches',
       (tester) async {
     await _openNotepad(tester, _FakeCryptoService('alpha beta alpha'));
     final editor = find.byKey(const Key('secure-notepad-editor'));
@@ -77,14 +129,22 @@ void main() {
     expect(tester.widget<CustomPaint>(highlight).painter, isNotNull);
     expect(tester.widget<TextField>(findField).focusNode?.hasFocus, isTrue);
 
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.numpadEnter);
     await tester.pump();
     expect(find.text('2/2'), findsOneWidget);
     expect(
       tester.widget<TextField>(editor).controller!.selection,
       const TextSelection(baseOffset: 11, extentOffset: 16),
+    );
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.numpadEnter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(find.text('1/2'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(editor).controller!.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 5),
     );
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -219,7 +279,7 @@ void main() {
       'must survive',
     );
     await tester.pump();
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('未保存的更改'), findsOneWidget);
 
@@ -332,7 +392,7 @@ void main() {
 
     await tester.tap(find.byTooltip('监视剪贴板'));
     await tester.pump(const Duration(milliseconds: 35));
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     final readsAfterClose = clipboard.readCount;
     await tester.pump(const Duration(milliseconds: 50));
@@ -359,6 +419,9 @@ Future<void> _openNotepad(
   Duration clipboardMonitorInterval = Duration.zero,
 }) async {
   await tester.pumpWidget(MaterialApp(
+    locale: const Locale('zh'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
     home: Builder(
       builder: (context) => Scaffold(
         body: FilledButton(
@@ -393,17 +456,19 @@ final _file = EncryptedFile(
 );
 
 class _FakeCryptoService extends CryptoService {
-  _FakeCryptoService(this.initialText, {this.writeError}) {
+  _FakeCryptoService(this.initialText, {this.writeError, this.readError}) {
     files['/vault/note.txt'] = initialText;
   }
 
   final String initialText;
   final String? writeError;
+  final String? readError;
   final List<String> writes = [];
   final Map<String, String> files = {};
 
   @override
   Uint8List decryptFileToData(String path, String tempKeyID) {
+    if (readError != null) throw StateError(readError!);
     final content = files[path];
     if (content == null) throw StateError('missing file: $path');
     return Uint8List.fromList(content.codeUnits);

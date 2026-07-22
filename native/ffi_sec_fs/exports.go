@@ -68,6 +68,16 @@ func sec_create_root_config(rootPath *C.char, password *C.char, optionsJSON *C.c
 	return C.CString(result)
 }
 
+//export sec_root_change_password
+func sec_root_change_password(rootPath *C.char, oldPassword *C.char, newPassword *C.char) *C.char {
+	result := ChangeRootPassword_FFI(
+		C.GoString(rootPath),
+		C.GoString(oldPassword),
+		C.GoString(newPassword),
+	)
+	return C.CString(result)
+}
+
 // ==================== File Operations ====================
 
 //export sec_file_open

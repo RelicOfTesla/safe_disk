@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../native/bindings.dart';
 import '../utils/error_diagnostics.dart';
 
@@ -28,13 +29,14 @@ class NativeLibraryStartupErrorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     final isBindingFailure = error.stage == NativeLibraryFailureStage.bind;
     final detail = isBindingFailure
-        ? '安全组件版本与应用不匹配，无法启动加密功能。'
-        : '无法加载 Safe Disk 安全组件，无法安全访问加密目录。';
+        ? strings.nativeBindingFailureDescription
+        : strings.nativeLoadingFailureDescription;
     final suggestion = isBindingFailure
-        ? '请重新安装同一版本的 Safe Disk 应用后重试。'
-        : '请重新安装应用；若问题持续，请检查安全软件是否隔离了应用文件。';
+        ? strings.nativeBindingFailureSuggestion
+        : strings.nativeLoadingFailureSuggestion;
 
     return Scaffold(
       body: Center(
@@ -49,18 +51,18 @@ class NativeLibraryStartupErrorPage extends StatelessWidget {
                 const Icon(Icons.security_outlined, size: 44),
                 const SizedBox(height: 20),
                 Text(
-                  '安全组件不可用',
+                  strings.nativeComponentUnavailable,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 12),
                 Text(detail, key: const Key('native-library-error-message')),
                 const SizedBox(height: 8),
-                Text('建议：$suggestion'),
+                Text('${strings.errorSuggestionPrefix}$suggestion'),
                 if (showDiagnostics) ...[
                   const SizedBox(height: 20),
                   SelectableText(
-                    '初始化阶段：${error.operation}\n'
-                    '底层错误：${ErrorDiagnostics.sanitize(error.cause.toString())}',
+                    '${strings.initializationStage(error.operation)}\n'
+                    '${strings.underlyingError(ErrorDiagnostics.sanitize(error.cause.toString()))}',
                     key: const Key('native-library-error-diagnostics'),
                   ),
                 ],
@@ -69,7 +71,7 @@ class NativeLibraryStartupErrorPage extends StatelessWidget {
                   key: const Key('native-library-retry'),
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('重试'),
+                  label: Text(strings.retry),
                 ),
               ],
             ),

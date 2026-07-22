@@ -49,13 +49,27 @@ void main() {
       title: 'note.txt',
       error: const DocumentWindowRequestTimeout('读取文档'),
       onClose: () async => closed = true,
+      locale: const Locale('zh'),
     ));
 
     expect(find.text('无法连接主窗口'), findsOneWidget);
-    expect(find.textContaining('读取文档'), findsOneWidget);
+    expect(find.textContaining('读取文档'), findsNothing);
     await tester.tap(find.widgetWithText(FilledButton, '关闭窗口'));
     await tester.pump();
     expect(closed, isTrue);
+  });
+
+  testWidgets('content window startup failure uses its locale snapshot',
+      (tester) async {
+    await tester.pumpWidget(ContentWindowStartupErrorApp(
+      title: 'note.txt',
+      error: const DocumentWindowRequestTimeout('read-document'),
+      onClose: () async {},
+      locale: const Locale('en'),
+    ));
+
+    expect(find.text('Cannot connect to main window'), findsOneWidget);
+    expect(find.text('Close window'), findsOneWidget);
   });
 }
 

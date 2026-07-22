@@ -63,7 +63,7 @@ class _ImageSmokeHostState extends State<_ImageSmokeHost> {
         maxContentBytes: kMaxSecureImageEncodedBytes,
         readOnly: true,
       );
-      final opened = await _bridge.openImage(lease);
+      final opened = await _bridge.openImage(lease, localePreference: 'zh');
       if (mounted) setState(() => _status = opened ? '图片安全通道已连接' : '创建失败');
     } catch (error) {
       if (mounted) setState(() => _status = '创建失败：$error');

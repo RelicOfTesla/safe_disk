@@ -411,35 +411,53 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: Semantics(
+          label: '正在加载图片',
+          liveRegion: true,
+          child: const CircularProgressIndicator(),
+        ),
+      );
     }
 
     if (_errorMessage != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
+      return Semantics(
+        container: true,
+        explicitChildNodes: true,
+        label: '图片加载失败：$_errorMessage',
+        liveRegion: true,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadImage,
-              child: const Text('重试'),
-            ),
-          ],
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadImage,
+                child: const Text('重试'),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     if (_imageData == null || _imageProvider == null) {
-      return const Center(child: Text('没有可显示的图片数据'));
+      return Center(
+        child: Semantics(
+          label: '没有可显示的图片。请选择其他图片或重试。',
+          liveRegion: true,
+          child: const Text('没有可显示的图片。'),
+        ),
+      );
     }
 
     return SizedBox.expand(
@@ -473,29 +491,36 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
               child: Image(
                 key: const Key('secure-image-content'),
                 image: _imageProvider!,
+                semanticLabel: '正在查看：$_currentFileName',
                 fit: BoxFit.contain,
                 gaplessPlayback: false,
                 errorBuilder: (context, error, stackTrace) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.broken_image,
-                            size: 48, color: Colors.grey),
-                        const SizedBox(height: 16),
-                        const Text('无法显示图片'),
-                        const SizedBox(height: 8),
-                        Text(
-                          '文件可能已损坏，或不是受支持的图片格式。',
-                          style: Theme.of(context).textTheme.bodySmall,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadImage,
-                          child: const Text('重试'),
-                        ),
-                      ],
+                  return Semantics(
+                    container: true,
+                    explicitChildNodes: true,
+                    label: '无法显示图片：文件可能已损坏，或不是受支持的图片格式。',
+                    liveRegion: true,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.broken_image,
+                              size: 48, color: Colors.grey),
+                          const SizedBox(height: 16),
+                          const Text('无法显示图片'),
+                          const SizedBox(height: 8),
+                          Text(
+                            '文件可能已损坏，或不是受支持的图片格式。',
+                            style: Theme.of(context).textTheme.bodySmall,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadImage,
+                            child: const Text('重试'),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },

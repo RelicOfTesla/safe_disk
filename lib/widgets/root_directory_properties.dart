@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../models/cryption_config.dart';
 import '../models/logical_path.dart';
 import 'property_overlay.dart';
@@ -8,76 +9,103 @@ Future<void> showRootDirectoryProperties({
   required BuildContext context,
   required EncryptedDirectory directory,
 }) {
+  final strings = AppLocalizations.of(context)!;
   final config = directory.config.toJson();
   final displayName = directory.displayAlias?.trim().isNotEmpty == true
       ? directory.displayAlias!
       : logicalPathBasename(directory.path);
   final values = <PropertyValue>[
-    PropertyValue('显示名称', displayName),
-    PropertyValue('磁盘路径', directory.path),
-    PropertyValue('会话状态', directory.isVerified ? '已解锁' : '已锁定'),
-    PropertyValue('配置版本', directory.config.version),
-    PropertyValue('数据加密', _configString(config, 'sec_fs_factory')),
-    PropertyValue('名称加密', _configString(config, 'sec_name_factory')),
-    PropertyValue('密码派生', _configString(config, 'sec_deriver_factory')),
+    PropertyValue(strings.displayName, displayName),
+    PropertyValue(strings.diskPath, directory.path),
     PropertyValue(
-      '密码认证',
-      config['sec_password_verifier_version'] is int
-          ? '版本 ${config['sec_password_verifier_version']}'
-          : '不可用或旧格式',
+      strings.currentStatus,
+      directory.isVerified
+          ? strings.directoryUnlocked
+          : strings.directoryLocked,
     ),
-    ..._safeKdfProperties(config),
-    const PropertyValue('安全改密', '当前格式不支持'),
+    PropertyValue(strings.directoryFormat, directory.config.version),
+    PropertyValue(
+      strings.dataEncryption,
+      _configString(config, 'sec_fs_factory', strings.unknown),
+    ),
+    PropertyValue(
+      strings.nameEncryption,
+      _configString(config, 'sec_name_factory', strings.unknown),
+    ),
+    PropertyValue(
+      strings.passwordDerivation,
+      _configString(config, 'sec_deriver_factory', strings.unknown),
+    ),
+    PropertyValue(
+      strings.passwordVerification,
+      config['sec_password_verifier_version'] is int
+          ? strings.versionValue(config['sec_password_verifier_version'] as int)
+          : strings.unavailableOrLegacy,
+    ),
+    ..._safeKdfProperties(config, strings),
+    PropertyValue(
+      strings.passwordChange,
+      rootSupportsPasswordChange(directory)
+          ? strings.passwordChangeDirectly
+          : strings.passwordChangeMigrationRequired,
+    ),
   ];
   return showPropertyOverlay(
     context: context,
-    title: '加密目录属性',
+    title: strings.rootDirectoryProperties,
     values: values,
-    notice: const Text(
-      '属性不会显示盐值、密码校验信息、密钥或其他密码材料。',
-    ),
+    notice: Text(strings.rootPropertiesSensitiveNotice),
   );
+}
+
+bool rootSupportsPasswordChange(EncryptedDirectory directory) {
+  return directory.config.toJson()['sec_key_envelope_version'] == 1;
 }
 
 Future<void> showUnsupportedRootPasswordChange({
   required BuildContext context,
   required EncryptedDirectory directory,
 }) {
+  final strings = AppLocalizations.of(context)!;
   return showPropertyOverlay(
     context: context,
-    title: '修改密码',
+    title: strings.passwordChange,
     values: [
-      PropertyValue('目录', directory.displayAlias ?? directory.path),
-      const PropertyValue('状态', '当前加密格式不支持在原目录中安全修改密码'),
-      const PropertyValue(
-        '原因',
-        '数据密钥由密码直接派生，当前格式无法用新密码重新封装。',
+      PropertyValue(
+          strings.directory, directory.displayAlias ?? directory.path),
+      PropertyValue(strings.status, strings.directoryCannotChangePassword),
+      PropertyValue(
+        strings.reason,
+        strings.legacyPasswordChangeReason,
       ),
-      const PropertyValue(
-        '安全做法',
-        '使用新密码创建新的加密目录，再通过完整导出和导入迁移数据。',
+      PropertyValue(
+        strings.safeApproach,
+        strings.legacyPasswordChangeApproach,
       ),
     ],
   );
 }
 
-String _configString(Map<String, dynamic> config, String key) {
+String _configString(Map<String, dynamic> config, String key, String unknown) {
   final value = config[key];
-  return value is String && value.isNotEmpty ? value : '未知';
+  return value is String && value.isNotEmpty ? value : unknown;
 }
 
-List<PropertyValue> _safeKdfProperties(Map<String, dynamic> config) {
-  const safeKeys = <String, String>{
-    'argon2_time': 'Argon2 时间成本',
-    'argon2_memory': 'Argon2 内存成本',
-    'argon2_threads': 'Argon2 并行度',
-    'argon2_key_length': 'Argon2 密钥长度',
-    'pbkdf2_iterations': 'PBKDF2 迭代次数',
-    'pbkdf2_key_length': 'PBKDF2 密钥长度',
-    'scrypt_n': 'scrypt N',
-    'scrypt_r': 'scrypt r',
-    'scrypt_p': 'scrypt p',
-    'scrypt_key_length': 'scrypt 密钥长度',
+List<PropertyValue> _safeKdfProperties(
+  Map<String, dynamic> config,
+  AppLocalizations strings,
+) {
+  final safeKeys = <String, String>{
+    'argon2_time': strings.argon2TimeCost,
+    'argon2_memory': strings.argon2MemoryCost,
+    'argon2_threads': strings.argon2Parallelism,
+    'argon2_key_length': strings.argon2KeyLength,
+    'pbkdf2_iterations': strings.pbkdf2Iterations,
+    'pbkdf2_key_length': strings.pbkdf2KeyLength,
+    'scrypt_n': strings.scryptN,
+    'scrypt_r': strings.scryptR,
+    'scrypt_p': strings.scryptP,
+    'scrypt_key_length': strings.scryptKeyLength,
   };
   return [
     for (final entry in safeKeys.entries)

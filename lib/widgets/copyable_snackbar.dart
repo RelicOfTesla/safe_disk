@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../l10n/error_localizations.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../utils/error_messages.dart';
 import '../services/error_reporting_service.dart';
 import '../utils/error_diagnostics.dart';
@@ -12,27 +14,29 @@ class CopyableSnackBar extends SnackBar {
     bool isError = false,
     super.duration = const Duration(seconds: 4),
   }) : super(
-          content: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(fontSize: 14),
+          content: Builder(
+            builder: (context) => Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(fontSize: 14),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: message));
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: const Size(50, 30),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: message));
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(50, 30),
+                  ),
+                  child: Text(AppLocalizations.of(context)!.copy),
                 ),
-                child: const Text('复制'),
-              ),
-            ],
+              ],
+            ),
           ),
           backgroundColor: isError ? Colors.red[700] : null,
           behavior: SnackBarBehavior.floating,
@@ -48,7 +52,10 @@ class ErrorSnackBar extends SnackBar {
     String? operation,
     super.duration = const Duration(seconds: 6),
   }) : super(
-          content: _buildContent(errorType, originalError, operation),
+          content: Builder(
+            builder: (context) =>
+                _buildContent(context, errorType, originalError, operation),
+          ),
           backgroundColor: ErrorMessages.isCritical(errorType)
               ? Colors.red[700]
               : Colors.orange[700],
@@ -56,11 +63,13 @@ class ErrorSnackBar extends SnackBar {
         );
 
   static Widget _buildContent(
+    BuildContext context,
     ErrorType errorType,
     String? originalError,
     String? operation,
   ) {
-    final error = ErrorMessages.getError(errorType);
+    final localizations = AppLocalizations.of(context)!;
+    final error = localizations.errorMessage(errorType);
     final details = ErrorReportingService.detailedErrorsEnabled &&
             originalError != null &&
             originalError.isNotEmpty
@@ -71,7 +80,7 @@ class ErrorSnackBar extends SnackBar {
           )
         : null;
     final fullMessage = [
-      ErrorMessages.getFullMessage(errorType),
+      localizations.errorFullMessage(errorType),
       if (details != null) details,
     ].join('\n\n');
 
@@ -116,7 +125,7 @@ class ErrorSnackBar extends SnackBar {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        '建议：${error.suggestion}',
+                        '${localizations.errorSuggestionPrefix}${error.suggestion}',
                         style: const TextStyle(
                             fontSize: 12, color: Colors.white54),
                       ),
@@ -147,7 +156,7 @@ class ErrorSnackBar extends SnackBar {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             minimumSize: const Size(50, 30),
           ),
-          child: const Text('复制'),
+          child: Text(localizations.copy),
         ),
       ],
     );

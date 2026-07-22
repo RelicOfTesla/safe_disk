@@ -155,6 +155,31 @@ class NativeLib {
     }
   }
 
+  /// Changes a password-changeable root's password without rewriting files.
+  void secRootChangePassword(
+    String rootPath,
+    String oldPassword,
+    String newPassword,
+  ) {
+    final rootPathPtr = rootPath.toNativeUtf8();
+    final oldPasswordPtr = oldPassword.toNativeUtf8();
+    final newPasswordPtr = newPassword.toNativeUtf8();
+
+    try {
+      final resultPtr = _bindings.secRootChangePassword(
+        rootPathPtr,
+        oldPasswordPtr,
+        newPasswordPtr,
+      );
+      final data = _parseJson(_ptrToString(resultPtr));
+      _checkResult(data, 'secRootChangePassword');
+    } finally {
+      calloc.free(rootPathPtr);
+      calloc.free(oldPasswordPtr);
+      calloc.free(newPasswordPtr);
+    }
+  }
+
   // ==================== File Operations ====================
 
   /// Opens a file within a secure root.

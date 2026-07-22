@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../services/directory_page_session.dart';
 import '../services/file_service.dart';
 
@@ -78,12 +79,13 @@ class _DirectoryTreeWidgetState extends State<DirectoryTreeWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     if (_isLoading && _pager.directories.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_pager.error != null && _pager.directories.isEmpty) {
       return _TreeRetry(
-        message: '无法读取目录树',
+        message: strings.directoryTreeReadFailed,
         onRetry: () => _loadNext(refresh: true),
       );
     }
@@ -107,7 +109,7 @@ class _DirectoryTreeWidgetState extends State<DirectoryTreeWidget> {
           }
           if (_pager.error != null) {
             return _TreeRetry(
-              message: '继续读取失败',
+              message: strings.directoryTreeLoadMoreFailed,
               onRetry: () => _loadNext(refresh: true),
             );
           }
@@ -198,6 +200,7 @@ class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     final pager = _pager;
     final isSelected = widget.currentPath == widget.item.path;
     final children = pager?.directories ?? const <FileSystemNode>[];
@@ -270,7 +273,7 @@ class _DirectoryTreeItemState extends State<_DirectoryTreeItem> {
         if (_isExpanded && pager?.error != null)
           _TreeRetry(
             depth: widget.depth + 1,
-            message: '继续读取失败',
+            message: strings.directoryTreeLoadMoreFailed,
             onRetry: () => _loadNext(refresh: true),
           ),
         if (_isExpanded && pager?.hasMore == true)
@@ -385,6 +388,7 @@ class _LoadMoreButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return InkWell(
       onTap: isLoading ? null : onPressed,
       child: Padding(
@@ -410,7 +414,9 @@ class _LoadMoreButton extends StatelessWidget {
               ),
             const SizedBox(width: 8),
             Text(
-              isLoading ? '正在读取…' : '读取更多目录',
+              isLoading
+                  ? strings.readingDirectories
+                  : strings.loadMoreDirectories,
               style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ],
@@ -433,12 +439,13 @@ class _TreeRetry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return Padding(
       padding: EdgeInsets.only(left: depth * 16.0 + 24.0),
       child: TextButton.icon(
         onPressed: onRetry,
         icon: const Icon(Icons.refresh),
-        label: Text('$message，刷新重试'),
+        label: Text(strings.retryDirectoryTreeRead(message)),
       ),
     );
   }

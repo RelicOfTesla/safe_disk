@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
+import 'l10n/app_locale.dart';
+import 'l10n/generated/app_localizations.dart';
 import 'pages/home_page.dart';
 import 'services/content_window_host_bridge.dart';
 import 'services/document_window_client.dart';
@@ -21,20 +23,26 @@ Future<void> main() async {
   final contentWindow = await _currentContentWindow();
   if (contentWindow != null) {
     final arguments = contentWindow.arguments;
+    final settings = SettingsService();
+    final localePreference =
+        arguments.localePreference ?? await settings.getLocale();
+    final locale = appLocaleFromPreference(localePreference);
     final client = DocumentWindowClient(arguments.token);
     RemoteDocumentSnapshot snapshot;
     try {
       snapshot = await client.read();
     } catch (error) {
+      final showDiagnostics = await _readDetailedErrorReports(settings);
       runApp(ContentWindowStartupErrorApp(
         title: arguments.title,
         error: error,
         onClose: contentWindow.controller.close,
+        locale: locale,
+        showDiagnostics: showDiagnostics,
       ));
       _showContentWindowAfterFirstFrame(contentWindow.controller);
       return;
     }
-    final settings = SettingsService();
     final themeMode = _parseThemeMode(await settings.getThemeMode());
     final cryptoService = RemoteDocumentCryptoService(
       client: client,
@@ -46,6 +54,7 @@ Future<void> main() async {
         client: client,
         cryptoService: cryptoService,
         themeMode: themeMode,
+        locale: locale,
       ));
       _showContentWindowAfterFirstFrame(contentWindow.controller);
       return;
@@ -63,11 +72,20 @@ Future<void> main() async {
           initiallyReadOnly || shouldOpenFallbackTextReadOnly(arguments.title),
       initiallyMonitorClipboard: initiallyMonitorClipboard,
       themeMode: themeMode,
+      locale: locale,
     ));
     _showContentWindowAfterFirstFrame(contentWindow.controller);
     return;
   }
   runApp(const SafeDiskApp());
+}
+
+Future<bool> _readDetailedErrorReports(SettingsService settings) async {
+  try {
+    return await settings.getDetailedErrorReports();
+  } catch (_) {
+    return false;
+  }
 }
 
 void _showContentWindowAfterFirstFrame(WindowController controller) {
@@ -120,6 +138,7 @@ class SafeDiskApp extends StatefulWidget {
 class _SafeDiskAppState extends State<SafeDiskApp> {
   late final SettingsService _settingsService;
   ThemeMode _themeMode = ThemeMode.system;
+  Locale? _locale;
   bool _nativeReady = false;
   NativeLibraryException? _nativeError;
 
@@ -158,13 +177,17 @@ class _SafeDiskAppState extends State<SafeDiskApp> {
   Future<void> _loadSettings() async {
     final values = await Future.wait<Object>([
       _settingsService.getThemeMode(),
+      _settingsService.getLocale(),
       _settingsService.getDetailedErrorReports(),
     ]);
     ErrorReportingService.configure(
-      detailedErrorsEnabled: values[1] as bool,
+      detailedErrorsEnabled: values[2] as bool,
     );
     if (mounted) {
-      setState(() => _themeMode = _parseThemeMode(values[0] as String));
+      setState(() {
+        _themeMode = _parseThemeMode(values[0] as String);
+        _locale = appLocaleFromPreference(values[1] as String);
+      });
     }
   }
 
@@ -172,6 +195,10 @@ class _SafeDiskAppState extends State<SafeDiskApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Safe Disk',
+      locale: _locale,
+      localeResolutionCallback: resolveSafeDiskLocale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       debugShowCheckedModeBanner: false,
       theme: buildSafeDiskTheme(brightness: Brightness.light),
       darkTheme: buildSafeDiskTheme(brightness: Brightness.dark),
@@ -188,6 +215,7 @@ class _SafeDiskAppState extends State<SafeDiskApp> {
                   settingsService: _settingsService,
                   onThemeModeChanged: (mode) =>
                       setState(() => _themeMode = mode),
+                  onLocaleChanged: (locale) => setState(() => _locale = locale),
                 ),
     );
   }

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../l10n/generated/app_localizations.dart';
+
 class PropertyValue {
   const PropertyValue(this.label, this.value);
 
@@ -55,6 +57,7 @@ class _PropertyOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): onClose,
@@ -89,32 +92,37 @@ class _PropertyOverlay extends StatelessWidget {
                       ),
                     ),
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 20, 16, 12),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 20),
-                            for (final value in values)
-                              _PropertyRow(value: value),
-                            if (notice != null) ...[
-                              const SizedBox(height: 4),
-                              notice!,
-                            ],
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: onClose,
-                                child: const Text('关闭'),
+                      constraints: BoxConstraints(
+                        maxWidth: 520,
+                        maxHeight: MediaQuery.sizeOf(context).height - 48,
+                      ),
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 20, 16, 12),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: Theme.of(context).textTheme.titleLarge,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 20),
+                              for (final value in values)
+                                _PropertyRow(value: value),
+                              if (notice != null) ...[
+                                const SizedBox(height: 4),
+                                notice!,
+                              ],
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: onClose,
+                                  child: Text(strings.close),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -136,6 +144,7 @@ class _PropertyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -144,11 +153,13 @@ class _PropertyRow extends StatelessWidget {
           SizedBox(
             width: 96,
             child: Text(
-              '${value.label}：',
+              strings.propertyLabel(value.label),
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          Expanded(child: Text(value.value.isEmpty ? '未知' : value.value)),
+          Expanded(
+            child: Text(value.value.isEmpty ? strings.unknown : value.value),
+          ),
         ],
       ),
     );

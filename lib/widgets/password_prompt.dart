@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
+
 /// Password verification prompt for unlocking an encrypted directory.
 ///
 /// Manages its own [TextEditingController] and [FocusNode].
@@ -64,6 +66,7 @@ class _PasswordPromptState extends State<PasswordPrompt> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return Center(
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
@@ -74,7 +77,7 @@ class _PasswordPromptState extends State<PasswordPrompt> {
             const Icon(Icons.lock, size: 48),
             const SizedBox(height: 16),
             Text(
-              '请输入密码以解锁：',
+              strings.unlockDirectoryPrompt,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 8),
@@ -89,11 +92,14 @@ class _PasswordPromptState extends State<PasswordPrompt> {
               focusNode: _focusNode,
               autofocus: true,
               obscureText: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              keyboardType: TextInputType.visiblePassword,
               enableInteractiveSelection: true,
               enabled: !_isVerifying,
-              decoration: const InputDecoration(
-                labelText: '密码',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: strings.password,
+                border: const OutlineInputBorder(),
               ),
               onSubmitted: (_) => _handleSubmit(),
             ),
@@ -106,7 +112,7 @@ class _PasswordPromptState extends State<PasswordPrompt> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('解锁'),
+                  : Text(strings.unlock),
             ),
           ],
         ),

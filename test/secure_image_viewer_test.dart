@@ -113,6 +113,78 @@ void main() {
     expect(bytes.every((value) => value == 0), isTrue);
   });
 
+  testWidgets('exposes loading, image, and failure states to assistive tools',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    final inspection = Completer<SecureImageMetadata>();
+    final bytes = _pngBytes();
+
+    await tester.pumpWidget(MaterialApp(
+      home: SecureImageViewer(
+        file: _file('one.png', '/one.png'),
+        cryptoService: _ImageCryptoService({'/one.png': bytes}),
+        tempKeyID: 'root-session',
+        imageInspector: (
+          _, {
+          int maxBytes = kMaxSecureImageEncodedBytes,
+          int maxPixels = kMaxSecureImageDecodedPixels,
+        }) =>
+            inspection.future,
+      ),
+    ));
+    await tester.pump();
+    expect(find.bySemanticsLabel('正在加载图片'), findsOneWidget);
+
+    inspection.complete(const SecureImageMetadata(
+      width: 2,
+      height: 2,
+      frameCount: 1,
+    ));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('正在查看：one.png'), findsOneWidget);
+
+    await tester.pumpWidget(MaterialApp(
+      home: SecureImageViewer(
+        key: const ValueKey('failed-image-viewer'),
+        file: _file('empty.png', '/empty.png'),
+        cryptoService: _ImageCryptoService({'/empty.png': Uint8List(0)}),
+        tempKeyID: 'root-session',
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel('图片加载失败：无法加载图片：图片内容为空'),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: SecureImageViewer(
+        key: const ValueKey('decoder-failed-image-viewer'),
+        file: _file('invalid.png', '/invalid.png'),
+        cryptoService: _ImageCryptoService({
+          '/invalid.png': Uint8List.fromList([0]),
+        }),
+        tempKeyID: 'root-session',
+        imageInspector: (
+          _, {
+          int maxBytes = kMaxSecureImageEncodedBytes,
+          int maxPixels = kMaxSecureImageDecodedPixels,
+        }) =>
+            Future.value(const SecureImageMetadata(
+          width: 1,
+          height: 1,
+          frameCount: 1,
+        )),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel('无法显示图片：文件可能已损坏，或不是受支持的图片格式。'),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
+
   testWidgets('renders every format accepted by the browser codec',
       (tester) async {
     for (final extension in imageFixtureExtensions) {
@@ -322,9 +394,14 @@ void main() {
       ),
       client: client,
       cryptoService: service,
+      locale: const Locale('en'),
     ));
     await tester.pumpAndSettle();
 
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).locale,
+      const Locale('en'),
+    );
     expect(find.text('remote.png'), findsOneWidget);
     expect(find.byKey(const Key('secure-image-content')), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());

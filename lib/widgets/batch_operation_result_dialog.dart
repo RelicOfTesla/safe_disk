@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../models/batch_operation_result.dart';
 
 Future<void> showBatchOperationResultDialog({
@@ -7,11 +8,12 @@ Future<void> showBatchOperationResultDialog({
   required String operation,
   required BatchOperationResult result,
 }) {
+  final strings = AppLocalizations.of(context)!;
   final title = result.cancelled
-      ? '$operation已取消'
+      ? strings.batchOperationCancelled(operation)
       : result.failed > 0
-          ? '$operation部分完成'
-          : '$operation完成';
+          ? strings.batchOperationPartiallyCompleted(operation)
+          : strings.batchOperationCompleted(operation);
   return showDialog<void>(
     context: context,
     builder: (dialogContext) => AlertDialog(
@@ -23,26 +25,29 @@ Future<void> showBatchOperationResultDialog({
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('总数：${result.total}'),
-              Text('成功：${result.succeeded}'),
-              Text('跳过：${result.skipped}'),
-              Text('失败：${result.failed}'),
-              Text('未处理：${result.unprocessed}'),
-              Text('剪贴板剩余：${result.remaining}'),
+              Text(strings.batchTotal(result.total)),
+              Text(strings.batchSucceeded(result.succeeded)),
+              Text(strings.batchSkipped(result.skipped)),
+              Text(strings.batchFailed(result.failed)),
+              Text(strings.batchUnprocessed(result.unprocessed)),
+              Text(strings.batchClipboardRemaining(result.remaining)),
               if (result.failures.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                const Text(
-                  '失败详情',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                Text(
+                  strings.failureDetails,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
                 for (final failure in result.failures.take(10))
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
-                    child: Text('“${failure.name}”：${failure.reason}'),
+                    child: Text(strings.batchFailureItem(
+                      failure.name,
+                      failure.reason,
+                    )),
                   ),
                 if (result.failures.length > 10)
-                  Text('另有 ${result.failures.length - 10} 项失败'),
+                  Text(strings.additionalFailures(result.failures.length - 10)),
               ],
             ],
           ),
@@ -51,7 +56,7 @@ Future<void> showBatchOperationResultDialog({
       actions: [
         FilledButton(
           onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('关闭'),
+          child: Text(strings.close),
         ),
       ],
     ),

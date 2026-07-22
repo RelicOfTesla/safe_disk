@@ -65,8 +65,10 @@ class SecureNotepadController extends ChangeNotifier {
   bool _hasChanges = false;
   bool _isReadOnly;
   String? _loadError;
+  String? _loadTechnicalError;
   String? _saveError;
   String? _draftError;
+  String? _draftTechnicalError;
   String? _detectedEncoding;
 
   bool get isLoading => _isLoading;
@@ -77,8 +79,10 @@ class SecureNotepadController extends ChangeNotifier {
   bool get hasChanges => _hasChanges;
   bool get isReadOnly => _isReadOnly;
   String? get loadError => _loadError;
+  String? get loadTechnicalError => _loadTechnicalError;
   String? get saveError => _saveError;
   String? get draftError => _draftError;
+  String? get draftTechnicalError => _draftTechnicalError;
   String? get detectedEncoding => _detectedEncoding;
   String get draftPath =>
       SecureNotepadDraftStore.draftPathFor(file.encryptedPath);
@@ -90,6 +94,7 @@ class SecureNotepadController extends ChangeNotifier {
   Future<void> load() async {
     _setLoading(true);
     _loadError = null;
+    _loadTechnicalError = null;
     _saveError = null;
     try {
       final lease = documentLease;
@@ -116,10 +121,18 @@ class SecureNotepadController extends ChangeNotifier {
       await _loadRecoveryDraft(content);
       _startAutoSaveTimer();
     } catch (error) {
-      _loadError = '文件加载失败：$error';
+      _loadTechnicalError = error.toString();
+      _loadError = _userFacingLoadError(error);
     } finally {
       _setLoading(false);
     }
+  }
+
+  String _userFacingLoadError(Object error) {
+    if (error is FormatException) {
+      return '文件包含二进制内容，不能用安全记事本打开。';
+    }
+    return '无法读取文件内容。请检查文件是否存在且可读，然后重试。';
   }
 
   Future<bool> save() async {
@@ -158,8 +171,10 @@ class SecureNotepadController extends ChangeNotifier {
         _lastDraftText = null;
         _recoveryDraftText = null;
         _draftError = null;
+        _draftTechnicalError = null;
       } catch (error) {
-        _draftError = '原文件已保存，但旧草稿清理失败：$error';
+        _draftError = '原文件已保存，但无法清理旧草稿。';
+        _draftTechnicalError = error.toString();
       }
       onSaved?.call();
       return true;
@@ -174,6 +189,7 @@ class SecureNotepadController extends ChangeNotifier {
 
   Future<void> _loadRecoveryDraft(String originalContent) async {
     _draftError = null;
+    _draftTechnicalError = null;
     try {
       final draft = await _draftStore.read(file.encryptedPath, tempKeyID);
       if (draft == null) return;
@@ -185,7 +201,8 @@ class SecureNotepadController extends ChangeNotifier {
       _lastDraftText = draft;
       _hasDraftBackup = true;
     } catch (error) {
-      _draftError = '安全草稿检测失败：$error';
+      _draftError = '无法检查恢复草稿。';
+      _draftTechnicalError = error.toString();
     }
   }
 
@@ -208,10 +225,12 @@ class SecureNotepadController extends ChangeNotifier {
       _lastDraftText = null;
       _hasDraftBackup = false;
       _draftError = null;
+      _draftTechnicalError = null;
       if (!_disposed) notifyListeners();
       return true;
     } catch (error) {
-      _draftError = '安全草稿清理失败：$error';
+      _draftError = '无法清理恢复草稿。';
+      _draftTechnicalError = error.toString();
       if (!_disposed) notifyListeners();
       return false;
     }
@@ -224,6 +243,7 @@ class SecureNotepadController extends ChangeNotifier {
 
     _isSavingDraft = true;
     _draftError = null;
+    _draftTechnicalError = null;
     notifyListeners();
     final write = _draftStore.write(file.encryptedPath, tempKeyID, content);
     _activeDraftWrite = write;
@@ -233,7 +253,8 @@ class SecureNotepadController extends ChangeNotifier {
       _hasDraftBackup = true;
       return true;
     } catch (error) {
-      _draftError = '安全草稿保存失败：$error';
+      _draftError = '无法保存恢复草稿。';
+      _draftTechnicalError = error.toString();
       return false;
     } finally {
       if (identical(_activeDraftWrite, write)) _activeDraftWrite = null;

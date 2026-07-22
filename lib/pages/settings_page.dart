@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../services/settings_service.dart';
 import '../services/error_reporting_service.dart';
+import '../l10n/app_locale.dart';
+import '../l10n/generated/app_localizations.dart';
+import '../utils/error_messages.dart';
+import '../widgets/copyable_snackbar.dart';
 
 enum _LeaveAction { cancel, discard, save }
 
@@ -10,10 +14,12 @@ class SettingsPage extends StatefulWidget {
     super.key,
     this.settingsService,
     this.onThemeModeChanged,
+    this.onLocaleChanged,
   });
 
   final SettingsService? settingsService;
   final ValueChanged<ThemeMode>? onThemeModeChanged;
+  final ValueChanged<Locale?>? onLocaleChanged;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -22,6 +28,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late final SettingsService _settingsService;
   String _themeMode = SettingsService.defaultThemeMode;
+  String _locale = SettingsService.defaultLocale;
   bool _confirmBeforeDelete = SettingsService.defaultConfirmBeforeDelete;
   bool _autoLockOnBackground = SettingsService.defaultAutoCloseSession;
   int _sessionTTL = SettingsService.defaultSessionTTL;
@@ -38,6 +45,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   _SettingsSnapshot get _current => _SettingsSnapshot(
         themeMode: _themeMode,
+        locale: _locale,
         confirmBeforeDelete: _confirmBeforeDelete,
         autoLockOnBackground: _autoLockOnBackground,
         sessionTTL: _sessionTTL,
@@ -58,6 +66,7 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       final snapshot = _SettingsSnapshot(
         themeMode: await _settingsService.getThemeMode(),
+        locale: await _settingsService.getLocale(),
         confirmBeforeDelete: await _settingsService.getConfirmBeforeDelete(),
         autoLockOnBackground: await _settingsService.getAutoCloseSession(),
         sessionTTL: await _settingsService.getSessionTTL(),
@@ -72,6 +81,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return;
       setState(() {
         _themeMode = snapshot.themeMode;
+        _locale = snapshot.locale;
         _confirmBeforeDelete = snapshot.confirmBeforeDelete;
         _autoLockOnBackground = snapshot.autoLockOnBackground;
         _sessionTTL = snapshot.sessionTTL;
@@ -86,8 +96,11 @@ class _SettingsPageState extends State<SettingsPage> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('加载设置失败：$error')),
+      ErrorHelper.showError(
+        context,
+        errorType: ErrorType.loadSettingsFailed,
+        originalError: error.toString(),
+        operation: 'settings-load',
       );
     }
   }
@@ -95,6 +108,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Future<bool> _saveSettings() async {
     try {
       await _settingsService.setThemeMode(_themeMode);
+      await _settingsService.setLocale(_locale);
       await _settingsService.setConfirmBeforeDelete(_confirmBeforeDelete);
       await _settingsService.setAutoCloseSession(_autoLockOnBackground);
       await _settingsService.setSessionTTL(_sessionTTL);
@@ -111,14 +125,18 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       if (!mounted) return false;
       setState(() => _saved = _current);
+      final strings = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('设置已保存')),
+        SnackBar(content: Text(strings.settingsSaved)),
       );
       return true;
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存设置失败：$error')),
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.saveSettingsFailed,
+          originalError: error.toString(),
+          operation: 'settings-save',
         );
       }
       return false;
@@ -132,29 +150,35 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     final action = await showDialog<_LeaveAction>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('保存设置更改？'),
-        content: const Text('当前修改尚未保存。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, _LeaveAction.cancel),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, _LeaveAction.discard),
-            child: const Text('放弃修改'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, _LeaveAction.save),
-            child: const Text('保存并返回'),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        final strings = AppLocalizations.of(dialogContext)!;
+        return AlertDialog(
+          title: Text(strings.saveChanges),
+          content: Text(strings.unsavedSettings),
+          actions: [
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _LeaveAction.cancel),
+              child: Text(strings.cancel),
+            ),
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(dialogContext, _LeaveAction.discard),
+              child: Text(strings.discardChanges),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, _LeaveAction.save),
+              child: Text(strings.saveAndReturn),
+            ),
+          ],
+        );
+      },
     );
     if (!mounted || action == null || action == _LeaveAction.cancel) return;
     if (action == _LeaveAction.save && !await _saveSettings()) return;
     if (action == _LeaveAction.discard) {
       widget.onThemeModeChanged?.call(_themeModeValue(_saved!.themeMode));
+      widget.onLocaleChanged?.call(appLocaleFromPreference(_saved!.locale));
     }
     _popAfterRebuild();
   }
@@ -171,9 +195,15 @@ class _SettingsPageState extends State<SettingsPage> {
     widget.onThemeModeChanged?.call(_themeModeValue(mode));
   }
 
+  void _setLocale(String locale) {
+    setState(() => _locale = locale);
+    widget.onLocaleChanged?.call(appLocaleFromPreference(locale));
+  }
+
   void _resetToDefaults() {
     setState(() {
       _themeMode = SettingsService.defaultThemeMode;
+      _locale = SettingsService.defaultLocale;
       _confirmBeforeDelete = SettingsService.defaultConfirmBeforeDelete;
       _notepadAutoSaveSeconds = SettingsService.defaultNotepadAutoSaveSeconds;
       _notepadDefaultReadOnly = SettingsService.defaultNotepadReadOnly;
@@ -182,10 +212,12 @@ class _SettingsPageState extends State<SettingsPage> {
       _detailedErrorReports = SettingsService.defaultDetailedErrorReports;
     });
     widget.onThemeModeChanged?.call(ThemeMode.system);
+    widget.onLocaleChanged?.call(null);
   }
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return PopScope<void>(
       canPop: _allowPop,
       onPopInvokedWithResult: (didPop, _) {
@@ -196,14 +228,14 @@ class _SettingsPageState extends State<SettingsPage> {
           leading: IconButton(
             onPressed: _requestLeave,
             icon: const Icon(Icons.arrow_back),
-            tooltip: '返回',
+            tooltip: strings.back,
           ),
-          title: const Text('设置'),
+          title: Text(strings.settings),
           actions: [
             IconButton(
               onPressed: _isLoading ? null : _resetToDefaults,
               icon: const Icon(Icons.restart_alt),
-              tooltip: '恢复默认设置（未保存）',
+              tooltip: strings.restoreDefaults,
             ),
           ],
         ),
@@ -213,9 +245,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 builder: (context, constraints) {
                   final wide = constraints.maxWidth >= 900;
                   final sections = [
-                    _appearanceCard(),
-                    _behaviorCard(),
-                    _aboutCard(),
+                    _appearanceCard(strings),
+                    _behaviorCard(strings),
+                    _aboutCard(strings),
                   ];
                   return Align(
                     alignment: Alignment.topCenter,
@@ -249,7 +281,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                 onPressed: _isDirty ? _saveSettings : null,
                                 icon: const Icon(Icons.save_outlined),
                                 label: Text(
-                                  _isDirty ? '保存设置' : '已保存',
+                                  _isDirty
+                                      ? strings.saveSettings
+                                      : strings.settingsSaved,
                                 ),
                               ),
                             ),
@@ -264,9 +298,9 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _appearanceCard() => _sectionCard(
+  Widget _appearanceCard(AppLocalizations strings) => _sectionCard(
         key: const Key('settings-appearance'),
-        title: '外观',
+        title: strings.appearance,
         icon: Icons.palette_outlined,
         children: [
           SegmentedButton<String>(
@@ -274,7 +308,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 .map(
                   (mode) => ButtonSegment<String>(
                     value: mode,
-                    label: Text(_settingsService.getThemeModeDisplayName(mode)),
+                    label: Text(_themeLabel(strings, mode)),
                   ),
                 )
                 .toList(),
@@ -282,19 +316,59 @@ class _SettingsPageState extends State<SettingsPage> {
             onSelectionChanged: (selection) => _setTheme(selection.single),
           ),
           const SizedBox(height: 10),
-          const Text('主题会立即预览；保存后会在下次启动时保留。'),
+          Text(strings.themePreviewHint),
+          const Divider(),
+          ListTile(
+            key: const Key('app-locale'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(strings.language),
+            subtitle: Text(strings.languagePreviewHint),
+            trailing: DropdownButton<String>(
+              value: _locale,
+              items: [
+                DropdownMenuItem(
+                  value: appLocaleSystem,
+                  child: Text(strings.languageSystem),
+                ),
+                DropdownMenuItem(
+                  value: appLocaleChinese,
+                  child: Text(strings.languageChinese),
+                ),
+                DropdownMenuItem(
+                  value: appLocaleEnglish,
+                  child: Text(strings.languageEnglish),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) _setLocale(value);
+              },
+            ),
+          ),
+          if (_locale == appLocaleEnglish) ...[
+            const SizedBox(height: 8),
+            Text(
+              strings.englishPreviewNotice,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ],
       );
 
-  Widget _behaviorCard() => _sectionCard(
+  String _themeLabel(AppLocalizations strings, String mode) => switch (mode) {
+        'light' => strings.themeLight,
+        'dark' => strings.themeDark,
+        _ => strings.themeSystem,
+      };
+
+  Widget _behaviorCard(AppLocalizations strings) => _sectionCard(
         key: const Key('settings-behavior'),
-        title: '行为',
+        title: strings.behavior,
         icon: Icons.tune,
         children: [
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('删除前确认'),
-            subtitle: const Text('删除文件前显示确认对话框'),
+            title: Text(strings.confirmBeforeDelete),
+            subtitle: Text(strings.confirmBeforeDeleteHint),
             value: _confirmBeforeDelete,
             onChanged: (value) => setState(() => _confirmBeforeDelete = value),
           ),
@@ -302,15 +376,15 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             key: const Key('session-ttl'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('空闲后自动锁定'),
-            subtitle: const Text('当前目录空闲到期后锁定；有未保存内容或活动写入时不会强制关闭'),
+            title: Text(strings.lockAfterIdle),
+            subtitle: Text(strings.lockAfterIdleHint),
             trailing: DropdownButton<int>(
               value: _sessionTTL,
               items: SettingsService.sessionTTLOptions.values
                   .map((seconds) => DropdownMenuItem(
                         value: seconds,
                         child: Text(
-                          _settingsService.getSessionTTLDisplayName(seconds),
+                          _sessionTtlLabel(strings, seconds),
                         ),
                       ))
                   .toList(),
@@ -323,18 +397,16 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             key: const Key('auto-lock-on-background'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('应用隐藏时自动锁定'),
-            subtitle: const Text(
-              '仅锁定没有内容窗口、未保存修改或活动写入的目录；其他目录不会被强制关闭',
-            ),
+            title: Text(strings.lockWhenHidden),
+            subtitle: Text(strings.lockWhenHiddenHint),
             value: _autoLockOnBackground,
             onChanged: (value) => setState(() => _autoLockOnBackground = value),
           ),
           const Divider(),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('安全草稿保存间隔'),
-            subtitle: const Text('定时写入同目录加密草稿，不覆盖原文件'),
+            title: Text(strings.notepadDraftInterval),
+            subtitle: Text(strings.notepadDraftIntervalHint),
             trailing: DropdownButton<int>(
               value: _notepadAutoSaveSeconds,
               items: SettingsService.notepadAutoSaveOptions
@@ -342,7 +414,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     (seconds) => DropdownMenuItem(
                       value: seconds,
                       child: Text(
-                        _settingsService.getNotepadAutoSaveDisplayName(seconds),
+                        _notepadAutoSaveLabel(strings, seconds),
                       ),
                     ),
                   )
@@ -358,8 +430,8 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             key: const Key('notepad-default-read-only'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('记事本默认只读'),
-            subtitle: const Text('新打开的文件先以只读方式显示，可手动开始编辑'),
+            title: Text(strings.notepadDefaultReadOnly),
+            subtitle: Text(strings.notepadDefaultReadOnlyHint),
             value: _notepadDefaultReadOnly,
             onChanged: (value) =>
                 setState(() => _notepadDefaultReadOnly = value),
@@ -367,8 +439,8 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             key: const Key('notepad-default-monitor-clipboard'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('默认监视剪贴板'),
-            subtitle: const Text('仅显示短文本预览，不写入文件或设置'),
+            title: Text(strings.notepadMonitorClipboard),
+            subtitle: Text(strings.notepadMonitorClipboardHint),
             value: _notepadDefaultMonitorClipboard,
             onChanged: (value) =>
                 setState(() => _notepadDefaultMonitorClipboard = value),
@@ -377,27 +449,40 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             key: const Key('detailed-error-reports'),
             contentPadding: EdgeInsets.zero,
-            title: const Text('显示详细错误信息'),
-            subtitle: const Text('在错误提示中显示经脱敏的操作阶段与底层错误；不会写入磁盘日志'),
+            title: Text(strings.detailedErrors),
+            subtitle: Text(strings.detailedErrorsHint),
             value: _detailedErrorReports,
             onChanged: (value) => setState(() => _detailedErrorReports = value),
           ),
         ],
       );
 
-  Widget _aboutCard() => _sectionCard(
+  Widget _aboutCard(AppLocalizations strings) => _sectionCard(
         key: const Key('settings-about'),
-        title: '关于',
+        title: strings.about,
         icon: Icons.shield_outlined,
-        children: const [
+        children: [
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text('Safe Disk'),
-            subtitle: Text('版本 1.0.0\n加密文件管理器'),
+            title: Text(strings.appTitle),
+            subtitle: Text(strings.appVersionDescription),
             isThreeLine: true,
           ),
         ],
       );
+
+  String _sessionTtlLabel(AppLocalizations strings, int seconds) {
+    if (seconds == 0) return strings.durationNever;
+    if (seconds < 3600) return strings.durationMinutes(seconds ~/ 60);
+    if (seconds < 86400) return strings.durationHours(seconds ~/ 3600);
+    return strings.durationDays(seconds ~/ 86400);
+  }
+
+  String _notepadAutoSaveLabel(AppLocalizations strings, int seconds) {
+    if (seconds == 0) return strings.disabled;
+    if (seconds < 60) return strings.durationSeconds(seconds);
+    return strings.durationMinutes(seconds ~/ 60);
+  }
 
   Widget _sectionCard({
     required Key key,
@@ -438,6 +523,7 @@ ThemeMode _themeModeValue(String mode) => switch (mode) {
 class _SettingsSnapshot {
   const _SettingsSnapshot({
     required this.themeMode,
+    required this.locale,
     required this.confirmBeforeDelete,
     required this.autoLockOnBackground,
     required this.sessionTTL,
@@ -448,6 +534,7 @@ class _SettingsSnapshot {
   });
 
   final String themeMode;
+  final String locale;
   final bool confirmBeforeDelete;
   final bool autoLockOnBackground;
   final int sessionTTL;
@@ -460,6 +547,7 @@ class _SettingsSnapshot {
   bool operator ==(Object other) =>
       other is _SettingsSnapshot &&
       themeMode == other.themeMode &&
+      locale == other.locale &&
       confirmBeforeDelete == other.confirmBeforeDelete &&
       autoLockOnBackground == other.autoLockOnBackground &&
       sessionTTL == other.sessionTTL &&
@@ -471,6 +559,7 @@ class _SettingsSnapshot {
   @override
   int get hashCode => Object.hash(
         themeMode,
+        locale,
         confirmBeforeDelete,
         autoLockOnBackground,
         sessionTTL,

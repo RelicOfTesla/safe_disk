@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/generated/app_localizations.dart';
+
 class ImportActions extends StatelessWidget {
   const ImportActions({
     super.key,
@@ -12,18 +14,19 @@ class ImportActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
           icon: const Icon(Icons.upload_file),
           onPressed: onImportFile,
-          tooltip: '导入文件',
+          tooltip: strings.importFile,
         ),
         IconButton(
           icon: const Icon(Icons.drive_folder_upload),
           onPressed: onImportDirectory,
-          tooltip: '导入目录',
+          tooltip: strings.importDirectory,
         ),
       ],
     );

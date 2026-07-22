@@ -1,10 +1,25 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide MaterialApp;
+import 'package:flutter/material.dart' as material show MaterialApp;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/models/view_mode.dart';
 import 'package:safe_disk/services/file_service.dart';
 import 'package:safe_disk/widgets/directory_tree.dart';
 import 'package:safe_disk/widgets/file_browser.dart';
+
+class MaterialApp extends material.MaterialApp {
+  const MaterialApp({
+    super.key,
+    super.home,
+    super.theme,
+    Locale? locale,
+  }) : super(
+          locale: locale ?? const Locale('zh'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        );
+}
 
 void main() {
   testWidgets('Windows 路径直接支持面包屑和向上导航', (tester) async {
@@ -78,6 +93,25 @@ void main() {
     expect(retryCount, 1);
   });
 
+  testWidgets('目录浏览器按英文显示工具栏、状态和可访问性标签', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        locale: Locale('en'),
+        home: _BrowserHarness(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Go up'), findsOneWidget);
+    expect(find.byTooltip('Filter current directory'), findsOneWidget);
+    expect(find.text('1 folders, 2 files'), findsOneWidget);
+    expect(find.bySemanticsLabel('alpha.txt, File'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('file-sort-menu')));
+    await tester.pumpAndSettle();
+    expect(find.text('Name: Z to A'), findsOneWidget);
+  });
+
   testWidgets('current-directory filter keeps focus and clears on navigation',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
@@ -144,6 +178,35 @@ void main() {
 
     expect(find.text('background-clicks: 1'), findsOneWidget);
     expect(find.text('item-clicks: 0'), findsOneWidget);
+  });
+
+  testWidgets('list and grid expose entry type and context selection semantics',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
+    await tester.pumpAndSettle();
+
+    final fileLabel = find.bySemanticsLabel('alpha.txt，文件');
+    expect(fileLabel, findsOneWidget);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('alpha.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pump();
+    expect(
+      tester.getSemantics(fileLabel).flagsCollection.isSelected.toBoolOrNull(),
+      isTrue,
+    );
+
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('alpha.txt，文件'), findsOneWidget);
+    expect(find.bySemanticsLabel('notes，目录'), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('list and grid share the selected sort order', (tester) async {
@@ -287,6 +350,11 @@ class _BrowserHarnessState extends State<_BrowserHarness> {
   int itemClicks = 0;
 
   final items = [
+    FileSystemNode(
+      name: 'notes',
+      path: '/root/sub/notes',
+      isDirectory: true,
+    ),
     FileSystemNode(
       name: 'alpha.txt',
       path: '/root/sub/alpha.txt',

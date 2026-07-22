@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../l10n/error_localizations.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../utils/error_messages.dart';
 
 /// 增强的 SnackBar 组件
@@ -16,24 +18,32 @@ class EnhancedSnackBar extends SnackBar {
     String? originalError,
     super.duration = const Duration(seconds: 5),
     VoidCallback? onAction,
-    String actionLabel = '查看详情',
+    String? actionLabel,
   }) : super(
-          content: _buildContent(errorType, originalError),
+          content: Builder(
+            builder: (context) => _buildContent(
+              context,
+              errorType,
+              originalError,
+              onAction,
+              actionLabel,
+            ),
+          ),
           backgroundColor: ErrorMessages.isCritical(errorType)
               ? Colors.red[700]
               : Colors.orange[700],
           behavior: SnackBarBehavior.floating,
-          action: onAction != null
-              ? SnackBarAction(
-                  label: actionLabel,
-                  textColor: Colors.white,
-                  onPressed: onAction,
-                )
-              : null,
         );
 
-  static Widget _buildContent(ErrorType errorType, String? originalError) {
-    final error = ErrorMessages.getError(errorType);
+  static Widget _buildContent(
+    BuildContext context,
+    ErrorType errorType,
+    String? originalError,
+    VoidCallback? onAction,
+    String? actionLabel,
+  ) {
+    final localizations = AppLocalizations.of(context)!;
+    final error = localizations.errorMessage(errorType);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -79,11 +89,22 @@ class EnhancedSnackBar extends SnackBar {
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  '建议：${error.suggestion}',
+                  '${localizations.errorSuggestionPrefix}${error.suggestion}',
                   style: const TextStyle(fontSize: 12, color: Colors.white54),
                 ),
               ),
             ],
+          ),
+        ],
+        if (onAction != null) ...[
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(foregroundColor: Colors.white),
+              child: Text(actionLabel ?? localizations.viewDetails),
+            ),
           ),
         ],
       ],
@@ -161,16 +182,24 @@ class CopyableErrorSnackBar extends SnackBar {
     String? originalError,
     super.duration = const Duration(seconds: 6),
   }) : super(
-          content: _buildContent(errorType, originalError),
+          content: Builder(
+            builder: (context) =>
+                _buildContent(context, errorType, originalError),
+          ),
           backgroundColor: ErrorMessages.isCritical(errorType)
               ? Colors.red[700]
               : Colors.orange[700],
           behavior: SnackBarBehavior.floating,
         );
 
-  static Widget _buildContent(ErrorType errorType, String? originalError) {
-    final error = ErrorMessages.getError(errorType);
-    final fullMessage = ErrorMessages.getFullMessage(errorType);
+  static Widget _buildContent(
+    BuildContext context,
+    ErrorType errorType,
+    String? originalError,
+  ) {
+    final localizations = AppLocalizations.of(context)!;
+    final error = localizations.errorMessage(errorType);
+    final fullMessage = localizations.errorFullMessage(errorType);
 
     return Row(
       children: [
@@ -217,7 +246,7 @@ class CopyableErrorSnackBar extends SnackBar {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             minimumSize: const Size(50, 30),
           ),
-          child: const Text('复制'),
+          child: Text(localizations.copy),
         ),
       ],
     );

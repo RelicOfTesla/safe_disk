@@ -56,8 +56,38 @@ void main() {
 
     await controller.load();
 
-    expect(controller.loadError, contains('二进制文件'));
+    expect(controller.loadError, '文件包含二进制内容，不能用安全记事本打开。');
+    expect(controller.loadTechnicalError, contains('NUL 字节'));
     expect(controller.textController.text, isEmpty);
+  });
+
+  test('keeps a failed load diagnostic separate from user-facing text',
+      () async {
+    final controller = _controller(_FailingReadCryptoService());
+    addTearDown(controller.dispose);
+
+    await controller.load();
+
+    expect(controller.loadError, '无法读取文件内容。请检查文件是否存在且可读，然后重试。');
+    expect(controller.loadError, isNot(contains('private-note-path')));
+    expect(controller.loadTechnicalError, contains('private-note-path'));
+  });
+
+  test('keeps a failed draft save diagnostic separate from status text',
+      () async {
+    final service = _FakeCryptoService('initial');
+    final controller = _controller(
+      service,
+      draftStore: _FailingDraftStore(service),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    controller.textController.text = 'edited';
+    expect(await controller.saveDraft(), isFalse);
+    expect(controller.draftError, '无法保存恢复草稿。');
+    expect(controller.draftError, isNot(contains('private-draft-path')));
+    expect(controller.draftTechnicalError, contains('private-draft-path'));
   });
 
   test('supports read-only toggle and find/replace history', () async {
@@ -183,9 +213,10 @@ void main() {
 }
 
 SecureNotepadController _controller(
-  _FakeCryptoService service, {
+  CryptoService service, {
   Duration autoSaveInterval = Duration.zero,
   bool initiallyReadOnly = false,
+  SecureNotepadDraftStore? draftStore,
   DocumentSessionBroker? documentBroker,
   DocumentLease? documentLease,
 }) {
@@ -199,6 +230,7 @@ SecureNotepadController _controller(
     tempKeyID: '7',
     autoSaveInterval: autoSaveInterval,
     initiallyReadOnly: initiallyReadOnly,
+    draftStore: draftStore,
     documentBroker: documentBroker,
     documentLease: documentLease,
   );
@@ -256,4 +288,24 @@ class _FakeCryptoService extends CryptoService {
   Future<void> deleteFileBySession(String path, String tempKeyID) async {
     files.remove(path);
   }
+}
+
+class _FailingReadCryptoService extends CryptoService {
+  @override
+  Uint8List decryptFileToData(String path, String tempKeyID) {
+    throw StateError('cannot read /private-note-path/note.txt');
+  }
+}
+
+class _FailingDraftStore extends SecureNotepadDraftStore {
+  _FailingDraftStore(CryptoService cryptoService)
+      : super(cryptoService: cryptoService);
+
+  @override
+  Future<void> write(
+    String sourcePath,
+    String tempKeyID,
+    String content,
+  ) =>
+      Future<void>.error(StateError('cannot write /private-draft-path'));
 }

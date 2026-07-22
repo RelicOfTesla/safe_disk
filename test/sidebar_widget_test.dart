@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/models/cryption_config.dart';
 import 'package:safe_disk/widgets/sidebar.dart';
 
@@ -18,6 +19,9 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SidebarWidget(
           openedDirs: [directory],
@@ -47,6 +51,9 @@ void main() {
     );
     EncryptedDirectory? renamed;
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SidebarWidget(
           openedDirs: [directory],
@@ -77,5 +84,31 @@ void main() {
     await tester.tap(find.text('清除别名'));
     await tester.pumpAndSettle();
     expect(renamed?.displayAlias, isNull);
+  });
+
+  testWidgets('Sidebar uses the active English locale', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: SidebarWidget(
+          openedDirs: const [],
+          currentDir: null,
+          drawerPinned: true,
+          onOpenDirectory: () {},
+          onCloseDirectory: (_) {},
+          onSwitchDirectory: (_) {},
+          onRenameDirectory: (_) {},
+          onShowProperties: (_) {},
+          onChangePassword: (_) {},
+          onTogglePin: (_) async {},
+        ),
+      ),
+    ));
+
+    expect(find.text('0 directories open'), findsOneWidget);
+    expect(find.text('Open or create encrypted directory'), findsOneWidget);
+    expect(find.textContaining('No directories are open yet.'), findsOneWidget);
   });
 }

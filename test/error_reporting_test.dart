@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/services/error_reporting_service.dart';
 import 'package:safe_disk/utils/error_diagnostics.dart';
 import 'package:safe_disk/utils/error_messages.dart';
@@ -26,11 +27,66 @@ void main() {
     expect(details, isNot(contains('=secret')));
   });
 
+  test('error descriptor contains stable metadata but no display text', () {
+    final descriptor = ErrorMessages.descriptor(ErrorType.invalidPassword);
+
+    expect(descriptor.type, ErrorType.invalidPassword);
+    expect(descriptor.isCritical, isTrue);
+    expect(ErrorMessages.isCritical(ErrorType.loadDirectoryFailed), isFalse);
+  });
+
+  testWidgets('error messages follow the active locale', (tester) async {
+    Future<void> pumpError(Locale locale, String triggerLabel) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: locale,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => FilledButton(
+                onPressed: () => ErrorHelper.showError(
+                  context,
+                  errorType: ErrorType.importDirectoryInsideCurrentRoot,
+                ),
+                child: Text(triggerLabel),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text(triggerLabel));
+      await tester.pump();
+    }
+
+    await pumpError(const Locale('zh'), 'show-zh');
+    expect(find.text('不能导入此目录'), findsOneWidget);
+    expect(find.text('不能将当前加密目录中的目录再次导入到自身。'), findsOneWidget);
+    expect(find.textContaining('建议：请选择加密目录外的来源目录。'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await pumpError(const Locale('en'), 'show-en');
+    expect(find.text('Cannot import this directory'), findsOneWidget);
+    expect(
+      find.text(
+          'A directory inside the current encrypted directory cannot be imported back into itself.'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(
+          'Suggestion: Choose a source directory outside the encrypted directory.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('technical details are shown only after explicit opt-in',
       (tester) async {
     Future<void> pumpError() async {
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Builder(
               builder: (context) => FilledButton(

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/pages/home_page.dart';
 import 'package:safe_disk/pages/dialogs.dart';
 import 'package:safe_disk/models/create_root_options.dart';
@@ -28,6 +29,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: HomePage(persistenceService: _EmptyPersistenceService()),
       ),
     );
@@ -52,7 +56,8 @@ void main() {
     expect(existing.readAsStringSync(), 'keep');
   });
 
-  testWidgets('create dialog exposes constrained advanced crypto parameters',
+  testWidgets(
+      'create dialog exposes constrained crypto parameters and password-change choice',
       (tester) async {
     CreateRootRequest? result;
     await tester.pumpWidget(MaterialApp(
@@ -70,8 +75,34 @@ void main() {
     ));
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
+    final passwordFields = tester
+        .widgetList<TextField>(find.byType(TextField))
+        .take(2)
+        .toList(growable: false);
+    expect(passwordFields, hasLength(2));
+    for (final field in passwordFields) {
+      expect(field.autocorrect, isFalse);
+      expect(field.enableSuggestions, isFalse);
+      expect(field.keyboardType, TextInputType.visiblePassword);
+    }
+    expect(find.byTooltip('显示密码'), findsNWidgets(2));
+    final passwordChangeable = find.widgetWithText(
+      SwitchListTile,
+      '允许以后修改密码',
+    );
+    expect(passwordChangeable, findsOneWidget);
+    expect(
+      tester.widget<SwitchListTile>(passwordChangeable).value,
+      isTrue,
+    );
     await tester.enterText(find.byType(TextField).at(0), 'secret');
     await tester.enterText(find.byType(TextField).at(1), 'secret');
+    await tester.tap(passwordChangeable);
+    await tester.pump();
+    expect(
+      tester.widget<SwitchListTile>(passwordChangeable).value,
+      isFalse,
+    );
     await tester.tap(find.text('高级加密参数'));
     await tester.pumpAndSettle();
 
@@ -79,11 +110,21 @@ void main() {
     expect(find.text('文件名加密'), findsOneWidget);
     expect(find.text('密码派生'), findsOneWidget);
     expect(find.text('派生强度'), findsOneWidget);
+    expect(find.text('允许以后修改密码'), findsOneWidget);
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
+    await tester.pumpAndSettle();
+    expect(find.text('不加密（None）'), findsOneWidget);
+    await tester.tap(find.text('不加密（None）'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('文件名和目录名不会加密'), findsOneWidget);
+
     await tester.tap(find.text('创建'));
     await tester.pumpAndSettle();
 
-    expect(result?.nameFactory, 'AES-256-GCM');
+    expect(result?.nameFactory, 'None');
     expect(result?.deriverFactory, 'Argon2id');
+    expect(result?.passwordChangeable, isFalse);
   });
 }
 

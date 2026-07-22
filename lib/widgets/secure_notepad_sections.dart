@@ -97,10 +97,10 @@ class SecureNotepadStatusBar extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               draftError != null
-                  ? '草稿失败'
+                  ? '无法保存恢复草稿'
                   : isSavingDraft
                       ? '正在保存草稿'
-                      : '已保存安全草稿',
+                      : '已保存恢复草稿',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -265,8 +265,13 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
             child: CallbackShortcuts(
               bindings: {
                 const SingleActivator(LogicalKeyboardKey.enter): _find,
+                const SingleActivator(LogicalKeyboardKey.numpadEnter): _find,
                 const SingleActivator(
                   LogicalKeyboardKey.enter,
+                  shift: true,
+                ): () => _find(backwards: true),
+                const SingleActivator(
+                  LogicalKeyboardKey.numpadEnter,
                   shift: true,
                 ): () => _find(backwards: true),
               },

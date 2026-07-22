@@ -61,7 +61,7 @@ class _NotepadSmokeHostState extends State<_NotepadSmokeHost> {
         path: '/note.txt',
         displayName: '跨窗口记事本.txt',
       );
-      final opened = await _bridge.openNotepad(lease);
+      final opened = await _bridge.openNotepad(lease, localePreference: 'zh');
       if (mounted) setState(() => _status = opened ? '安全通道已连接' : '创建失败');
     } catch (error) {
       if (mounted) setState(() => _status = '创建失败：$error');

@@ -25,10 +25,11 @@ void main() {
     );
     addTearDown(bridge.dispose);
 
-    expect(await bridge.openNotepad(lease), isTrue);
+    expect(await bridge.openNotepad(lease, localePreference: 'en'), isTrue);
     expect(platform.opened, hasLength(1));
     final request = platform.opened.single;
-    expect(request.keys, {'token', 'documentID', 'title'});
+    expect(request.keys, {'token', 'documentID', 'title', 'localePreference'});
+    expect(request['localePreference'], 'en');
     expect(request.values, isNot(contains('root-secret')));
     expect(request.values, isNot(contains('/private/note.txt')));
   });
@@ -48,7 +49,7 @@ void main() {
       platform: platform,
     );
     addTearDown(bridge.dispose);
-    await bridge.openNotepad(lease);
+    await bridge.openNotepad(lease, localePreference: 'zh');
 
     final read = await platform.call('document.read', {
       'token': lease.token,
@@ -106,7 +107,7 @@ void main() {
       platform: platform,
     );
     addTearDown(bridge.dispose);
-    await bridge.openNotepad(lease);
+    await bridge.openNotepad(lease, localePreference: 'zh');
 
     platform.alive.add({lease.token});
     await Future<void>.delayed(Duration.zero);
@@ -132,10 +133,98 @@ void main() {
       platform: platform,
     );
     addTearDown(bridge.dispose);
-    await bridge.openNotepad(lease);
+    await bridge.openNotepad(lease, localePreference: 'zh');
 
     await bridge.closeRootWindows('7');
 
+    expect(platform.closedTokens, {lease.token});
+    expect(broker.containsToken(lease.token), isFalse);
+  });
+
+  test('revokes a root token before the native window close completes',
+      () async {
+    final broker = DocumentSessionBroker(
+      cryptoService: _BridgeCryptoService('initial'),
+    );
+    final lease = broker.open(
+      rootSessionID: '7',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(
+      broker: broker,
+      platform: platform,
+    );
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(lease, localePreference: 'zh');
+    platform.onCloseTokens = (tokens) async {
+      expect(tokens, {lease.token});
+      await expectLater(
+        platform.call('document.read', {'token': lease.token}),
+        throwsA(
+          isA<PlatformException>().having(
+            (error) => error.code,
+            'code',
+            'session_not_found',
+          ),
+        ),
+      );
+    };
+
+    await bridge.closeRootWindows('7');
+
+    expect(broker.containsToken(lease.token), isFalse);
+  });
+
+  test('waits for an accepted save before closing the native root window',
+      () async {
+    final crypto = _DelayedWriteBridgeCryptoService('initial');
+    final broker = DocumentSessionBroker(cryptoService: crypto);
+    final lease = broker.open(
+      rootSessionID: '7',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(
+      broker: broker,
+      platform: platform,
+    );
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(lease, localePreference: 'zh');
+    final snapshot = await platform.call('document.read', {
+      'token': lease.token,
+    }) as Map;
+    final saving = platform.call('document.save', {
+      'token': lease.token,
+      'revision': snapshot['revision'],
+      'content': Uint8List.fromList(utf8.encode('saved before close')),
+    });
+    await crypto.writeStarted.future;
+
+    final closing = bridge.closeRootWindows('7');
+    await Future<void>.delayed(Duration.zero);
+    expect(platform.closedTokens, isEmpty);
+    await expectLater(
+      platform.call('document.setDirty', {
+        'token': lease.token,
+        'dirty': true,
+      }),
+      throwsA(
+        isA<PlatformException>().having(
+          (error) => error.code,
+          'code',
+          'session_not_found',
+        ),
+      ),
+    );
+
+    crypto.allowWrite.complete();
+    await saving;
+    await closing;
+
+    expect(crypto.content, 'saved before close');
     expect(platform.closedTokens, {lease.token});
     expect(broker.containsToken(lease.token), isFalse);
   });
@@ -157,11 +246,12 @@ void main() {
     );
     addTearDown(bridge.dispose);
 
-    expect(await bridge.openImage(lease), isTrue);
+    expect(await bridge.openImage(lease, localePreference: 'en'), isTrue);
     expect(platform.openedImages.single, {
       'token': lease.token,
       'documentID': lease.documentID,
       'title': 'image.png',
+      'localePreference': 'en',
     });
 
     await expectLater(
@@ -192,7 +282,7 @@ void main() {
     );
   });
 
-  test('parses only versioned notepad window arguments', () {
+  test('parses legacy and locale-snapshot content window arguments', () {
     final valid = jsonEncode({
       'version': 1,
       'kind': 'secure_notepad',
@@ -212,9 +302,19 @@ void main() {
       'title': 'image.png',
     }));
     expect(image?.kind, DesktopMultiWindowPlatform.imageWindowKind);
+    expect(image?.localePreference, isNull);
+    final current = DesktopMultiWindowPlatform.tryParseArguments(jsonEncode({
+      'version': 2,
+      'kind': 'secure_notepad',
+      'token': 'token',
+      'documentID': 'document',
+      'title': 'note.txt',
+      'localePreference': 'en',
+    }));
+    expect(current?.localePreference, 'en');
     expect(
       DesktopMultiWindowPlatform.tryParseArguments(
-        jsonEncode({'version': 2, 'kind': 'secure_notepad'}),
+        jsonEncode({'version': 3, 'kind': 'secure_notepad'}),
       ),
       isNull,
     );
@@ -228,6 +328,7 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
   final StreamController<Set<String>> alive =
       StreamController<Set<String>>.broadcast();
   ContentWindowCallHandler? handler;
+  Future<void> Function(Set<String> tokens)? onCloseTokens;
   Set<String> closedTokens = {};
 
   @override
@@ -238,11 +339,13 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
     required String token,
     required String documentID,
     required String title,
+    required String localePreference,
   }) async {
     opened.add({
       'token': token,
       'documentID': documentID,
       'title': title,
+      'localePreference': localePreference,
     });
     return true;
   }
@@ -252,11 +355,13 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
     required String token,
     required String documentID,
     required String title,
+    required String localePreference,
   }) async {
     openedImages.add({
       'token': token,
       'documentID': documentID,
       'title': title,
+      'localePreference': localePreference,
     });
     return true;
   }
@@ -264,6 +369,7 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
   @override
   Future<void> closeTokens(Set<String> tokens) async {
     closedTokens = {...tokens};
+    await onCloseTokens?.call(tokens);
   }
 
   @override
@@ -309,5 +415,23 @@ class _BridgeCryptoService extends CryptoService {
   @override
   Future<void> deleteFileBySession(String path, String tempKeyID) async {
     draft = null;
+  }
+}
+
+class _DelayedWriteBridgeCryptoService extends _BridgeCryptoService {
+  _DelayedWriteBridgeCryptoService(super.content);
+
+  final writeStarted = Completer<void>();
+  final allowWrite = Completer<void>();
+
+  @override
+  Future<void> writeFileBySession(
+    String path,
+    String tempKeyID,
+    List<int> data,
+  ) async {
+    if (!writeStarted.isCompleted) writeStarted.complete();
+    await allowWrite.future;
+    await super.writeFileBySession(path, tempKeyID, data);
   }
 }

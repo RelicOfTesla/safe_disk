@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../l10n/generated/app_localizations.dart';
 import '../models/secure_image_policy.dart';
 import '../services/file_service.dart';
 import 'property_overlay.dart';
@@ -69,23 +71,30 @@ bool isEditableTextFile(FileSystemNode item) {
   return !item.isDirectory && !isViewableImageFile(item);
 }
 
-String fileItemActionLabel(FileItemAction action, FileSystemNode item) {
+String fileItemActionLabel(
+  AppLocalizations strings,
+  FileItemAction action,
+  FileSystemNode item,
+) {
   return switch (action) {
-    FileItemAction.open => item.isDirectory ? '打开目录' : '查看图片',
-    FileItemAction.edit => '使用安全记事本编辑',
-    FileItemAction.openInNewWindow =>
-      isViewableImageFile(item) ? '在新窗口中查看' : '在新窗口中编辑',
-    FileItemAction.select => '选择',
-    FileItemAction.rename => '重命名',
-    FileItemAction.copy => '复制',
-    FileItemAction.cut => '剪切',
-    FileItemAction.pasteInto => '粘贴到此目录',
-    FileItemAction.export => item.isDirectory ? '导出目录' : '导出解密文件',
-    FileItemAction.copyName => '复制名称（明文）',
-    FileItemAction.copyPath => '复制逻辑路径（明文）',
-    FileItemAction.properties => '属性',
-    FileItemAction.refresh => '刷新',
-    FileItemAction.delete => '删除文件',
+    FileItemAction.open =>
+      item.isDirectory ? strings.openDirectory : strings.viewImage,
+    FileItemAction.edit => strings.editWithSecureNotepad,
+    FileItemAction.openInNewWindow => isViewableImageFile(item)
+        ? strings.viewInNewWindow
+        : strings.editInNewWindow,
+    FileItemAction.select => strings.select,
+    FileItemAction.rename => strings.rename,
+    FileItemAction.copy => strings.copy,
+    FileItemAction.cut => strings.cut,
+    FileItemAction.pasteInto => strings.pasteIntoDirectory,
+    FileItemAction.export =>
+      item.isDirectory ? strings.exportDirectory : strings.exportDecryptedFile,
+    FileItemAction.copyName => strings.copyPlaintextName,
+    FileItemAction.copyPath => strings.copyPlaintextLogicalPath,
+    FileItemAction.properties => strings.properties,
+    FileItemAction.refresh => strings.refresh,
+    FileItemAction.delete => strings.deleteFile,
   };
 }
 
@@ -108,23 +117,60 @@ IconData _fileItemActionIcon(FileItemAction action) {
   };
 }
 
-String? validateFileItemName(String value) {
-  if (value.isEmpty) return '名称不能为空';
-  if (value != value.trim()) return '名称不能以空格开头或结尾';
-  if (value == '.' || value == '..') return '不能使用保留名称';
-  if (value.endsWith('.')) return '名称不能以点结尾';
+enum FileItemNameValidationIssue {
+  empty,
+  leadingOrTrailingWhitespace,
+  reservedDotName,
+  trailingDot,
+  pathSeparatorOrNull,
+  unsupportedCharacter,
+  reservedSystemName,
+  tooLong,
+}
+
+FileItemNameValidationIssue? validateFileItemName(String value) {
+  if (value.isEmpty) return FileItemNameValidationIssue.empty;
+  if (value != value.trim()) {
+    return FileItemNameValidationIssue.leadingOrTrailingWhitespace;
+  }
+  if (value == '.' || value == '..') {
+    return FileItemNameValidationIssue.reservedDotName;
+  }
+  if (value.endsWith('.')) return FileItemNameValidationIssue.trailingDot;
   if (value.contains('/') || value.contains('\\') || value.contains('\u0000')) {
-    return '名称不能包含路径分隔符或空字符';
+    return FileItemNameValidationIssue.pathSeparatorOrNull;
   }
   if (RegExp(r'[<>:"|?*]').hasMatch(value)) {
-    return '名称包含跨平台不支持的字符';
+    return FileItemNameValidationIssue.unsupportedCharacter;
   }
   final baseName = value.split('.').first.toUpperCase();
   if (RegExp(r'^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$').hasMatch(baseName)) {
-    return '该名称是系统保留名称';
+    return FileItemNameValidationIssue.reservedSystemName;
   }
-  if (utf8.encode(value).length > 255) return '名称不能超过 255 个 UTF-8 字节';
+  if (utf8.encode(value).length > 255) {
+    return FileItemNameValidationIssue.tooLong;
+  }
   return null;
+}
+
+String fileItemNameValidationMessage(
+  AppLocalizations strings,
+  FileItemNameValidationIssue issue,
+) {
+  return switch (issue) {
+    FileItemNameValidationIssue.empty => strings.fileNameEmpty,
+    FileItemNameValidationIssue.leadingOrTrailingWhitespace =>
+      strings.fileNameLeadingOrTrailingWhitespace,
+    FileItemNameValidationIssue.reservedDotName => strings.fileNameReserved,
+    FileItemNameValidationIssue.trailingDot => strings.fileNameTrailingDot,
+    FileItemNameValidationIssue.pathSeparatorOrNull =>
+      strings.fileNamePathSeparatorOrNull,
+    FileItemNameValidationIssue.unsupportedCharacter =>
+      strings.fileNameUnsupportedCharacter,
+    FileItemNameValidationIssue.reservedSystemName =>
+      strings.fileNameReservedSystemName,
+    FileItemNameValidationIssue.tooLong => strings.fileNameTooLong,
+  };
 }
 
 Future<String?> showRenameFileItemDialog({
@@ -172,7 +218,10 @@ class _RenameFileItemDialogState extends State<_RenameFileItemDialog> {
     final value = _controller.text;
     final error = validateFileItemName(value);
     if (error != null) {
-      setState(() => _validationError = error);
+      setState(() {
+        _validationError =
+            fileItemNameValidationMessage(AppLocalizations.of(context)!, error);
+      });
       return;
     }
     Navigator.pop(context, value);
@@ -180,14 +229,17 @@ class _RenameFileItemDialogState extends State<_RenameFileItemDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppLocalizations.of(context)!;
     return AlertDialog(
-      title: Text(widget.item.isDirectory ? '重命名目录' : '重命名文件'),
+      title: Text(widget.item.isDirectory
+          ? strings.renameDirectory
+          : strings.renameFile),
       content: TextField(
         controller: _controller,
         autofocus: true,
         maxLength: 255,
         decoration: InputDecoration(
-          labelText: '新名称',
+          labelText: strings.newName,
           errorText: _validationError,
         ),
         onChanged: (_) {
@@ -200,11 +252,11 @@ class _RenameFileItemDialogState extends State<_RenameFileItemDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(strings.cancel),
         ),
         FilledButton(
           onPressed: _submit,
-          child: const Text('重命名'),
+          child: Text(strings.rename),
         ),
       ],
     );
@@ -215,22 +267,27 @@ Future<void> showFileItemProperties({
   required BuildContext context,
   required FileSystemNode item,
 }) {
-  final modifiedTime = item.modifiedTime?.toLocal().toString() ?? '未知';
+  final strings = AppLocalizations.of(context)!;
+  final modifiedTime = item.modifiedTime == null
+      ? strings.unknown
+      : DateFormat.yMMMd(strings.localeName)
+          .add_jm()
+          .format(item.modifiedTime!.toLocal());
   final type = item.isDirectory
-      ? '目录'
+      ? strings.directory
       : (item.extension?.isNotEmpty == true
-          ? '${item.extension!.toUpperCase()} 文件'
-          : '文件');
+          ? strings.fileTypeWithExtension(item.extension!.toUpperCase())
+          : strings.file);
 
   return showPropertyOverlay(
     context: context,
-    title: '属性',
+    title: strings.properties,
     values: [
-      PropertyValue('名称', item.name),
-      PropertyValue('类型', type),
-      if (!item.isDirectory) PropertyValue('大小', item.formattedSize),
-      PropertyValue('修改时间', modifiedTime),
-      PropertyValue('逻辑路径', item.path),
+      PropertyValue(strings.name, item.name),
+      PropertyValue(strings.type, type),
+      if (!item.isDirectory) PropertyValue(strings.size, item.formattedSize),
+      PropertyValue(strings.modifiedTime, modifiedTime),
+      PropertyValue(strings.logicalPath, item.path),
     ],
   );
 }
@@ -271,26 +328,36 @@ Future<FileItemAction?> showFileItemActionSheet({
 }) {
   return showModalBottomSheet<FileItemAction>(
     context: context,
+    isScrollControlled: true,
     builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: fileItemActionsFor(item, canPasteInto: canPasteInto)
-            .map(
-              (action) => ListTile(
-                leading: Icon(
-                  _fileItemActionIcon(action),
-                  color: action == FileItemAction.delete ? Colors.red : null,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.85,
+        ),
+        child: ListView(
+          shrinkWrap: true,
+          children: fileItemActionsFor(item, canPasteInto: canPasteInto)
+              .map(
+                (action) => ListTile(
+                  leading: Icon(
+                    _fileItemActionIcon(action),
+                    color: action == FileItemAction.delete ? Colors.red : null,
+                  ),
+                  title: Text(
+                    fileItemActionLabel(
+                      AppLocalizations.of(context)!,
+                      action,
+                      item,
+                    ),
+                    style: action == FileItemAction.delete
+                        ? const TextStyle(color: Colors.red)
+                        : null,
+                  ),
+                  onTap: () => Navigator.pop(sheetContext, action),
                 ),
-                title: Text(
-                  fileItemActionLabel(action, item),
-                  style: action == FileItemAction.delete
-                      ? const TextStyle(color: Colors.red)
-                      : null,
-                ),
-                onTap: () => Navigator.pop(sheetContext, action),
-              ),
-            )
-            .toList(),
+              )
+              .toList(),
+        ),
       ),
     ),
   );
@@ -314,7 +381,7 @@ class _FileItemActionRow extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Text(
-          fileItemActionLabel(action, item),
+          fileItemActionLabel(AppLocalizations.of(context)!, action, item),
           style: isDestructive ? const TextStyle(color: Colors.red) : null,
         ),
       ],
