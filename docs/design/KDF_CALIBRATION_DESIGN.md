@@ -98,4 +98,3 @@ CreateRootConfigQuick(..., WithKDFParameters(result.Parameters))
 
 - Linux、Windows、macOS 的低端/高端设备；内存压力、睡眠恢复、取消和窗口关闭。
 - 每个平台确认校准不会卡死 UI、不会写出密码/性能日志，且创建后的 root 可被 CLI、FFI、Dart 互开。
-
