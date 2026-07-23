@@ -160,7 +160,7 @@
   "notepadDefaultReadOnly": "Open notes read-only",
   "notepadDefaultReadOnlyHint": "New files open read-only. You can start editing manually.",
   "notepadMonitorClipboard": "Monitor clipboard by default",
-  "notepadMonitorClipboardHint": "Only show a short text preview; do not write it to files or settings.",
+  "notepadMonitorClipboardHint": "Only show a text preview; do not write it to files or settings.",
   "notepadRecoveryDraftFound": "Secure draft found",
   "notepadBinaryContent": "The file contains binary content and cannot be opened in Secure Notepad.",
   "notepadLoadFailed": "Unable to read the file. Check that it exists and is readable, then try again.",

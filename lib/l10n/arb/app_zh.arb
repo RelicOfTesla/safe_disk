@@ -195,7 +195,7 @@
   "notepadSavingDraft": "正在保存草稿",
   "notepadDraftSaved": "已保存恢复草稿",
   "notepadClipboardMonitor": "剪贴板监视",
-  "notepadClipboardEmpty": "剪贴板中没有短文本",
+  "notepadClipboardEmpty": "剪贴板中没有文本",
   "notepadClipboardReadFailed": "无法读取剪贴板，请重试。",
   "notepadClipboardClearFailed": "无法清空剪贴板，请重试。",
   "notepadRefreshClipboard": "立即刷新剪贴板",
