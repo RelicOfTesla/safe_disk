@@ -2416,6 +2416,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
   }
 
+  void _selectAllItems() {
+    if (_items.isEmpty) return;
+    setState(() {
+      _selectedFiles.addAll(_items);
+      _isSelectMode = true;
+    });
+  }
+
+  void _cancelSelection() {
+    if (!_isSelectMode && _selectedFiles.isEmpty) return;
+    setState(() {
+      _isSelectMode = false;
+      _selectedFiles.clear();
+      _keyboardSelectionAnchorPath = null;
+    });
+  }
+
   Future<void> _createEntry({required bool isDirectory}) async {
     if (!_validateSession()) return;
     final name = await showCreateEntryDialog(
@@ -2874,6 +2891,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _touchCurrentRoot();
           _copyKeyboardTarget(move: true);
         },
+        const SingleActivator(LogicalKeyboardKey.keyA, control: true):
+            _selectAllItems,
+        const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
+            _selectAllItems,
+        const SingleActivator(LogicalKeyboardKey.escape): _cancelSelection,
         const SingleActivator(LogicalKeyboardKey.f2): () {
           final target = _selectedFiles.length == 1
               ? _selectedFiles.single
@@ -2963,16 +2985,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onOpenSettings: _openSettings,
             onViewModeChanged: (mode) => setState(() => _viewMode = mode),
             onCancelSelection: () {
-              setState(() {
-                _isSelectMode = false;
-                _selectedFiles.clear();
-                _keyboardSelectionAnchorPath = null;
-              });
+              _cancelSelection();
             },
             onSelectAll: () {
-              setState(() {
-                _selectedFiles.addAll(_items);
-              });
+              _selectAllItems();
             },
             onBatchCopy: () => _copySelected(move: false),
             onBatchCut: () => _copySelected(move: true),

@@ -1347,6 +1347,21 @@ void main() {
     expect(find.text('已选择 2 项'), findsOneWidget);
   });
 
+  testWidgets('desktop select-all and escape cancel file selection',
+      (tester) async {
+    await _openTwoFileVault(tester, includeDirectory: true);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(find.text('已选择 3 项'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.text('已选择 3 项'), findsNothing);
+  });
+
   testWidgets('batch paste reports partial failure and leaves it retryable',
       (tester) async {
     final (:cryptoService, :fileService) = await _openTwoFileVault(
