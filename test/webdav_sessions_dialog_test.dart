@@ -56,6 +56,8 @@ void main() {
               revoked = true;
               return true;
             },
+            onMount: (_) async => true,
+            onUnmount: (_) async => true,
             onRefresh: () async {
               refreshes++;
               return [session];
@@ -80,6 +82,125 @@ void main() {
     await tester.pumpAndSettle();
     expect(revoked, isTrue);
     expect(find.text('当前没有活跃的第三方访问。'), findsOneWidget);
+  });
+
+  testWidgets('selects Digest authentication and shows its credentials',
+      (tester) async {
+    WebDavAuthMode? selected;
+    await tester.pumpWidget(_localizedApp(
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () async {
+            selected = await chooseWebDavAuthMode(context: context);
+          },
+          child: const Text('open'),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('选择鉴权方式'), findsOneWidget);
+    await tester.tap(find.text('Digest（用户名和密码）'));
+    await tester.tap(find.text('继续'));
+    await tester.pumpAndSettle();
+    expect(selected, WebDavAuthMode.digest);
+
+    await tester.pumpWidget(_localizedApp(
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showWebDavCredentialsDialog(
+            context: context,
+            session: WebDavOpenedSession.fromNative(
+              rootID: 7,
+              data: const {
+                'id': 'session-2',
+                'display_name': 'notes',
+                'exposed_path': 'notes',
+                'url': 'http://127.0.0.1:1234/webdav/session-2/',
+                'auth_mode': 'digest',
+                'username': 'user-1',
+                'password': 'password-1',
+                'realm': 'realm-1',
+                'read_only': true,
+              },
+            ),
+          ),
+          child: const Text('credentials'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('credentials'));
+    await tester.pumpAndSettle();
+    expect(find.text('用户名'), findsOneWidget);
+    expect(find.text('密码'), findsOneWidget);
+    expect(find.text('Realm'), findsOneWidget);
+    expect(find.text('访问令牌'), findsNothing);
+  });
+
+  testWidgets('mounts and unmounts a Digest session through callbacks',
+      (tester) async {
+    var mounted = false;
+    final base = WebDavSessionStatus.fromNative(
+      rootID: 7,
+      data: const {
+        'id': 'session-3',
+        'display_name': 'notes',
+        'exposed_path': 'notes',
+        'url': 'http://127.0.0.1:1234/webdav/session-3/',
+        'auth_mode': 'digest',
+        'read_only': true,
+        'active_requests': 0,
+      },
+    );
+    await tester.pumpWidget(_localizedApp(
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showWebDavSessionsDialog(
+            context: context,
+            sessions: [base],
+            onRevoke: (_) async => true,
+            onMount: (_) async {
+              mounted = true;
+              return true;
+            },
+            onUnmount: (_) async {
+              mounted = false;
+              return true;
+            },
+            onRefresh: () async => [
+              WebDavSessionStatus.fromNative(
+                rootID: 7,
+                data: {
+                  'id': 'session-3',
+                  'display_name': 'notes',
+                  'exposed_path': 'notes',
+                  'url': 'http://127.0.0.1:1234/webdav/session-3/',
+                  'auth_mode': 'digest',
+                  'read_only': true,
+                  'mounted': mounted,
+                  if (mounted) 'mount_path': '/cache/safe-disk/webdav',
+                  'active_requests': 0,
+                },
+              ),
+            ],
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('挂载到系统'));
+    await tester.pumpAndSettle();
+    expect(mounted, isTrue);
+    expect(find.text('已挂载到系统'), findsOneWidget);
+    expect(find.text('/cache/safe-disk/webdav'), findsOneWidget);
+
+    await tester.tap(find.text('卸载'));
+    await tester.pumpAndSettle();
+    expect(mounted, isFalse);
   });
 }
 

@@ -428,6 +428,36 @@ abstract class AppLocalizations {
   /// **'创建只读访问'**
   String get webDavExposeReadOnly;
 
+  /// No description provided for @webDavAuthModeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择鉴权方式'**
+  String get webDavAuthModeTitle;
+
+  /// No description provided for @webDavAuthModeDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'不同工具支持的鉴权方式不同。凭据只会显示一次。'**
+  String get webDavAuthModeDescription;
+
+  /// No description provided for @webDavAuthBearer.
+  ///
+  /// In zh, this message translates to:
+  /// **'Bearer（令牌）'**
+  String get webDavAuthBearer;
+
+  /// No description provided for @webDavAuthDigest.
+  ///
+  /// In zh, this message translates to:
+  /// **'Digest（用户名和密码）'**
+  String get webDavAuthDigest;
+
+  /// No description provided for @webDavAuthContinue.
+  ///
+  /// In zh, this message translates to:
+  /// **'继续'**
+  String get webDavAuthContinue;
+
   /// No description provided for @webDavSessions.
   ///
   /// In zh, this message translates to:
@@ -457,6 +487,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'请将地址和令牌提供给所选的可信工具。关闭此窗口后，令牌不会再次显示。'**
   String get webDavCredentialsDescription;
+
+  /// No description provided for @webDavDigestCredentialsDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'请将地址、用户名、密码和 realm 提供给所选的可信工具。关闭此窗口后，凭据不会再次显示。'**
+  String get webDavDigestCredentialsDescription;
 
   /// No description provided for @webDavReadOnly.
   ///
@@ -499,6 +535,84 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已复制访问令牌'**
   String get webDavTokenCopied;
+
+  /// No description provided for @webDavUsername.
+  ///
+  /// In zh, this message translates to:
+  /// **'用户名'**
+  String get webDavUsername;
+
+  /// No description provided for @webDavPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码'**
+  String get webDavPassword;
+
+  /// No description provided for @webDavRealm.
+  ///
+  /// In zh, this message translates to:
+  /// **'Realm'**
+  String get webDavRealm;
+
+  /// No description provided for @webDavUsernameCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制用户名'**
+  String get webDavUsernameCopied;
+
+  /// No description provided for @webDavPasswordCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制密码'**
+  String get webDavPasswordCopied;
+
+  /// No description provided for @webDavRealmCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制 Realm'**
+  String get webDavRealmCopied;
+
+  /// No description provided for @webDavAuthModeBearer.
+  ///
+  /// In zh, this message translates to:
+  /// **'鉴权：Bearer'**
+  String get webDavAuthModeBearer;
+
+  /// No description provided for @webDavAuthModeDigest.
+  ///
+  /// In zh, this message translates to:
+  /// **'鉴权：Digest'**
+  String get webDavAuthModeDigest;
+
+  /// No description provided for @webDavMounted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已挂载到系统'**
+  String get webDavMounted;
+
+  /// No description provided for @webDavMount.
+  ///
+  /// In zh, this message translates to:
+  /// **'挂载到系统'**
+  String get webDavMount;
+
+  /// No description provided for @webDavUnmount.
+  ///
+  /// In zh, this message translates to:
+  /// **'卸载'**
+  String get webDavUnmount;
+
+  /// No description provided for @webDavMountedAt.
+  ///
+  /// In zh, this message translates to:
+  /// **'已挂载：{path}'**
+  String webDavMountedAt(String path);
+
+  /// No description provided for @webDavUnmounted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已卸载'**
+  String get webDavUnmounted;
 
   /// No description provided for @webDavCapabilityWarning.
   ///

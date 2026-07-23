@@ -3,22 +3,21 @@
 package sec_webdav
 
 import (
+	"context"
 	"crypto/rand"
-	"crypto/subtle"
 	"encoding/hex"
-	"encoding/xml"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"net"
 	"net/http"
-	"net/url"
-	pathpkg "path"
+	"path"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/net/webdav"
 )
 
 var (
@@ -27,10 +26,7 @@ var (
 	ErrSessionClosed  = errors.New("webdav session is closed")
 )
 
-const (
-	methodAllow = "OPTIONS, GET, HEAD, PROPFIND"
-	maxDepth    = 1
-)
+const methodAllow = "OPTIONS, GET, HEAD, PROPFIND"
 
 // ResourceProvider is deliberately smaller than sec_fs.ISecRoot. The FFI
 // layer adapts an already-open secure root to this interface.
@@ -41,18 +37,25 @@ type ResourceProvider interface {
 }
 
 type Session struct {
-	ID          string `json:"id"`
-	RootKey     string `json:"-"`
-	Token       string `json:"token"`
-	URL         string `json:"url"`
-	DisplayName string `json:"display_name"`
-	ExposedPath string `json:"exposed_path"`
-	ReadOnly    bool   `json:"read_only"`
+	ID          string   `json:"id"`
+	RootKey     string   `json:"-"`
+	Token       string   `json:"token,omitempty"`
+	AuthMode    AuthMode `json:"auth_mode"`
+	Username    string   `json:"username,omitempty"`
+	Password    string   `json:"password,omitempty"`
+	Realm       string   `json:"realm,omitempty"`
+	URL         string   `json:"url"`
+	DisplayName string   `json:"display_name"`
+	ExposedPath string   `json:"exposed_path"`
+	ReadOnly    bool     `json:"read_only"`
 }
 
 type activeSession struct {
 	session        Session
 	provider       ResourceProvider
+	handler        *webdav.Handler
+	auth           authState
+	mounted        *MountedSession
 	lastAccessedAt *time.Time
 	activeRequests int
 }
@@ -65,8 +68,11 @@ type SessionStatus struct {
 	ExposedPath    string     `json:"exposed_path"`
 	URL            string     `json:"url"`
 	ReadOnly       bool       `json:"read_only"`
+	AuthMode       AuthMode   `json:"auth_mode"`
 	LastAccessedAt *time.Time `json:"last_accessed_at"`
 	ActiveRequests int        `json:"active_requests"`
+	Mounted        bool       `json:"mounted"`
+	MountPath      string     `json:"mount_path,omitempty"`
 }
 
 type Manager struct {
@@ -85,6 +91,10 @@ func NewManager() *Manager {
 }
 
 func (m *Manager) Open(rootKey, displayName, exposedPath string, provider ResourceProvider) (Session, error) {
+	return m.OpenWithOptions(rootKey, displayName, exposedPath, provider, OpenOptions{AuthMode: AuthModeBearer})
+}
+
+func (m *Manager) OpenWithOptions(rootKey, displayName, exposedPath string, provider ResourceProvider, options OpenOptions) (Session, error) {
 	if strings.TrimSpace(rootKey) == "" {
 		return Session{}, ErrInvalidRootKey
 	}
@@ -108,42 +118,69 @@ func (m *Manager) Open(rootKey, displayName, exposedPath string, provider Resour
 	if err != nil {
 		return Session{}, err
 	}
-	token, err := m.newValueLocked(32)
+	auth, err := m.newAuthLocked(options.AuthMode)
 	if err != nil {
 		return Session{}, err
 	}
 	session := Session{
 		ID:          id,
 		RootKey:     rootKey,
-		Token:       token,
+		Token:       auth.token,
+		AuthMode:    auth.mode,
+		Username:    auth.username,
+		Password:    auth.password,
+		Realm:       auth.realm,
 		URL:         "http://" + m.listener.Addr().String() + "/webdav/" + id + "/",
 		DisplayName: displayName,
 		ExposedPath: cleanPath,
 		ReadOnly:    true,
 	}
-	m.sessions[id] = activeSession{session: session, provider: scopedProvider{
-		base: cleanPath,
-		root: provider,
-	}}
+	secureFS := newSecureFileSystem(provider, cleanPath)
+	active := activeSession{
+		session:  session,
+		auth:     auth,
+		provider: provider,
+		handler: &webdav.Handler{
+			Prefix:     "/webdav/" + id,
+			FileSystem: secureFS,
+			LockSystem: webdav.NewMemLS(),
+		},
+	}
+	m.sessions[id] = active
 	return session, nil
 }
 
 func (m *Manager) Revoke(id string) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	active, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return
+	}
 	delete(m.sessions, id)
 	m.stopIfIdleLocked()
+	m.mu.Unlock()
+	if active.mounted != nil {
+		_ = active.mounted.Unmount(context.Background())
+	}
 }
 
 func (m *Manager) RevokeRoot(rootKey string) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	var mounted []*MountedSession
 	for id, session := range m.sessions {
 		if session.session.RootKey == rootKey {
+			if session.mounted != nil {
+				mounted = append(mounted, session.mounted)
+			}
 			delete(m.sessions, id)
 		}
 	}
 	m.stopIfIdleLocked()
+	m.mu.Unlock()
+	for _, mount := range mounted {
+		_ = mount.Unmount(context.Background())
+	}
 }
 
 func (m *Manager) Count() int {
@@ -175,15 +212,97 @@ func (m *Manager) List(rootKey string) []SessionStatus {
 
 func (m *Manager) Close() error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.sessions = make(map[string]activeSession)
-	if m.server == nil {
-		return nil
+	var mounted []*MountedSession
+	for _, session := range m.sessions {
+		if session.mounted != nil {
+			mounted = append(mounted, session.mounted)
+		}
 	}
-	err := m.server.Close()
+	m.sessions = make(map[string]activeSession)
+	var err error
+	if m.server == nil {
+		m.mu.Unlock()
+		for _, mount := range mounted {
+			if unmountErr := mount.Unmount(context.Background()); err == nil {
+				err = unmountErr
+			}
+		}
+		return err
+	}
+	err = m.server.Close()
 	m.server = nil
 	m.listener = nil
+	m.mu.Unlock()
+	for _, mount := range mounted {
+		if unmountErr := mount.Unmount(context.Background()); err == nil {
+			err = unmountErr
+		}
+	}
 	return err
+}
+
+func (m *Manager) Mount(ctx context.Context, id string) (*MountedSession, error) {
+	m.mu.Lock()
+	active, ok := m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		return nil, ErrSessionClosed
+	}
+	if active.mounted != nil {
+		mounted := active.mounted
+		m.mu.Unlock()
+		return mounted, nil
+	}
+	m.mu.Unlock()
+
+	mounted, err := MountSession(ctx, active.session)
+	if err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	active, ok = m.sessions[id]
+	if !ok {
+		m.mu.Unlock()
+		_ = mounted.Unmount(context.Background())
+		return nil, ErrSessionClosed
+	}
+	if active.mounted != nil {
+		existing := active.mounted
+		m.mu.Unlock()
+		_ = mounted.Unmount(context.Background())
+		return existing, nil
+	}
+	active.mounted = mounted
+	m.sessions[id] = active
+	m.mu.Unlock()
+	return mounted, nil
+}
+
+// Unmount detaches the operating-system mount owned by a session. A failed
+// unmount remains visible in List so callers do not report a cleanup success
+// while the mount may still be present.
+func (m *Manager) Unmount(ctx context.Context, id string) error {
+	m.mu.Lock()
+	active, ok := m.sessions[id]
+	if !ok || active.mounted == nil {
+		m.mu.Unlock()
+		return nil
+	}
+	mounted := active.mounted
+	m.mu.Unlock()
+
+	if err := mounted.Unmount(ctx); err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	active, ok = m.sessions[id]
+	if ok && active.mounted == mounted {
+		active.mounted = nil
+		m.sessions[id] = active
+	}
+	m.mu.Unlock()
+	return nil
 }
 
 func (m *Manager) ensureServerLocked() error {
@@ -226,47 +345,51 @@ func (m *Manager) handle(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	active, ok := m.acquireAuthorized(segments[1], r)
+	active, challenge, ok := m.acquireAuthorized(segments[1], r)
 	if !ok {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="safe-disk"`)
+		if challenge == "" {
+			challenge = `Bearer realm="safe-disk"`
+		}
+		w.Header().Set("WWW-Authenticate", challenge)
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
 	defer m.releaseRequest(segments[1])
-	for _, segment := range segments[2:] {
-		if segment == "" || segment == "." || segment == ".." || strings.Contains(segment, `\`) || strings.ContainsRune(segment, 0) {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		}
+	if !validURLSegments(segments[2:]) {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
 	}
-	relative := strings.Join(segments[2:], "/")
+
 	switch r.Method {
 	case http.MethodOptions:
 		w.Header().Set("DAV", "1")
 		w.Header().Set("Allow", methodAllow)
+		w.Header().Set("MS-Author-Via", "DAV")
 		w.WriteHeader(http.StatusOK)
-	case http.MethodGet, http.MethodHead:
-		m.handleRead(w, r, active.provider, relative)
-	case "PROPFIND":
-		m.handlePropfind(w, r, active.provider, relative, "/webdav/"+segments[1]+"/")
+	case http.MethodGet, http.MethodHead, "PROPFIND":
+		active.handler.ServeHTTP(w, r)
 	default:
 		w.Header().Set("Allow", methodAllow)
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 	}
 }
 
-func (m *Manager) acquireAuthorized(id string, request *http.Request) (activeSession, bool) {
+func (m *Manager) acquireAuthorized(id string, request *http.Request) (activeSession, string, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	active, ok := m.sessions[id]
-	if !ok || !authorized(request, active.session.Token) {
-		return activeSession{}, false
+	if !ok {
+		return activeSession{}, `Bearer realm="safe-disk"`, false
+	}
+	challenge, authenticated := m.authenticateLocked(&active, request)
+	if !authenticated {
+		return activeSession{}, challenge, false
 	}
 	now := time.Now().UTC()
 	active.lastAccessedAt = &now
 	active.activeRequests++
 	m.sessions[id] = active
-	return active, true
+	return active, "", true
 }
 
 func (m *Manager) releaseRequest(id string) {
@@ -283,159 +406,22 @@ func (m *Manager) releaseRequest(id string) {
 }
 
 func statusFromActive(active activeSession) SessionStatus {
+	mountPath := ""
+	if active.mounted != nil {
+		mountPath = active.mounted.Path()
+	}
 	return SessionStatus{
 		ID:             active.session.ID,
 		DisplayName:    active.session.DisplayName,
 		ExposedPath:    active.session.ExposedPath,
 		URL:            active.session.URL,
 		ReadOnly:       active.session.ReadOnly,
+		AuthMode:       active.session.AuthMode,
 		LastAccessedAt: active.lastAccessedAt,
 		ActiveRequests: active.activeRequests,
+		Mounted:        active.mounted != nil,
+		MountPath:      mountPath,
 	}
-}
-
-func (m *Manager) handleRead(w http.ResponseWriter, r *http.Request, provider ResourceProvider, path string) {
-	file, info, err := provider.Open(path)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	defer file.Close()
-	if info.IsDir() {
-		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
-		return
-	}
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Length", fmt.Sprint(info.Size()))
-	if r.Method == http.MethodGet {
-		if _, err := io.Copy(w, file); err != nil {
-			return
-		}
-	}
-}
-
-func (m *Manager) handlePropfind(w http.ResponseWriter, r *http.Request, provider ResourceProvider, path, baseURL string) {
-	depth := r.Header.Get("Depth")
-	if depth == "" {
-		depth = "1"
-	}
-	if depth != "0" && depth != "1" {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-	info, err := provider.Stat(path)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	resources := []davResource{{path: path, info: info}}
-	if depth == "1" && info.IsDir() {
-		entries, err := provider.ReadDir(path)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		for _, entry := range entries {
-			entryInfo, err := entry.Info()
-			if err != nil {
-				continue
-			}
-			child := entry.Name()
-			if path != "" {
-				child = pathpkg.Join(path, child)
-			}
-			resources = append(resources, davResource{path: child, info: entryInfo})
-		}
-	}
-	response := davMultiStatus{XMLName: xml.Name{Local: "D:multistatus"}, XMLNS: "DAV:"}
-	for _, resource := range resources {
-		href := baseURL
-		if resource.path != "" {
-			href += urlPath(resource.path)
-		}
-		response.Responses = append(response.Responses, davResponse{
-			Href: href,
-			Propstat: davPropstat{Prop: davProp{
-				DisplayName: resource.info.Name(),
-				ResourceType: func() *davResourceType {
-					if resource.info.IsDir() {
-						return &davResourceType{Collection: &struct{}{}}
-					}
-					return nil
-				}(),
-				Size:    optionalSize(resource.info),
-				ModTime: resource.info.ModTime().UTC().Format(http.TimeFormat),
-			}, Status: "HTTP/1.1 200 OK"},
-		})
-	}
-	data, err := xml.Marshal(response)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", `application/xml; charset="utf-8"`)
-	w.Header().Set("DAV", "1")
-	w.WriteHeader(207)
-	_, _ = w.Write(append([]byte(`<?xml version="1.0" encoding="utf-8"?>`), data...))
-}
-
-type davResource struct {
-	path string
-	info fs.FileInfo
-}
-
-type davMultiStatus struct {
-	XMLName   xml.Name      `xml:"D:multistatus"`
-	XMLNS     string        `xml:"xmlns:D,attr"`
-	Responses []davResponse `xml:"D:response"`
-}
-
-type davResponse struct {
-	Href     string      `xml:"D:href"`
-	Propstat davPropstat `xml:"D:propstat"`
-}
-
-type davPropstat struct {
-	Prop   davProp `xml:"D:prop"`
-	Status string  `xml:"D:status"`
-}
-
-type davProp struct {
-	DisplayName  string           `xml:"D:displayname"`
-	ResourceType *davResourceType `xml:"D:resourcetype,omitempty"`
-	Size         *int64           `xml:"D:getcontentlength,omitempty"`
-	ModTime      string           `xml:"D:getlastmodified,omitempty"`
-}
-
-type davResourceType struct {
-	Collection *struct{} `xml:"D:collection,omitempty"`
-}
-
-type scopedProvider struct {
-	base string
-	root ResourceProvider
-}
-
-func (p scopedProvider) path(relative string) string {
-	if p.base == "" {
-		return relative
-	}
-	if relative == "" {
-		return p.base
-	}
-	return pathpkg.Join(p.base, relative)
-}
-
-func (p scopedProvider) Stat(path string) (fs.FileInfo, error) {
-	return p.root.Stat(p.path(path))
-}
-
-func (p scopedProvider) ReadDir(path string) ([]fs.DirEntry, error) {
-	return p.root.ReadDir(p.path(path))
-}
-
-func (p scopedProvider) Open(path string) (io.ReadCloser, fs.FileInfo, error) {
-	return p.root.Open(p.path(path))
 }
 
 func cleanRelativePath(value string) (string, error) {
@@ -460,26 +446,21 @@ func splitURLPath(value string) []string {
 	return strings.Split(trimmed, "/")
 }
 
-func urlPath(value string) string {
-	parts := strings.Split(value, "/")
-	for index, part := range parts {
-		parts[index] = url.PathEscape(part)
-	}
-	return strings.Join(parts, "/") + func() string {
-		if strings.HasSuffix(value, "/") {
-			return "/"
+func validURLSegments(segments []string) bool {
+	for _, segment := range segments {
+		if segment == "" || segment == "." || segment == ".." || strings.Contains(segment, `\`) || strings.ContainsRune(segment, 0) {
+			return false
 		}
-		return ""
-	}()
+	}
+	return true
 }
 
-func optionalSize(info fs.FileInfo) *int64 {
-	size := info.Size()
-	return &size
-}
-
-func authorized(r *http.Request, token string) bool {
-	value := r.Header.Get("Authorization")
-	expected := "Bearer " + token
-	return len(value) == len(expected) && subtle.ConstantTimeCompare([]byte(value), []byte(expected)) == 1
+func joinSecurePath(base, relative string) string {
+	if base == "" {
+		return relative
+	}
+	if relative == "" {
+		return base
+	}
+	return path.Join(base, relative)
 }

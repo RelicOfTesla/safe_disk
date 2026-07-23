@@ -184,6 +184,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavExposeReadOnly => '创建只读访问';
 
   @override
+  String get webDavAuthModeTitle => '选择鉴权方式';
+
+  @override
+  String get webDavAuthModeDescription => '不同工具支持的鉴权方式不同。凭据只会显示一次。';
+
+  @override
+  String get webDavAuthBearer => 'Bearer（令牌）';
+
+  @override
+  String get webDavAuthDigest => 'Digest（用户名和密码）';
+
+  @override
+  String get webDavAuthContinue => '继续';
+
+  @override
   String get webDavSessions => '第三方访问';
 
   @override
@@ -198,6 +213,10 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get webDavCredentialsDescription =>
       '请将地址和令牌提供给所选的可信工具。关闭此窗口后，令牌不会再次显示。';
+
+  @override
+  String get webDavDigestCredentialsDescription =>
+      '请将地址、用户名、密码和 realm 提供给所选的可信工具。关闭此窗口后，凭据不会再次显示。';
 
   @override
   String get webDavReadOnly => '权限：只读';
@@ -223,6 +242,47 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webDavTokenCopied => '已复制访问令牌';
+
+  @override
+  String get webDavUsername => '用户名';
+
+  @override
+  String get webDavPassword => '密码';
+
+  @override
+  String get webDavRealm => 'Realm';
+
+  @override
+  String get webDavUsernameCopied => '已复制用户名';
+
+  @override
+  String get webDavPasswordCopied => '已复制密码';
+
+  @override
+  String get webDavRealmCopied => '已复制 Realm';
+
+  @override
+  String get webDavAuthModeBearer => '鉴权：Bearer';
+
+  @override
+  String get webDavAuthModeDigest => '鉴权：Digest';
+
+  @override
+  String get webDavMounted => '已挂载到系统';
+
+  @override
+  String get webDavMount => '挂载到系统';
+
+  @override
+  String get webDavUnmount => '卸载';
+
+  @override
+  String webDavMountedAt(String path) {
+    return '已挂载：$path';
+  }
+
+  @override
+  String get webDavUnmounted => '已卸载';
 
   @override
   String get webDavCapabilityWarning => '地址和令牌都可访问已暴露内容。请只交给可信工具，使用结束后立即撤销。';

@@ -1,5 +1,14 @@
 import 'crypto_service.dart';
 
+enum WebDavAuthMode {
+  bearer('bearer'),
+  digest('digest');
+
+  const WebDavAuthMode(this.wireName);
+
+  final String wireName;
+}
+
 /// The capability material returned exactly once when a session is opened.
 class WebDavOpenedSession {
   const WebDavOpenedSession({
@@ -8,7 +17,11 @@ class WebDavOpenedSession {
     required this.displayName,
     required this.exposedPath,
     required this.url,
-    required this.token,
+    required this.authMode,
+    this.token,
+    this.username,
+    this.password,
+    this.realm,
   });
 
   final String id;
@@ -16,7 +29,11 @@ class WebDavOpenedSession {
   final String displayName;
   final String exposedPath;
   final String url;
-  final String token;
+  final WebDavAuthMode authMode;
+  final String? token;
+  final String? username;
+  final String? password;
+  final String? realm;
 
   factory WebDavOpenedSession.fromNative({
     required int rootID,
@@ -33,13 +50,38 @@ class WebDavOpenedSession {
     if (data['read_only'] != true) {
       throw StateError('webdav-non-read-only-session');
     }
+    final authMode = switch (data['auth_mode'] as String? ?? 'bearer') {
+      'bearer' => WebDavAuthMode.bearer,
+      'digest' => WebDavAuthMode.digest,
+      _ => throw StateError('webdav-invalid-native-response:auth_mode'),
+    };
+    String requiredCredential(String key) {
+      final value = data[key];
+      if (value is! String || value.isEmpty) {
+        throw StateError('webdav-invalid-native-response:$key');
+      }
+      return value;
+    }
+
     return WebDavOpenedSession(
       id: requiredString('id'),
       rootID: rootID,
       displayName: requiredString('display_name'),
       exposedPath: requiredString('exposed_path'),
       url: requiredString('url'),
-      token: requiredString('token'),
+      authMode: authMode,
+      token: authMode == WebDavAuthMode.bearer
+          ? requiredCredential('token')
+          : null,
+      username: authMode == WebDavAuthMode.digest
+          ? requiredCredential('username')
+          : null,
+      password: authMode == WebDavAuthMode.digest
+          ? requiredCredential('password')
+          : null,
+      realm: authMode == WebDavAuthMode.digest
+          ? requiredCredential('realm')
+          : null,
     );
   }
 }
@@ -53,6 +95,9 @@ class WebDavSessionStatus {
     required this.exposedPath,
     required this.url,
     required this.readOnly,
+    required this.authMode,
+    required this.mounted,
+    required this.mountPath,
     required this.lastAccessedAt,
     required this.activeRequests,
   });
@@ -63,6 +108,9 @@ class WebDavSessionStatus {
   final String exposedPath;
   final String url;
   final bool readOnly;
+  final WebDavAuthMode authMode;
+  final bool mounted;
+  final String? mountPath;
   final DateTime? lastAccessedAt;
   final int activeRequests;
 
@@ -82,6 +130,11 @@ class WebDavSessionStatus {
     if (data['read_only'] != true) {
       throw StateError('webdav-non-read-only-status');
     }
+    final authMode = switch (data['auth_mode'] as String? ?? 'bearer') {
+      'bearer' => WebDavAuthMode.bearer,
+      'digest' => WebDavAuthMode.digest,
+      _ => throw StateError('webdav-invalid-native-status:auth_mode'),
+    };
     return WebDavSessionStatus(
       id: requiredString('id'),
       rootID: rootID,
@@ -89,6 +142,9 @@ class WebDavSessionStatus {
       exposedPath: requiredString('exposed_path'),
       url: requiredString('url'),
       readOnly: true,
+      authMode: authMode,
+      mounted: data['mounted'] == true,
+      mountPath: data['mount_path'] as String?,
       lastAccessedAt: timestamp is String ? DateTime.tryParse(timestamp) : null,
       activeRequests:
           data['active_requests'] is int ? data['active_requests'] as int : 0,
@@ -107,12 +163,14 @@ class WebDavService {
     required int rootID,
     required String logicalPath,
     required String displayName,
+    WebDavAuthMode authMode = WebDavAuthMode.bearer,
   }) {
     final exposedPath = _cryptoService.relativePathForRoot(rootID, logicalPath);
     final data = _cryptoService.openWebDavSession(
       rootID: rootID,
       exposedPath: exposedPath,
       displayName: displayName,
+      authMode: authMode.wireName,
     );
     return WebDavOpenedSession.fromNative(rootID: rootID, data: data);
   }
@@ -129,5 +187,20 @@ class WebDavService {
 
   void close(String sessionID) {
     _cryptoService.closeWebDavSession(sessionID);
+  }
+
+  String mount(String sessionID) {
+    final data = _cryptoService.mountWebDavSession(sessionID);
+    if (data['mounted'] != true || data['mount_path'] is! String) {
+      throw StateError('webdav-invalid-mount-response');
+    }
+    return data['mount_path'] as String;
+  }
+
+  void unmount(String sessionID) {
+    final data = _cryptoService.unmountWebDavSession(sessionID);
+    if (data['mounted'] != false) {
+      throw StateError('webdav-invalid-unmount-response');
+    }
   }
 }

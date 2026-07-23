@@ -52,6 +52,16 @@ func sec_webdav_open(rootID C.int64_t, exposedPath *C.char, displayName *C.char)
 	))
 }
 
+//export sec_webdav_open_with_options
+func sec_webdav_open_with_options(rootID C.int64_t, exposedPath *C.char, displayName *C.char, optionsJSON *C.char) *C.char {
+	return C.CString(WebDavOpenWithOptions_FFI(
+		int64(rootID),
+		C.GoString(exposedPath),
+		C.GoString(displayName),
+		C.GoString(optionsJSON),
+	))
+}
+
 //export sec_webdav_close
 func sec_webdav_close(sessionID *C.char) *C.char {
 	return C.CString(WebDavClose_FFI(C.GoString(sessionID)))
@@ -60,6 +70,16 @@ func sec_webdav_close(sessionID *C.char) *C.char {
 //export sec_webdav_list
 func sec_webdav_list(rootID C.int64_t) *C.char {
 	return C.CString(WebDavList_FFI(int64(rootID)))
+}
+
+//export sec_webdav_mount
+func sec_webdav_mount(sessionID *C.char) *C.char {
+	return C.CString(WebDavMount_FFI(C.GoString(sessionID)))
+}
+
+//export sec_webdav_unmount
+func sec_webdav_unmount(sessionID *C.char) *C.char {
+	return C.CString(WebDavUnmount_FFI(C.GoString(sessionID)))
 }
 
 //export sec_dir_cursor_open

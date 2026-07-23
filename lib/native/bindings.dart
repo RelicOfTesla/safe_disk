@@ -39,6 +39,18 @@ typedef SecWebDavOpenC = Pointer<Utf8> Function(
 typedef SecWebDavOpenDart = Pointer<Utf8> Function(
     int rootID, Pointer<Utf8> exposedPath, Pointer<Utf8> displayName);
 
+// sec_webdav_open_with_options: (rootID, exposedPath, displayName, optionsJSON) -> JSON string
+typedef SecWebDavOpenWithOptionsC = Pointer<Utf8> Function(
+    Int64 rootID,
+    Pointer<Utf8> exposedPath,
+    Pointer<Utf8> displayName,
+    Pointer<Utf8> optionsJSON);
+typedef SecWebDavOpenWithOptionsDart = Pointer<Utf8> Function(
+    int rootID,
+    Pointer<Utf8> exposedPath,
+    Pointer<Utf8> displayName,
+    Pointer<Utf8> optionsJSON);
+
 // sec_webdav_close: (sessionID) -> JSON string
 typedef SecWebDavCloseC = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
 typedef SecWebDavCloseDart = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
@@ -46,6 +58,14 @@ typedef SecWebDavCloseDart = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
 // sec_webdav_list: (rootID) -> JSON string
 typedef SecWebDavListC = Pointer<Utf8> Function(Int64 rootID);
 typedef SecWebDavListDart = Pointer<Utf8> Function(int rootID);
+
+// sec_webdav_mount: (sessionID) -> JSON string
+typedef SecWebDavMountC = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
+typedef SecWebDavMountDart = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
+
+// sec_webdav_unmount: (sessionID) -> JSON string
+typedef SecWebDavUnmountC = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
+typedef SecWebDavUnmountDart = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
 
 // sec_create_root_config: (rootPath, password, optionsJSON) -> JSON string
 typedef SecCreateRootConfigC = Pointer<Utf8> Function(
@@ -279,8 +299,11 @@ class NativeBindings {
   late final SecRootOpenDart secRootOpen;
   late final SecRootCloseDart secRootClose;
   late final SecWebDavOpenDart secWebDavOpen;
+  late final SecWebDavOpenWithOptionsDart secWebDavOpenWithOptions;
   late final SecWebDavCloseDart secWebDavClose;
   late final SecWebDavListDart secWebDavList;
+  late final SecWebDavMountDart secWebDavMount;
+  late final SecWebDavUnmountDart secWebDavUnmount;
   late final SecCreateRootConfigDart secCreateRootConfig;
   late final SecRootChangePasswordDart secRootChangePassword;
   late final SecRootReadPasswordHintDart secRootReadPasswordHint;
@@ -376,10 +399,17 @@ class NativeBindings {
         _lib!.lookupFunction<SecRootCloseC, SecRootCloseDart>('sec_root_close');
     secWebDavOpen = _lib!
         .lookupFunction<SecWebDavOpenC, SecWebDavOpenDart>('sec_webdav_open');
+    secWebDavOpenWithOptions = _lib!.lookupFunction<SecWebDavOpenWithOptionsC,
+        SecWebDavOpenWithOptionsDart>('sec_webdav_open_with_options');
     secWebDavClose = _lib!.lookupFunction<SecWebDavCloseC, SecWebDavCloseDart>(
         'sec_webdav_close');
     secWebDavList = _lib!
         .lookupFunction<SecWebDavListC, SecWebDavListDart>('sec_webdav_list');
+    secWebDavMount = _lib!.lookupFunction<SecWebDavMountC, SecWebDavMountDart>(
+        'sec_webdav_mount');
+    secWebDavUnmount = _lib!
+        .lookupFunction<SecWebDavUnmountC, SecWebDavUnmountDart>(
+            'sec_webdav_unmount');
     secCreateRootConfig = _lib!
         .lookupFunction<SecCreateRootConfigC, SecCreateRootConfigDart>(
             'sec_create_root_config');

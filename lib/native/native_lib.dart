@@ -162,6 +162,34 @@ class NativeLib {
     }
   }
 
+  /// Opens a WebDAV session with an explicit Go-owned authentication mode.
+  Map<String, dynamic> secWebDavOpenWithOptions(
+    int rootID,
+    String exposedPath,
+    String displayName,
+    String authMode,
+  ) {
+    final pathPtr = exposedPath.toNativeUtf8();
+    final namePtr = displayName.toNativeUtf8();
+    final optionsPtr = jsonEncode({'auth_mode': authMode}).toNativeUtf8();
+    try {
+      final result = _parseJson(
+        _ptrToString(_bindings.secWebDavOpenWithOptions(
+          rootID,
+          pathPtr,
+          namePtr,
+          optionsPtr,
+        )),
+      );
+      _checkResult(result, 'secWebDavOpenWithOptions');
+      return Map<String, dynamic>.from(result['data'] as Map);
+    } finally {
+      calloc.free(pathPtr);
+      calloc.free(namePtr);
+      calloc.free(optionsPtr);
+    }
+  }
+
   /// Revokes a previously opened WebDAV session.
   void secWebDavClose(String sessionID) {
     final sessionPtr = sessionID.toNativeUtf8();
@@ -185,6 +213,30 @@ class NativeLib {
       if (item is! Map) throw StateError('secWebDavList-invalid-session');
       return Map<String, dynamic>.from(item);
     }).toList(growable: false);
+  }
+
+  Map<String, dynamic> secWebDavMount(String sessionID) {
+    final sessionPtr = sessionID.toNativeUtf8();
+    try {
+      final result =
+          _parseJson(_ptrToString(_bindings.secWebDavMount(sessionPtr)));
+      _checkResult(result, 'secWebDavMount');
+      return Map<String, dynamic>.from(result['data'] as Map);
+    } finally {
+      calloc.free(sessionPtr);
+    }
+  }
+
+  Map<String, dynamic> secWebDavUnmount(String sessionID) {
+    final sessionPtr = sessionID.toNativeUtf8();
+    try {
+      final result =
+          _parseJson(_ptrToString(_bindings.secWebDavUnmount(sessionPtr)));
+      _checkResult(result, 'secWebDavUnmount');
+      return Map<String, dynamic>.from(result['data'] as Map);
+    } finally {
+      calloc.free(sessionPtr);
+    }
   }
 
   /// Creates a secure root configuration.

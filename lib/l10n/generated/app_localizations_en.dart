@@ -192,6 +192,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavExposeReadOnly => 'Create read-only access';
 
   @override
+  String get webDavAuthModeTitle => 'Choose authentication';
+
+  @override
+  String get webDavAuthModeDescription =>
+      'Different tools support different authentication methods. Credentials are shown only once.';
+
+  @override
+  String get webDavAuthBearer => 'Bearer (token)';
+
+  @override
+  String get webDavAuthDigest => 'Digest (username and password)';
+
+  @override
+  String get webDavAuthContinue => 'Continue';
+
+  @override
   String get webDavSessions => 'Third-party access';
 
   @override
@@ -206,6 +222,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get webDavCredentialsDescription =>
       'Provide the URL and token to the selected trusted tool. The token is not shown again after this window closes.';
+
+  @override
+  String get webDavDigestCredentialsDescription =>
+      'Provide the URL, username, password, and realm to the selected trusted tool. The credentials are not shown again after this window closes.';
 
   @override
   String get webDavReadOnly => 'Permission: read-only';
@@ -231,6 +251,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webDavTokenCopied => 'Access token copied';
+
+  @override
+  String get webDavUsername => 'Username';
+
+  @override
+  String get webDavPassword => 'Password';
+
+  @override
+  String get webDavRealm => 'Realm';
+
+  @override
+  String get webDavUsernameCopied => 'Username copied';
+
+  @override
+  String get webDavPasswordCopied => 'Password copied';
+
+  @override
+  String get webDavRealmCopied => 'Realm copied';
+
+  @override
+  String get webDavAuthModeBearer => 'Authentication: Bearer';
+
+  @override
+  String get webDavAuthModeDigest => 'Authentication: Digest';
+
+  @override
+  String get webDavMounted => 'Mounted in the operating system';
+
+  @override
+  String get webDavMount => 'Mount in the operating system';
+
+  @override
+  String get webDavUnmount => 'Unmount';
+
+  @override
+  String webDavMountedAt(String path) {
+    return 'Mounted at: $path';
+  }
+
+  @override
+  String get webDavUnmounted => 'Unmounted';
 
   @override
   String get webDavCapabilityWarning =>

@@ -29,7 +29,7 @@ CLI 需要负责：
 
 已确认：
 
-- `native/cli/cmd/root.go` 已注册 `version`、`list`、`import`、`export`、`create`；`webdav` 尚未注册。
+- `native/cli/cmd/root.go` 已注册 `version`、`list`、`import`、`export`、`create` 和 `webdav serve`。
 - `native/cli/main.go` 已 blank import `crypto_all` 和 `sec_transfer/v3`。
 - `import/export/list/create` 已支持 `--password`、`--password-env`、`--password-stdin` 和交互式隐藏输入。
 - `import/export` 已通过 `sec_transfer.GetDefaultTransferV3()` 执行同步 V3 操作，并在失败/中断时保留 operation marker。
@@ -39,7 +39,7 @@ CLI 需要负责：
 - `create` 已注册，`info/passwd` 未注册为 CLI 命令。
 - `create` 对非空目录默认要求显式 `--in-place`；交互式终端可确认后进入原地加密，非交互和 `--json` 模式仍直接拒绝。
 - `export --dest -` 的单文件 stdout 路径存在；目录导出到 stdout 会明确报错。
-- Go 原生层已有只读 loopback WebDAV 会话及 FFI open/close ABI；CLI 尚未调用该会话管理器，也尚未提供系统挂载命令。
+- Go 原生层提供只读 loopback WebDAV 会话、Bearer/Digest 鉴权和平台挂载适配；CLI 直接调用同一会话管理器，不经过 FFI。
 
 明确不再作为主线：
 
@@ -237,7 +237,7 @@ safe-disk info --path /abs/encrypted/root/or/file
 
 ### webdav serve
 
-> 规划中，当前 CLI 尚未实现。完整安全模型见 [THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md](design/THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md)。
+> 当前已实现只读前台入口。编辑、跨平台自动挂载和真实第三方客户端互操作仍未完成。完整安全模型见 [THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md](design/THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md)。
 
 ```bash
 safe-disk webdav serve --path /abs/encrypted/root/or/item
@@ -251,10 +251,17 @@ safe-disk webdav serve --path /abs/encrypted/root/or/item --json
 - 使用统一密码与 root open helper；文件仅暴露该文件，目录仅暴露该目录树。
 - 直接复用 Go `sec_webdav` 会话管理器；CLI 不经过 FFI，不自行实现 HTTP 服务或平台挂载。
 - 固定创建只读 loopback 会话。首期不支持 `--edit`，不写明文临时目录。
-- `--auth=bearer|digest` 是规划参数；当前 Go 仅实现 Bearer，Digest 完成前传入 `digest` 必须明确返回“不支持”，不得伪装为成功或回退到 Bearer。完成后每个会话只接受一种机制，初始默认值为 `bearer`。
+- `--auth=bearer|digest` 已实现；每个会话只接受一种机制，默认值为 `bearer`。Digest 由 Go 实现 RFC 7616 `SHA-256` + `qop=auth`，未通过平台互操作验收前不得宣称跨平台兼容。
+- Bearer 面向脚本和支持 Bearer 的客户端，不作为常见系统挂载的默认认证。为覆盖不支持 Digest 的
+  Windows WebClient、macOS 系统挂载或 Linux 客户端，后续评估显式 `basic` 兼容模式；Basic 不能静默
+  降级，必须提示本机可观察可逆认证信息的风险，并使用独立随机凭据。
+- 后续增加 `--credential-visibility=once|persistent` 和
+  `--session-lifetime=ephemeral|persistent`。两者均在创建时捕获，只影响新会话；修改 CLI 默认值不改变
+  已存在链接。持久模式还需固定端口和 session ID、加密保存 Go 恢复材料、重启后等待 root 解锁，端口
+  冲突时拒绝启动，不自动换端口。
 - Digest 仅支持 RFC 7616 `SHA-256` 与 `qop=auth`，使用会话随机用户名、密码和 realm；不得使用 root 密码、Basic、MD5 或静默算法降级。
 - 默认前台持续运行，`Ctrl-C`、正常退出和启动失败清理路径均关闭会话并请求 Go 卸载。
-- `--mount` 仅请求 Go 平台适配层挂载。平台不支持、挂载失败或卸载失败必须输出稳定错误码或状态，不能退化为普通目录。
+- `--mount` 仅请求 Go 平台适配层挂载。当前只有 Linux Digest/davfs 适配；平台不支持、挂载失败或卸载失败必须输出稳定错误码或状态，不能退化为普通目录。
 - 人类模式只向终端显示一次地址和访问凭据；不得写入日志或 stderr。`--json` 向 stdout 输出 JSON Lines 生命周期事件，地址和秘密凭据只出现在启动事件中。Bearer 只输出 token；Digest 只输出 username、password 和 realm。
 - 首期不提供跨进程 `list/close/mount/unmount`，也不能操作 GUI 进程创建的会话。现有会话是进程内资源；需要跨进程控制时必须先实现经本地认证的常驻 Go daemon/IPC。
 

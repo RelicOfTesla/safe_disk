@@ -1751,6 +1751,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       displayName: item.name,
     );
     if (!confirmed || !mounted) return;
+    final authMode = await chooseWebDavAuthMode(context: context);
+    if (authMode == null || !mounted) return;
     if (!_isCurrentDirectorySession(directory.path, activeSessionID)) return;
 
     try {
@@ -1758,6 +1760,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         rootID: rootID,
         logicalPath: item.path,
         displayName: item.name,
+        authMode: authMode,
       );
       if (!mounted ||
           !_isCurrentDirectorySession(directory.path, activeSessionID)) {
@@ -1796,6 +1799,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       context: context,
       sessions: sessions,
       onRevoke: _revokeWebDavSession,
+      onMount: _mountWebDavSession,
+      onUnmount: _unmountWebDavSession,
       onRefresh: () => _refreshWebDavSessionsForDialog(rootID),
     );
   }
@@ -1818,6 +1823,52 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           errorType: ErrorType.operationFailed,
           originalError: error.toString(),
           operation: 'webdav/close',
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<bool> _mountWebDavSession(WebDavSessionStatus session) async {
+    try {
+      final path = _webDavService.mount(session.id);
+      if (mounted) {
+        ErrorHelper.showSuccess(
+          context,
+          AppLocalizations.of(context)!.webDavMountedAt(path),
+        );
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: error.toString(),
+          operation: 'webdav/mount',
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<bool> _unmountWebDavSession(WebDavSessionStatus session) async {
+    try {
+      _webDavService.unmount(session.id);
+      if (mounted) {
+        ErrorHelper.showSuccess(
+          context,
+          AppLocalizations.of(context)!.webDavUnmounted,
+        );
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: error.toString(),
+          operation: 'webdav/unmount',
         );
       }
       return false;

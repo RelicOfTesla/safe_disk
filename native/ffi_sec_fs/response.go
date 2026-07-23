@@ -15,6 +15,8 @@ const (
 	ErrorCodePathTraversal          = 1302
 	ErrorCodeNotDirectory           = 1303
 	ErrorCodeUnsupportedOperation   = 1304
+	ErrorCodeWebDavMountUnsupported = 1401
+	ErrorCodeWebDavMountFailed      = 1402
 )
 
 // Response represents a standard FFI response structure.

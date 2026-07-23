@@ -32,11 +32,67 @@ Future<bool> confirmWebDavReadOnlyExposure({
       false;
 }
 
+Future<WebDavAuthMode?> chooseWebDavAuthMode({
+  required BuildContext context,
+}) async {
+  final strings = AppLocalizations.of(context)!;
+  var selected = WebDavAuthMode.bearer;
+  return showDialog<WebDavAuthMode>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text(strings.webDavAuthModeTitle),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(strings.webDavAuthModeDescription),
+              const SizedBox(height: 12),
+              RadioGroup<WebDavAuthMode>(
+                groupValue: selected,
+                onChanged: (value) {
+                  if (value != null) setState(() => selected = value);
+                },
+                child: Column(
+                  children: [
+                    RadioListTile<WebDavAuthMode>(
+                      value: WebDavAuthMode.bearer,
+                      title: Text(strings.webDavAuthBearer),
+                    ),
+                    RadioListTile<WebDavAuthMode>(
+                      value: WebDavAuthMode.digest,
+                      title: Text(strings.webDavAuthDigest),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(strings.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, selected),
+            child: Text(strings.webDavAuthContinue),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 /// Lists process-local WebDAV sessions and allows explicit revocation.
 Future<void> showWebDavSessionsDialog({
   required BuildContext context,
   required List<WebDavSessionStatus> sessions,
   required Future<bool> Function(WebDavSessionStatus session) onRevoke,
+  required Future<bool> Function(WebDavSessionStatus session) onMount,
+  required Future<bool> Function(WebDavSessionStatus session) onUnmount,
   required Future<List<WebDavSessionStatus>?> Function() onRefresh,
 }) {
   return showDialog<void>(
@@ -44,6 +100,8 @@ Future<void> showWebDavSessionsDialog({
     builder: (dialogContext) => _WebDavSessionsDialog(
       initialSessions: sessions,
       onRevoke: onRevoke,
+      onMount: onMount,
+      onUnmount: onUnmount,
       onRefresh: onRefresh,
     ),
   );
@@ -53,11 +111,15 @@ class _WebDavSessionsDialog extends StatefulWidget {
   const _WebDavSessionsDialog({
     required this.initialSessions,
     required this.onRevoke,
+    required this.onMount,
+    required this.onUnmount,
     required this.onRefresh,
   });
 
   final List<WebDavSessionStatus> initialSessions;
   final Future<bool> Function(WebDavSessionStatus session) onRevoke;
+  final Future<bool> Function(WebDavSessionStatus session) onMount;
+  final Future<bool> Function(WebDavSessionStatus session) onUnmount;
   final Future<List<WebDavSessionStatus>?> Function() onRefresh;
 
   @override
@@ -68,6 +130,7 @@ class _WebDavSessionsDialogState extends State<_WebDavSessionsDialog> {
   late final List<WebDavSessionStatus> _sessions =
       List.of(widget.initialSessions);
   String? _revokingID;
+  String? _mountingID;
   bool _refreshing = false;
 
   Future<void> _revoke(WebDavSessionStatus session) async {
@@ -84,7 +147,7 @@ class _WebDavSessionsDialogState extends State<_WebDavSessionsDialog> {
   }
 
   Future<void> _refresh() async {
-    if (_refreshing || _revokingID != null) return;
+    if (_refreshing || _revokingID != null || _mountingID != null) return;
     setState(() => _refreshing = true);
     try {
       final sessions = await widget.onRefresh();
@@ -97,6 +160,28 @@ class _WebDavSessionsDialogState extends State<_WebDavSessionsDialog> {
       }
     } finally {
       if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
+  Future<void> _setMount(WebDavSessionStatus session) async {
+    if (_mountingID != null || _revokingID != null) return;
+    setState(() => _mountingID = session.id);
+    try {
+      final changed = session.mounted
+          ? await widget.onUnmount(session)
+          : await widget.onMount(session);
+      if (changed && mounted) {
+        final sessions = await widget.onRefresh();
+        if (sessions != null) {
+          setState(() {
+            _sessions
+              ..clear()
+              ..addAll(sessions);
+          });
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _mountingID = null);
     }
   }
 
@@ -121,10 +206,13 @@ class _WebDavSessionsDialogState extends State<_WebDavSessionsDialog> {
                   itemBuilder: (context, index) {
                     final session = _sessions[index];
                     final revoking = _revokingID == session.id;
+                    final mounting = _mountingID == session.id;
                     return _WebDavSessionTile(
                       session: session,
                       revoking: revoking,
+                      mounting: mounting,
                       onRevoke: () => _revoke(session),
+                      onMount: () => _setMount(session),
                     );
                   },
                 ),
@@ -132,7 +220,9 @@ class _WebDavSessionsDialogState extends State<_WebDavSessionsDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _revokingID == null && !_refreshing ? _refresh : null,
+          onPressed: _revokingID == null && _mountingID == null && !_refreshing
+              ? _refresh
+              : null,
           child: _refreshing
               ? const SizedBox(
                   width: 16,
@@ -142,7 +232,7 @@ class _WebDavSessionsDialogState extends State<_WebDavSessionsDialog> {
               : Text(strings.refresh),
         ),
         TextButton(
-          onPressed: _revokingID == null && !_refreshing
+          onPressed: _revokingID == null && _mountingID == null && !_refreshing
               ? () => Navigator.pop(context)
               : null,
           child: Text(strings.close),
@@ -156,12 +246,16 @@ class _WebDavSessionTile extends StatelessWidget {
   const _WebDavSessionTile({
     required this.session,
     required this.revoking,
+    required this.mounting,
     required this.onRevoke,
+    required this.onMount,
   });
 
   final WebDavSessionStatus session;
   final bool revoking;
+  final bool mounting;
   final VoidCallback onRevoke;
+  final VoidCallback onMount;
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +267,17 @@ class _WebDavSessionTile extends StatelessWidget {
             style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 4),
         Text(strings.webDavReadOnly),
+        const SizedBox(height: 4),
+        Text(
+          session.authMode == WebDavAuthMode.bearer
+              ? strings.webDavAuthModeBearer
+              : strings.webDavAuthModeDigest,
+        ),
+        if (session.mounted) ...[
+          const SizedBox(height: 4),
+          Text(strings.webDavMounted),
+          if (session.mountPath != null) Text(session.mountPath!),
+        ],
         const SizedBox(height: 8),
         _CapabilityValue(
           label: strings.webDavUrl,
@@ -197,16 +302,38 @@ class _WebDavSessionTile extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: revoking ? null : onRevoke,
-          icon: revoking
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.link_off_outlined),
-          label: Text(strings.webDavRevoke),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (session.authMode == WebDavAuthMode.digest)
+              OutlinedButton.icon(
+                onPressed: revoking || mounting ? null : onMount,
+                icon: mounting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(session.mounted
+                        ? Icons.eject_outlined
+                        : Icons.folder_outlined),
+                label: Text(session.mounted
+                    ? strings.webDavUnmount
+                    : strings.webDavMount),
+              ),
+            OutlinedButton.icon(
+              onPressed: revoking || mounting ? null : onRevoke,
+              icon: revoking
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.link_off_outlined),
+              label: Text(strings.webDavRevoke),
+            ),
+          ],
         ),
       ],
     );
@@ -231,7 +358,11 @@ Future<void> showWebDavCredentialsDialog({
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(strings.webDavCredentialsDescription),
+              Text(
+                session.authMode == WebDavAuthMode.digest
+                    ? strings.webDavDigestCredentialsDescription
+                    : strings.webDavCredentialsDescription,
+              ),
               const SizedBox(height: 12),
               _CapabilityValue(
                 label: strings.webDavUrl,
@@ -239,11 +370,31 @@ Future<void> showWebDavCredentialsDialog({
                 copiedMessage: strings.webDavUrlCopied,
               ),
               const SizedBox(height: 8),
-              _CapabilityValue(
-                label: strings.webDavToken,
-                value: session.token,
-                copiedMessage: strings.webDavTokenCopied,
-              ),
+              if (session.authMode == WebDavAuthMode.bearer)
+                _CapabilityValue(
+                  label: strings.webDavToken,
+                  value: session.token!,
+                  copiedMessage: strings.webDavTokenCopied,
+                )
+              else ...[
+                _CapabilityValue(
+                  label: strings.webDavUsername,
+                  value: session.username!,
+                  copiedMessage: strings.webDavUsernameCopied,
+                ),
+                const SizedBox(height: 8),
+                _CapabilityValue(
+                  label: strings.webDavPassword,
+                  value: session.password!,
+                  copiedMessage: strings.webDavPasswordCopied,
+                ),
+                const SizedBox(height: 8),
+                _CapabilityValue(
+                  label: strings.webDavRealm,
+                  value: session.realm!,
+                  copiedMessage: strings.webDavRealmCopied,
+                ),
+              ],
               const SizedBox(height: 8),
               Text(
                 strings.webDavCapabilityWarning,

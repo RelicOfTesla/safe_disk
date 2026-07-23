@@ -1,8 +1,14 @@
 package cmd
 
 import (
+	"bufio"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1281,4 +1287,146 @@ func TestMultipleUsersDifferentPasswords(t *testing.T) {
 	if _, err := cmd.CombinedOutput(); err == nil {
 		t.Error("Expected export to fail with wrong password")
 	}
+}
+
+func TestWebDavServeJSONSupportsBearerAndDigest(t *testing.T) {
+	tmpDir := t.TempDir()
+	rootPath := filepath.Join(tmpDir, "encrypted")
+	password := "webdav-cli-password"
+	if _, _, err := sec_fs.CreateRootConfigQuick(sec_fs.FullStorePath(rootPath), password); err != nil {
+		t.Fatal(err)
+	}
+	root, err := sec_fs.OpenRootQuick(sec_fs.FullStorePath(rootPath), password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := root.OpenFile("note.txt", os.O_CREATE|os.O_RDWR|os.O_TRUNC)
+	if err != nil {
+		root.Close()
+		t.Fatal(err)
+	}
+	if _, err := file.Write([]byte("cli webdav")); err != nil {
+		file.Close()
+		root.Close()
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		root.Close()
+		t.Fatal(err)
+	}
+	if err := root.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, mode := range []string{"bearer", "digest"} {
+		t.Run(mode, func(t *testing.T) {
+			command := exec.Command("../safe-disk-test", "webdav", "serve",
+				"--password", password,
+				"--path", filepath.Join(rootPath, "note.txt"),
+				"--auth", mode,
+				"--json")
+			stdout, err := command.StdoutPipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var stderr bytes.Buffer
+			command.Stderr = &stderr
+			if err := command.Start(); err != nil {
+				t.Fatal(err)
+			}
+			decoder := json.NewDecoder(bufio.NewReader(stdout))
+			var started map[string]interface{}
+			if err := decoder.Decode(&started); err != nil {
+				command.Process.Kill()
+				command.Wait()
+				t.Fatalf("decode started event: %v; stderr=%s", err, stderr.String())
+			}
+			if started["event"] != "webdav_started" {
+				t.Fatalf("started event = %#v", started)
+			}
+			url := started["url"].(string)
+			auth := started["auth"].(map[string]interface{})
+			request, err := http.NewRequest(http.MethodGet, url, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if mode == "bearer" {
+				request.Header.Set("Authorization", "Bearer "+auth["token"].(string))
+			} else {
+				username := auth["username"].(string)
+				password := auth["password"].(string)
+				realm := auth["realm"].(string)
+				nonce := requestDigestNonce(t, url)
+				nc := "00000001"
+				cnonce := "cli-test"
+				uri := request.URL.RequestURI()
+				ha1 := cliDigestHash(username + ":" + realm + ":" + password)
+				ha2 := cliDigestHash(http.MethodGet + ":" + uri)
+				response := cliDigestHash(ha1 + ":" + nonce + ":" + nc + ":" + cnonce + ":auth:" + ha2)
+				request.Header.Set("Authorization", fmt.Sprintf(
+					`Digest username="%s", realm="%s", nonce="%s", uri="%s", algorithm=SHA-256, qop=auth, nc=%s, cnonce="%s", response="%s"`,
+					username, realm, nonce, uri, nc, cnonce, response,
+				))
+			}
+			response, err := http.DefaultClient.Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body, err := io.ReadAll(response.Body)
+			response.Body.Close()
+			if err != nil || response.StatusCode != http.StatusOK || string(body) != "cli webdav" {
+				t.Fatalf("webdav read = status %d body %q err=%v", response.StatusCode, body, err)
+			}
+
+			if err := command.Process.Signal(os.Interrupt); err != nil {
+				t.Fatal(err)
+			}
+			var stopped map[string]interface{}
+			if err := decoder.Decode(&stopped); err != nil {
+				t.Fatalf("decode stopped event: %v; stderr=%s", err, stderr.String())
+			}
+			if stopped["event"] != "webdav_stopped" {
+				t.Fatalf("stopped event = %#v", stopped)
+			}
+			if value, ok := stopped["unmount_error"]; !ok || value != nil {
+				t.Fatalf("unexpected unmount status = %#v", stopped)
+			}
+			if err := command.Wait(); err != nil {
+				t.Fatalf("webdav command exit: %v; stderr=%s", err, stderr.String())
+			}
+		})
+	}
+}
+
+func requestDigestNonce(t *testing.T, rawURL string) string {
+	t.Helper()
+	request, err := http.NewRequest(http.MethodGet, rawURL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("digest challenge status = %d", response.StatusCode)
+	}
+	const marker = `nonce="`
+	challenge := response.Header.Get("WWW-Authenticate")
+	start := strings.Index(challenge, marker)
+	if start < 0 {
+		t.Fatalf("digest challenge has no nonce: %q", challenge)
+	}
+	start += len(marker)
+	end := strings.IndexByte(challenge[start:], '"')
+	if end < 0 {
+		t.Fatalf("digest challenge nonce is malformed: %q", challenge)
+	}
+	return challenge[start : start+end]
+}
+
+func cliDigestHash(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
 }

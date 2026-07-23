@@ -54,4 +54,27 @@ void main() {
       throwsStateError,
     );
   });
+
+  test('open result accepts one-time Digest credentials', () {
+    final result = WebDavOpenedSession.fromNative(
+      rootID: 7,
+      data: const {
+        'id': 'session-2',
+        'display_name': 'notes',
+        'exposed_path': 'notes',
+        'url': 'http://127.0.0.1:1234/webdav/session-2/',
+        'auth_mode': 'digest',
+        'username': 'user-1',
+        'password': 'password-1',
+        'realm': 'realm-1',
+        'read_only': true,
+      },
+    );
+
+    expect(result.authMode, WebDavAuthMode.digest);
+    expect(result.token, isNull);
+    expect(result.username, 'user-1');
+    expect(result.password, 'password-1');
+    expect(result.realm, 'realm-1');
+  });
 }

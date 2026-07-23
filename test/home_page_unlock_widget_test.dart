@@ -853,6 +853,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('创建只读访问'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('继续'));
+    await tester.pumpAndSettle();
 
     expect(find.text('第三方工具访问凭据'), findsOneWidget);
     expect(find.text('one-time-token'), findsOneWidget);
@@ -3266,6 +3268,7 @@ class _FakeCryptoService extends CryptoService {
     required int rootID,
     required String exposedPath,
     required String displayName,
+    String authMode = 'bearer',
   }) {
     final id = 'webdav-${_nextWebDavSessionID++}';
     webDavOpenCalls.add((
@@ -3286,6 +3289,7 @@ class _FakeCryptoService extends CryptoService {
       'display_name': displayName,
       'exposed_path': exposedPath,
       'url': 'http://127.0.0.1:1234/webdav/$id/',
+      'auth_mode': authMode,
       'token': 'one-time-token',
       'read_only': true,
     };

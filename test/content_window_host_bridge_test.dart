@@ -431,6 +431,7 @@ void main() {
       rootSessionID: 'root-secret',
       path: '/private/image.png',
       displayName: 'image.png',
+      knownContentBytes: 11,
       maxContentBytes: 11,
       readOnly: true,
     );

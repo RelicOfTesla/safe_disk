@@ -14,6 +14,7 @@ import (
 
 	"safe_disk/native/sec_fs"
 	"safe_disk/native/sec_fs/sec_transfer"
+	"safe_disk/native/sec_fs/sec_webdav"
 )
 
 // ==================== Response Helper Functions ====================
@@ -241,6 +242,10 @@ func errorResponse(err error) string {
 		return ErrorWithCode(err.Error(), ErrorCodeNotDirectory)
 	case errors.Is(err, sec_fs.ErrUnsupportedOperation):
 		return ErrorWithCode(err.Error(), ErrorCodeUnsupportedOperation)
+	case errors.Is(err, sec_webdav.ErrMountUnsupported):
+		return ErrorWithCode(err.Error(), ErrorCodeWebDavMountUnsupported)
+	case errors.Is(err, sec_webdav.ErrMountFailed):
+		return ErrorWithCode(err.Error(), ErrorCodeWebDavMountFailed)
 	}
 	return ErrorResponse(err.Error())
 }

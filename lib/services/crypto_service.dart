@@ -57,8 +57,17 @@ class CryptoService {
     required int rootID,
     required String exposedPath,
     required String displayName,
+    String authMode = 'bearer',
   }) {
-    return _native.secWebDavOpen(rootID, exposedPath, displayName);
+    if (authMode == 'bearer') {
+      return _native.secWebDavOpen(rootID, exposedPath, displayName);
+    }
+    return _native.secWebDavOpenWithOptions(
+      rootID,
+      exposedPath,
+      displayName,
+      authMode,
+    );
   }
 
   /// Revokes a native WebDAV session by its opaque ID.
@@ -69,6 +78,14 @@ class CryptoService {
   /// Returns token-free WebDAV monitoring state owned by the Go session layer.
   List<Map<String, dynamic>> listWebDavSessions(int rootID) {
     return _native.secWebDavList(rootID);
+  }
+
+  Map<String, dynamic> mountWebDavSession(String sessionID) {
+    return _native.secWebDavMount(sessionID);
+  }
+
+  Map<String, dynamic> unmountWebDavSession(String sessionID) {
+    return _native.secWebDavUnmount(sessionID);
   }
 
   /// Creates a secure root configuration.

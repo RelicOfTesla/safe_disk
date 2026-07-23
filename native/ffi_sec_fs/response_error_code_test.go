@@ -8,6 +8,7 @@ import (
 
 	"safe_disk/native/sec_fs"
 	"safe_disk/native/sec_fs/sec_transfer"
+	"safe_disk/native/sec_fs/sec_webdav"
 )
 
 func TestErrorResponseUsesStableCodesForClassifiableRootErrors(t *testing.T) {
@@ -25,6 +26,8 @@ func TestErrorResponseUsesStableCodesForClassifiableRootErrors(t *testing.T) {
 		{name: "path traversal", err: sec_fs.ErrPathTraversal, code: ErrorCodePathTraversal},
 		{name: "not directory", err: sec_fs.ErrNotADirectory, code: ErrorCodeNotDirectory},
 		{name: "unsupported operation", err: sec_fs.ErrUnsupportedOperation, code: ErrorCodeUnsupportedOperation},
+		{name: "webdav mount unsupported", err: sec_webdav.ErrMountUnsupported, code: ErrorCodeWebDavMountUnsupported},
+		{name: "webdav mount failed", err: sec_webdav.ErrMountFailed, code: ErrorCodeWebDavMountFailed},
 		{
 			name: "wrapped invalid password",
 			err:  fmt.Errorf("open root: %w", sec_fs.ErrInvalidPassword),
