@@ -620,13 +620,15 @@ class _FileBrowserState extends State<FileBrowser> {
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
-              final isSelected = widget.selectedFiles.contains(item) ||
-                  _contextSelectedPath == item.path;
+              final isSelected = widget.selectedFiles.contains(item);
+              final isHighlighted =
+                  isSelected || _contextSelectedPath == item.path;
               return _FileListTile(
                 key: _itemKey(item),
                 item: item,
                 isSelectMode: widget.isSelectMode,
                 isSelected: isSelected,
+                isContextHighlighted: isHighlighted,
                 isFocused: widget.focusedPath == item.path,
                 onTap: () => _handleItemTap(item, isSelected, items),
                 onDoubleTap: widget.openOnDoubleClick && !widget.isSelectMode
@@ -668,12 +670,14 @@ class _FileBrowserState extends State<FileBrowser> {
               itemCount: items.length,
               itemBuilder: (context, index) {
                 final item = items[index];
-                final isSelected = widget.selectedFiles.contains(item) ||
-                    _contextSelectedPath == item.path;
+                final isSelected = widget.selectedFiles.contains(item);
+                final isHighlighted =
+                    isSelected || _contextSelectedPath == item.path;
                 return _FileGridCard(
                   key: _itemKey(item),
                   item: item,
                   isSelected: isSelected,
+                  isContextHighlighted: isHighlighted,
                   isFocused: widget.focusedPath == item.path,
                   onTap: () => _handleItemTap(item, isSelected, items),
                   onDoubleTap: widget.openOnDoubleClick && !widget.isSelectMode
@@ -912,6 +916,7 @@ class _FileListTile extends StatelessWidget {
     required this.item,
     required this.isSelectMode,
     required this.isSelected,
+    required this.isContextHighlighted,
     required this.isFocused,
     required this.onTap,
     this.onDoubleTap,
@@ -923,6 +928,7 @@ class _FileListTile extends StatelessWidget {
   final FileSystemNode item;
   final bool isSelectMode;
   final bool isSelected;
+  final bool isContextHighlighted;
   final bool isFocused;
   final VoidCallback onTap;
   final VoidCallback? onDoubleTap;
@@ -933,10 +939,11 @@ class _FileListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isHighlighted = isSelected || isContextHighlighted;
     return Semantics(
       container: true,
       label: _entrySemanticsLabel(AppLocalizations.of(context)!, item),
-      selected: isSelected,
+      selected: isHighlighted,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: isSelectMode ? null : onTap,
@@ -949,7 +956,7 @@ class _FileListTile extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               left: BorderSide(
-                color: isSelected ? colors.primary : Colors.transparent,
+                color: isHighlighted ? colors.primary : Colors.transparent,
                 width: 4,
               ),
               right: BorderSide(
@@ -963,7 +970,7 @@ class _FileListTile extends StatelessWidget {
           ),
           child: Material(
             key: ValueKey('file-list-material-${item.path}'),
-            color: isSelected ? colors.primaryContainer : Colors.transparent,
+            color: isHighlighted ? colors.primaryContainer : Colors.transparent,
             child: ListTile(
               key: ValueKey('file-list-${item.path}'),
               leading: isSelectMode && !item.isDirectory
@@ -1000,6 +1007,7 @@ class _FileGridCard extends StatelessWidget {
     super.key,
     required this.item,
     required this.isSelected,
+    required this.isContextHighlighted,
     required this.isFocused,
     required this.onTap,
     this.onDoubleTap,
@@ -1009,6 +1017,7 @@ class _FileGridCard extends StatelessWidget {
 
   final FileSystemNode item;
   final bool isSelected;
+  final bool isContextHighlighted;
   final bool isFocused;
   final VoidCallback onTap;
   final VoidCallback? onDoubleTap;
@@ -1020,7 +1029,7 @@ class _FileGridCard extends StatelessWidget {
     return Semantics(
       container: true,
       label: _entrySemanticsLabel(AppLocalizations.of(context)!, item),
-      selected: isSelected,
+      selected: isSelected || isContextHighlighted,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onSecondaryTapDown: (details) =>
@@ -1033,17 +1042,20 @@ class _FileGridCard extends StatelessWidget {
             key: ValueKey('file-grid-${item.path}'),
             color: isSelected
                 ? Theme.of(context).colorScheme.primaryContainer
-                : null,
-            elevation: isSelected ? 4 : 1,
+                : isContextHighlighted
+                    ? Theme.of(context).colorScheme.primaryContainer
+                    : null,
+            elevation: isSelected || isContextHighlighted ? 4 : 1,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: isSelected
+                color: isSelected || isContextHighlighted
                     ? Theme.of(context).colorScheme.primary
                     : isFocused
                         ? Theme.of(context).colorScheme.secondary
                         : Theme.of(context).colorScheme.outlineVariant,
-                width: isSelected || isFocused ? 2.5 : 1,
+                width:
+                    isSelected || isContextHighlighted || isFocused ? 2.5 : 1,
               ),
             ),
             child: Column(
