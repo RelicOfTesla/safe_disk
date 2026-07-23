@@ -631,7 +631,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get welcomeGuideWelcomeContent =>
-      'Safe Disk 是一款安全的加密文件管理器，帮助您保护私密数据。\n\n所有文件都使用 AES-256-GCM 加密算法保护，确保只有您能访问。';
+      'Safe Disk 帮助您加密并管理私密文件。\n\n输入正确密码后，才能访问加密目录中的内容。';
 
   @override
   String get welcomeGuideEncryptedDirectoryTitle => '加密目录';
@@ -1031,7 +1031,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String encryptedRootFound(String path) {
-    return '已找到加密根目录：$path';
+    return '已找到上层加密目录：$path';
   }
 
   @override

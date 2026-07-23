@@ -21,6 +21,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Welcome to Safe Disk'), findsOneWidget);
+    expect(
+      find.text(
+        'Safe Disk helps you encrypt and manage private files.\n\n'
+        'You need the correct password to access content in an encrypted '
+        'directory.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Skip'), findsOneWidget);
     expect(find.text('Next'), findsOneWidget);
 

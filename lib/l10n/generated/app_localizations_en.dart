@@ -690,7 +690,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get welcomeGuideWelcomeContent =>
-      'Safe Disk is an encrypted file manager that helps protect your private data.\n\nAll files are protected with AES-256-GCM encryption so that only you can access them.';
+      'Safe Disk helps you encrypt and manage private files.\n\nYou need the correct password to access content in an encrypted directory.';
 
   @override
   String get welcomeGuideEncryptedDirectoryTitle => 'Encrypted directories';
@@ -1128,7 +1128,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String encryptedRootFound(String path) {
-    return 'Encrypted root found: $path';
+    return 'Encrypted parent directory found: $path';
   }
 
   @override
