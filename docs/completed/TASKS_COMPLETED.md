@@ -109,6 +109,18 @@
 
 - [SYSTEM_FILE_CLIPBOARD_DESIGN.md](../design/SYSTEM_FILE_CLIPBOARD_DESIGN.md) 已记录当前能力、拒绝直接接入的原因和未来立项前置条件。
 
+### UI-84 多标签页与预览范围决策：100%
+
+验收边界：
+
+- 当前版本正式采用目录浏览器、主窗口显式路由和显式内容子窗口，不实现隐式悬停预览或标签页。
+- 现有多窗口能力继续由 broker/lease、草稿和自动锁定协议管理；快捷键和跨平台窗口验收单独跟踪。
+- 本任务只完成产品范围和安全边界决策，不代表标签页或预览功能已经实现。
+
+实际证据：
+
+- [NAVIGATION_PREVIEW_SCOPE_DESIGN.md](../design/NAVIGATION_PREVIEW_SCOPE_DESIGN.md) 已记录当前导航模型、暂不实现原因和未来重新立项条件。
+
 ### DOC-I18N-01 多语言架构与迁移框架：100%
 
 验收边界：
