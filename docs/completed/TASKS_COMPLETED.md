@@ -97,6 +97,18 @@
 - `flutter test --no-pub test/settings_service_test.dart test/settings_page_widget_test.dart -r compact`：35 项全部通过。
 - `/home/john/flutter/bin/cache/dart-sdk/bin/dart analyze`：无问题。
 
+### UI-82 系统文件剪贴板范围决策：100%
+
+验收边界：
+
+- 当前版本明确只支持应用内 `SecureClipboardService`，不把加密 root 条目注册到操作系统文件剪贴板。
+- 设计明确禁止未定义生命周期的明文 staging、临时明文路径和把逻辑路径伪装成文件 URI。
+- 本任务只完成产品范围和安全边界决策，不代表系统文件剪贴板功能已经实现。
+
+实际证据：
+
+- [SYSTEM_FILE_CLIPBOARD_DESIGN.md](../design/SYSTEM_FILE_CLIPBOARD_DESIGN.md) 已记录当前能力、拒绝直接接入的原因和未来立项前置条件。
+
 ### DOC-I18N-01 多语言架构与迁移框架：100%
 
 验收边界：
