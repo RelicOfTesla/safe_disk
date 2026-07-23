@@ -31,6 +31,7 @@
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---:|---|
 | UI-68 | 安全记事本小键盘回车后的空格输入 | Bug/编辑器 | 20% | 查找栏已覆盖普通 Enter、数字键盘 Enter 和 Shift+数字键盘 Enter 的查找方向；但用户报告的“编辑器小键盘 Enter → 输入文字 → 连续空格 → 输入英文”路径仍未在真实 Linux 诊断环境复现，未修改编辑器输入链路。仍需在用户出现问题的键盘布局/输入法环境复现，再补编辑器文本值、选区、composing 状态回归后修复。此前重复登记的 UI-73 已合并到本任务。 |
+| UI-85 | 安全记事本未知大小内容的安全拒绝 | Bug/编辑器安全 | 70% | broker 当前在内容大小未知且配置了 16 MiB 上限时仍先解密再检查；改为解密前拒绝，并通过独立错误文案说明“无法确认大小，出于安全原因无法打开”，覆盖 broker、主页和子窗口入口。不扩大为流式读取实现。代码、错误映射和静态分析已完成；Flutter 测试受只读 SDK 启动前置阻断，需恢复可写/可用 Flutter 环境后补运行证据。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
@@ -58,7 +59,7 @@
 
 | 任务 | 进度 | 当前证据 | 到 100% 还缺什么 |
 |---|---:|---|---|
-| 安全记事本 | 95% | 状态/controller 与 UI 分区已拆分；编辑、加密草稿、剪贴板监视、broker 冲突及远程子窗口均有测试，Linux 已实测原生窗口。主/子窗口打开均传递 16 MiB 文本上限，已知大小在解密前拒绝，未知大小仍由 broker 读取后拒绝并清零临时字节；主页 widget 覆盖两种入口不解密也不创建子窗口。 | 补三平台桌面键盘/关闭/系统剪贴板 E2E、未知大小读取的可验证内存边界、流式大文件编辑策略和平台压力测试 |
+| 安全记事本 | 95% | 状态/controller 与 UI 分区已拆分；编辑、加密草稿、剪贴板监视、broker 冲突及远程子窗口均有测试，Linux 已实测原生窗口。主/子窗口打开均传递 16 MiB 文本上限，已知大小和未知大小均在解密前拒绝；未知大小使用独立错误文案，主页的记事本和图片独立窗口入口均有错误映射。UI-85 的 Flutter 测试尚因本机 Flutter SDK 启动前置失败未运行。 | 补三平台桌面键盘/关闭/系统剪贴板 E2E、未知大小的跨层回归和流式大文件编辑策略、平台压力测试 |
 | 图片浏览器 | 92% | JPEG/PNG/GIF/BMP/WebP 真实 codec 与渲染、GIF 动画识别、缩放旋转、键盘翻页、重试、64 MiB/100 MP 资源边界、异步竞态清零和只读子窗口 lease 均有自动化测试；真实 FFI 验证中文加密目录 WebP，Linux 已实测跨 engine PNG | 三平台真实窗口键盘/手势 E2E、超大图片内存压力与平台 codec 差异验收 |
 | Stream V3/增量编辑 | 15% | 有设计文档；Dart 活跃入口明确返回 unsupported | 确定格式、完整性和崩溃一致性模型，完成 sec/FFI/Dart/UI 实现及随机编辑实际测试 |
 | 大目录 UI 虚拟化 | 75% | Flutter list/grid 已使用 sliver 虚拟构建。当前目录的 native cursor、Dart binding/session 与 FileService 路径映射已接入 HomePage 的 list/grid；tree 的 root 与每个展开节点现在也使用独立 cursor。tree session 不累计普通文件，只保留当前页，并会越过纯文件页继续读取直到发现目录或 EOF；刷新/节点销毁会关闭 cursor，失败改为从头刷新。未完成目录会保持 walker 页顺序、禁用全目录排序，筛选明确限定为已加载条目且空态可继续加载。真实 name-encrypted root 两页 FFI、session 保留模式、tree 纯文件页和筛选/排序边界 widget 回归已通过；当前提交重新完成 100000 条真实 FFI 基准，首屏 200 条 8ms、完整 501 页 776ms、单页最大 8ms、分页后 RSS 采样上界 239362048 bytes。现有 `listCurrentDirectory(offset/limit)` 仍只是兼容回退的本地 `skip/take`。分页边界见 [DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 补 10 万 entry 的 Flutter 实际滚动/内存基线、取消/错误/导航/关闭 root 的真实跨层回归；评估筛选时自动加载的性能与可访问性 |
@@ -91,6 +92,7 @@
 - 2026-07-23 UI-83 后完整 Flutter UI 回归：使用真实 FFI 动态库 `/tmp/safe_disk_ffi/libffi_sec_fs.so` 执行 `flutter test --no-pub --timeout 240s -r compact`，305 项全部通过，退出码 0。该结果覆盖输入字节上限接入后的主界面、文件浏览、设置、记事本、图片、拖放和 FFI 集成回归；不替代平台实机、读屏、压力及 UI-68 问题环境验收。
 - 2026-07-23 UI-78/79/80/81/83 分类迁移：代码、自动化测试和 Linux 主线静态验证已完成，剩余仅真实桌面键盘、焦点、输入法和压力验收，已迁入 [跨平台验收清单](PLATFORM_ACCEPTANCE.md)；不再把平台缺口混入活跃实现任务。
 - 2026-07-23 UI-83 安全记事本编辑输入字节上限：`SecureTextEditor` 接入 16 MiB UTF-8 字节限制格式化器，超限时按完整 Unicode code point 截断并清除 composing 状态；新增 ASCII、多字节和未超限边界测试，记事本定向回归共 32 项全部通过，`dart analyze` 无问题。该证据不替代真实桌面粘贴、输入法和大文本压力验收，也不代表未知大小文件已流式读取。
+- 2026-07-23 UI-85 未知大小内容安全边界：`DocumentSessionBroker.open` 在配置内容上限但调用方未提供 `knownContentBytes` 时，先抛出独立的 `DocumentContentSizeUnknown`，不调用解密服务；主页记事本主窗口、新窗口和图片新窗口入口均显示“无法确认文件大小，出于安全原因无法打开”的本地化提示。Dart analyzer 无问题；Flutter 测试因本机 Flutter SDK 启动脚本尝试写只读 engine 元数据而未执行，不能计为测试通过。
 - 2026-07-23 UI-82 系统文件剪贴板范围决策：完成中文设计，明确当前版本只支持应用内安全文件剪贴板；不把加密 root 条目转换为系统可读的明文临时文件，不把逻辑路径伪装成文件 URI。后续若立项，必须先定义 staging 生命周期、异常清理、跨平台格式和无明文残留证据。
 - 2026-07-23 完整 Flutter UI 回归（含 UI-78/79/80/81）：使用真实 FFI 动态库 `/tmp/safe_disk_ffi/libffi_sec_fs.so` 执行 `flutter test --no-pub --timeout 240s -r compact`，302 项全部通过，退出码 0。该结果覆盖当前已登记的主界面快捷键、当前目录筛选、文件浏览、设置、记事本、图片、拖放和 FFI 集成回归，但不替代 Windows/macOS 实机、读屏、性能及 UI-68 问题环境验收。
 - 2026-07-23 UI-81 主界面筛选快捷键：文件浏览器新增公开的 `focusFilter()` 窄接口，HomePage 通过 `Ctrl/Cmd+F` 打开并聚焦现有当前目录筛选；不改变筛选范围或伪装成全 root 搜索。文件浏览器与主页定向回归共 80 项全部通过，`dart analyze` 无问题。该证据不替代真实平台键盘焦点验收。

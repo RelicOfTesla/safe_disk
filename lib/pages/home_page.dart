@@ -1402,6 +1402,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         ),
       );
+    } on DocumentContentSizeUnknown catch (_) {
+      if (mounted) {
+        ErrorHelper.showInfo(
+          context,
+          AppLocalizations.of(context)!.contentFileSizeUnknown,
+        );
+      }
     } on DocumentContentLimitExceeded catch (_) {
       if (mounted) {
         ErrorHelper.showInfo(
@@ -1449,6 +1456,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         AppLocalizations.of(context)!.nativeContentWindowUnavailable,
       );
       await _openNotepad(item);
+    } on DocumentContentSizeUnknown catch (_) {
+      if (lease != null) _documentBroker.close(lease.token);
+      if (mounted) {
+        ErrorHelper.showInfo(
+          context,
+          AppLocalizations.of(context)!.contentFileSizeUnknown,
+        );
+      }
     } on DocumentContentLimitExceeded catch (_) {
       if (lease != null) _documentBroker.close(lease.token);
       if (mounted) {
@@ -1520,6 +1535,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         AppLocalizations.of(context)!.nativeContentWindowUnavailable,
       );
       _openImageViewer(item);
+    } on DocumentContentSizeUnknown catch (_) {
+      if (lease != null) _documentBroker.close(lease.token);
+      if (mounted) {
+        ErrorHelper.showInfo(
+          context,
+          AppLocalizations.of(context)!.contentFileSizeUnknown,
+        );
+      }
     } catch (error) {
       if (lease != null) _documentBroker.close(lease.token);
       if (mounted) {

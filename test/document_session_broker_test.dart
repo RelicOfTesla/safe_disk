@@ -73,8 +73,7 @@ void main() {
     expect(crypto.files['/note.txt'], 'second write');
   });
 
-  test(
-      'content limit rejects known size before read and unknown size after read',
+  test('content limit rejects before decrypt when size is known or unknown',
       () {
     final crypto = _MemoryCryptoService({'/image.png': '12345'});
     final broker = DocumentSessionBroker(cryptoService: crypto);
@@ -98,9 +97,9 @@ void main() {
         displayName: 'image.png',
         maxContentBytes: 4,
       ),
-      throwsA(isA<DocumentContentLimitExceeded>()),
+      throwsA(isA<DocumentContentSizeUnknown>()),
     );
-    expect(crypto.readPaths, ['/image.png']);
+    expect(crypto.readPaths, isEmpty);
     expect(broker.tokensForRoot('1'), isEmpty);
   });
 

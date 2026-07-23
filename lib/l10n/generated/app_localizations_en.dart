@@ -1164,6 +1164,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get contentFileSizeUnknown =>
+      'The file size cannot be determined, so it cannot be opened safely.';
+
+  @override
   String get nativeContentWindowUnavailable =>
       'Separate file windows are unavailable on this platform. Opened in the main window instead.';
 

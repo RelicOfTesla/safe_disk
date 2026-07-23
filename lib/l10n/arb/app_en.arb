@@ -365,6 +365,7 @@
   "@unfinishedStatesCleaned": {"placeholders": {"count": {"type": "int"}}},
   "notepadFileTooLarge": "The file exceeds {limit} and cannot be opened in Secure Notepad.",
   "@notepadFileTooLarge": {"placeholders": {"limit": {"type": "String"}}},
+  "contentFileSizeUnknown": "The file size cannot be determined, so it cannot be opened safely.",
   "nativeContentWindowUnavailable": "Separate file windows are unavailable on this platform. Opened in the main window instead.",
   "batchMove": "Batch move",
   "batchPaste": "Batch paste",

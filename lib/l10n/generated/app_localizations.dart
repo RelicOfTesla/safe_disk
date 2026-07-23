@@ -2012,6 +2012,12 @@ abstract class AppLocalizations {
   /// **'文件超过 {limit}，暂不支持用安全记事本打开。'**
   String notepadFileTooLarge(String limit);
 
+  /// No description provided for @contentFileSizeUnknown.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法确认文件大小，出于安全原因无法打开。'**
+  String get contentFileSizeUnknown;
+
   /// No description provided for @nativeContentWindowUnavailable.
   ///
   /// In zh, this message translates to:

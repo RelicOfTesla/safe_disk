@@ -32,6 +32,15 @@ class DocumentContentLimitExceeded implements Exception {
   String toString() => 'document-content-limit-exceeded:$maxBytes';
 }
 
+class DocumentContentSizeUnknown implements Exception {
+  const DocumentContentSizeUnknown(this.maxBytes);
+
+  final int maxBytes;
+
+  @override
+  String toString() => 'document-content-size-unknown:$maxBytes';
+}
+
 class DocumentSessionReadOnly implements Exception {
   const DocumentSessionReadOnly();
 
@@ -106,6 +115,9 @@ class DocumentSessionBroker {
     int? maxContentBytes,
     bool readOnly = false,
   }) {
+    if (maxContentBytes != null && knownContentBytes == null) {
+      throw DocumentContentSizeUnknown(maxContentBytes);
+    }
     if (maxContentBytes != null &&
         knownContentBytes != null &&
         knownContentBytes > maxContentBytes) {

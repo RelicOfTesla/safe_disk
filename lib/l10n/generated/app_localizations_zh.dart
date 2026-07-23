@@ -1067,6 +1067,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get contentFileSizeUnknown => '无法确认文件大小，出于安全原因无法打开。';
+
+  @override
   String get nativeContentWindowUnavailable => '当前平台不支持独立文件窗口，已在主窗口打开';
 
   @override

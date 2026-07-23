@@ -365,6 +365,7 @@
   "@unfinishedStatesCleaned": {"placeholders": {"count": {"type": "int"}}},
   "notepadFileTooLarge": "文件超过 {limit}，暂不支持用安全记事本打开。",
   "@notepadFileTooLarge": {"placeholders": {"limit": {"type": "String"}}},
+  "contentFileSizeUnknown": "无法确认文件大小，出于安全原因无法打开。",
   "nativeContentWindowUnavailable": "当前平台不支持独立文件窗口，已在主窗口打开",
   "batchMove": "批量移动",
   "batchPaste": "批量粘贴",
