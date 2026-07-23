@@ -245,6 +245,15 @@ func copyFile(src, dst string) error {
 
 // ── 构建步骤 ──────────────────────────────────────────
 
+func flutterGenL10n() {
+	fmt.Println(c(green, "[l10n] Running flutter gen-l10n..."))
+	if err := run([]string{flutterCmd(), "gen-l10n"}, flutterDir, nil, true); err != nil {
+		fmt.Println(c(red, fmt.Sprintf("✗ Failed to generate l10n: %v", err)))
+		os.Exit(1)
+	}
+	fmt.Println(c(green, "✓ Localizations generated"))
+}
+
 func flutterClean() {
 	fmt.Println(c(green, "[1/6] Running flutter clean..."))
 	run([]string{flutterCmd(), "clean"}, flutterDir, nil, false)
@@ -554,6 +563,8 @@ func main() {
 		fmt.Println()
 
 		if clean {
+			flutterGenL10n()
+			fmt.Println()
 			flutterClean()
 		} else {
 			fmt.Println(c(yellow, "[1/6] Skipping flutter clean (use --clean / --rebuild)"))
@@ -584,6 +595,9 @@ func main() {
 		version := fs.String("version", "1.0.0", "CLI version string")
 		fs.Parse(os.Args[2:])
 		buildCLI(*version)
+
+	case "gen-l10n":
+		flutterGenL10n()
 
 	case "test-go":
 		testGo()
