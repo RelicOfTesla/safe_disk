@@ -2729,6 +2729,52 @@ void main() {
     expect(find.text('请输入密码以解锁：'), findsOneWidget);
   });
 
+  testWidgets('switching during the first directory load closes stale root',
+      (tester) async {
+    const firstRootPath = '/tmp/safe-disk-home-test/vault-one';
+    const secondRootPath = '/tmp/safe-disk-home-test/vault-two';
+    final listStarted = Completer<void>();
+    final listGate = Completer<void>();
+    final cryptoService = _FakeCryptoService(
+      firstRootPath,
+      additionalRootPaths: const [secondRootPath],
+    );
+    final fileService = _FakeFileService(
+      cryptoService,
+      listStarted: listStarted,
+      listGate: listGate,
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(
+          firstRootPath,
+          rootPaths: const [firstRootPath, secondRootPath],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('vault-one'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pump();
+    await listStarted.future;
+
+    await tester.tap(find.text('vault-two'));
+    await tester.pump();
+    listGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(fileService.listCalls, 1);
+    expect(find.text('请输入密码以解锁：'), findsOneWidget);
+  });
+
   testWidgets('unfinished transfer confirmation follows the active locale',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
@@ -3084,6 +3130,8 @@ class _FakeFileService extends FileService {
   _FakeFileService(
     CryptoService cryptoService, {
     List<FileSystemNode>? items,
+    this.listStarted,
+    this.listGate,
   })  : items = items ??
             [
               FileSystemNode(
@@ -3096,6 +3144,8 @@ class _FakeFileService extends FileService {
         super(cryptoService: cryptoService);
 
   int listCalls = 0;
+  final Completer<void>? listStarted;
+  final Completer<void>? listGate;
   final List<({String name, String path, String sessionID})> exportCalls = [];
   final List<bool> exportOverwriteFlags = [];
   final List<FileSystemNode> items;
@@ -3107,6 +3157,10 @@ class _FakeFileService extends FileService {
     int? limit,
   }) async {
     listCalls++;
+    if (listStarted case final started?) {
+      if (!started.isCompleted) started.complete();
+    }
+    await listGate?.future;
     return items;
   }
 

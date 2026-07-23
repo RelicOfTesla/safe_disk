@@ -769,6 +769,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!mounted ||
         _currentDir?.path != openingPath ||
         _currentDir?.tempKeyID != rootID.toString()) {
+      // Directory loading can yield to a session switch or a second unlock.
+      // Do not leave the root opened by this stale unlock attempt behind.
+      _closeSession(rootID.toString());
       return false;
     }
 
@@ -1035,10 +1038,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
         return;
       }
+      if (!_isCurrentDirectorySession(dir.path, sessionID)) return;
     }
 
     if (sessionID != null) {
       await _disposeCurrentDirectoryPageSession(dir.path, sessionID);
+      if (!_isCurrentDirectorySession(dir.path, sessionID)) return;
     }
     if (!_closeSession(sessionID)) {
       if (mounted) {
@@ -1150,8 +1155,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
         return false;
       }
+      if (!_isCurrentDirectorySession(directory.path, sessionID)) return false;
     }
     await _disposeCurrentDirectoryPageSession(directory.path, sessionID);
+    if (!_isCurrentDirectorySession(directory.path, sessionID)) return false;
     if (!_closeSession(sessionID)) {
       if (mounted) {
         ErrorHelper.showError(
