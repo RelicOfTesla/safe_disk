@@ -64,4 +64,28 @@ void main() {
     expect(requests, hasLength(1));
     expect(requests.single.path, external.path);
   });
+
+  test('normalizes mixed Windows separators before checking the root boundary',
+      () async {
+    final sandbox = await Directory.systemTemp.createTemp('safe-disk-drop-');
+    addTearDown(() => sandbox.delete(recursive: true));
+    final root = Directory('${sandbox.path}${Platform.pathSeparator}root')
+      ..createSync();
+    final inside = File('${root.path}${Platform.pathSeparator}inside.txt')
+      ..writeAsStringSync('x');
+    final outside = File('${sandbox.path}${Platform.pathSeparator}outside.txt')
+      ..writeAsStringSync('x');
+    final windowsRoot = root.path.replaceAll(Platform.pathSeparator, '\\');
+
+    final requests =
+        const DragDropController(windowsStyle: true).importRequests(
+      rootPath: windowsRoot,
+      candidates: [
+        DragDropCandidate(path: inside.path),
+        DragDropCandidate(path: outside.path),
+      ],
+    );
+
+    expect(requests.map((request) => request.path), [outside.path]);
+  });
 }

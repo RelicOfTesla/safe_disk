@@ -24,7 +24,11 @@ class DragDropImportRequest {
 /// Converts platform drop candidates into safe, ordinary filesystem imports.
 /// It deliberately does not know root IDs, credentials, or Transfer details.
 class DragDropController {
-  const DragDropController();
+  const DragDropController({this.windowsStyle});
+
+  /// Overrides the host platform in tests so Windows path rules are covered
+  /// without requiring a Windows runner.
+  final bool? windowsStyle;
 
   List<DragDropImportRequest> importRequests({
     required Iterable<DragDropCandidate> candidates,
@@ -59,11 +63,14 @@ class DragDropController {
     return candidate != root && !candidate.startsWith(normalizedRoot);
   }
 
-  String _normalizeForComparison(String path) =>
-      Platform.isWindows ? path.toLowerCase() : path;
+  String _normalizeForComparison(String path) {
+    if (!(windowsStyle ?? Platform.isWindows)) return path;
+    return path.replaceAll('\\', '/').toLowerCase();
+  }
 
-  String _withTrailingSeparator(String path) =>
-      path.endsWith(Platform.pathSeparator)
-          ? path
-          : '$path${Platform.pathSeparator}';
+  String _withTrailingSeparator(String path) {
+    final separator =
+        (windowsStyle ?? Platform.isWindows) ? '/' : Platform.pathSeparator;
+    return path.endsWith(separator) ? path : '$path$separator';
+  }
 }

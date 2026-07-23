@@ -31,6 +31,7 @@
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---:|---|
 | UI-68 | 安全记事本小键盘回车后的空格输入 | Bug/编辑器 | 20% | 查找栏已覆盖普通 Enter、数字键盘 Enter 和 Shift+数字键盘 Enter 的查找方向；但用户报告的“编辑器小键盘 Enter → 输入文字 → 连续空格 → 输入英文”路径仍未在真实 Linux 诊断环境复现，未修改编辑器输入链路。仍需在用户出现问题的键盘布局/输入法环境复现，再补编辑器文本值、选区、composing 状态回归后修复。此前重复登记的 UI-73 已合并到本任务。 |
+| UI-75 | 外部拖放 Windows 路径边界 | Bug/跨平台 UI | 70% | 拖放控制器现在在 Windows 规则下统一 `/` 与 `\\` 分隔符并做大小写不敏感比较；注入 Windows 模式的 Linux 回归已覆盖 root 内部路径拒绝和外部路径保留，拖放控制器与 HomeShell 定向回归通过。仍需真实 Windows 资源管理器、盘符/UNC 路径和权限场景验收。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
@@ -138,6 +139,7 @@
 - 2026-07-23 UI-68 真实应用复验：在当前 Linux Safe Disk 窗口中按“ff root → 文件右键 → 在新窗口中编辑 → 切换编辑模式 → `KP_Enter` → `a` → 四次空格 → `x`”执行，未保存编辑器实际显示换行、空格和 `x` 均立即进入文本，未复现空格延迟出现；本轮只放弃未保存修改，不调整输入链路。输入过程曾遇到桌面 `xdotool type` 的 XTEST BadValue，改用逐个按键事件完成复验，该输入权限问题不归因于应用。
 - 2026-07-23 UI-68 Fcitx 条件复验：当前 X11 环境变量虽为 `XMODIFIERS=@im=fcitx`、`GTK_IM_MODULE=fcitx`，但机器上没有运行 Fcitx 守护进程，`fcitx-remote` 返回 0，无法建立有效 Fcitx 输入法会话；未将该次尝试计为复现，也未启动新的输入法进程或修改编辑器。
 - 2026-07-23 大目录 UI 当前提交基线：运行 `benchmark_directory_cursor.dart --entries=100000`，真实 AES-256-GCM 名称 root 创建 5022ms；首屏 200 条 8ms，完整 501 页/100000 条 776ms，单页最大 8ms，分页后 RSS 采样上界 239362048 bytes。该结果只证明 cursor/FFI 分页基线，不替代 Flutter 实际滚动帧率、精确堆峰值或其它平台验收。
+- 2026-07-23 UI-75 拖放 Windows 路径边界：发现 Windows 分隔符混用时原控制器只做大小写比较，可能误放行 root 内部路径；新增可注入 Windows 路径规则，统一分隔符后再做边界判断。Linux 注入 Windows 模式的 controller 回归与 HomeShell 定向回归共 4 项通过，Dart analyzer 通过；真实 Windows 资源管理器仍待验收。
 - 2026-07-23 UI-39/UI-44 session 边界修复：解锁后的首次目录加载、手动关闭等待子窗口和改密关闭等待子窗口均在异步返回后重新核对 path/session；若旧解锁已失效则关闭其 rootID，不覆盖新 session。主页定向回归新增“首次目录加载期间切换 root”场景，`flutter analyze --no-pub` 通过，主页 widget 回归 62 项通过；真实窗口消失、部分关闭失败和三平台生命周期仍待验收。
 - 2026-07-23 UI-67 设置默认值复核：发现恢复默认设置遗漏自动锁定和会话 TTL，已登记为设置功能缺口，补齐后需增加回归。
 - 2026-07-23 UI-67 设置默认值修复：恢复默认设置现在同步重置自动锁定开关与会话 TTL；设置页回归验证内存状态和保存后的持久化值。
