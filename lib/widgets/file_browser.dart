@@ -636,6 +636,7 @@ class _FileBrowserState extends State<FileBrowser> {
                 isSelected: isSelected,
                 isContextHighlighted: isHighlighted,
                 isFocused: widget.focusedPath == item.path,
+                onTapDown: () => _handleItemTapDown(item),
                 onTap: () => _handleItemTap(item, isSelected, items),
                 onDoubleTap: widget.openOnDoubleClick && !widget.isSelectMode
                     ? () => _handleItemDoubleTap(item)
@@ -689,6 +690,7 @@ class _FileBrowserState extends State<FileBrowser> {
                       isSelected: isSelected,
                       isContextHighlighted: isHighlighted,
                       isFocused: widget.focusedPath == item.path,
+                      onTapDown: () => _handleItemTapDown(item),
                       onTap: () => _handleItemTap(item, isSelected, items),
                       onDoubleTap:
                           widget.openOnDoubleClick && !widget.isSelectMode
@@ -935,12 +937,18 @@ class _FileBrowserState extends State<FileBrowser> {
       _selectionAnchorPath = item.path;
       _replaceSelection(next);
     } else if (widget.openOnDoubleClick) {
-      // Do not rebuild after the first click; rebuilding would reset the
-      // double-tap recognizer before it can receive the second click.
-      _contextSelectedPath = item.path;
+      // Keep the first click visible without opening the item. GestureDetector
+      // retains its double-tap state across this state update.
+      setState(() => _contextSelectedPath = item.path);
     } else {
       if (item.isDirectory) _clearFilter(close: false);
       widget.onOpenItem(item);
+    }
+  }
+
+  void _handleItemTapDown(FileSystemNode item) {
+    if (widget.openOnDoubleClick && !widget.isSelectMode) {
+      setState(() => _contextSelectedPath = item.path);
     }
   }
 
@@ -988,6 +996,7 @@ class _FileListTile extends StatelessWidget {
     required this.isSelected,
     required this.isContextHighlighted,
     required this.isFocused,
+    required this.onTapDown,
     required this.onTap,
     this.onDoubleTap,
     required this.onLongPress,
@@ -1000,6 +1009,7 @@ class _FileListTile extends StatelessWidget {
   final bool isSelected;
   final bool isContextHighlighted;
   final bool isFocused;
+  final VoidCallback onTapDown;
   final VoidCallback onTap;
   final VoidCallback? onDoubleTap;
   final VoidCallback onLongPress;
@@ -1014,55 +1024,59 @@ class _FileListTile extends StatelessWidget {
       container: true,
       label: _entrySemanticsLabel(AppLocalizations.of(context)!, item),
       selected: isHighlighted,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: isSelectMode ? null : onTap,
-        onDoubleTap: onDoubleTap,
-        onLongPress: onLongPress,
-        onSecondaryTapDown: (details) =>
-            onSecondaryTapDown(details.globalPosition),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: isHighlighted ? colors.primary : Colors.transparent,
-                width: 4,
-              ),
-              right: BorderSide(
-                color: isFocused ? colors.secondary : Colors.transparent,
-                width: 3,
-              ),
-              bottom: BorderSide(
-                color: colors.outlineVariant.withValues(alpha: 0.45),
+      child: Listener(
+        onPointerDown: (_) => onTapDown(),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: isSelectMode ? null : onTap,
+          onDoubleTap: onDoubleTap,
+          onLongPress: onLongPress,
+          onSecondaryTapDown: (details) =>
+              onSecondaryTapDown(details.globalPosition),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: isHighlighted ? colors.primary : Colors.transparent,
+                  width: 4,
+                ),
+                right: BorderSide(
+                  color: isFocused ? colors.secondary : Colors.transparent,
+                  width: 3,
+                ),
+                bottom: BorderSide(
+                  color: colors.outlineVariant.withValues(alpha: 0.45),
+                ),
               ),
             ),
-          ),
-          child: Material(
-            key: ValueKey('file-list-material-${item.path}'),
-            color: isHighlighted ? colors.primaryContainer : Colors.transparent,
-            child: ListTile(
-              key: ValueKey('file-list-${item.path}'),
-              leading: isSelectMode
-                  ? Checkbox(
-                      value: isSelected,
-                      onChanged: (v) => onToggleSelection(v ?? false),
-                    )
-                  : Icon(
-                      item.isDirectory
-                          ? Icons.folder
-                          : _getFileIcon(item.extension),
-                      color: item.isDirectory ? Colors.orange : null,
-                    ),
-              title: Text(item.name),
-              subtitle: Text(item.isDirectory
-                  ? AppLocalizations.of(context)!
-                      .directoryItemCount(item.children?.length ?? 0)
-                  : item.formattedSize),
-              trailing:
-                  item.isDirectory ? const Icon(Icons.chevron_right) : null,
-              selected: isHighlighted,
-              onTap: isSelectMode ? onTap : null,
+            child: Material(
+              key: ValueKey('file-list-material-${item.path}'),
+              color:
+                  isHighlighted ? colors.primaryContainer : Colors.transparent,
+              child: ListTile(
+                key: ValueKey('file-list-${item.path}'),
+                leading: isSelectMode
+                    ? Checkbox(
+                        value: isSelected,
+                        onChanged: (v) => onToggleSelection(v ?? false),
+                      )
+                    : Icon(
+                        item.isDirectory
+                            ? Icons.folder
+                            : _getFileIcon(item.extension),
+                        color: item.isDirectory ? Colors.orange : null,
+                      ),
+                title: Text(item.name),
+                subtitle: Text(item.isDirectory
+                    ? AppLocalizations.of(context)!
+                        .directoryItemCount(item.children?.length ?? 0)
+                    : item.formattedSize),
+                trailing:
+                    item.isDirectory ? const Icon(Icons.chevron_right) : null,
+                selected: isHighlighted,
+                onTap: isSelectMode ? onTap : null,
+              ),
             ),
           ),
         ),
@@ -1080,6 +1094,7 @@ class _FileGridCard extends StatelessWidget {
     required this.isSelected,
     required this.isContextHighlighted,
     required this.isFocused,
+    required this.onTapDown,
     required this.onTap,
     this.onDoubleTap,
     required this.onLongPress,
@@ -1092,6 +1107,7 @@ class _FileGridCard extends StatelessWidget {
   final bool isSelected;
   final bool isContextHighlighted;
   final bool isFocused;
+  final VoidCallback onTapDown;
   final VoidCallback onTap;
   final VoidCallback? onDoubleTap;
   final VoidCallback onLongPress;
@@ -1104,72 +1120,75 @@ class _FileGridCard extends StatelessWidget {
       container: true,
       label: _entrySemanticsLabel(AppLocalizations.of(context)!, item),
       selected: isSelected || isContextHighlighted,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onSecondaryTapDown: (details) =>
-            onSecondaryTapDown(details.globalPosition),
-        child: InkWell(
-          onTap: onTap,
-          onDoubleTap: onDoubleTap,
-          onLongPress: onLongPress,
-          child: Stack(
-            children: [
-              Card(
-                key: ValueKey('file-grid-${item.path}'),
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primaryContainer
-                    : isContextHighlighted
-                        ? Theme.of(context).colorScheme.primaryContainer
-                        : null,
-                elevation: isSelected || isContextHighlighted ? 4 : 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: isSelected || isContextHighlighted
-                        ? Theme.of(context).colorScheme.primary
-                        : isFocused
-                            ? Theme.of(context).colorScheme.secondary
-                            : Theme.of(context).colorScheme.outlineVariant,
-                    width: isSelected || isContextHighlighted || isFocused
-                        ? 2.5
-                        : 1,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      item.isDirectory
-                          ? Icons.folder
-                          : _getFileIcon(item.extension),
-                      size: 48,
-                      color: item.isDirectory ? Colors.orange : null,
+      child: Listener(
+        onPointerDown: (_) => onTapDown(),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onSecondaryTapDown: (details) =>
+              onSecondaryTapDown(details.globalPosition),
+          child: InkWell(
+            onTap: onTap,
+            onDoubleTap: onDoubleTap,
+            onLongPress: onLongPress,
+            child: Stack(
+              children: [
+                Card(
+                  key: ValueKey('file-grid-${item.path}'),
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : isContextHighlighted
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : null,
+                  elevation: isSelected || isContextHighlighted ? 4 : 1,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: isSelected || isContextHighlighted
+                          ? Theme.of(context).colorScheme.primary
+                          : isFocused
+                              ? Theme.of(context).colorScheme.secondary
+                              : Theme.of(context).colorScheme.outlineVariant,
+                      width: isSelected || isContextHighlighted || isFocused
+                          ? 2.5
+                          : 1,
                     ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Text(
-                        item.name,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        item.isDirectory
+                            ? Icons.folder
+                            : _getFileIcon(item.extension),
+                        size: 48,
+                        color: item.isDirectory ? Colors.orange : null,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              if (isSelectMode)
-                Positioned(
-                  top: 0,
-                  right: 0,
-                  child: Checkbox(
-                    key: ValueKey('file-grid-select-${item.path}'),
-                    value: isSelected,
-                    onChanged: (value) => onToggleSelection(value ?? false),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          item.name,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-            ],
+                if (isSelectMode)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Checkbox(
+                      key: ValueKey('file-grid-select-${item.path}'),
+                      value: isSelected,
+                      onChanged: (value) => onToggleSelection(value ?? false),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

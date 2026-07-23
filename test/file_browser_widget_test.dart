@@ -150,6 +150,14 @@ void main() {
     await tester.tap(item);
     await tester.pump();
     expect(find.text('opened: 0'), findsOneWidget);
+    expect(
+      tester
+          .widget<ListTile>(
+            find.byKey(const ValueKey('file-list-/root/sub/alpha.txt')),
+          )
+          .selected,
+      isTrue,
+    );
 
     // The first tap is intentionally settled before sending a desktop-style
     // double click; the latter is represented by the following two taps.
@@ -159,6 +167,29 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump();
     expect(find.text('opened: 1'), findsOneWidget);
+  });
+
+  testWidgets('double-click mode highlights the first grid click',
+      (tester) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      const MaterialApp(home: _BrowserHarness(openOnDoubleClick: true)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pumpAndSettle();
+
+    final item = find.byKey(const ValueKey('file-grid-/root/sub/alpha.txt'));
+    await tester.tap(item);
+    await tester.pump();
+
+    final label = find.bySemanticsLabel('alpha.txt，文件');
+    expect(
+      tester.getSemantics(label).flagsCollection.isSelected.toBoolOrNull(),
+      isTrue,
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    semantics.dispose();
   });
 
   testWidgets('ctrl and shift clicks select a range in list view',
@@ -204,7 +235,7 @@ void main() {
             find.byKey(
               const ValueKey('file-grid-select-/root/sub/alpha.txt'),
             ),
-      )
+          )
           .value,
       isTrue,
     );
