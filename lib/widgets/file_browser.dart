@@ -1025,7 +1025,7 @@ class _FileListTile extends StatelessWidget {
                   : item.formattedSize),
               trailing:
                   item.isDirectory ? const Icon(Icons.chevron_right) : null,
-              selected: isSelected,
+              selected: isHighlighted,
               onTap: isSelectMode ? onTap : null,
             ),
           ),
