@@ -110,6 +110,7 @@ void main() {
       rootSessionID: '1',
       path: '/image.png',
       displayName: 'image.png',
+      knownContentBytes: 5,
       maxContentBytes: 5,
       readOnly: true,
     );
