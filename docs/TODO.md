@@ -33,6 +33,7 @@
 | UI-68 | 安全记事本小键盘回车后的空格输入 | Bug/编辑器 | 20% | 查找栏已覆盖普通 Enter、数字键盘 Enter 和 Shift+数字键盘 Enter 的查找方向；但用户报告的“编辑器小键盘 Enter → 输入文字 → 连续空格 → 输入英文”路径仍未在真实 Linux 诊断环境复现，未修改编辑器输入链路。仍需在用户出现问题的键盘布局/输入法环境复现，再补编辑器文本值、选区、composing 状态回归后修复。此前重复登记的 UI-73 已合并到本任务。 |
 | UI-75 | 外部拖放 Windows 路径边界 | Bug/跨平台 UI | 70% | 拖放控制器现在在 Windows 规则下统一 `/` 与 `\\` 分隔符并做大小写不敏感比较；注入 Windows 模式的 Linux 回归已覆盖 root 内部路径拒绝和外部路径保留，拖放控制器与 HomeShell 定向回归通过。仍需真实 Windows 资源管理器、盘符/UNC 路径和权限场景验收。 |
 | UI-78 | 安全记事本桌面快捷键兼容 | Bug/编辑器 UI | 80% | 已补齐常见 `Ctrl/Cmd+H` 打开查找、`Ctrl/Cmd+Y` 重做，以及查找框 `onSubmitted` 回调作为普通回车和数字键盘回车的统一兜底；widget 回归已覆盖，仍需完成三平台真实键盘验收。 |
+| UI-79 | 主界面粘贴快捷键的平台修正 | Bug/快捷键 UI | 70% | 主界面已同时支持 `Ctrl+V` 与 macOS 常用的 `Cmd+V`，主页回归覆盖两条冲突粘贴路径；仍需真实 macOS 键盘和桌面焦点验收。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
@@ -89,6 +90,7 @@
 
 ## 本轮验证状态
 
+- 2026-07-23 UI-79 主界面粘贴快捷键：补齐 `Cmd+V` 的 Meta 修饰键绑定，与已有 `Ctrl+V` 共用安全文件剪贴板路径；主页解锁/快捷键 widget 回归 62 项全部通过，`dart analyze` 无问题。该证据不替代真实 macOS 键盘和桌面焦点验收。
 - 2026-07-23 UI-78 安全记事本快捷键兼容：补齐 `Ctrl/Cmd+H` 打开查找、`Ctrl/Cmd+Y` 重做，并在查找输入框增加 `onSubmitted` 兜底，使普通回车和数字键盘回车共享提交路径；widget 回归 17 项通过，`dart analyze` 无问题。该证据不替代三平台真实键盘布局和桌面窗口验收。
 - 2026-07-23 KDF 安全默认档位阶段 A：设置页新增仅作用于新建目录的四档受控默认值，主页在创建对话框前读取并传递，创建对话框明确提示“尚未按本机性能校准”；非法持久化值回退到平衡档，用户可在创建时覆盖。`flutter analyze --no-pub` 通过；设置服务、设置页和创建目录定向 widget 回归通过；完整 `SAFE_DISK_FFI_LIBRARY=/tmp/safe_disk_ffi/libffi_sec_fs.so flutter test --no-pub --timeout 180s -r compact` 成功结束。未执行设备性能测量或跨平台 KDF 校准验收。
 - 2026-07-22 设置服务本地化边界回归：移除未使用且返回中文展示文本的 KDF/主题 API，自动保存间隔校验说明改为稳定技术标识；`flutter test --no-pub test/settings_service_test.dart -r compact` 共 5 项通过。审计候选由 68 降至 59，设置服务已无候选。

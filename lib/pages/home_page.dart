@@ -2936,6 +2936,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             unawaited(_pasteClipboard());
           }
         },
+        const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () {
+          if (_secureClipboard.hasEntry) {
+            _touchCurrentRoot();
+            unawaited(_pasteClipboard());
+          }
+        },
         const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
           _touchCurrentRoot();
           _copyKeyboardTarget(move: false);
