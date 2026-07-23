@@ -1786,7 +1786,8 @@ void main() {
     expect(fileService.listCalls, 2);
   });
 
-  testWidgets('desktop F5, Ctrl+V and F2 shortcuts use the active file context',
+  testWidgets(
+      'desktop refresh, paste, and rename shortcuts use the active file context',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
     final cryptoService = _FakeCryptoService(rootPath);
@@ -1810,6 +1811,16 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.f5);
     await tester.pumpAndSettle();
     expect(fileService.listCalls, 2);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(fileService.listCalls, 3);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pumpAndSettle();
+    expect(fileService.listCalls, 4);
 
     final gesture = await tester.startGesture(
       tester.getCenter(find.text('visible.txt')),

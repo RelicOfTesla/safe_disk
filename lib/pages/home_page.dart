@@ -220,6 +220,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  void _refreshCurrentDirectory() {
+    _touchCurrentRoot();
+    unawaited(_loadCurrentPath());
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.hidden ||
@@ -2927,9 +2932,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.f5): () {
-          _touchCurrentRoot();
-          unawaited(_loadCurrentPath());
+          _refreshCurrentDirectory();
         },
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true):
+            _refreshCurrentDirectory,
+        const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
+            _refreshCurrentDirectory,
         const SingleActivator(LogicalKeyboardKey.keyV, control: true): () {
           if (_secureClipboard.hasEntry) {
             _touchCurrentRoot();
