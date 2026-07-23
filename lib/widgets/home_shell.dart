@@ -25,6 +25,7 @@ class HomeShell extends StatelessWidget {
     required this.items,
     required this.drawerPinned,
     required this.viewMode,
+    this.openOnDoubleClick = false,
     required this.selectMode,
     required this.selectedFiles,
     required this.fileService,
@@ -76,6 +77,7 @@ class HomeShell extends StatelessWidget {
   final List<FileSystemNode> items;
   final bool drawerPinned;
   final ViewMode viewMode;
+  final bool openOnDoubleClick;
   final bool selectMode;
   final Set<FileSystemNode> selectedFiles;
   final FileService fileService;
@@ -307,6 +309,7 @@ class HomeShell extends StatelessWidget {
               currentPath: currentPath,
               rootPath: directory.path,
               viewMode: viewMode,
+              openOnDoubleClick: openOnDoubleClick,
               isSelectMode: selectMode,
               selectedFiles: selectedFiles,
               fileService: fileService,

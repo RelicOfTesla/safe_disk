@@ -16,6 +16,7 @@ class FileBrowser extends StatefulWidget {
     required this.currentPath,
     required this.rootPath,
     required this.viewMode,
+    this.openOnDoubleClick = false,
     required this.isSelectMode,
     required this.selectedFiles,
     required this.fileService,
@@ -40,6 +41,7 @@ class FileBrowser extends StatefulWidget {
   final String? currentPath;
   final String rootPath;
   final ViewMode viewMode;
+  final bool openOnDoubleClick;
   final bool isSelectMode;
   final Set<FileSystemNode> selectedFiles;
   final FileService fileService;
@@ -603,6 +605,7 @@ class _FileBrowserState extends State<FileBrowser> {
               isSelectMode: widget.isSelectMode,
               isSelected: isSelected,
               onTap: () => _handleItemTap(item, isSelected),
+              onDoubleTap: () => _handleItemDoubleTap(item),
               onLongPress: () => _handleItemLongPress(item, isSelected),
               onSecondaryTapDown: (position) =>
                   _handleItemSecondaryTap(item, position),
@@ -642,6 +645,7 @@ class _FileBrowserState extends State<FileBrowser> {
                 item: item,
                 isSelected: isSelected,
                 onTap: () => _handleItemTap(item, isSelected),
+                onDoubleTap: () => _handleItemDoubleTap(item),
                 onLongPress: () => _handleItemLongPress(item, isSelected),
                 onSecondaryTapDown: (position) =>
                     _handleItemSecondaryTap(item, position),
@@ -710,10 +714,20 @@ class _FileBrowserState extends State<FileBrowser> {
   void _handleItemTap(FileSystemNode item, bool isSelected) {
     if (widget.isSelectMode && !item.isDirectory) {
       widget.onSelectionToggle(item, !isSelected);
+    } else if (widget.openOnDoubleClick) {
+      // Do not rebuild after the first click; rebuilding would reset the
+      // double-tap recognizer before it can receive the second click.
+      _contextSelectedPath = item.path;
     } else {
       if (item.isDirectory) _clearFilter(close: false);
       widget.onOpenItem(item);
     }
+  }
+
+  void _handleItemDoubleTap(FileSystemNode item) {
+    if (widget.isSelectMode) return;
+    if (item.isDirectory) _clearFilter(close: false);
+    widget.onOpenItem(item);
   }
 
   void _handleItemLongPress(FileSystemNode item, bool isSelected) {
@@ -735,6 +749,7 @@ class _FileListTile extends StatelessWidget {
     required this.isSelectMode,
     required this.isSelected,
     required this.onTap,
+    required this.onDoubleTap,
     required this.onLongPress,
     required this.onSecondaryTapDown,
     required this.onToggleSelection,
@@ -744,6 +759,7 @@ class _FileListTile extends StatelessWidget {
   final bool isSelectMode;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback onDoubleTap;
   final VoidCallback onLongPress;
   final ValueChanged<Offset> onSecondaryTapDown;
   final void Function(bool selected) onToggleSelection;
@@ -757,6 +773,9 @@ class _FileListTile extends StatelessWidget {
       selected: isSelected,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
+        onTap: isSelectMode ? null : onTap,
+        onDoubleTap: onDoubleTap,
+        onLongPress: onLongPress,
         onSecondaryTapDown: (details) =>
             onSecondaryTapDown(details.globalPosition),
         child: AnimatedContainer(
@@ -796,8 +815,7 @@ class _FileListTile extends StatelessWidget {
               trailing:
                   item.isDirectory ? const Icon(Icons.chevron_right) : null,
               selected: isSelected,
-              onTap: onTap,
-              onLongPress: onLongPress,
+              onTap: isSelectMode ? onTap : null,
             ),
           ),
         ),
@@ -812,6 +830,7 @@ class _FileGridCard extends StatelessWidget {
     required this.item,
     required this.isSelected,
     required this.onTap,
+    required this.onDoubleTap,
     required this.onLongPress,
     required this.onSecondaryTapDown,
   });
@@ -819,6 +838,7 @@ class _FileGridCard extends StatelessWidget {
   final FileSystemNode item;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback onDoubleTap;
   final VoidCallback onLongPress;
   final ValueChanged<Offset> onSecondaryTapDown;
 
@@ -834,6 +854,7 @@ class _FileGridCard extends StatelessWidget {
             onSecondaryTapDown(details.globalPosition),
         child: InkWell(
           onTap: onTap,
+          onDoubleTap: onDoubleTap,
           onLongPress: onLongPress,
           child: Card(
             key: ValueKey('file-grid-${item.path}'),

@@ -22,6 +22,7 @@ class SettingsService {
   static const String _keyNotepadDefaultMonitorClipboard =
       'notepad_default_monitor_clipboard';
   static const String _keyDetailedErrorReports = 'detailed_error_reports';
+  static const String _keyOpenOnDoubleClick = 'open_on_double_click';
 
   // Default values
   static const int defaultKeyStrengthMs = 1000; // 1 second
@@ -35,6 +36,7 @@ class SettingsService {
   static const bool defaultNotepadReadOnly = false;
   static const bool defaultNotepadMonitorClipboard = false;
   static const bool defaultDetailedErrorReports = false;
+  static const bool defaultOpenOnDoubleClick = false;
 
   static const List<int> notepadAutoSaveOptions = [0, 15, 30, 60, 300];
 
@@ -254,6 +256,16 @@ class SettingsService {
     await prefs.setBool(_keyDetailedErrorReports, enabled);
   }
 
+  Future<bool> getOpenOnDoubleClick() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyOpenOnDoubleClick) ?? defaultOpenOnDoubleClick;
+  }
+
+  Future<void> setOpenOnDoubleClick(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyOpenOnDoubleClick, enabled);
+  }
+
   // ==================== Reset to Defaults ====================
 
   /// Reset all settings to defaults
@@ -269,5 +281,6 @@ class SettingsService {
     await setNotepadDefaultReadOnly(defaultNotepadReadOnly);
     await setNotepadDefaultMonitorClipboard(defaultNotepadMonitorClipboard);
     await setDetailedErrorReports(defaultDetailedErrorReports);
+    await setOpenOnDoubleClick(defaultOpenOnDoubleClick);
   }
 }

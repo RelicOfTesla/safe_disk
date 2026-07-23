@@ -440,6 +440,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get behavior => 'Behavior';
 
   @override
+  String get openMode => 'Open items with';
+
+  @override
+  String get openModeHint => 'Choose how files and folders open';
+
+  @override
+  String get openModeSingleClick => 'Single click';
+
+  @override
+  String get openModeDoubleClick => 'Double click';
+
+  @override
   String get confirmBeforeDelete => 'Confirm before deleting';
 
   @override

@@ -842,6 +842,30 @@ abstract class AppLocalizations {
   /// **'行为'**
   String get behavior;
 
+  /// No description provided for @openMode.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开方式'**
+  String get openMode;
+
+  /// No description provided for @openModeHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择文件和目录的打开方式'**
+  String get openModeHint;
+
+  /// No description provided for @openModeSingleClick.
+  ///
+  /// In zh, this message translates to:
+  /// **'单击打开'**
+  String get openModeSingleClick;
+
+  /// No description provided for @openModeDoubleClick.
+  ///
+  /// In zh, this message translates to:
+  /// **'双击打开'**
+  String get openModeDoubleClick;
+
   /// No description provided for @confirmBeforeDelete.
   ///
   /// In zh, this message translates to:

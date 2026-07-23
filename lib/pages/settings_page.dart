@@ -38,6 +38,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _notepadDefaultMonitorClipboard =
       SettingsService.defaultNotepadMonitorClipboard;
   bool _detailedErrorReports = SettingsService.defaultDetailedErrorReports;
+  bool _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
   _SettingsSnapshot? _saved;
   bool _isLoading = true;
   bool _allowPop = false;
@@ -55,6 +56,7 @@ class _SettingsPageState extends State<SettingsPage> {
         notepadDefaultReadOnly: _notepadDefaultReadOnly,
         notepadDefaultMonitorClipboard: _notepadDefaultMonitorClipboard,
         detailedErrorReports: _detailedErrorReports,
+        openOnDoubleClick: _openOnDoubleClick,
       );
 
   @override
@@ -80,6 +82,7 @@ class _SettingsPageState extends State<SettingsPage> {
         notepadDefaultMonitorClipboard:
             await _settingsService.getNotepadDefaultMonitorClipboard(),
         detailedErrorReports: await _settingsService.getDetailedErrorReports(),
+        openOnDoubleClick: await _settingsService.getOpenOnDoubleClick(),
       );
       if (!mounted) return;
       setState(() {
@@ -94,6 +97,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _notepadDefaultMonitorClipboard =
             snapshot.notepadDefaultMonitorClipboard;
         _detailedErrorReports = snapshot.detailedErrorReports;
+        _openOnDoubleClick = snapshot.openOnDoubleClick;
         _saved = snapshot;
         _isLoading = false;
       });
@@ -125,6 +129,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _notepadDefaultMonitorClipboard,
       );
       await _settingsService.setDetailedErrorReports(_detailedErrorReports);
+      await _settingsService.setOpenOnDoubleClick(_openOnDoubleClick);
       ErrorReportingService.configure(
         detailedErrorsEnabled: _detailedErrorReports,
       );
@@ -216,6 +221,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _notepadDefaultMonitorClipboard =
           SettingsService.defaultNotepadMonitorClipboard;
       _detailedErrorReports = SettingsService.defaultDetailedErrorReports;
+      _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
     });
     widget.onThemeModeChanged?.call(ThemeMode.system);
     widget.onLocaleChanged?.call(null);
@@ -376,6 +382,29 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: Text(strings.confirmBeforeDeleteHint),
             value: _confirmBeforeDelete,
             onChanged: (value) => setState(() => _confirmBeforeDelete = value),
+          ),
+          const Divider(),
+          ListTile(
+            key: const Key('open-mode'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(strings.openMode),
+            subtitle: Text(strings.openModeHint),
+            trailing: DropdownButton<bool>(
+              value: _openOnDoubleClick,
+              items: [
+                DropdownMenuItem(
+                  value: false,
+                  child: Text(strings.openModeSingleClick),
+                ),
+                DropdownMenuItem(
+                  value: true,
+                  child: Text(strings.openModeDoubleClick),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _openOnDoubleClick = value);
+              },
+            ),
           ),
         ],
       );
@@ -580,6 +609,7 @@ class _SettingsSnapshot {
     required this.notepadDefaultReadOnly,
     required this.notepadDefaultMonitorClipboard,
     required this.detailedErrorReports,
+    required this.openOnDoubleClick,
   });
 
   final String themeMode;
@@ -592,6 +622,7 @@ class _SettingsSnapshot {
   final bool notepadDefaultReadOnly;
   final bool notepadDefaultMonitorClipboard;
   final bool detailedErrorReports;
+  final bool openOnDoubleClick;
 
   @override
   bool operator ==(Object other) =>
@@ -605,7 +636,8 @@ class _SettingsSnapshot {
       notepadAutoSaveSeconds == other.notepadAutoSaveSeconds &&
       notepadDefaultReadOnly == other.notepadDefaultReadOnly &&
       notepadDefaultMonitorClipboard == other.notepadDefaultMonitorClipboard &&
-      detailedErrorReports == other.detailedErrorReports;
+      detailedErrorReports == other.detailedErrorReports &&
+      openOnDoubleClick == other.openOnDoubleClick;
 
   @override
   int get hashCode => Object.hash(
@@ -619,5 +651,6 @@ class _SettingsSnapshot {
         notepadDefaultReadOnly,
         notepadDefaultMonitorClipboard,
         detailedErrorReports,
+        openOnDoubleClick,
       );
 }

@@ -138,6 +138,28 @@ void main() {
     expect(find.text('beta.txt'), findsOneWidget);
   });
 
+  testWidgets('double-click open mode defers opening until the second click',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: _BrowserHarness(openOnDoubleClick: true)),
+    );
+    await tester.pumpAndSettle();
+
+    final item = find.byKey(const ValueKey('file-list-/root/sub/alpha.txt'));
+    await tester.tap(item);
+    await tester.pump();
+    expect(find.text('opened: 0'), findsOneWidget);
+
+    // The first tap is intentionally settled before sending a desktop-style
+    // double click; the latter is represented by the following two taps.
+    await tester.tap(item);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(item);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+    expect(find.text('opened: 1'), findsOneWidget);
+  });
+
   testWidgets('tree is a side navigator on wide layouts and a sheet on narrow',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -337,7 +359,9 @@ void main() {
 }
 
 class _BrowserHarness extends StatefulWidget {
-  const _BrowserHarness();
+  const _BrowserHarness({this.openOnDoubleClick = false});
+
+  final bool openOnDoubleClick;
 
   @override
   State<_BrowserHarness> createState() => _BrowserHarnessState();
@@ -348,6 +372,7 @@ class _BrowserHarnessState extends State<_BrowserHarness> {
   ViewMode viewMode = ViewMode.list;
   int backgroundClicks = 0;
   int itemClicks = 0;
+  int openedItems = 0;
 
   final items = [
     FileSystemNode(
@@ -382,7 +407,7 @@ class _BrowserHarnessState extends State<_BrowserHarness> {
             fileService: _TreeFileService(),
             onNavigateToDirectory: (path) => setState(() => currentPath = path),
             onNavigateUp: () => setState(() => currentPath = '/root'),
-            onOpenItem: (_) {},
+            onOpenItem: (_) => setState(() => openedItems++),
             onItemLongPress: (_) {},
             onItemSecondaryTap: (_, __) => setState(() => itemClicks++),
             onBackgroundSecondaryTap: (_) => setState(() => backgroundClicks++),
@@ -390,12 +415,14 @@ class _BrowserHarnessState extends State<_BrowserHarness> {
             onToggleSelectMode: (_) {},
             onSelectionToggle: (_, __) {},
             onSelectAll: () {},
+            openOnDoubleClick: widget.openOnDoubleClick,
           ),
           IgnorePointer(
             child: Column(
               children: [
                 Text('background-clicks: $backgroundClicks'),
                 Text('item-clicks: $itemClicks'),
+                Text('opened: $openedItems'),
               ],
             ),
           ),

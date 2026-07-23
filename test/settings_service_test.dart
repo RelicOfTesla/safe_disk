@@ -50,6 +50,19 @@ void main() {
     expect(await service.getDetailedErrorReports(), isTrue);
   });
 
+  test('persists the item open mode', () async {
+    final service = SettingsService();
+
+    expect(
+      await service.getOpenOnDoubleClick(),
+      SettingsService.defaultOpenOnDoubleClick,
+    );
+
+    await service.setOpenOnDoubleClick(true);
+
+    expect(await service.getOpenOnDoubleClick(), isTrue);
+  });
+
   test('locale preference defaults safely and rejects unsupported values',
       () async {
     final service = SettingsService();

@@ -122,6 +122,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? _lastIdleAutoLockSummary;
   bool _drawerPinned = false;
   ViewMode _viewMode = ViewMode.list;
+  bool _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
 
   // File selection for batch operations
   bool _isSelectMode = false;
@@ -156,6 +157,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _loadDrawerPinnedState();
     _loadAutoLockPreference();
     _loadSessionTTL();
+    _loadOpenMode();
     _checkFirstTimeUser();
   }
 
@@ -201,6 +203,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         (_) => unawaited(_lockExpiredRoots()),
       );
     }
+  }
+
+  Future<void> _loadOpenMode() async {
+    final openOnDoubleClick = await _settingsService.getOpenOnDoubleClick();
+    if (mounted) setState(() => _openOnDoubleClick = openOnDoubleClick);
   }
 
   void _touchCurrentRoot() {
@@ -2788,6 +2795,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!mounted) return;
     await _loadAutoLockPreference();
     await _loadSessionTTL();
+    await _loadOpenMode();
   }
 
   // ── Build ─────────────────────────────────────────────────────────
@@ -2850,6 +2858,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             items: _items,
             drawerPinned: _drawerPinned,
             viewMode: _viewMode,
+            openOnDoubleClick: _openOnDoubleClick,
             selectMode: _isSelectMode,
             selectedFiles: _selectedFiles,
             fileService: _fileService,

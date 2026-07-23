@@ -398,6 +398,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get behavior => '行为';
 
   @override
+  String get openMode => '打开方式';
+
+  @override
+  String get openModeHint => '选择文件和目录的打开方式';
+
+  @override
+  String get openModeSingleClick => '单击打开';
+
+  @override
+  String get openModeDoubleClick => '双击打开';
+
+  @override
   String get confirmBeforeDelete => '删除前确认';
 
   @override

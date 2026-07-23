@@ -71,6 +71,8 @@ void main() {
     expect(find.text('Security'), findsOneWidget);
     expect(find.text('Secure Notepad'), findsOneWidget);
     expect(find.text('Confirm before deleting'), findsOneWidget);
+    expect(find.text('Open items with'), findsOneWidget);
+    expect(find.text('Single click'), findsOneWidget);
     expect(find.text('Lock after inactivity'), findsOneWidget);
     expect(find.text('1 hour'), findsOneWidget);
     expect(find.text('Secure draft save interval'), findsOneWidget);
@@ -215,6 +217,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(await service.getNotepadDefaultReadOnly(), isTrue);
     expect(await service.getNotepadDefaultMonitorClipboard(), isTrue);
+  });
+
+  testWidgets('item open mode participates in the settings save transaction',
+      (tester) async {
+    final service = SettingsService();
+    await tester.pumpWidget(
+      _settingsTestApp(home: SettingsPage(settingsService: service)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(await service.getOpenOnDoubleClick(), isFalse);
+    await tester.tap(find.byType(DropdownButton<bool>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('双击打开').last);
+    await tester.pump();
+
+    expect(await service.getOpenOnDoubleClick(), isFalse);
+    await tester.ensureVisible(find.text('保存设置'));
+    await tester.tap(find.text('保存设置'));
+    await tester.pumpAndSettle();
+    expect(await service.getOpenOnDoubleClick(), isTrue);
   });
 
   testWidgets(
