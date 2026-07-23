@@ -315,7 +315,11 @@ void main() {
 
   testWidgets('restoring settings defaults resets the new-directory profile',
       (tester) async {
-    SharedPreferences.setMockInitialValues({'key_strength_ms': 2000});
+    SharedPreferences.setMockInitialValues({
+      'key_strength_ms': 2000,
+      'auto_close_session': true,
+      'session_ttl': 900,
+    });
     final service = SettingsService();
     await tester.pumpWidget(
       _settingsTestApp(home: SettingsPage(settingsService: service)),
@@ -334,6 +338,22 @@ void main() {
           .value,
       SettingsService.defaultKeyStrengthMs,
     );
+    expect(
+      tester
+          .widget<SwitchListTile>(
+            find.byKey(const Key('auto-lock-on-background')),
+          )
+          .value,
+      SettingsService.defaultAutoCloseSession,
+    );
+    expect(
+      tester.widget<ListTile>(find.byKey(const Key('session-ttl'))).trailing,
+      isA<DropdownButton<int>>().having(
+        (dropdown) => dropdown.value,
+        'value',
+        SettingsService.defaultSessionTTL,
+      ),
+    );
 
     final save = find.text('保存设置');
     await tester.ensureVisible(save);
@@ -342,6 +362,14 @@ void main() {
     expect(
       await service.getKeyStrengthMs(),
       SettingsService.defaultKeyStrengthMs,
+    );
+    expect(
+      await service.getAutoCloseSession(),
+      SettingsService.defaultAutoCloseSession,
+    );
+    expect(
+      await service.getSessionTTL(),
+      SettingsService.defaultSessionTTL,
     );
   });
 

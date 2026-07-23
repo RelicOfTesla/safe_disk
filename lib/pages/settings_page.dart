@@ -215,6 +215,8 @@ class _SettingsPageState extends State<SettingsPage> {
       _themeMode = SettingsService.defaultThemeMode;
       _locale = SettingsService.defaultLocale;
       _confirmBeforeDelete = SettingsService.defaultConfirmBeforeDelete;
+      _autoLockOnBackground = SettingsService.defaultAutoCloseSession;
+      _sessionTTL = SettingsService.defaultSessionTTL;
       _keyStrengthMs = SettingsService.defaultKeyStrengthMs;
       _notepadAutoSaveSeconds = SettingsService.defaultNotepadAutoSaveSeconds;
       _notepadDefaultReadOnly = SettingsService.defaultNotepadReadOnly;
