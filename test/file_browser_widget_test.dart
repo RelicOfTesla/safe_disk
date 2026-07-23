@@ -362,6 +362,25 @@ void main() {
     );
   });
 
+  testWidgets('grid reports its actual column count for keyboard navigation',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(500, 700));
+    var columns = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: _BrowserHarness(
+          onGridColumnCountChanged: (value) => columns = value,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pumpAndSettle();
+    expect(columns, 3);
+  });
+
   testWidgets('incomplete directories preserve cursor order in list and grid',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(home: _PagedBrowserHarness()));
@@ -467,9 +486,13 @@ void main() {
 }
 
 class _BrowserHarness extends StatefulWidget {
-  const _BrowserHarness({this.openOnDoubleClick = false});
+  const _BrowserHarness({
+    this.openOnDoubleClick = false,
+    this.onGridColumnCountChanged,
+  });
 
   final bool openOnDoubleClick;
+  final ValueChanged<int>? onGridColumnCountChanged;
 
   @override
   State<_BrowserHarness> createState() => _BrowserHarnessState();
@@ -538,6 +561,7 @@ class _BrowserHarnessState extends State<_BrowserHarness> {
                 ..addAll(items);
               selectMode = items.isNotEmpty;
             }),
+            onGridColumnCountChanged: widget.onGridColumnCountChanged,
             openOnDoubleClick: widget.openOnDoubleClick,
           ),
           IgnorePointer(

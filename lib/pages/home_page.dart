@@ -129,6 +129,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final Set<FileSystemNode> _selectedFiles = {};
   FileSystemNode? _keyboardTarget;
   String? _keyboardSelectionAnchorPath;
+  int _gridColumnCount = 1;
   final FocusNode _shortcutFocusNode = FocusNode(debugLabel: 'home-shortcuts');
 
   @override
@@ -2375,12 +2376,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  void _moveKeyboardTarget(int delta, {required bool extendSelection}) {
+  void _moveKeyboardTarget(
+    int delta, {
+    required bool extendSelection,
+    bool vertical = false,
+  }) {
     if (_items.isEmpty) return;
+    final movement = vertical && _viewMode == ViewMode.grid
+        ? delta * _gridColumnCount
+        : delta;
     final currentIndex = _keyboardTarget == null
         ? -1
         : _items.indexWhere((item) => item.path == _keyboardTarget!.path);
-    final nextIndex = (currentIndex + delta).clamp(0, _items.length - 1);
+    final nextIndex = (currentIndex + movement).clamp(0, _items.length - 1);
     final target = _items[nextIndex];
     setState(() {
       _keyboardTarget = target;
@@ -2911,17 +2919,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         const SingleActivator(LogicalKeyboardKey.f10, shift: true):
             _showKeyboardContextMenu,
         const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-            _moveKeyboardTarget(-1, extendSelection: false),
+            _moveKeyboardTarget(-1, extendSelection: false, vertical: true),
         const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-            _moveKeyboardTarget(1, extendSelection: false),
+            _moveKeyboardTarget(1, extendSelection: false, vertical: true),
         const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
             _moveKeyboardTarget(-1, extendSelection: false),
         const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
             _moveKeyboardTarget(1, extendSelection: false),
         const SingleActivator(LogicalKeyboardKey.arrowUp, shift: true): () =>
-            _moveKeyboardTarget(-1, extendSelection: true),
+            _moveKeyboardTarget(-1, extendSelection: true, vertical: true),
         const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true): () =>
-            _moveKeyboardTarget(1, extendSelection: true),
+            _moveKeyboardTarget(1, extendSelection: true, vertical: true),
         const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): () =>
             _moveKeyboardTarget(-1, extendSelection: true),
         const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): () =>
@@ -3002,6 +3010,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 _keyboardTarget = item;
                 _keyboardSelectionAnchorPath = item.path;
               });
+            },
+            onGridColumnCountChanged: (count) {
+              if (count != _gridColumnCount) {
+                setState(() => _gridColumnCount = count);
+              }
             },
             onShowItemOptions: _showFileOptions,
             onShowItemContextMenu: _showFileContextMenu,

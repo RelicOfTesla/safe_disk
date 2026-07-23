@@ -33,6 +33,7 @@ class FileBrowser extends StatefulWidget {
     required this.onToggleSelectMode,
     required this.onSelectionToggle,
     this.onSelectionChanged,
+    this.onGridColumnCountChanged,
     this.focusedPath,
     required this.onSelectAll,
     this.hasMore = false,
@@ -81,6 +82,7 @@ class FileBrowser extends StatefulWidget {
 
   /// Replace the current selection after a range or drag operation.
   final ValueChanged<Set<FileSystemNode>>? onSelectionChanged;
+  final ValueChanged<int>? onGridColumnCountChanged;
 
   /// Path currently targeted by keyboard navigation in the parent page.
   final String? focusedPath;
@@ -112,6 +114,7 @@ class _FileBrowserState extends State<FileBrowser> {
   double _lastContentWidth = 0;
   FileSortOrder _sortOrder = FileSortOrder.nameAscending;
   final ScrollController _contentScrollController = ScrollController();
+  int? _reportedGridColumnCount;
 
   bool get _directoryIsIncomplete => widget.hasMore || widget.isLoadingMore;
 
@@ -654,54 +657,73 @@ class _FileBrowserState extends State<FileBrowser> {
   }
 
   Widget _buildGridView(List<FileSystemNode> items) {
-    return _withSelectionPointerHandlers(
-      items,
-      CustomScrollView(
-        controller: _contentScrollController,
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(8),
-            sliver: SliverGrid.builder(
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 150,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 1.0,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _reportGridColumnCount(constraints.maxWidth);
+        return _withSelectionPointerHandlers(
+          items,
+          CustomScrollView(
+            controller: _contentScrollController,
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.all(8),
+                sliver: SliverGrid.builder(
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 150,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 1.0,
+                  ),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    final isSelected = widget.selectedFiles.contains(item);
+                    final isHighlighted =
+                        isSelected || _contextSelectedPath == item.path;
+                    return _FileGridCard(
+                      key: _itemKey(item),
+                      item: item,
+                      isSelectMode: widget.isSelectMode,
+                      isSelected: isSelected,
+                      isContextHighlighted: isHighlighted,
+                      isFocused: widget.focusedPath == item.path,
+                      onTap: () => _handleItemTap(item, isSelected, items),
+                      onDoubleTap:
+                          widget.openOnDoubleClick && !widget.isSelectMode
+                              ? () => _handleItemDoubleTap(item)
+                              : null,
+                      onLongPress: () => _handleItemLongPress(item, isSelected),
+                      onSecondaryTapDown: (position) =>
+                          _handleItemSecondaryTap(item, position),
+                      onToggleSelection: (selected) =>
+                          widget.onSelectionToggle(item, selected),
+                    );
+                  },
+                ),
               ),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                final isSelected = widget.selectedFiles.contains(item);
-                final isHighlighted =
-                    isSelected || _contextSelectedPath == item.path;
-                return _FileGridCard(
-                  key: _itemKey(item),
-                  item: item,
-                  isSelectMode: widget.isSelectMode,
-                  isSelected: isSelected,
-                  isContextHighlighted: isHighlighted,
-                  isFocused: widget.focusedPath == item.path,
-                  onTap: () => _handleItemTap(item, isSelected, items),
-                  onDoubleTap: widget.openOnDoubleClick && !widget.isSelectMode
-                      ? () => _handleItemDoubleTap(item)
-                      : null,
-                  onLongPress: () => _handleItemLongPress(item, isSelected),
-                  onSecondaryTapDown: (position) =>
-                      _handleItemSecondaryTap(item, position),
-                  onToggleSelection: (selected) =>
-                      widget.onSelectionToggle(item, selected),
-                );
-              },
-            ),
+              _buildLoadMoreStatus(),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _withBackgroundActions(const SizedBox.expand()),
+              ),
+            ],
           ),
-          _buildLoadMoreStatus(),
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: _withBackgroundActions(const SizedBox.expand()),
-          ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  void _reportGridColumnCount(double width) {
+    if (!width.isFinite || width <= 0) return;
+    final usableWidth = width - 16;
+    final columns = ((usableWidth + 8) / (150 + 8)).floor().clamp(1, 100);
+    if (_reportedGridColumnCount == columns) return;
+    _reportedGridColumnCount = columns;
+    final callback = widget.onGridColumnCountChanged;
+    if (callback == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) callback(columns);
+    });
   }
 
   Widget _buildLoadMoreStatus() {

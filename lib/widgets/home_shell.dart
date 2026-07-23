@@ -60,6 +60,7 @@ class HomeShell extends StatelessWidget {
     required this.onToggleSelectMode,
     required this.onSelectionToggle,
     this.onSelectionChanged,
+    this.onGridColumnCountChanged,
     this.focusedPath,
     required this.onExternalDrop,
     this.loading = false,
@@ -126,6 +127,7 @@ class HomeShell extends StatelessWidget {
   final ValueChanged<bool> onToggleSelectMode;
   final void Function(FileSystemNode item, bool selected) onSelectionToggle;
   final ValueChanged<Set<FileSystemNode>>? onSelectionChanged;
+  final ValueChanged<int>? onGridColumnCountChanged;
   final String? focusedPath;
   final ValueChanged<List<DragDropCandidate>> onExternalDrop;
 
@@ -330,6 +332,7 @@ class HomeShell extends StatelessWidget {
               onToggleSelectMode: onToggleSelectMode,
               onSelectionToggle: onSelectionToggle,
               onSelectionChanged: onSelectionChanged,
+              onGridColumnCountChanged: onGridColumnCountChanged,
               focusedPath: focusedPath,
               onSelectAll: onSelectAll,
               hasMore: hasMore,
