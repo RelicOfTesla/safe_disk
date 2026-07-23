@@ -820,7 +820,7 @@ class _FileBrowserState extends State<FileBrowser> {
     Rect selectionRect,
   ) {
     final selected = <FileSystemNode>{};
-    for (final item in items.where((item) => !item.isDirectory)) {
+    for (final item in items) {
       final renderObject =
           _itemKeys[item.path]?.currentContext?.findRenderObject();
       if (renderObject is! RenderBox || !renderObject.hasSize) continue;
@@ -864,8 +864,8 @@ class _FileBrowserState extends State<FileBrowser> {
     final hasShift = keys.contains(LogicalKeyboardKey.shiftLeft) ||
         keys.contains(LogicalKeyboardKey.shiftRight);
 
-    if (!item.isDirectory && (widget.isSelectMode || hasControl || hasShift)) {
-      final selectable = visibleItems.where((entry) => !entry.isDirectory);
+    if (widget.isSelectMode || hasControl || hasShift) {
+      final selectable = visibleItems;
       final next = Set<FileSystemNode>.from(widget.selectedFiles);
       if (hasShift) {
         final ordered = selectable.toList();
@@ -896,8 +896,6 @@ class _FileBrowserState extends State<FileBrowser> {
       }
       _selectionAnchorPath = item.path;
       _replaceSelection(next);
-    } else if (widget.isSelectMode && item.isDirectory) {
-      return;
     } else if (widget.openOnDoubleClick) {
       // Do not rebuild after the first click; rebuilding would reset the
       // double-tap recognizer before it can receive the second click.

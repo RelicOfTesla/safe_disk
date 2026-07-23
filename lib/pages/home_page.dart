@@ -2398,16 +2398,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           : (anchorIndex < nextIndex ? nextIndex : anchorIndex);
       _selectedFiles
         ..clear()
-        ..addAll(
-          _items.sublist(start, end + 1).where((item) => !item.isDirectory),
-        );
+        ..addAll(_items.sublist(start, end + 1));
       _isSelectMode = _selectedFiles.isNotEmpty;
     });
   }
 
   void _toggleKeyboardTargetSelection() {
     final target = _keyboardTarget;
-    if (target == null || target.isDirectory) return;
+    if (target == null) return;
     setState(() {
       _isSelectMode = true;
       if (_selectedFiles.contains(target)) {
@@ -2973,8 +2971,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             },
             onSelectAll: () {
               setState(() {
-                _selectedFiles
-                    .addAll(_items.where((item) => !item.isDirectory));
+                _selectedFiles.addAll(_items);
               });
             },
             onBatchCopy: () => _copySelected(move: false),

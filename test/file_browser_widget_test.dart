@@ -200,6 +200,28 @@ void main() {
     );
   });
 
+  testWidgets('directories participate in range and keyboard-style selection',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
+    await tester.pumpAndSettle();
+
+    final notes = find.byKey(const ValueKey('file-list-/root/sub/notes'));
+    final beta = find.byKey(const ValueKey('file-list-/root/sub/beta.txt'));
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.tap(notes);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(find.text('selected: 1'), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.tap(beta);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+
+    expect(find.text('selected: 3'), findsOneWidget);
+  });
+
   testWidgets('mouse drag selects intersecting files', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
     await tester.pumpAndSettle();

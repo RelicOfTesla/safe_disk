@@ -1330,6 +1330,23 @@ void main() {
     expect(find.text('已选择 2 项'), findsOneWidget);
   });
 
+  testWidgets('keyboard selection includes directories', (tester) async {
+    await _openTwoFileVault(tester, includeDirectory: true);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(find.text('已选择 1 项'), findsOneWidget);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(find.text('已选择 2 项'), findsOneWidget);
+  });
+
   testWidgets('batch paste reports partial failure and leaves it retryable',
       (tester) async {
     final (:cryptoService, :fileService) = await _openTwoFileVault(
@@ -2761,23 +2778,33 @@ Future<
     })> _openTwoFileVault(
   WidgetTester tester, {
   Set<String> copyFailures = const {},
+  bool includeDirectory = false,
 }) async {
   final cryptoService = _FakeCryptoService(
     _twoFileRootPath,
     copyFailures: copyFailures,
   );
-  final fileService = _FakeFileService(cryptoService, items: [
-    FileSystemNode(
-      name: 'first.txt',
-      path: '/first.txt',
-      isDirectory: false,
-    ),
-    FileSystemNode(
-      name: 'second.txt',
-      path: '/second.txt',
-      isDirectory: false,
-    ),
-  ]);
+  final fileService = _FakeFileService(
+    cryptoService,
+    items: [
+      if (includeDirectory)
+        FileSystemNode(
+          name: 'folder',
+          path: '/folder',
+          isDirectory: true,
+        ),
+      FileSystemNode(
+        name: 'first.txt',
+        path: '/first.txt',
+        isDirectory: false,
+      ),
+      FileSystemNode(
+        name: 'second.txt',
+        path: '/second.txt',
+        isDirectory: false,
+      ),
+    ],
+  );
   await tester.pumpWidget(MaterialApp(
     home: HomePage(
       cryptoService: cryptoService,
