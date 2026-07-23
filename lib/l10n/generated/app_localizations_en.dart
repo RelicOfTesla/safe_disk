@@ -275,7 +275,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorUnfinishedTransferStateUnavailableSuggestion =>
-      'Check directory permissions and disk status. Do not delete transfer state files manually.';
+      'Check directory permissions and disk status. Keep the directory unchanged and try again.';
 
   @override
   String get errorCreateEncryptedDirectoryFailedTitle =>
@@ -463,14 +463,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get lockAfterIdleHint =>
-      'Lock the current directory after its idle timeout. Directories with unsaved content or active writes are not forced closed.';
+      'Lock the current directory after its idle timeout. Directories with open file windows, unsaved changes, or active saves are not forced closed.';
 
   @override
   String get lockWhenHidden => 'Lock when the app is hidden';
 
   @override
   String get lockWhenHiddenHint =>
-      'Only lock directories without content windows, unsaved changes, or active writes. Other directories are not forced closed.';
+      'Only lock directories without open file windows, unsaved changes, or active saves. Other directories are not forced closed.';
 
   @override
   String get messageListSeparator => '; ';
@@ -482,7 +482,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String autoLockSummarySkipped(int count) {
-    return '$count directories have content windows or pending saves and were left open';
+    return '$count directories have open file windows or pending saves and were left open';
   }
 
   @override
@@ -495,7 +495,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String rootActiveWritesDescription(int count) {
-    return '$count content save operations are still running. Wait for them to finish before ending the session.';
+    return '$count file save operations are still running. Wait for them to finish before ending the session.';
   }
 
   @override
@@ -503,7 +503,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String rootUnsavedContentDescription(String documents) {
-    return 'Handle these content windows before ending the session:\n\n$documents';
+    return 'Handle these open file windows before ending the session:\n\n$documents';
   }
 
   @override
@@ -522,7 +522,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get passwordChangeBlockedByDocuments =>
-      'Close or save this directory\'s content windows before changing its password.';
+      'Close or save this directory\'s open file windows before changing its password.';
 
   @override
   String get passwordChangedUnlockAgain =>
@@ -824,7 +824,8 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get rerunUnfinishedTransfers => 'Rerun unfinished imports and exports';
+  String get rerunUnfinishedTransfers =>
+      'Run unfinished imports and exports again';
 
   @override
   String get preparing => 'Preparing...';
@@ -835,16 +836,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String rerunningUnfinishedProgress(int current, int total) {
-    return 'Rerunning $current of $total...';
+    return 'Running again: $current of $total...';
   }
 
   @override
   String get unfinishedTransfersRerunCompleted =>
-      'Unfinished imports and exports were rerun.';
+      'Unfinished imports and exports were run again.';
 
   @override
   String get unfinishedTransfersRerunCancelled =>
-      'Rerun cancelled. The unfinished state was kept.';
+      'Run again cancelled. The unfinished operation was kept.';
 
   @override
   String get preparingImport => 'Preparing import...';
@@ -919,17 +920,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String unfinishedTransfersDetectedDescription(int count) {
-    return '$count unfinished import or export states were found.\n\nThese operations cannot be resumed. You can clean their state and rerun the full import or export, or skip them for now.';
+    return '$count unfinished import or export operations were found.\n\nThese operations cannot be resumed. You can clean up the unfinished operation and run the full import or export again, or skip it for now.';
   }
 
   @override
   String get skipForNow => 'Skip for now';
 
   @override
-  String get cleanState => 'Clean state';
+  String get cleanState => 'Clean unfinished operation';
 
   @override
-  String get rerunAll => 'Rerun all';
+  String get rerunAll => 'Run again';
 
   @override
   String get confirmBatchDeletion => 'Confirm batch deletion';
@@ -1164,7 +1165,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nativeContentWindowUnavailable =>
-      'Native content windows are unavailable on this platform. Opened in the main window instead.';
+      'Separate file windows are unavailable on this platform. Opened in the main window instead.';
 
   @override
   String get batchMove => 'Batch move';

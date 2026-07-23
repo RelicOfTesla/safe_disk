@@ -254,7 +254,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorUnfinishedTransferStateUnavailableSuggestion =>
-      '请检查目录权限和磁盘状态；不要手动删除传输状态文件。';
+      '请检查目录权限和磁盘状态；请保留目录原状后重试。';
 
   @override
   String get errorCreateEncryptedDirectoryFailedTitle => '创建加密目录失败';
@@ -419,13 +419,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get lockAfterIdle => '空闲后自动锁定';
 
   @override
-  String get lockAfterIdleHint => '当前目录空闲到期后锁定；有未保存内容或活动写入时不会强制关闭';
+  String get lockAfterIdleHint => '当前目录空闲到期后锁定；有打开的文件窗口、未保存修改或正在进行的保存时不会强制关闭';
 
   @override
   String get lockWhenHidden => '应用隐藏时自动锁定';
 
   @override
-  String get lockWhenHiddenHint => '仅锁定没有内容窗口、未保存修改或活动写入的目录；其他目录不会被强制关闭';
+  String get lockWhenHiddenHint => '仅锁定没有打开的文件窗口、未保存修改或正在进行的保存的目录；其他目录不会被强制关闭';
 
   @override
   String get messageListSeparator => '；';
@@ -437,7 +437,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String autoLockSummarySkipped(int count) {
-    return '$count 个目录含内容窗口或未完成保存，未强制关闭';
+    return '$count 个目录含打开的文件窗口或未完成保存，未强制关闭';
   }
 
   @override
@@ -450,7 +450,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String rootActiveWritesDescription(int count) {
-    return '当前有 $count 个内容保存操作尚未完成，请等待保存结束后再关闭会话。';
+    return '当前有 $count 个文件保存操作尚未完成，请等待保存结束后再关闭会话。';
   }
 
   @override
@@ -458,7 +458,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String rootUnsavedContentDescription(String documents) {
-    return '请先处理以下内容窗口，再结束会话：\n\n$documents';
+    return '请先处理以下打开的文件窗口，再结束会话：\n\n$documents';
   }
 
   @override
@@ -474,7 +474,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get passwordChangeBlockedBySaving => '当前目录正在保存内容，请等待保存完成后再修改密码。';
 
   @override
-  String get passwordChangeBlockedByDocuments => '请先关闭或保存该目录中的内容窗口，再修改密码。';
+  String get passwordChangeBlockedByDocuments => '请先关闭或保存该目录中打开的文件窗口，再修改密码。';
 
   @override
   String get passwordChangedUnlockAgain => '密码已修改，请使用新密码重新解锁目录';
@@ -740,7 +740,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get rerunUnfinishedTransfers => '全量重跑导入/导出';
+  String get rerunUnfinishedTransfers => '重新执行未完成的导入/导出';
 
   @override
   String get preparing => '正在准备…';
@@ -750,14 +750,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String rerunningUnfinishedProgress(int current, int total) {
-    return '正在重跑 $current/$total…';
+    return '正在重新执行 $current/$total…';
   }
 
   @override
-  String get unfinishedTransfersRerunCompleted => '未完成导入/导出已全量重跑。';
+  String get unfinishedTransfersRerunCompleted => '未完成导入/导出已重新执行。';
 
   @override
-  String get unfinishedTransfersRerunCancelled => '重跑已取消，未完成状态已保留。';
+  String get unfinishedTransfersRerunCancelled => '重新执行已取消，未完成操作已保留。';
 
   @override
   String get preparingImport => '正在准备导入…';
@@ -830,17 +830,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String unfinishedTransfersDetectedDescription(int count) {
-    return '检测到 $count 个未完成的导入/导出状态。\n\n这些操作无法继续。你可以清理状态后重新执行完整的导入或导出，也可以暂时跳过。';
+    return '检测到 $count 个未完成的导入/导出操作。\n\n这些操作无法继续。你可以先清理未完成操作，再重新执行完整的导入或导出，也可以暂时跳过。';
   }
 
   @override
   String get skipForNow => '暂时跳过';
 
   @override
-  String get cleanState => '清理状态';
+  String get cleanState => '清理未完成操作';
 
   @override
-  String get rerunAll => '全量重跑';
+  String get rerunAll => '重新执行';
 
   @override
   String get confirmBatchDeletion => '确认批量删除';
@@ -1067,7 +1067,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get nativeContentWindowUnavailable => '当前平台尚未启用原生内容窗口，已在主窗口打开';
+  String get nativeContentWindowUnavailable => '当前平台不支持独立文件窗口，已在主窗口打开';
 
   @override
   String get batchMove => '批量移动';

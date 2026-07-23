@@ -2675,7 +2675,7 @@ void main() {
 
     expect(find.text('发现未完成的导入/导出'), findsOneWidget);
     expect(find.textContaining('这些操作无法继续'), findsOneWidget);
-    await tester.tap(find.text('全量重跑'));
+    await tester.tap(find.text('重新执行'));
     await tester.pumpAndSettle();
 
     expect(directoryService.rerunCalls, [marker]);
@@ -2809,8 +2809,8 @@ void main() {
 
     expect(find.text('Unfinished imports or exports found'), findsOneWidget);
     expect(find.textContaining('cannot be resumed'), findsOneWidget);
-    expect(find.text('Rerun all'), findsOneWidget);
-    await tester.tap(find.text('Rerun all'));
+    expect(find.text('Run again'), findsOneWidget);
+    await tester.tap(find.text('Run again'));
     await tester.pumpAndSettle();
 
     expect(directoryService.rerunCalls, [marker]);

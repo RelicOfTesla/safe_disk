@@ -569,7 +569,7 @@ abstract class AppLocalizations {
   /// No description provided for @errorUnfinishedTransferStateUnavailableSuggestion.
   ///
   /// In zh, this message translates to:
-  /// **'请检查目录权限和磁盘状态；不要手动删除传输状态文件。'**
+  /// **'请检查目录权限和磁盘状态；请保留目录原状后重试。'**
   String get errorUnfinishedTransferStateUnavailableSuggestion;
 
   /// No description provided for @errorCreateEncryptedDirectoryFailedTitle.
@@ -887,7 +887,7 @@ abstract class AppLocalizations {
   /// No description provided for @lockAfterIdleHint.
   ///
   /// In zh, this message translates to:
-  /// **'当前目录空闲到期后锁定；有未保存内容或活动写入时不会强制关闭'**
+  /// **'当前目录空闲到期后锁定；有打开的文件窗口、未保存修改或正在进行的保存时不会强制关闭'**
   String get lockAfterIdleHint;
 
   /// No description provided for @lockWhenHidden.
@@ -899,7 +899,7 @@ abstract class AppLocalizations {
   /// No description provided for @lockWhenHiddenHint.
   ///
   /// In zh, this message translates to:
-  /// **'仅锁定没有内容窗口、未保存修改或活动写入的目录；其他目录不会被强制关闭'**
+  /// **'仅锁定没有打开的文件窗口、未保存修改或正在进行的保存的目录；其他目录不会被强制关闭'**
   String get lockWhenHiddenHint;
 
   /// No description provided for @messageListSeparator.
@@ -917,7 +917,7 @@ abstract class AppLocalizations {
   /// No description provided for @autoLockSummarySkipped.
   ///
   /// In zh, this message translates to:
-  /// **'{count} 个目录含内容窗口或未完成保存，未强制关闭'**
+  /// **'{count} 个目录含打开的文件窗口或未完成保存，未强制关闭'**
   String autoLockSummarySkipped(int count);
 
   /// No description provided for @autoLockSummaryFailed.
@@ -935,7 +935,7 @@ abstract class AppLocalizations {
   /// No description provided for @rootActiveWritesDescription.
   ///
   /// In zh, this message translates to:
-  /// **'当前有 {count} 个内容保存操作尚未完成，请等待保存结束后再关闭会话。'**
+  /// **'当前有 {count} 个文件保存操作尚未完成，请等待保存结束后再关闭会话。'**
   String rootActiveWritesDescription(int count);
 
   /// No description provided for @rootUnsavedContentTitle.
@@ -947,7 +947,7 @@ abstract class AppLocalizations {
   /// No description provided for @rootUnsavedContentDescription.
   ///
   /// In zh, this message translates to:
-  /// **'请先处理以下内容窗口，再结束会话：\n\n{documents}'**
+  /// **'请先处理以下打开的文件窗口，再结束会话：\n\n{documents}'**
   String rootUnsavedContentDescription(String documents);
 
   /// No description provided for @acknowledge.
@@ -977,7 +977,7 @@ abstract class AppLocalizations {
   /// No description provided for @passwordChangeBlockedByDocuments.
   ///
   /// In zh, this message translates to:
-  /// **'请先关闭或保存该目录中的内容窗口，再修改密码。'**
+  /// **'请先关闭或保存该目录中打开的文件窗口，再修改密码。'**
   String get passwordChangeBlockedByDocuments;
 
   /// No description provided for @passwordChangedUnlockAgain.
@@ -1457,7 +1457,7 @@ abstract class AppLocalizations {
   /// No description provided for @rerunUnfinishedTransfers.
   ///
   /// In zh, this message translates to:
-  /// **'全量重跑导入/导出'**
+  /// **'重新执行未完成的导入/导出'**
   String get rerunUnfinishedTransfers;
 
   /// No description provided for @preparing.
@@ -1475,19 +1475,19 @@ abstract class AppLocalizations {
   /// No description provided for @rerunningUnfinishedProgress.
   ///
   /// In zh, this message translates to:
-  /// **'正在重跑 {current}/{total}…'**
+  /// **'正在重新执行 {current}/{total}…'**
   String rerunningUnfinishedProgress(int current, int total);
 
   /// No description provided for @unfinishedTransfersRerunCompleted.
   ///
   /// In zh, this message translates to:
-  /// **'未完成导入/导出已全量重跑。'**
+  /// **'未完成导入/导出已重新执行。'**
   String get unfinishedTransfersRerunCompleted;
 
   /// No description provided for @unfinishedTransfersRerunCancelled.
   ///
   /// In zh, this message translates to:
-  /// **'重跑已取消，未完成状态已保留。'**
+  /// **'重新执行已取消，未完成操作已保留。'**
   String get unfinishedTransfersRerunCancelled;
 
   /// No description provided for @preparingImport.
@@ -1601,7 +1601,7 @@ abstract class AppLocalizations {
   /// No description provided for @unfinishedTransfersDetectedDescription.
   ///
   /// In zh, this message translates to:
-  /// **'检测到 {count} 个未完成的导入/导出状态。\n\n这些操作无法继续。你可以清理状态后重新执行完整的导入或导出，也可以暂时跳过。'**
+  /// **'检测到 {count} 个未完成的导入/导出操作。\n\n这些操作无法继续。你可以先清理未完成操作，再重新执行完整的导入或导出，也可以暂时跳过。'**
   String unfinishedTransfersDetectedDescription(int count);
 
   /// No description provided for @skipForNow.
@@ -1613,13 +1613,13 @@ abstract class AppLocalizations {
   /// No description provided for @cleanState.
   ///
   /// In zh, this message translates to:
-  /// **'清理状态'**
+  /// **'清理未完成操作'**
   String get cleanState;
 
   /// No description provided for @rerunAll.
   ///
   /// In zh, this message translates to:
-  /// **'全量重跑'**
+  /// **'重新执行'**
   String get rerunAll;
 
   /// No description provided for @confirmBatchDeletion.
@@ -2015,7 +2015,7 @@ abstract class AppLocalizations {
   /// No description provided for @nativeContentWindowUnavailable.
   ///
   /// In zh, this message translates to:
-  /// **'当前平台尚未启用原生内容窗口，已在主窗口打开'**
+  /// **'当前平台不支持独立文件窗口，已在主窗口打开'**
   String get nativeContentWindowUnavailable;
 
   /// No description provided for @batchMove.
