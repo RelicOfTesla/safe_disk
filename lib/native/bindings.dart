@@ -33,6 +33,16 @@ typedef SecRootOpenDart = Pointer<Utf8> Function(
 typedef SecRootCloseC = Pointer<Utf8> Function(Int64 rootID);
 typedef SecRootCloseDart = Pointer<Utf8> Function(int rootID);
 
+// sec_webdav_open: (rootID, exposedPath, displayName) -> JSON string
+typedef SecWebDavOpenC = Pointer<Utf8> Function(
+    Int64 rootID, Pointer<Utf8> exposedPath, Pointer<Utf8> displayName);
+typedef SecWebDavOpenDart = Pointer<Utf8> Function(
+    int rootID, Pointer<Utf8> exposedPath, Pointer<Utf8> displayName);
+
+// sec_webdav_close: (sessionID) -> JSON string
+typedef SecWebDavCloseC = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
+typedef SecWebDavCloseDart = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
+
 // sec_create_root_config: (rootPath, password, optionsJSON) -> JSON string
 typedef SecCreateRootConfigC = Pointer<Utf8> Function(
     Pointer<Utf8> rootPath, Pointer<Utf8> password, Pointer<Utf8> optionsJSON);
@@ -264,6 +274,8 @@ class NativeBindings {
 
   late final SecRootOpenDart secRootOpen;
   late final SecRootCloseDart secRootClose;
+  late final SecWebDavOpenDart secWebDavOpen;
+  late final SecWebDavCloseDart secWebDavClose;
   late final SecCreateRootConfigDart secCreateRootConfig;
   late final SecRootChangePasswordDart secRootChangePassword;
   late final SecRootReadPasswordHintDart secRootReadPasswordHint;
@@ -357,6 +369,10 @@ class NativeBindings {
         _lib!.lookupFunction<SecRootOpenC, SecRootOpenDart>('sec_root_open');
     secRootClose =
         _lib!.lookupFunction<SecRootCloseC, SecRootCloseDart>('sec_root_close');
+    secWebDavOpen = _lib!
+        .lookupFunction<SecWebDavOpenC, SecWebDavOpenDart>('sec_webdav_open');
+    secWebDavClose = _lib!.lookupFunction<SecWebDavCloseC, SecWebDavCloseDart>(
+        'sec_webdav_close');
     secCreateRootConfig = _lib!
         .lookupFunction<SecCreateRootConfigC, SecCreateRootConfigDart>(
             'sec_create_root_config');

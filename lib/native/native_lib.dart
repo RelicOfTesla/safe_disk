@@ -139,6 +139,42 @@ class NativeLib {
     _checkResult(data, 'secRootClose');
   }
 
+  /// Opens a read-only loopback WebDAV session for an explicit secure path.
+  ///
+  /// The returned map contains the opaque session ID, bearer token and URL.
+  /// The token must only be handed to the selected third-party client.
+  Map<String, dynamic> secWebDavOpen(
+    int rootID,
+    String exposedPath,
+    String displayName,
+  ) {
+    final pathPtr = exposedPath.toNativeUtf8();
+    final namePtr = displayName.toNativeUtf8();
+    try {
+      final result = _parseJson(
+        _ptrToString(_bindings.secWebDavOpen(rootID, pathPtr, namePtr)),
+      );
+      _checkResult(result, 'secWebDavOpen');
+      return Map<String, dynamic>.from(result['data'] as Map);
+    } finally {
+      calloc.free(pathPtr);
+      calloc.free(namePtr);
+    }
+  }
+
+  /// Revokes a previously opened WebDAV session.
+  void secWebDavClose(String sessionID) {
+    final sessionPtr = sessionID.toNativeUtf8();
+    try {
+      final result = _parseJson(
+        _ptrToString(_bindings.secWebDavClose(sessionPtr)),
+      );
+      _checkResult(result, 'secWebDavClose');
+    } finally {
+      calloc.free(sessionPtr);
+    }
+  }
+
   /// Creates a secure root configuration.
   void secCreateRootConfig(
       String rootPath, String password, String optionsJSON) {

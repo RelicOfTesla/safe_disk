@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"safe_disk/native/sec_fs"
+	"safe_disk/native/sec_fs/sec_webdav"
 )
 
 // RootEntry stores both the root and its path.
@@ -32,4 +33,8 @@ var (
 
 	// DirCursorStore manages non-recursive directory walkers for paged reads.
 	DirCursorStore = NewIDStore[*dirCursor]()
+
+	// WebDAV is owned by the native process so closing a root can revoke its
+	// loopback sessions before the cryptographic root is destroyed.
+	WebDavManager = sec_webdav.NewManager()
 )

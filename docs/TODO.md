@@ -31,8 +31,7 @@
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---:|---|
 | UI-68 | 安全记事本小键盘回车后的空格输入 | Bug/编辑器 | 20% | 查找栏已覆盖普通 Enter、数字键盘 Enter 和 Shift+数字键盘 Enter 的查找方向；但用户报告的“编辑器小键盘 Enter → 输入文字 → 连续空格 → 输入英文”路径仍未在真实 Linux 诊断环境复现，未修改编辑器输入链路。仍需在用户出现问题的键盘布局/输入法环境复现，再补编辑器文本值、选区、composing 状态回归后修复。此前重复登记的 UI-73 已合并到本任务。 |
-| UI-85 | 安全记事本未知大小内容的安全拒绝 | Bug/编辑器安全 | 95% | broker 当前在内容大小未知且配置了 16 MiB 上限时仍先解密再检查；改为解密前拒绝，并通过独立错误文案说明“无法确认大小，出于安全原因无法打开”，覆盖 broker、主页和子窗口入口。不扩大为流式读取实现。broker、主页主窗口和独立窗口回归、记事本定向回归及完整 analyzer 已通过；仍缺平台实测和大文件策略边界。 |
-| WEB-01 | WebDAV 第三方工具交接实现 | P1/第三方工具 | 20% | 将 [第三方工具 WebDAV 文件交接设计](design/THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md) 提升为 P1 主线；先完成 loopback 会话、token、只读文件访问、root 锁定/结束会话撤销和明文生命周期边界，再实现可选编辑与系统挂载，不宣称未验收平台支持。 |
+| WEB-01 | WebDAV 第三方工具交接实现 | P1/第三方工具 | 45% | Go 已完成 loopback 只读会话、随机会话 ID/token、显式子树范围、Bearer 认证、`OPTIONS/GET/HEAD/PROPFIND`、写操作拒绝；`ffi_sec_fs` 已暴露 open/close ABI，关闭 root 会先撤销该 root 的会话。系统磁盘挂载/卸载也必须由 Go 平台适配层实现，Dart 只通过 FFI 调用和展示状态。仍需接入主界面选择/状态/撤销，补自动锁定与异常退出生命周期、Go 挂载状态接口，再评估编辑；不宣称第三方工具交接整体完成。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
@@ -60,7 +59,7 @@
 
 | 任务 | 进度 | 当前证据 | 到 100% 还缺什么 |
 |---|---:|---|---|
-| 安全记事本 | 95% | 状态/controller 与 UI 分区已拆分；编辑、加密草稿、剪贴板监视、broker 冲突及远程子窗口均有测试，Linux 已实测原生窗口。主/子窗口打开均传递 16 MiB 文本上限，已知大小和未知大小均在解密前拒绝；未知大小使用独立错误文案，主页的记事本和图片独立窗口入口均有错误映射。UI-85 的 Flutter 测试尚因本机 Flutter SDK 启动前置失败未运行。 | 补三平台桌面键盘/关闭/系统剪贴板 E2E、未知大小的跨层回归和流式大文件编辑策略、平台压力测试 |
+| 安全记事本 | 95% | 状态/controller 与 UI 分区已拆分；编辑、加密草稿、剪贴板监视、broker 冲突及远程子窗口均有测试，Linux 已实测原生窗口。主/子窗口打开均传递 16 MiB 文本上限，已知超过上限和未知大小均在解密前拒绝；未知大小使用独立错误文案，主页的记事本和图片独立窗口入口均有错误映射。 | 补三平台桌面键盘/关闭/系统剪贴板 E2E、平台压力测试；流式大文件编辑不属于当前版本范围 |
 | 图片浏览器 | 92% | JPEG/PNG/GIF/BMP/WebP 真实 codec 与渲染、GIF 动画识别、缩放旋转、键盘翻页、重试、64 MiB/100 MP 资源边界、异步竞态清零和只读子窗口 lease 均有自动化测试；真实 FFI 验证中文加密目录 WebP，Linux 已实测跨 engine PNG | 三平台真实窗口键盘/手势 E2E、超大图片内存压力与平台 codec 差异验收 |
 | Stream V3/增量编辑 | 15% | 有设计文档；Dart 活跃入口明确返回 unsupported | 确定格式、完整性和崩溃一致性模型，完成 sec/FFI/Dart/UI 实现及随机编辑实际测试 |
 | 大目录 UI 虚拟化 | 75% | Flutter list/grid 已使用 sliver 虚拟构建。当前目录的 native cursor、Dart binding/session 与 FileService 路径映射已接入 HomePage 的 list/grid；tree 的 root 与每个展开节点现在也使用独立 cursor。tree session 不累计普通文件，只保留当前页，并会越过纯文件页继续读取直到发现目录或 EOF；刷新/节点销毁会关闭 cursor，失败改为从头刷新。未完成目录会保持 walker 页顺序、禁用全目录排序，筛选明确限定为已加载条目且空态可继续加载。真实 name-encrypted root 两页 FFI、session 保留模式、tree 纯文件页和筛选/排序边界 widget 回归已通过；当前提交重新完成 100000 条真实 FFI 基准，首屏 200 条 8ms、完整 501 页 776ms、单页最大 8ms、分页后 RSS 采样上界 239362048 bytes。现有 `listCurrentDirectory(offset/limit)` 仍只是兼容回退的本地 `skip/take`。分页边界见 [DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 补 10 万 entry 的 Flutter 实际滚动/内存基线、取消/错误/导航/关闭 root 的真实跨层回归；评估筛选时自动加载的性能与可访问性 |
@@ -72,7 +71,7 @@
 | 拖放 | 70% | 设计见 [DRAG_DROP_DESIGN.md](design/DRAG_DROP_DESIGN.md)。首期已接入 `desktop_drop`：已验证且空闲的当前目录浏览区可接收外部 drop 并显示高亮；插件载荷先经 `DragDropController`，只接受存在的普通绝对文件/目录，拒绝 file promise、内存载荷、链接、相对/失效路径、重复项和当前 root 内部路径，再按顺序复用既有文件/目录导入、冲突、进度、取消和 unfinished 链路。Windows 路径边界现统一 `/` 与 `\\` 分隔符并有注入模式回归。默认仍禁止拖出，未添加拖出设置。策略层与主页 target 有自动化证据；真实平台 drop 事件尚未验收。 | 三平台外部拖入的多文件/目录、取消、权限与临时明文泄漏验收；补平台事件高亮/回调 E2E；在具备可信目标目录协议前不得实现拖出 |
 | 备份恢复与可选密码提示 | 12% | 设计见 [BACKUP_RECOVERY_AND_PASSWORD_HINT_DESIGN.md](design/BACKUP_RECOVERY_AND_PASSWORD_HINT_DESIGN.md)：提示是可选公开信息而非找回凭据。密码提示已完成 sec staged replace、FFI/Dart ABI、创建高级选项、默认折叠的解锁展示，以及仅限已解锁属性页的当前密码确认更新/清除；Go、真实 Dart ABI 和 widget 有定向回归。备份/恢复仍无格式和实现。 | 提示补 staged-replace 故障注入、跨进程锁竞争、打开窗口配置刷新和三平台桌面验收；定义并实现 snapshot/manifest、恢复和灾难测试 |
 | 安全记事本草稿间隔与只读模式 | 92% | 间隔设置已接入加密草稿而非原文件；默认只读、默认剪贴板监视、编辑切换、恢复与状态保护有主/子窗口测试 | 保存冲突、快捷键、系统剪贴板、进程级崩溃与跨平台桌面实测 |
-| 第三方工具安全文件交接（WEB-01，P1） | 20% | [THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md](design/THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md)，本轮已提升为 P1 主线 | 完成 loopback WebDAV 会话、token、只读访问、撤销和明文生命周期；再评估编辑与系统挂载 |
+| 第三方工具安全文件交接（WEB-01，P1） | 45% | [THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md](design/THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md)；Go 已完成 loopback 只读会话和 FFI open/close，root close 会撤销会话 | 接入主界面选择/状态/撤销；由 Go 完成平台挂载/卸载状态接口和生命周期；再评估编辑与三平台验收 |
 
 ## P3 发布与平台
 
@@ -95,6 +94,7 @@
 - 2026-07-23 UI-83 安全记事本编辑输入字节上限：`SecureTextEditor` 接入 16 MiB UTF-8 字节限制格式化器，超限时按完整 Unicode code point 截断并清除 composing 状态；新增 ASCII、多字节和未超限边界测试，记事本定向回归共 32 项全部通过，`dart analyze` 无问题。该证据不替代真实桌面粘贴、输入法和大文本压力验收，也不代表未知大小文件已流式读取。
 - 2026-07-23 UI-85 测试补齐：使用 `/tmp/flutter-copy` 可写 Flutter SDK 副本和真实 FFI 动态库运行 broker、主页和安全记事本相关回归共 86 项全部通过；新增主页未知大小文本入口回归确认未调用解密服务且显示信息提示，`flutter analyze --no-pub` 无问题。原 SDK 仍因只读 engine 缓存不可直接运行；独立窗口未知大小专门断言及平台实测仍未完成。
 - 2026-07-23 UI-85 独立窗口边界回归：新增“未知大小文本 → 在新窗口中编辑”测试，确认不创建 document lease、不调用原生 `openNotepad`、不解密并显示信息提示；单项回归通过。该任务剩余为平台实测和大文件策略，不再缺独立窗口自动化断言。
+- 2026-07-23 WEB-01 Go 只读阶段：新增 `native/sec_fs/sec_webdav` loopback WebDAV 管理器，覆盖随机 ID/token、Bearer 认证、显式子树、路径穿越拒绝、`PROPFIND` 目录枚举、GET/HEAD 读取、写操作拒绝和按 root 撤销；`ffi_sec_fs` 接入 `sec_webdav_open/close`，root close 先撤销会话。Go 协议、FFI root 和动态库构建均通过；主界面入口、状态卡片、Go 平台挂载/卸载接口、编辑和三平台实测仍未完成。
 - 2026-07-23 UI-86/UI-89/UI-90：确认双击打开模式的文件浏览器已有 list/grid 首击选中语义及 widget 覆盖；侧边栏 root 右键新增临时选中态，菜单关闭后恢复当前 root；root 右键菜单新增按边界显示的上移/下移动作，主页调整 `_openedDirs` 后复用 `saveOpenedDirectories` 持久化。侧边栏、HomeShell、本地化定向回归共 8 项通过；新增 HomePage 双 root 右键上移并断言保存顺序，`dart analyze` 无问题；UI-90 仍待重启恢复和真实桌面验收。
 - 2026-07-23 UI-87/UI-88：属性复制按钮改为默认关闭，仅文件/root 的名称、路径显式开启；普通属性保留 `SelectableText`，敏感值不提供按钮。root 属性弹窗启用紧凑行距，属性、root 属性和文件属性回归共 15 项通过，`dart analyze` 无问题；真实鼠标选择、不同平台字号和长文本布局仍待验收。
 - 2026-07-23 UI-91：grid 文件卡片的图标改为固定 `56×56` 容器，内部图标保持 `48×48` 并居中，避免窄布局或不同 Material 图标字形出现半宽视觉。`file_browser_widget_test.dart` 共 19 项通过，覆盖 320px 窄宽度、list/grid、首击和右键高亮；`dart analyze` 无问题，真实平台字体渲染仍待验收。

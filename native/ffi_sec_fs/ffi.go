@@ -517,10 +517,11 @@ func CloseRoot_FFI(rootID int64) string {
 	dirCursorLifecycleMu.Lock()
 	defer dirCursorLifecycleMu.Unlock()
 	entry, ok := RootStore.Get(rootID)
-	root := entry.Root
 	if !ok {
 		return errorResponseStr("root not found")
 	}
+	root := entry.Root
+	WebDavManager.RevokeRoot(rootKey(rootID))
 	for _, cursor := range DirCursorStore.TakeWhere(func(cursor *dirCursor) bool {
 		return cursor.rootID == rootID
 	}) {

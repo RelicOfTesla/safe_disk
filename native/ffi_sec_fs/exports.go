@@ -43,6 +43,20 @@ func sec_root_close(rootID C.int64_t) *C.char {
 	return C.CString(result)
 }
 
+//export sec_webdav_open
+func sec_webdav_open(rootID C.int64_t, exposedPath *C.char, displayName *C.char) *C.char {
+	return C.CString(WebDavOpen_FFI(
+		int64(rootID),
+		C.GoString(exposedPath),
+		C.GoString(displayName),
+	))
+}
+
+//export sec_webdav_close
+func sec_webdav_close(sessionID *C.char) *C.char {
+	return C.CString(WebDavClose_FFI(C.GoString(sessionID)))
+}
+
 //export sec_dir_cursor_open
 func sec_dir_cursor_open(rootID C.int64_t, path *C.char) *C.char {
 	return C.CString(OpenDirCursor_FFI(int64(rootID), C.GoString(path)))
