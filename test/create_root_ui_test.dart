@@ -137,8 +137,9 @@ void main() {
 
     await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
     await tester.pumpAndSettle();
-    expect(find.text('不加密（None）'), findsOneWidget);
-    await tester.tap(find.text('不加密（None）'));
+    expect(find.text('不加密'), findsOneWidget);
+    expect(find.textContaining('None'), findsNothing);
+    await tester.tap(find.text('不加密'));
     await tester.pumpAndSettle();
     expect(find.textContaining('文件名和目录名不会加密'), findsOneWidget);
 
@@ -150,6 +151,35 @@ void main() {
     expect(result?.keyStrengthMs, 5000);
     expect(result?.passwordChangeable, isFalse);
     expect(result?.passwordHint, 'first pet');
+  });
+
+  testWidgets('create dialog hides internal name-encryption values in English',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('en'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => const CreateEncryptedDirectoryDialog(),
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Advanced encryption parameters'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<String>).at(1));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No encryption'), findsOneWidget);
+    expect(find.textContaining('None'), findsNothing);
   });
 
   testWidgets(

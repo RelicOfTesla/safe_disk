@@ -2603,13 +2603,13 @@ abstract class AppLocalizations {
   /// No description provided for @noEncryption.
   ///
   /// In zh, this message translates to:
-  /// **'不加密（None）'**
+  /// **'不加密'**
   String get noEncryption;
 
   /// No description provided for @unencryptedNamesWarning.
   ///
   /// In zh, this message translates to:
-  /// **'注意：选择“不加密（None）”后，文件名和目录名不会加密。'**
+  /// **'注意：选择“不加密”后，文件名和目录名不会加密。'**
   String get unencryptedNamesWarning;
 
   /// No description provided for @selectDirectory.

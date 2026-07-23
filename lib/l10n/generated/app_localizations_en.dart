@@ -1523,11 +1523,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get noEncryption => 'No encryption (None)';
+  String get noEncryption => 'No encryption';
 
   @override
   String get unencryptedNamesWarning =>
-      'Warning: with No encryption (None), file and directory names are not encrypted.';
+      'Warning: with No encryption, file and directory names are not encrypted.';
 
   @override
   String get selectDirectory => 'Select directory';

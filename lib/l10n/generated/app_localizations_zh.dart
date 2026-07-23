@@ -1402,10 +1402,10 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get noEncryption => '不加密（None）';
+  String get noEncryption => '不加密';
 
   @override
-  String get unencryptedNamesWarning => '注意：选择“不加密（None）”后，文件名和目录名不会加密。';
+  String get unencryptedNamesWarning => '注意：选择“不加密”后，文件名和目录名不会加密。';
 
   @override
   String get selectDirectory => '选择目录';
