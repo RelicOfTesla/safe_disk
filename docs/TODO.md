@@ -34,7 +34,7 @@
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---:|---|
-| WEB-01 | WebDAV 第三方工具交接实现 | P1/第三方工具 | 55% | Go 已完成 loopback 只读会话、随机会话 ID/token、显式子树范围、Bearer 认证、`OPTIONS/GET/HEAD/PROPFIND`、写操作拒绝、token-free 会话快照（只读权限、最近访问、活跃请求）和 root 关闭撤销；当前仅支持 Bearer，Digest 尚未实现。`ffi_sec_fs` 已暴露 open/close/list ABI。系统磁盘挂载/卸载、鉴权、会话范围、访问监视和状态必须由 Go 平台适配/会话层实现；Dart 只通过 FFI 调用并展示 Go 快照，CLI 直接复用 Go 会话管理器。主界面已完成只读 UI 切片：文件/目录菜单确认第三方明文风险后创建会话，仅首次显示 URL/token，工具栏从 Go 列出并可撤销活跃会话；Dart 缓存仅用于 badge，root 关闭后清除。Go/FFI/真实 Dart ABI 和 widget 回归已覆盖 Bearer 边界。仍需 Digest `SHA-256` 多鉴权 ABI/GUI/CLI 与互操作/重放测试、前台 `webdav serve` CLI 入口、自动锁定与异常退出的真实桌面生命周期、Go 挂载状态接口、编辑协议和三平台实机验收；不宣称第三方工具交接整体完成。 |
+| WEB-01 | WebDAV 第三方工具交接实现 | P1/第三方工具 | 55% | Go 已完成 loopback 只读会话、随机会话 ID/token、显式子树范围、Bearer 认证、`OPTIONS/GET/HEAD/PROPFIND`、写操作拒绝、token-free 会话快照（只读权限、最近访问、活跃请求）和 root 关闭撤销；当前仅支持 Bearer，Digest 尚未实现。`ffi_sec_fs` 已暴露 open/close/list ABI。系统磁盘挂载/卸载、鉴权、会话范围、访问监视和状态必须由 Go 平台适配/会话层实现；协议库只负责 WebDAV 语义，拟由 Go 的 `SecureWebDAVFS` 适配安全 root。Dart 只通过 FFI 调用并展示 Go 快照，CLI 直接复用 Go 会话管理器。主界面已完成只读 UI 切片：文件/目录菜单确认第三方明文风险后创建会话，仅首次显示 URL/token，工具栏从 Go 列出并可撤销活跃会话；Dart 缓存仅用于 badge，root 关闭后清除。Go/FFI/真实 Dart ABI 和 widget 回归已覆盖 Bearer 边界。仍需先完成协议库黑盒回归与 `SecureWebDAVFS` 适配，再做 Digest `SHA-256` 多鉴权 ABI/GUI/CLI 与互操作/重放测试、前台 `webdav serve` CLI 入口、自动锁定与异常退出的真实桌面生命周期、Go 挂载状态接口、编辑协议和三平台实机验收；不宣称第三方工具交接整体完成。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
