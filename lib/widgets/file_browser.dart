@@ -1167,12 +1167,18 @@ class _FileGridCard extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        item.isDirectory
-                            ? Icons.folder
-                            : _getFileIcon(item.extension),
-                        size: 48,
-                        color: item.isDirectory ? Colors.orange : null,
+                      SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: Center(
+                          child: Icon(
+                            item.isDirectory
+                                ? Icons.folder
+                                : _getFileIcon(item.extension),
+                            size: 48,
+                            color: item.isDirectory ? Colors.orange : null,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Padding(

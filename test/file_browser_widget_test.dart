@@ -192,6 +192,26 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('grid icons keep a stable box at narrow widths', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pumpAndSettle();
+
+    final icon = find.descendant(
+      of: find.byKey(const ValueKey('file-grid-/root/sub/alpha.txt')),
+      matching: find.byType(Icon),
+    );
+    expect(tester.getSize(icon), const Size(48, 48));
+    final iconBox = find.ancestor(
+      of: icon,
+      matching: find.byType(SizedBox),
+    );
+    expect(tester.getSize(iconBox.first), const Size(56, 56));
+  });
+
   testWidgets('ctrl and shift clicks select a range in list view',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
