@@ -712,11 +712,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // ── Password verification ─────────────────────────────────────────
 
   Future<bool> _verifyPassword(String password) async {
-    if (_currentDir == null) return false;
+    final openingDirectory = _currentDir;
+    if (openingDirectory == null) return false;
+    final openingPath = openingDirectory.path;
 
     late final int rootID;
     try {
-      rootID = _cryptoService.openRoot(_currentDir!.path, password, '');
+      rootID = _cryptoService.openRoot(openingPath, password, '');
     } catch (error) {
       if (mounted) {
         final presentation = classifyRootOpenError(error);
@@ -731,7 +733,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
 
     final transferStateAvailable = await _handleUnfinishedOperations(rootID);
-    if (!transferStateAvailable) {
+    // The unfinished-state prompt is asynchronous and the sidebar stays
+    // usable. Never attach this root to a directory selected after unlock
+    // started; close the unowned native session instead.
+    if (!transferStateAvailable ||
+        !mounted ||
+        !identical(_currentDir, openingDirectory)) {
       _closeSession(rootID.toString());
       return false;
     }
@@ -749,7 +756,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
     final loaded = await _loadCurrentPath();
-    if (!mounted) return false;
+    if (!mounted ||
+        _currentDir?.path != openingPath ||
+        _currentDir?.tempKeyID != rootID.toString()) {
+      return false;
+    }
 
     if (loaded) {
       _idleTracker.touch(rootID.toString());

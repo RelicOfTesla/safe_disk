@@ -2447,6 +2447,53 @@ void main() {
     expect(find.text('visible.txt'), findsOneWidget);
   });
 
+  testWidgets('switching directories during unlock closes the stale root',
+      (tester) async {
+    const firstRootPath = '/tmp/safe-disk-home-test/vault-one';
+    const secondRootPath = '/tmp/safe-disk-home-test/vault-two';
+    final unfinishedListStarted = Completer<void>();
+    final unfinishedListGate = Completer<void>();
+    final cryptoService = _FakeCryptoService(
+      firstRootPath,
+      additionalRootPaths: const [secondRootPath],
+    );
+    final fileService = _FakeFileService(cryptoService);
+    final directoryService = _FakeDirectoryService(
+      unfinishedListStarted: unfinishedListStarted,
+      unfinishedListGate: unfinishedListGate,
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: directoryService,
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(
+          firstRootPath,
+          rootPaths: const [firstRootPath, secondRootPath],
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('vault-one'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pump();
+    expect(unfinishedListStarted.isCompleted, isTrue);
+
+    await tester.tap(find.text('vault-two'));
+    await tester.pump();
+    unfinishedListGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(fileService.listCalls, 0);
+    expect(find.text('visible.txt'), findsNothing);
+    expect(find.text('请输入密码以解锁：'), findsOneWidget);
+  });
+
   testWidgets('unfinished transfer confirmation follows the active locale',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
@@ -2847,11 +2894,15 @@ class _FakeDirectoryService extends DirectoryService {
     this.importError,
     this.unfinishedMarkers = const [],
     this.unfinishedListError,
+    this.unfinishedListStarted,
+    this.unfinishedListGate,
   });
 
   final String? importError;
   final List<Map<String, dynamic>> unfinishedMarkers;
   final Object? unfinishedListError;
+  final Completer<void>? unfinishedListStarted;
+  final Completer<void>? unfinishedListGate;
   final List<Map<String, dynamic>> rerunCalls = [];
   final List<
       ({
@@ -2895,6 +2946,11 @@ class _FakeDirectoryService extends DirectoryService {
   @override
   Future<List<Map<String, dynamic>>> listUnfinishedOperations(
       int rootID) async {
+    if (unfinishedListStarted?.isCompleted == false) {
+      unfinishedListStarted!.complete();
+    }
+    final gate = unfinishedListGate;
+    if (gate != null) await gate.future;
     final error = unfinishedListError;
     if (error != null) throw error;
     return unfinishedMarkers;
