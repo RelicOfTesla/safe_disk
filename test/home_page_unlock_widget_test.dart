@@ -1362,6 +1362,32 @@ void main() {
     expect(find.text('已选择 3 项'), findsNothing);
   });
 
+  testWidgets('grid arrow down advances by the reported column count',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(800, 700));
+    await _openTwoFileVault(
+      tester,
+      includeDirectory: true,
+      extraFileCount: 3,
+    );
+
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+
+    final card = tester.widget<Card>(
+      find.byKey(const ValueKey('file-grid-/extra-0.txt')),
+    );
+    final side = (card.shape! as RoundedRectangleBorder).side;
+    expect(
+      side.color,
+      Theme.of(tester.element(find.byType(HomePage))).colorScheme.secondary,
+    );
+  });
+
   testWidgets('batch paste reports partial failure and leaves it retryable',
       (tester) async {
     final (:cryptoService, :fileService) = await _openTwoFileVault(
@@ -2794,6 +2820,7 @@ Future<
   WidgetTester tester, {
   Set<String> copyFailures = const {},
   bool includeDirectory = false,
+  int extraFileCount = 0,
 }) async {
   final cryptoService = _FakeCryptoService(
     _twoFileRootPath,
@@ -2817,6 +2844,14 @@ Future<
         name: 'second.txt',
         path: '/second.txt',
         isDirectory: false,
+      ),
+      ...List.generate(
+        extraFileCount,
+        (index) => FileSystemNode(
+          name: 'extra-$index.txt',
+          path: '/extra-$index.txt',
+          isDirectory: false,
+        ),
       ),
     ],
   );
