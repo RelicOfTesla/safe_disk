@@ -6,7 +6,7 @@
 
 ## 2026-07 FFI 回归
 
-### UI-59 真实 FFI 图片集成测试本地化壳：100%
+### TEST-FFI-01 真实 FFI 图片集成测试本地化壳：100%
 
 验收边界：
 
@@ -18,6 +18,65 @@
 
 - 使用重新构建的 `/tmp/safe_disk_ffi_ui58/libffi_sec_fs.so` 执行 `flutter test --no-pub test/native_ffi_integration_test.dart -r compact`，12 项全部通过。
 - `dart analyze` 通过。
+
+## 2026-07 多语言与废弃接口清理
+
+### UI-53 错误 descriptor 与 ARB 呈现：100%
+
+验收边界：
+
+- `ErrorType` 保持稳定领域语义；`ErrorMessages` 只产生不含可见文案的 `ErrorDescriptor`。
+- SnackBar、对话框和页面错误态通过 `BuildContext` 解析 ARB；技术诊断继续脱敏并受详细错误开关控制。
+- 覆盖中文、英文、诊断开关及主页、记事本、设置、创建目录错误路径。
+
+实际测试证据：
+
+- `flutter analyze --no-pub` 零问题。
+- 完整 Flutter 测试为 201 通过、12 个缺少原生 FFI 库的集成测试跳过。
+
+### UI-56 废弃通用剪贴板模块清理：100%
+
+验收边界：
+
+- 已删除无产品、测试或入口引用的 `clipboard_service.dart` 与 `clipboard_helper.dart`。
+- 现行路径统一为 `SecureClipboardService`；不代表系统文件剪贴板功能完成。
+
+实际测试证据：
+
+- `flutter analyze --no-pub` 通过。
+- 安全剪贴板、移动服务与主壳本地化定向回归共 6 项通过。
+
+### FFI-18 废弃增量加密 Dart API 清理：100%
+
+验收边界：
+
+- 已删除 `ffi_results.dart`、`incremental_encrypt_service.dart` 和 `NativeLib` 的失败占位桩。
+- 仓库级搜索无残留 Dart 调用，原生 `ffi_sec_fs` 不导出增量接口；架构、FFI 设计、状态和 README 均明确其为历史设计。
+- 删除不代表增量编辑能力已经实现。
+
+实际测试证据：
+
+- `flutter analyze --no-pub` 通过。
+- 目录/Transfer V3 定向回归 10 通过、12 跳过；完整 Flutter 回归为 233 通过、12 跳过。
+
+### UI-57 服务诊断稳定标识与详细错误本地化：100%
+
+验收边界：
+
+- `directory_service`、`crypto_service`、`native_lib`、`bindings` 与 `settings_service` 的可传播校验错误使用无路径、无密码的稳定标识。
+- 详细诊断的类型、操作、底层错误标签、脱敏占位符和截断提示均按当前 locale 由 ARB 提供。
+
+实际测试证据：
+
+- 覆盖服务校验、传输 marker、原生库加载失败及中英文详细错误展示。
+- `flutter analyze --no-pub` 通过；定向回归 20 通过，完整 Flutter 回归为 234 通过、12 跳过；词法审计为 0 候选。
+
+### DOC-I18N-01 多语言架构与迁移框架：100%
+
+验收边界：
+
+- [I18N_DESIGN.md](../design/I18N_DESIGN.md) 已按当前 ARB、设置服务、三类 `MaterialApp`、静态错误映射和内容窗口协议定义翻译边界、模块 API、语言回退、子窗口一致性、安全诊断、迁移批次、测试与发布门槛。
+- 本设计完成不代表英文产品功能完成。
 
 ## 2026-07 属性可访问性
 
