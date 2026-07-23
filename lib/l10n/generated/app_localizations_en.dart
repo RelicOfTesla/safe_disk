@@ -56,6 +56,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appearance => 'Appearance';
 
   @override
+  String get security => 'Security';
+
+  @override
+  String get secureNotepad => 'Secure Notepad';
+
+  @override
   String get themeSystem => 'Follow system';
 
   @override

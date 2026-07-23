@@ -54,6 +54,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appearance => '外观';
 
   @override
+  String get security => '安全';
+
+  @override
+  String get secureNotepad => '安全记事本';
+
+  @override
   String get themeSystem => '跟随系统';
 
   @override

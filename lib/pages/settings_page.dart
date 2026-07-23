@@ -249,11 +249,11 @@ class _SettingsPageState extends State<SettingsPage> {
             ? const Center(child: CircularProgressIndicator())
             : LayoutBuilder(
                 builder: (context, constraints) {
-                  final wide = constraints.maxWidth >= 900;
                   final sections = [
                     _appearanceCard(strings),
                     _behaviorCard(strings),
-                    _aboutCard(strings),
+                    _securityCard(strings),
+                    _notepadCard(strings),
                   ];
                   return Align(
                     alignment: Alignment.topCenter,
@@ -262,38 +262,44 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: ConstrainedBox(
                         key: const Key('settings-content'),
                         constraints: const BoxConstraints(maxWidth: 1080),
-                        child: Column(
-                          children: [
-                            if (wide)
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(child: sections[0]),
-                                  const SizedBox(width: 20),
-                                  Expanded(child: sections[1]),
-                                ],
-                              )
-                            else ...[
-                              sections[0],
-                              const SizedBox(height: 16),
-                              sections[1],
-                            ],
-                            const SizedBox(height: 16),
-                            sections[2],
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: _isDirty ? _saveSettings : null,
-                                icon: const Icon(Icons.save_outlined),
-                                label: Text(
-                                  _isDirty
-                                      ? strings.saveSettings
-                                      : strings.settingsSaved,
+                        child: LayoutBuilder(
+                          builder: (context, contentConstraints) {
+                            final wide = contentConstraints.maxWidth >= 900;
+                            final gap = wide ? 20.0 : 16.0;
+                            final cardWidth = wide
+                                ? (contentConstraints.maxWidth - gap) / 2
+                                : contentConstraints.maxWidth;
+                            return Column(
+                              children: [
+                                Wrap(
+                                  spacing: gap,
+                                  runSpacing: gap,
+                                  children: [
+                                    for (final section in sections)
+                                      SizedBox(
+                                        width: cardWidth,
+                                        child: section,
+                                      ),
+                                  ],
                                 ),
-                              ),
-                            ),
-                          ],
+                                const SizedBox(height: 16),
+                                _aboutCard(strings),
+                                const SizedBox(height: 20),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton.icon(
+                                    onPressed: _isDirty ? _saveSettings : null,
+                                    icon: const Icon(Icons.save_outlined),
+                                    label: Text(
+                                      _isDirty
+                                          ? strings.saveSettings
+                                          : strings.settingsSaved,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -371,7 +377,14 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _confirmBeforeDelete,
             onChanged: (value) => setState(() => _confirmBeforeDelete = value),
           ),
-          const Divider(),
+        ],
+      );
+
+  Widget _securityCard(AppLocalizations strings) => _sectionCard(
+        key: const Key('settings-security'),
+        title: strings.security,
+        icon: Icons.security_outlined,
+        children: [
           ListTile(
             key: const Key('session-ttl'),
             contentPadding: EdgeInsets.zero,
@@ -423,6 +436,22 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (value) => setState(() => _autoLockOnBackground = value),
           ),
           const Divider(),
+          SwitchListTile(
+            key: const Key('detailed-error-reports'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(strings.detailedErrors),
+            subtitle: Text(strings.detailedErrorsHint),
+            value: _detailedErrorReports,
+            onChanged: (value) => setState(() => _detailedErrorReports = value),
+          ),
+        ],
+      );
+
+  Widget _notepadCard(AppLocalizations strings) => _sectionCard(
+        key: const Key('settings-notepad'),
+        title: strings.secureNotepad,
+        icon: Icons.note_alt_outlined,
+        children: [
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(strings.notepadDraftInterval),
@@ -464,15 +493,6 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _notepadDefaultMonitorClipboard,
             onChanged: (value) =>
                 setState(() => _notepadDefaultMonitorClipboard = value),
-          ),
-          const Divider(),
-          SwitchListTile(
-            key: const Key('detailed-error-reports'),
-            contentPadding: EdgeInsets.zero,
-            title: Text(strings.detailedErrors),
-            subtitle: Text(strings.detailedErrorsHint),
-            value: _detailedErrorReports,
-            onChanged: (value) => setState(() => _detailedErrorReports = value),
           ),
         ],
       );

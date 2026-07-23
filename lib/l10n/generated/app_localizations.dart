@@ -188,6 +188,18 @@ abstract class AppLocalizations {
   /// **'外观'**
   String get appearance;
 
+  /// No description provided for @security.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全'**
+  String get security;
+
+  /// No description provided for @secureNotepad.
+  ///
+  /// In zh, this message translates to:
+  /// **'安全记事本'**
+  String get secureNotepad;
+
   /// No description provided for @themeSystem.
   ///
   /// In zh, this message translates to:

@@ -68,6 +68,8 @@ void main() {
     expect(find.text('Language'), findsOneWidget);
     expect(find.text('Follow system'), findsOneWidget);
     expect(find.text('Behavior'), findsOneWidget);
+    expect(find.text('Security'), findsOneWidget);
+    expect(find.text('Secure Notepad'), findsOneWidget);
     expect(find.text('Confirm before deleting'), findsOneWidget);
     expect(find.text('Lock after inactivity'), findsOneWidget);
     expect(find.text('1 hour'), findsOneWidget);
@@ -104,8 +106,16 @@ void main() {
         tester.getTopLeft(find.byKey(const Key('settings-appearance')));
     final wideBehavior =
         tester.getTopLeft(find.byKey(const Key('settings-behavior')));
+    final wideSecurity =
+        tester.getTopLeft(find.byKey(const Key('settings-security')));
+    final wideNotepad =
+        tester.getTopLeft(find.byKey(const Key('settings-notepad')));
     expect(wideBehavior.dx, greaterThan(wideAppearance.dx));
     expect(wideBehavior.dy, wideAppearance.dy);
+    expect(wideSecurity.dx, wideAppearance.dx);
+    expect(wideSecurity.dy, greaterThan(wideAppearance.dy));
+    expect(wideNotepad.dx, greaterThan(wideSecurity.dx));
+    expect(wideNotepad.dy, wideSecurity.dy);
     expect(
       tester.getSize(find.byKey(const Key('settings-content'))).width,
       lessThanOrEqualTo(1080),
@@ -350,7 +360,9 @@ void main() {
 
     expect(await service.getDetailedErrorReports(), isFalse);
     expect(ErrorReportingService.detailedErrorsEnabled, isFalse);
-    await tester.tap(find.text('保存设置'));
+    final save = find.text('保存设置');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
     await tester.pumpAndSettle();
     expect(await service.getDetailedErrorReports(), isTrue);
     expect(ErrorReportingService.detailedErrorsEnabled, isTrue);

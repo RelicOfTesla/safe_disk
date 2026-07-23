@@ -15,6 +15,8 @@
   "settingsLoadSuggestion": "Try again. If the problem continues, restore defaults or contact support.",
   "settingsSaveSuggestion": "Check local storage space and permissions, then try again.",
   "appearance": "Appearance",
+  "security": "Security",
+  "secureNotepad": "Secure Notepad",
   "themeSystem": "Follow system",
   "themeLight": "Light",
   "themeDark": "Dark",

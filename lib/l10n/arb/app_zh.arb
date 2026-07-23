@@ -15,6 +15,8 @@
   "settingsLoadSuggestion": "请重试；如果问题持续，请恢复默认设置或联系支持。",
   "settingsSaveSuggestion": "请检查本机存储空间和权限，然后重试。",
   "appearance": "外观",
+  "security": "安全",
+  "secureNotepad": "安全记事本",
   "themeSystem": "跟随系统",
   "themeLight": "亮色主题",
   "themeDark": "暗色主题",
