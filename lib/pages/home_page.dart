@@ -2349,6 +2349,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  void _copyKeyboardTarget({required bool move}) {
+    if (_selectedFiles.isNotEmpty) {
+      _copySelected(move: move);
+      return;
+    }
+    final target = _keyboardTarget;
+    if (target == null || !_items.any((item) => item.path == target.path)) {
+      return;
+    }
+    if (move) {
+      _cutItem(target);
+    } else {
+      _copyItem(target);
+    }
+  }
+
   Future<void> _createEntry({required bool isDirectory}) async {
     if (!_validateSession()) return;
     final name = await showCreateEntryDialog(
@@ -2789,6 +2805,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _touchCurrentRoot();
             unawaited(_pasteClipboard());
           }
+        },
+        const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
+          _touchCurrentRoot();
+          _copyKeyboardTarget(move: false);
+        },
+        const SingleActivator(LogicalKeyboardKey.keyX, control: true): () {
+          _touchCurrentRoot();
+          _copyKeyboardTarget(move: true);
+        },
+        const SingleActivator(LogicalKeyboardKey.keyC, meta: true): () {
+          _touchCurrentRoot();
+          _copyKeyboardTarget(move: false);
+        },
+        const SingleActivator(LogicalKeyboardKey.keyX, meta: true): () {
+          _touchCurrentRoot();
+          _copyKeyboardTarget(move: true);
         },
         const SingleActivator(LogicalKeyboardKey.f2): () {
           final target = _selectedFiles.length == 1
