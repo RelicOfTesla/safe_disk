@@ -114,23 +114,50 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 			return nil, fmt.Errorf("failed to generate salt: %w", err)
 		}
 
-		// Calculate parameters based on KeyStrengthMs
-		time = 3
-		memory = 64 * 1024 // 64 MB
-		threads = 4
-
-		if params.KeyStrengthMs > 0 {
-			time = uint32(params.KeyStrengthMs / 100)
-			if time < 1 {
-				time = 1
+		if params.ReuseStoredParameters {
+			if cfg == nil {
+				return nil, fmt.Errorf("stored parameters require config")
 			}
-			if time > 10 {
-				time = 10
+			argon2Cfg := cfg.WithGroup("argon2")
+			storedTime, err := argon2Cfg.GetInt("time")
+			if err != nil || storedTime <= 0 {
+				return nil, fmt.Errorf("invalid stored argon2 time")
 			}
+			storedMemory, err := argon2Cfg.GetInt("memory")
+			if err != nil || storedMemory <= 0 {
+				return nil, fmt.Errorf("invalid stored argon2 memory")
+			}
+			storedThreads, err := argon2Cfg.GetInt("threads")
+			if err != nil || storedThreads <= 0 || storedThreads > 255 {
+				return nil, fmt.Errorf("invalid stored argon2 threads")
+			}
+			storedKeyLength, err := argon2Cfg.GetInt("key_length")
+			if err != nil || storedKeyLength <= 0 {
+				return nil, fmt.Errorf("invalid stored argon2 key length")
+			}
+			time = uint32(storedTime)
+			memory = uint32(storedMemory)
+			threads = uint8(storedThreads)
+			keyLength = storedKeyLength
+		} else {
+			// Calculate parameters based on KeyStrengthMs.
+			time = 3
+			memory = 64 * 1024 // 64 MB
+			threads = 4
 
-			memory = uint32(64*1024 + params.KeyStrengthMs*64)
-			if memory > 256*1024 {
-				memory = 256 * 1024
+			if params.KeyStrengthMs > 0 {
+				time = uint32(params.KeyStrengthMs / 100)
+				if time < 1 {
+					time = 1
+				}
+				if time > 10 {
+					time = 10
+				}
+
+				memory = uint32(64*1024 + params.KeyStrengthMs*64)
+				if memory > 256*1024 {
+					memory = 256 * 1024
+				}
 			}
 		}
 	}

@@ -116,10 +116,10 @@ func ChangeRootPasswordContext(
 		return NewConfigError("sec_deriver_factory", "failed to create deriver", err)
 	}
 	newWrappingKey, err := stagedDeriver.NewKey(&crypto_hkdf.MakeKeyParams{
-		Password:      newPassword,
-		StaticSalt:    false,
-		KeyStrengthMs: 1000,
-		KeyLength:     passwordWrappingKeyLength,
+		Password:              newPassword,
+		StaticSalt:            false,
+		KeyLength:             passwordWrappingKeyLength,
+		ReuseStoredParameters: true,
 	}, stagedCfg)
 	if err != nil {
 		return NewConfigError("key_derivation", "failed to derive new password key", err)

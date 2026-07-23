@@ -49,6 +49,16 @@
 - 兼容期 FFI 仍接受 `keyStrengthMs`，但它只映射到 profile，不能声称已校准。待所有活跃调用迁移后再删除。
 - root config 继续保存算法原生参数（例如 `argon2_time`）；新增可选元数据 `sec_kdf_profile`、`sec_kdf_calibrated` 和 `sec_kdf_target_ms` 只用于属性展示，不参与解锁。
 
+### 3.1 改密与参数继承
+
+可改密码 root 的改密只重新包装随机内容密钥，但会生成新的 salt 和密码派生参数。因此其 KDF 成本必须有明确策略：
+
+- 默认改密读取并保留当前 root 已保存的**原生**参数（Argon2id 的 time/memory/threads、scrypt 的 N/r/p、PBKDF2 的 iterations/key length），只换 salt、密码验证器和内容密钥 envelope。它不能按新设备性能静默降级或升级。
+- 只有用户显式选择“改密时升级密码保护”后，才可用选定 profile 运行校准并 staged replace 配置；取消、超时或校准失败必须完整保留旧参数和旧密码。
+- 旧 root 没有校准元数据时仍以已存原生参数为准，并在属性页标为“历史参数，未校准”；不得尝试从 `keyStrengthMs` 反推成本。
+
+已完成前置修复（2026-07-23）：`ChangeRootPasswordContext` 使用 `ReuseStoredParameters` 在 staged 配置中严格读取原生参数并生成新 salt；参数缺失时失败关闭且不提交配置。Argon2id、scrypt、PBKDF2 的回归覆盖原生参数不变、salt 更新、旧密码拒绝/新密码可开和缺参数不写回。此修复不提供校准、参数升级或 `sec_kdf_*` 元数据。
+
 ## 4. sec 接口
 
 ```text

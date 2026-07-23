@@ -117,21 +117,41 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 			return nil, fmt.Errorf("failed to generate salt: %w", err)
 		}
 
-		// Calculate parameters based on KeyStrengthMs
-		N = 32768
-		r = 8
-		p = 1
+		if params.ReuseStoredParameters {
+			if cfg == nil {
+				return nil, fmt.Errorf("stored parameters require config")
+			}
+			scryptCfg := cfg.WithGroup("scrypt")
+			var err error
+			if N, err = scryptCfg.GetInt("n"); err != nil || N <= 1 || N&(N-1) != 0 {
+				return nil, fmt.Errorf("invalid stored scrypt n")
+			}
+			if r, err = scryptCfg.GetInt("r"); err != nil || r <= 0 {
+				return nil, fmt.Errorf("invalid stored scrypt r")
+			}
+			if p, err = scryptCfg.GetInt("p"); err != nil || p <= 0 {
+				return nil, fmt.Errorf("invalid stored scrypt p")
+			}
+			if keyLength, err = scryptCfg.GetInt("key_length"); err != nil || keyLength <= 0 {
+				return nil, fmt.Errorf("invalid stored scrypt key length")
+			}
+		} else {
+			// Calculate parameters based on KeyStrengthMs.
+			N = 32768
+			r = 8
+			p = 1
 
-		if params.KeyStrengthMs > 0 {
-			N = 16384
-			if params.KeyStrengthMs > 100 {
-				N = 32768
-			}
-			if params.KeyStrengthMs > 500 {
-				N = 65536
-			}
-			if params.KeyStrengthMs > 1000 {
-				N = 131072
+			if params.KeyStrengthMs > 0 {
+				N = 16384
+				if params.KeyStrengthMs > 100 {
+					N = 32768
+				}
+				if params.KeyStrengthMs > 500 {
+					N = 65536
+				}
+				if params.KeyStrengthMs > 1000 {
+					N = 131072
+				}
 			}
 		}
 	}

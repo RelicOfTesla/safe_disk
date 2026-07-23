@@ -32,6 +32,12 @@ type MakeKeyParams struct {
 	// Common values: 16 (AES-128), 24 (AES-192), 32 (AES-256).
 	// If not specified (0), defaults to 32 (AES-256).
 	KeyLength int
+
+	// ReuseStoredParameters requires NewKey to read the existing algorithm
+	// parameters from cfg while generating a fresh salt. It is used by staged
+	// password changes so changing a password cannot silently change KDF cost.
+	// Missing parameters must fail closed rather than falling back to defaults.
+	ReuseStoredParameters bool
 }
 
 const STATIC_SALT = "SafeDisk"

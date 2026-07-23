@@ -110,10 +110,27 @@ func (f *Factory) NewKey(params *crypto_hkdf.MakeKeyParams, cfg config.SharedCon
 			return nil, fmt.Errorf("failed to generate salt: %w", err)
 		}
 
-		// Calculate iterations based on KeyStrengthMs
-		iterations = 100000 // default
-		if params.KeyStrengthMs > 0 {
-			iterations = 200000
+		if params.ReuseStoredParameters {
+			if cfg == nil {
+				return nil, fmt.Errorf("stored parameters require config")
+			}
+			pbkdf2Cfg := cfg.WithGroup(stableConfigGroup)
+			storedIterations, err := pbkdf2Cfg.GetInt("iterations")
+			if err != nil || storedIterations <= 0 {
+				return nil, fmt.Errorf("invalid stored pbkdf2 iterations")
+			}
+			storedKeyLength, err := pbkdf2Cfg.GetInt("key_length")
+			if err != nil || storedKeyLength <= 0 {
+				return nil, fmt.Errorf("invalid stored pbkdf2 key length")
+			}
+			iterations = storedIterations
+			keyLength = storedKeyLength
+		} else {
+			// Calculate iterations based on KeyStrengthMs.
+			iterations = 100000 // default
+			if params.KeyStrengthMs > 0 {
+				iterations = 200000
+			}
 		}
 	}
 
