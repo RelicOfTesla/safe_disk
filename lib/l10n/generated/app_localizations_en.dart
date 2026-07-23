@@ -1570,36 +1570,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteDiskDirectory => 'Delete disk directory';
 
   @override
-  String get argon2TimeCost => 'Argon2 time cost';
-
-  @override
-  String get argon2MemoryCost => 'Argon2 memory cost';
-
-  @override
-  String get argon2Parallelism => 'Argon2 parallelism';
-
-  @override
-  String get argon2KeyLength => 'Argon2 key length';
-
-  @override
-  String get pbkdf2Iterations => 'PBKDF2 iterations';
-
-  @override
-  String get pbkdf2KeyLength => 'PBKDF2 key length';
-
-  @override
-  String get scryptN => 'scrypt N';
-
-  @override
-  String get scryptR => 'scrypt r';
-
-  @override
-  String get scryptP => 'scrypt p';
-
-  @override
-  String get scryptKeyLength => 'scrypt key length';
-
-  @override
   String propertyLabel(String label) {
     return '$label:';
   }

@@ -24,7 +24,7 @@ void main() {
     }),
   );
 
-  testWidgets('root 属性只显示安全配置字段', (tester) async {
+  testWidgets('root 属性只显示用户可理解的安全配置', (tester) async {
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('zh'),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -46,7 +46,9 @@ void main() {
     expect(find.text('工作盘'), findsOneWidget);
     expect(find.text('AES-256-CTR'), findsOneWidget);
     expect(find.text('Argon2id'), findsOneWidget);
-    expect(find.text('3'), findsOneWidget);
+    expect(find.text('Argon2 时间成本：'), findsNothing);
+    expect(find.text('Argon2 内存成本：'), findsNothing);
+    expect(find.text('65536'), findsNothing);
     expect(find.text('secret-challenge'), findsNothing);
     expect(find.text('secret-tag'), findsNothing);
     expect(find.text('secret-salt'), findsNothing);
@@ -161,5 +163,6 @@ void main() {
     expect(find.text('Display name:'), findsOneWidget);
     expect(find.text('Unlocked'), findsOneWidget);
     expect(find.text('Change password:'), findsOneWidget);
+    expect(find.text('Argon2 time cost:'), findsNothing);
   });
 }

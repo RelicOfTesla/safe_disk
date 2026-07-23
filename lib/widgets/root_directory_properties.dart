@@ -45,7 +45,6 @@ Future<void> showRootDirectoryProperties({
           ? strings.versionValue(config['sec_password_verifier_version'] as int)
           : strings.unavailableOrLegacy,
     ),
-    ..._safeKdfProperties(config, strings),
     PropertyValue(
       strings.passwordChange,
       rootSupportsPasswordChange(directory)
@@ -112,27 +111,4 @@ Future<void> showUnsupportedRootPasswordChange({
 String _configString(Map<String, dynamic> config, String key, String unknown) {
   final value = config[key];
   return value is String && value.isNotEmpty ? value : unknown;
-}
-
-List<PropertyValue> _safeKdfProperties(
-  Map<String, dynamic> config,
-  AppLocalizations strings,
-) {
-  final safeKeys = <String, String>{
-    'argon2_time': strings.argon2TimeCost,
-    'argon2_memory': strings.argon2MemoryCost,
-    'argon2_threads': strings.argon2Parallelism,
-    'argon2_key_length': strings.argon2KeyLength,
-    'pbkdf2_iterations': strings.pbkdf2Iterations,
-    'pbkdf2_key_length': strings.pbkdf2KeyLength,
-    'scrypt_n': strings.scryptN,
-    'scrypt_r': strings.scryptR,
-    'scrypt_p': strings.scryptP,
-    'scrypt_key_length': strings.scryptKeyLength,
-  };
-  return [
-    for (final entry in safeKeys.entries)
-      if (config[entry.key] is int)
-        PropertyValue(entry.value, '${config[entry.key]}'),
-  ];
 }

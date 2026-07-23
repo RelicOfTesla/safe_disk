@@ -2684,66 +2684,6 @@ abstract class AppLocalizations {
   /// **'删除磁盘目录'**
   String get deleteDiskDirectory;
 
-  /// No description provided for @argon2TimeCost.
-  ///
-  /// In zh, this message translates to:
-  /// **'Argon2 时间成本'**
-  String get argon2TimeCost;
-
-  /// No description provided for @argon2MemoryCost.
-  ///
-  /// In zh, this message translates to:
-  /// **'Argon2 内存成本'**
-  String get argon2MemoryCost;
-
-  /// No description provided for @argon2Parallelism.
-  ///
-  /// In zh, this message translates to:
-  /// **'Argon2 并行度'**
-  String get argon2Parallelism;
-
-  /// No description provided for @argon2KeyLength.
-  ///
-  /// In zh, this message translates to:
-  /// **'Argon2 密钥长度'**
-  String get argon2KeyLength;
-
-  /// No description provided for @pbkdf2Iterations.
-  ///
-  /// In zh, this message translates to:
-  /// **'PBKDF2 迭代次数'**
-  String get pbkdf2Iterations;
-
-  /// No description provided for @pbkdf2KeyLength.
-  ///
-  /// In zh, this message translates to:
-  /// **'PBKDF2 密钥长度'**
-  String get pbkdf2KeyLength;
-
-  /// No description provided for @scryptN.
-  ///
-  /// In zh, this message translates to:
-  /// **'scrypt N'**
-  String get scryptN;
-
-  /// No description provided for @scryptR.
-  ///
-  /// In zh, this message translates to:
-  /// **'scrypt r'**
-  String get scryptR;
-
-  /// No description provided for @scryptP.
-  ///
-  /// In zh, this message translates to:
-  /// **'scrypt p'**
-  String get scryptP;
-
-  /// No description provided for @scryptKeyLength.
-  ///
-  /// In zh, this message translates to:
-  /// **'scrypt 密钥长度'**
-  String get scryptKeyLength;
-
   /// No description provided for @propertyLabel.
   ///
   /// In zh, this message translates to:

@@ -1444,36 +1444,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get deleteDiskDirectory => '删除磁盘目录';
 
   @override
-  String get argon2TimeCost => 'Argon2 时间成本';
-
-  @override
-  String get argon2MemoryCost => 'Argon2 内存成本';
-
-  @override
-  String get argon2Parallelism => 'Argon2 并行度';
-
-  @override
-  String get argon2KeyLength => 'Argon2 密钥长度';
-
-  @override
-  String get pbkdf2Iterations => 'PBKDF2 迭代次数';
-
-  @override
-  String get pbkdf2KeyLength => 'PBKDF2 密钥长度';
-
-  @override
-  String get scryptN => 'scrypt N';
-
-  @override
-  String get scryptR => 'scrypt r';
-
-  @override
-  String get scryptP => 'scrypt p';
-
-  @override
-  String get scryptKeyLength => 'scrypt 密钥长度';
-
-  @override
   String propertyLabel(String label) {
     return '$label：';
   }
