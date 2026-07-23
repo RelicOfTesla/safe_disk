@@ -73,9 +73,9 @@ SAFE_DISK_FFI_LIBRARY=/path/to/libffi_sec_fs.so \
 
 ### 本机基线记录（2026-07-23）
 
-- 环境：Linux `7.0.0-28-generic` x86_64，Flutter `3.44.6`，应用提交 `8f6e873`；动态库 `libffi_sec_fs.so` SHA-256 为 `1fb7608f9fbba69929b3a4cb727388ef3341957999934164e59711c60c7acef5`。
-- 命令：`SAFE_DISK_FFI_LIBRARY=/tmp/safe_disk_ffi_kdf_rekey/libffi_sec_fs.so dart run tool/benchmark_directory_cursor.dart --entries=100000`。
-- 结果：创建 100000 个加密名称的直系空文件为 4918 ms；首屏读取 200 条为 8 ms、RSS 采样 202244096 bytes；完整 501 页读取 100000 条为 643 ms，单页最大响应 8 ms，逐页 RSS 采样上界 236847104 bytes。
+- 环境：Linux `7.0.0-28-generic` x86_64，Flutter `3.44.6`，应用提交 `6c51652`；动态库 `/tmp/safe_disk_ffi/libffi_sec_fs.so` SHA-256 为 `1fad89709e369a5d0545a4cca4a5ea60efebb87f8c101072fd04ad4ab3c6a5b0`。
+- 命令：`SAFE_DISK_FFI_LIBRARY=/tmp/safe_disk_ffi/libffi_sec_fs.so /home/john/flutter/bin/cache/dart-sdk/bin/dart run tool/benchmark_directory_cursor.dart --entries=100000`。
+- 结果：创建 100000 个加密名称的直系空文件为 5022 ms；首屏读取 200 条为 8 ms、RSS 采样 202502144 bytes；完整 501 页读取 100000 条为 776 ms，单页最大响应 8 ms，逐页 RSS 采样上界 239362048 bytes。
 - 限制：该结果包含 Dart `DirectoryPageSession` 的已读条目累计，不代表 Flutter 实际滚动帧耗时、GPU 内存、真实精确峰值或其它设备表现；Windows/macOS 与筛选时的桌面可用性仍需独立验收。
 
 ## 目录树增量阶段
