@@ -76,6 +76,10 @@ void main() {
     expect(find.text('Monitor clipboard by default'), findsOneWidget);
     expect(find.text('Show detailed error information'), findsOneWidget);
     expect(find.text('About'), findsOneWidget);
+    expect(
+      find.text('Version 1.0.0\nEncrypted file manager'),
+      findsOneWidget,
+    );
     expect(find.textContaining('Version 1.0.0'), findsOneWidget);
     expect(find.textContaining('Encrypted file manager'), findsOneWidget);
     expect(find.text('删除前确认'), findsNothing);

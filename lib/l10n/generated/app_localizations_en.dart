@@ -736,7 +736,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get about => 'About';
 
   @override
-  String get appVersionDescription => 'Version 1.0.0\\nEncrypted file manager';
+  String get appVersionDescription => 'Version 1.0.0\nEncrypted file manager';
 
   @override
   String get durationNever => 'Never';
@@ -1075,7 +1075,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noOpenedDirectories =>
-      'No directories are open yet.\\n\\nSelect \"Open or create encrypted directory\" to get started.';
+      'No directories are open yet.\n\nSelect \"Open or create encrypted directory\" to get started.';
 
   @override
   String get properties => 'Properties';

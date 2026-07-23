@@ -109,6 +109,12 @@ void main() {
 
     expect(find.text('0 directories open'), findsOneWidget);
     expect(find.text('Open or create encrypted directory'), findsOneWidget);
+    expect(
+      find.text(
+        'No directories are open yet.\n\nSelect "Open or create encrypted directory" to get started.',
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('No directories are open yet.'), findsOneWidget);
   });
 

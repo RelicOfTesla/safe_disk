@@ -1361,7 +1361,7 @@ abstract class AppLocalizations {
   /// No description provided for @appVersionDescription.
   ///
   /// In zh, this message translates to:
-  /// **'版本 1.0.0\\n加密文件管理器'**
+  /// **'版本 1.0.0\n加密文件管理器'**
   String get appVersionDescription;
 
   /// No description provided for @durationNever.
@@ -1853,7 +1853,7 @@ abstract class AppLocalizations {
   /// No description provided for @noOpenedDirectories.
   ///
   /// In zh, this message translates to:
-  /// **'还没有打开目录\\n\\n选择“打开或创建加密目录”开始使用'**
+  /// **'还没有打开目录\n\n选择“打开或创建加密目录”开始使用'**
   String get noOpenedDirectories;
 
   /// No description provided for @properties.

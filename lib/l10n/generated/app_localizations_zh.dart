@@ -676,7 +676,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get about => '关于';
 
   @override
-  String get appVersionDescription => '版本 1.0.0\\n加密文件管理器';
+  String get appVersionDescription => '版本 1.0.0\n加密文件管理器';
 
   @override
   String get durationNever => '永不过期';
@@ -979,7 +979,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get openOrCreateEncryptedDirectory => '打开或创建加密目录';
 
   @override
-  String get noOpenedDirectories => '还没有打开目录\\n\\n选择“打开或创建加密目录”开始使用';
+  String get noOpenedDirectories => '还没有打开目录\n\n选择“打开或创建加密目录”开始使用';
 
   @override
   String get properties => '属性';
