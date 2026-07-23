@@ -21,6 +21,7 @@
 | UI-27 | 向上导航和 root 面包屑 | Windows 路径规范化 unit/widget 已覆盖 | 深层目录首次向上、盘符、别名 root 和相似前缀边界。 |
 | UI-33、SEC-01 | 高级加密组合和旧算法名 root | 真实 FFI/CLI 组合与旧 root 读取已覆盖 | 公开组合创建、写入、重开，以及三份旧 root 的 Dart FFI 读取。 |
 | UI-34 | 桌面快捷键 | widget 已覆盖 F2/F5/Ctrl+V/Ctrl+F/Ctrl+S | 真实键位、菜单提示和输入控件优先级。 |
+| UI-75 | 外部拖放 Windows 路径边界 | `DragDropController` 已在注入 Windows 规则下统一 `/` 与 `\\` 分隔符并做大小写不敏感 root 边界判断；Linux controller/HomeShell 定向回归通过 | Windows 资源管理器多文件/目录拖入、盘符和 UNC 路径、权限拒绝、当前 root 内部路径拒绝及临时文件生命周期。 |
 | UI-38、UI-42、UI-47、UI-49、UI-51 | 安全记事本查找、撤销重做、数字键盘 Enter 与脱敏错误 | 查找 overlay、标准 Ctrl/Cmd 快捷键、数字键盘 Enter、只读边界和脱敏错误 widget/controller 回归均已存在 | 在 100%/125%/150% 缩放下验证查找命中可见居中与选中高亮、Ctrl+F/Ctrl+Z/Ctrl+Shift+Z、普通/数字键盘 Enter、关闭/草稿/剪贴板错误的脱敏展示及读屏状态。 |
 | UI-40、UI-45、UI-50 | 图片查看器滚轮缩放与状态语义 | widget 已证明工具栏与鼠标滚轮共用 `10%–1000%` 缩放范围，并覆盖加载、拒绝、失败和已打开图片的 live region 语义 | 鼠标滚轮、触控板、高 DPI 下缩放下限、旋转、翻页和读屏状态。 |
 | UI-55 | 属性值选择与复制 | widget 覆盖安全值系统剪贴板复制、反馈和敏感字段无复制入口 | 鼠标选择、Ctrl+C、复制按钮焦点/读屏标签，以及高 DPI 文本截断。 |
