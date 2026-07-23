@@ -87,7 +87,7 @@ class FileBrowser extends StatefulWidget {
   /// Path currently targeted by keyboard navigation in the parent page.
   final String? focusedPath;
 
-  /// Select all non-directory items.
+  /// Select all loaded files and directories.
   final VoidCallback onSelectAll;
   final bool hasMore;
   final bool isLoadingMore;
@@ -108,6 +108,7 @@ class _FileBrowserState extends State<FileBrowser> {
   String? _selectionAnchorPath;
   final Map<String, GlobalKey> _itemKeys = {};
   final GlobalKey _selectionSurfaceKey = GlobalKey();
+  final ValueNotifier<Rect?> _dragMarquee = ValueNotifier<Rect?>(null);
   Offset? _dragStart;
   Offset? _dragCurrent;
   bool _isDraggingSelection = false;
@@ -131,6 +132,7 @@ class _FileBrowserState extends State<FileBrowser> {
     _contentScrollController
       ..removeListener(_maybeLoadMore)
       ..dispose();
+    _dragMarquee.dispose();
     super.dispose();
   }
 
@@ -765,7 +767,6 @@ class _FileBrowserState extends State<FileBrowser> {
     List<FileSystemNode> items,
     Widget child,
   ) {
-    final marqueeRect = _selectionMarqueeRect();
     final colors = Theme.of(context).colorScheme;
     return Stack(
       key: _selectionSurfaceKey,
@@ -779,6 +780,7 @@ class _FileBrowserState extends State<FileBrowser> {
               _dragStart = event.position;
               _dragCurrent = event.position;
               _isDraggingSelection = false;
+              _dragMarquee.value = null;
             }
           },
           onPointerMove: (event) {
@@ -790,7 +792,11 @@ class _FileBrowserState extends State<FileBrowser> {
               _dragCurrent = event.position;
             }
             if (_isDraggingSelection) {
-              setState(() => _dragCurrent = event.position);
+              _dragCurrent = event.position;
+              // Keep pointer feedback independent from the virtualized file
+              // list. Rebuilding the whole browser for every pointer event
+              // makes marquee selection needlessly expensive in large dirs.
+              _dragMarquee.value = _selectionMarqueeRect();
             }
           },
           onPointerUp: (event) {
@@ -800,6 +806,7 @@ class _FileBrowserState extends State<FileBrowser> {
             _dragStart = null;
             _dragCurrent = null;
             _isDraggingSelection = false;
+            _dragMarquee.value = null;
             if (dragging && start != null && end != null) {
               _selectItemsInRect(items, Rect.fromPoints(start, end));
             }
@@ -808,21 +815,27 @@ class _FileBrowserState extends State<FileBrowser> {
             _dragStart = null;
             _dragCurrent = null;
             _isDraggingSelection = false;
+            _dragMarquee.value = null;
           },
           child: child,
         ),
-        if (marqueeRect != null)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                key: const Key('file-selection-marquee'),
-                painter: _SelectionMarqueePainter(
-                  marqueeRect,
-                  colors.primary,
+        ValueListenableBuilder<Rect?>(
+          valueListenable: _dragMarquee,
+          builder: (context, marqueeRect, _) {
+            if (marqueeRect == null) return const SizedBox.shrink();
+            return Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  key: const Key('file-selection-marquee'),
+                  painter: _SelectionMarqueePainter(
+                    marqueeRect,
+                    colors.primary,
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
+        ),
       ],
     );
   }
