@@ -111,6 +111,13 @@ class SettingsService {
 
   /// Set session TTL in seconds
   Future<void> setSessionTTL(int seconds) async {
+    if (!sessionTTLOptions.containsValue(seconds)) {
+      throw ArgumentError.value(
+        seconds,
+        'seconds',
+        'unsupported-session-ttl',
+      );
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keySessionTTL, seconds);
   }

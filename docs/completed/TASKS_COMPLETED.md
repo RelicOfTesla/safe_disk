@@ -84,6 +84,19 @@
 - `flutter test --no-pub test/settings_service_test.dart test/settings_page_widget_test.dart -r compact` 共 25 项通过。
 - `/home/john/flutter/bin/cache/dart-sdk/bin/dart analyze` 无问题。
 
+### UI-77 设置会话 TTL 值校验：100%
+
+验收边界：
+
+- 会话 TTL 写入只接受公开选项 `900`、`1800`、`3600`、`14400` 和 `0` 秒。
+- 非法写入通过稳定 `ArgumentError` 拒绝；历史或手工写入的非法持久化值回退到安全默认值。
+- 本任务只覆盖设置服务的值域约束和设置页保存链路，不代表设置页整体或跨平台视觉验收完成。
+
+实际测试证据：
+
+- `flutter test --no-pub test/settings_service_test.dart test/settings_page_widget_test.dart -r compact`：35 项全部通过。
+- `/home/john/flutter/bin/cache/dart-sdk/bin/dart analyze`：无问题。
+
 ### DOC-I18N-01 多语言架构与迁移框架：100%
 
 验收边界：

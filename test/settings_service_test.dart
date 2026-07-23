@@ -92,6 +92,20 @@ void main() {
     );
   });
 
+  test('session TTL preference rejects unsupported values', () async {
+    final service = SettingsService();
+
+    await service.setSessionTTL(SettingsService.sessionTTLOptions['30min']!);
+    expect(await service.getSessionTTL(), 1800);
+    await expectLater(service.setSessionTTL(17), throwsArgumentError);
+
+    SharedPreferences.setMockInitialValues({'session_ttl': 17});
+    expect(
+      await SettingsService().getSessionTTL(),
+      SettingsService.defaultSessionTTL,
+    );
+  });
+
   test('new-directory derivation profile is constrained and recovers safely',
       () async {
     final service = SettingsService();
