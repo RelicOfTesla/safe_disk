@@ -1388,6 +1388,19 @@ void main() {
     );
   });
 
+  testWidgets('home and end keys move and extend file selection',
+      (tester) async {
+    await _openTwoFileVault(tester, includeDirectory: true);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+
+    expect(find.text('已选择 3 项'), findsOneWidget);
+  });
+
   testWidgets('batch paste reports partial failure and leaves it retryable',
       (tester) async {
     final (:cryptoService, :fileService) = await _openTwoFileVault(

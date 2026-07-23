@@ -2411,6 +2411,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
   }
 
+  void _moveKeyboardTargetToEdge({
+    required bool end,
+    required bool extendSelection,
+  }) {
+    if (_items.isEmpty) return;
+    final nextIndex = end ? _items.length - 1 : 0;
+    final target = _items[nextIndex];
+    setState(() {
+      _keyboardTarget = target;
+      if (!extendSelection) {
+        _keyboardSelectionAnchorPath = target.path;
+        return;
+      }
+      final anchorPath = _keyboardSelectionAnchorPath ?? target.path;
+      final anchorIndex = _items.indexWhere((item) => item.path == anchorPath);
+      final start = anchorIndex < 0
+          ? nextIndex
+          : (anchorIndex < nextIndex ? anchorIndex : nextIndex);
+      final finish = anchorIndex < 0
+          ? nextIndex
+          : (anchorIndex < nextIndex ? nextIndex : anchorIndex);
+      _selectedFiles
+        ..clear()
+        ..addAll(_items.sublist(start, finish + 1));
+      _isSelectMode = _selectedFiles.isNotEmpty;
+    });
+  }
+
   void _toggleKeyboardTargetSelection() {
     final target = _keyboardTarget;
     if (target == null) return;
@@ -2934,6 +2962,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _moveKeyboardTarget(-1, extendSelection: true),
         const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): () =>
             _moveKeyboardTarget(1, extendSelection: true),
+        const SingleActivator(LogicalKeyboardKey.home): () =>
+            _moveKeyboardTargetToEdge(end: false, extendSelection: false),
+        const SingleActivator(LogicalKeyboardKey.end): () =>
+            _moveKeyboardTargetToEdge(end: true, extendSelection: false),
+        const SingleActivator(LogicalKeyboardKey.home, shift: true): () =>
+            _moveKeyboardTargetToEdge(end: false, extendSelection: true),
+        const SingleActivator(LogicalKeyboardKey.end, shift: true): () =>
+            _moveKeyboardTargetToEdge(end: true, extendSelection: true),
         const SingleActivator(LogicalKeyboardKey.space, control: true):
             _toggleKeyboardTargetSelection,
       },
