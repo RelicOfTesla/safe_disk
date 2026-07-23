@@ -1,9 +1,53 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../controllers/secure_notepad_controller.dart';
 import '../l10n/generated/app_localizations.dart';
+import '../services/secure_notepad_policy.dart';
+
+/// Caps editor input by encoded bytes rather than Dart UTF-16 code units.
+class Utf8ByteLengthLimitingTextInputFormatter extends TextInputFormatter {
+  const Utf8ByteLengthLimitingTextInputFormatter(
+    this.maxBytes, {
+    this.label = 'utf8-byte-limit',
+  });
+
+  final int maxBytes;
+  final String label;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (maxBytes < 0) {
+      throw ArgumentError.value(maxBytes, 'maxBytes', label);
+    }
+    var byteCount = 0;
+    var codeUnitCount = 0;
+    final kept = StringBuffer();
+    for (final rune in newValue.text.runes) {
+      final runeText = String.fromCharCode(rune);
+      final runeBytes = utf8.encode(runeText).length;
+      if (byteCount + runeBytes > maxBytes) break;
+      kept.write(runeText);
+      byteCount += runeBytes;
+      codeUnitCount += runeText.length;
+    }
+    final value = kept.toString();
+    if (value == newValue.text) return newValue;
+    final offset =
+        newValue.selection.extentOffset.clamp(0, codeUnitCount).toInt();
+    return newValue.copyWith(
+      text: value,
+      selection: TextSelection.collapsed(offset: offset),
+      composing: TextRange.empty,
+    );
+  }
+}
 
 class SecureNotepadStatusBar extends StatelessWidget {
   const SecureNotepadStatusBar({
@@ -557,6 +601,11 @@ class _SecureTextEditorState extends State<SecureTextEditor> {
                 showCursor: !widget.readOnly,
                 enableInteractiveSelection: true,
                 scrollController: _scrollController,
+                inputFormatters: const [
+                  Utf8ByteLengthLimitingTextInputFormatter(
+                    kMaxSecureNotepadContentBytes,
+                  ),
+                ],
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   filled: false,
