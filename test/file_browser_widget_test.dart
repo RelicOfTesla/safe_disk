@@ -198,6 +198,16 @@ void main() {
           .colorScheme
           .primaryContainer,
     );
+    expect(
+      tester
+          .widget<Checkbox>(
+            find.byKey(
+              const ValueKey('file-grid-select-/root/sub/alpha.txt'),
+            ),
+          )
+          .value,
+      isTrue,
+    );
   });
 
   testWidgets('directories participate in range and keyboard-style selection',

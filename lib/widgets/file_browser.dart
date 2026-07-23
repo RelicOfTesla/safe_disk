@@ -677,6 +677,7 @@ class _FileBrowserState extends State<FileBrowser> {
                 return _FileGridCard(
                   key: _itemKey(item),
                   item: item,
+                  isSelectMode: widget.isSelectMode,
                   isSelected: isSelected,
                   isContextHighlighted: isHighlighted,
                   isFocused: widget.focusedPath == item.path,
@@ -687,6 +688,8 @@ class _FileBrowserState extends State<FileBrowser> {
                   onLongPress: () => _handleItemLongPress(item, isSelected),
                   onSecondaryTapDown: (position) =>
                       _handleItemSecondaryTap(item, position),
+                  onToggleSelection: (selected) =>
+                      widget.onSelectionToggle(item, selected),
                 );
               },
             ),
@@ -1038,6 +1041,7 @@ class _FileGridCard extends StatelessWidget {
   const _FileGridCard({
     super.key,
     required this.item,
+    required this.isSelectMode,
     required this.isSelected,
     required this.isContextHighlighted,
     required this.isFocused,
@@ -1045,9 +1049,11 @@ class _FileGridCard extends StatelessWidget {
     this.onDoubleTap,
     required this.onLongPress,
     required this.onSecondaryTapDown,
+    required this.onToggleSelection,
   });
 
   final FileSystemNode item;
+  final bool isSelectMode;
   final bool isSelected;
   final bool isContextHighlighted;
   final bool isFocused;
@@ -1055,6 +1061,7 @@ class _FileGridCard extends StatelessWidget {
   final VoidCallback? onDoubleTap;
   final VoidCallback onLongPress;
   final ValueChanged<Offset> onSecondaryTapDown;
+  final ValueChanged<bool> onToggleSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -1070,49 +1077,64 @@ class _FileGridCard extends StatelessWidget {
           onTap: onTap,
           onDoubleTap: onDoubleTap,
           onLongPress: onLongPress,
-          child: Card(
-            key: ValueKey('file-grid-${item.path}'),
-            color: isSelected
-                ? Theme.of(context).colorScheme.primaryContainer
-                : isContextHighlighted
+          child: Stack(
+            children: [
+              Card(
+                key: ValueKey('file-grid-${item.path}'),
+                color: isSelected
                     ? Theme.of(context).colorScheme.primaryContainer
-                    : null,
-            elevation: isSelected || isContextHighlighted ? 4 : 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: isSelected || isContextHighlighted
-                    ? Theme.of(context).colorScheme.primary
-                    : isFocused
-                        ? Theme.of(context).colorScheme.secondary
-                        : Theme.of(context).colorScheme.outlineVariant,
-                width:
-                    isSelected || isContextHighlighted || isFocused ? 2.5 : 1,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  item.isDirectory
-                      ? Icons.folder
-                      : _getFileIcon(item.extension),
-                  size: 48,
-                  color: item.isDirectory ? Colors.orange : null,
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    item.name,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12),
+                    : isContextHighlighted
+                        ? Theme.of(context).colorScheme.primaryContainer
+                        : null,
+                elevation: isSelected || isContextHighlighted ? 4 : 1,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: isSelected || isContextHighlighted
+                        ? Theme.of(context).colorScheme.primary
+                        : isFocused
+                            ? Theme.of(context).colorScheme.secondary
+                            : Theme.of(context).colorScheme.outlineVariant,
+                    width: isSelected || isContextHighlighted || isFocused
+                        ? 2.5
+                        : 1,
                   ),
                 ),
-              ],
-            ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      item.isDirectory
+                          ? Icons.folder
+                          : _getFileIcon(item.extension),
+                      size: 48,
+                      color: item.isDirectory ? Colors.orange : null,
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        item.name,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelectMode)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Checkbox(
+                    key: ValueKey('file-grid-select-${item.path}'),
+                    value: isSelected,
+                    onChanged: (value) => onToggleSelection(value ?? false),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
