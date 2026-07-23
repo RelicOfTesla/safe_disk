@@ -76,6 +76,22 @@ void main() {
     expect(await SettingsService().getLocale(), SettingsService.defaultLocale);
   });
 
+  test('theme preference defaults safely and rejects unsupported values',
+      () async {
+    final service = SettingsService();
+
+    expect(await service.getThemeMode(), SettingsService.defaultThemeMode);
+    await service.setThemeMode('dark');
+    expect(await service.getThemeMode(), 'dark');
+    await expectLater(service.setThemeMode('sepia'), throwsArgumentError);
+
+    SharedPreferences.setMockInitialValues({'theme_mode': 'sepia'});
+    expect(
+      await SettingsService().getThemeMode(),
+      SettingsService.defaultThemeMode,
+    );
+  });
+
   test('new-directory derivation profile is constrained and recovers safely',
       () async {
     final service = SettingsService();

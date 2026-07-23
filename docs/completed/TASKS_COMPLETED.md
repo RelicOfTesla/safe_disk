@@ -71,6 +71,19 @@
 - 覆盖服务校验、传输 marker、原生库加载失败及中英文详细错误展示。
 - `flutter analyze --no-pub` 通过；定向回归 20 通过，完整 Flutter 回归为 234 通过、12 跳过；词法审计为 0 候选。
 
+### UI-76 设置主题值校验：100%
+
+验收边界：
+
+- 主题设置只接受 `system`、`light` 和 `dark` 三个公开选项。
+- 非法写入通过稳定 `ArgumentError` 拒绝；历史或手工写入的非法持久化值安全回退到系统主题。
+- 本任务只覆盖设置服务和应用主题解析边界，不代表三平台主题视觉、字号或读屏验收完成。
+
+实际测试证据：
+
+- `flutter test --no-pub test/settings_service_test.dart test/settings_page_widget_test.dart -r compact` 共 25 项通过。
+- `/home/john/flutter/bin/cache/dart-sdk/bin/dart analyze` 无问题。
+
 ### DOC-I18N-01 多语言架构与迁移框架：100%
 
 验收边界：

@@ -130,11 +130,15 @@ class SettingsService {
   /// Get theme mode
   Future<String> getThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyThemeMode) ?? defaultThemeMode;
+    final mode = prefs.getString(_keyThemeMode) ?? defaultThemeMode;
+    return themeModeOptions.contains(mode) ? mode : defaultThemeMode;
   }
 
   /// Set theme mode
   Future<void> setThemeMode(String mode) async {
+    if (!themeModeOptions.contains(mode)) {
+      throw ArgumentError.value(mode, 'mode', 'unsupported-theme-mode');
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyThemeMode, mode);
   }
