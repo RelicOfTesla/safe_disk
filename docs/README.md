@@ -26,6 +26,7 @@
 | [PLATFORM_ACCEPTANCE.md](PLATFORM_ACCEPTANCE.md) | 已实现功能的 Windows/macOS/独立环境验收 | 当前有效，不作为实现完成证明 |
 | [FEATURES.md](FEATURES.md) | 活跃功能规划 | 统一百分比，不包含 100% 项 |
 | [completed/TASKS_COMPLETED.md](completed/TASKS_COMPLETED.md) | 已完成任务 | 仅包含有自动化实际功能证据的 100% 项 |
+| [DEVELOPMENT_STANDARDS.md](DEVELOPMENT_STANDARDS.md) | 开发规范：范围、本地化、安全、异步、测试与提交 | 当前有效 |
 
 ## 架构与设计
 
