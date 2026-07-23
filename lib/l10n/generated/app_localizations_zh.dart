@@ -222,7 +222,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorNotEncryptedDirectoryDescription =>
-      '所选目录不是可识别的 Safe Disk 加密目录。';
+      '选择的目录不是可识别的 Safe Disk 加密目录。';
 
   @override
   String get errorNotEncryptedDirectorySuggestion => '请选择已有加密目录，或创建新的加密目录。';

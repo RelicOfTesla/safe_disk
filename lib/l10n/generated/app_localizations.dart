@@ -509,7 +509,7 @@ abstract class AppLocalizations {
   /// No description provided for @errorNotEncryptedDirectoryDescription.
   ///
   /// In zh, this message translates to:
-  /// **'所选目录不是可识别的 Safe Disk 加密目录。'**
+  /// **'选择的目录不是可识别的 Safe Disk 加密目录。'**
   String get errorNotEncryptedDirectoryDescription;
 
   /// No description provided for @errorNotEncryptedDirectorySuggestion.

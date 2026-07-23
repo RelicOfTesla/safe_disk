@@ -76,7 +76,7 @@
   "errorDirectoryNotExistDescription": "指定的目录路径不存在或已被删除。",
   "errorDirectoryNotExistSuggestion": "请检查目录路径是否正确，或选择其他目录。",
   "errorNotEncryptedDirectoryTitle": "无法打开目录",
-  "errorNotEncryptedDirectoryDescription": "所选目录不是可识别的 Safe Disk 加密目录。",
+  "errorNotEncryptedDirectoryDescription": "选择的目录不是可识别的 Safe Disk 加密目录。",
   "errorNotEncryptedDirectorySuggestion": "请选择已有加密目录，或创建新的加密目录。",
   "errorLoadConfigFailedTitle": "加载配置失败",
   "errorLoadConfigFailedDescription": "无法读取加密目录的配置文件。",
