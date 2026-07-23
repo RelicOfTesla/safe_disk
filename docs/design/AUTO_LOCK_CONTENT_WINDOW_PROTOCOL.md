@@ -55,5 +55,5 @@
 
 - controller/endpoint：脏文本落草稿、草稿失败不确认、token/request ID 校验、同请求重复幂等、冲突请求拒绝，以及超时后迟到完成取消冻结均须覆盖。
 - bridge：按 token 请求、确认后冻结/revoke/close、拒绝时不关闭、保存排空期间集合变化和原生 close 失败恢复 lease 已覆盖；真实窗口消失事件与部分关闭失败仍缺。
-- Home：hidden/paused、TTL 成功关闭 clean 内容窗口、拒绝或 close 失败时保持 root，以及 gate 重构后的既有关闭行为已覆盖；手动关闭与重新解锁的主动竞争仍缺。
+- Home：hidden/paused、TTL 成功关闭 clean 内容窗口、拒绝或 close 失败时保持 root，以及手动关闭子窗口期间后台锁定到达时只关闭一次 root 的 gate 行为已覆盖；重新解锁主动竞争仍缺。
 - 桌面：Linux、Windows、macOS 实测多窗口、标题栏关闭、休眠恢复和强制关闭子窗口。

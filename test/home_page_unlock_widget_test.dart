@@ -531,6 +531,65 @@ void main() {
     expect(find.text('照片.png'), findsOneWidget);
   });
 
+  testWidgets(
+      'manual root close and background lock serialize the same content window',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final closeStarted = Completer<void>();
+    final allowClose = Completer<void>();
+    final platform = _FakeContentWindowPlatform(
+      closeStarted: closeStarted,
+      closeGate: allowClose,
+    );
+    addTearDown(platform.dispose);
+    final image = FileSystemNode(
+      name: '照片.png',
+      path: '/照片.png',
+      isDirectory: false,
+      size: 128,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService, items: [image]),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService: _AutoLockSettingsService(enabled: true),
+        contentWindowPlatform: platform,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('照片.png')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在新窗口中查看'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('关闭目录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('仅结束会话'));
+    await tester.pump();
+    await closeStarted.future;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+
+    allowClose.complete();
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedRootIDs, [7]);
+    expect(platform.closedTokens, hasLength(1));
+  });
+
   testWidgets('idle TTL keeps a root with a dirty secure notepad open',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
@@ -3090,6 +3149,8 @@ class _FakePersistenceService extends DirectoryPersistenceService {
 }
 
 class _FakeContentWindowPlatform implements ContentWindowPlatform {
+  _FakeContentWindowPlatform({this.closeStarted, this.closeGate});
+
   final StreamController<Set<String>> _alive =
       StreamController<Set<String>>.broadcast();
   final List<Map<String, String>> openedImages = [];
@@ -3097,6 +3158,8 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
   Set<String> closedTokens = {};
   bool prepareResult = true;
   bool closeThrows = false;
+  final Completer<void>? closeStarted;
+  final Completer<void>? closeGate;
 
   @override
   Stream<Set<String>> get aliveTokens => _alive.stream;
@@ -3131,6 +3194,10 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
   @override
   Future<void> closeTokens(Set<String> tokens) async {
     if (closeThrows) throw StateError('close tokens failed');
+    if (closeStarted case final started?) {
+      if (!started.isCompleted) started.complete();
+    }
+    if (closeGate case final gate?) await gate.future;
     closedTokens = {...closedTokens, ...tokens};
   }
 
