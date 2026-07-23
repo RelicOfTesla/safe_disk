@@ -113,6 +113,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final DragDropController _dragDropController = const DragDropController();
   // This is only a badge cache. Go remains authoritative for session state.
   final Map<int, int> _webDavSessionCounts = {};
+  final Map<String, String> _webDavMountOperations = {};
+  int _webDavOperationSequence = 0;
 
   final List<EncryptedDirectory> _openedDirs = [];
   EncryptedDirectory? _currentDir;
@@ -131,6 +133,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _drawerPinned = false;
   ViewMode _viewMode = ViewMode.list;
   bool _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
+  bool _webDavEnabled = SettingsService.defaultWebDavEnabled;
 
   // File selection for batch operations
   bool _isSelectMode = false;
@@ -172,6 +175,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _loadAutoLockPreference();
     _loadSessionTTL();
     _loadOpenMode();
+    _loadWebDavEnabled();
     _checkFirstTimeUser();
   }
 
@@ -222,6 +226,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _loadOpenMode() async {
     final openOnDoubleClick = await _settingsService.getOpenOnDoubleClick();
     if (mounted) setState(() => _openOnDoubleClick = openOnDoubleClick);
+  }
+
+  Future<void> _loadWebDavEnabled() async {
+    final enabled = await _settingsService.getWebDavEnabled();
+    if (mounted) setState(() => _webDavEnabled = enabled);
   }
 
   void _touchCurrentRoot() {
@@ -595,6 +604,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
       operation = 'open-created-root';
       final rootID = _cryptoService.openRoot(selectedPath, password, '');
+      if (!_webDavEnabled) await _revokeWebDavSessionsForRoot(rootID);
       operation = 'load-created-root-config';
       final config = _cryptoService.loadConfig(selectedPath);
 
@@ -770,6 +780,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return false;
     }
 
+    if (!_webDavEnabled) await _revokeWebDavSessionsForRoot(rootID);
     final transferStateAvailable = await _handleUnfinishedOperations(rootID);
     // The unfinished-state prompt is asynchronous and the sidebar stays
     // usable. Never attach this root to a directory selected after unlock
@@ -1739,6 +1750,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _exposeToThirdParty(FileSystemNode item) async {
+    if (!_webDavEnabled) {
+      ErrorHelper.showInfo(
+        context,
+        AppLocalizations.of(context)!.webDavDisabledMessage,
+      );
+      return;
+    }
     if (!_validateSession()) return;
     final directory = _currentDir;
     final activeSessionID = directory?.tempKeyID;
@@ -1751,13 +1769,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       displayName: item.name,
     );
     if (!confirmed || !mounted) return;
-    final authMode = await chooseWebDavAuthMode(context: context);
-    if (authMode == null || !mounted) return;
-    final credentialVisibility =
-        await chooseWebDavCredentialVisibility(context: context);
-    if (credentialVisibility == null || !mounted) return;
-    final sessionLifetime = await chooseWebDavSessionLifetime(context: context);
-    if (sessionLifetime == null || !mounted) return;
+    final options = await chooseWebDavOpenOptions(context: context);
+    if (options == null || !mounted) return;
     if (!_isCurrentDirectorySession(directory.path, activeSessionID)) return;
 
     try {
@@ -1765,9 +1778,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         rootID: rootID,
         logicalPath: item.path,
         displayName: item.name,
-        authMode: authMode,
-        credentialVisibility: credentialVisibility,
-        sessionLifetime: sessionLifetime,
+        authMode: options.authMode,
+        credentialVisibility: options.credentialVisibility,
+        sessionLifetime: options.sessionLifetime,
       );
       if (!mounted ||
           !_isCurrentDirectorySession(directory.path, activeSessionID)) {
@@ -1789,6 +1802,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _showWebDavSessions() async {
+    if (!_webDavEnabled) return;
     final directory = _currentDir;
     final activeSessionID = directory?.tempKeyID;
     if (directory == null || activeSessionID == null) return;
@@ -1808,6 +1822,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       onRevoke: _revokeWebDavSession,
       onMount: _mountWebDavSession,
       onUnmount: _unmountWebDavSession,
+      onCancelMount: _cancelWebDavMount,
       onReveal: _revealWebDavSession,
       onRefresh: () => _refreshWebDavSessionsForDialog(rootID),
     );
@@ -1837,46 +1852,95 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<bool> _mountWebDavSession(WebDavSessionStatus session) async {
+  Future<bool> _runWebDavMountOperation(
+    WebDavSessionStatus session, {
+    required bool mount,
+  }) async {
+    final operationID =
+        'webdav-${++_webDavOperationSequence}-${DateTime.now().microsecondsSinceEpoch}';
+    _webDavMountOperations[session.id] = operationID;
     try {
-      final path = _webDavService.mount(session.id);
-      if (mounted) {
-        ErrorHelper.showSuccess(
-          context,
-          AppLocalizations.of(context)!.webDavMountedAt(path),
+      if (mount) {
+        _webDavService.startMount(
+          operationID: operationID,
+          sessionID: session.id,
+        );
+      } else {
+        _webDavService.startUnmount(
+          operationID: operationID,
+          sessionID: session.id,
         );
       }
-      return true;
+      while (mounted) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        final result = _webDavService.pollOperation(operationID);
+        final state = result['state'];
+        if (state == 'running') continue;
+        if (state == 'cancelled') return true;
+        final response = result['response'];
+        if (response is! Map || response['success'] != true) {
+          throw StateError(
+            response is Map
+                ? response['error']?.toString() ?? 'webdav-operation-failed'
+                : 'webdav-operation-response-missing',
+          );
+        }
+        if (mounted && mount) {
+          final data = response['data'];
+          final path = data is Map ? data['mount_path']?.toString() : null;
+          ErrorHelper.showSuccess(
+            context,
+            AppLocalizations.of(context)!.webDavMountedAt(path ?? ''),
+          );
+        } else if (mounted) {
+          ErrorHelper.showSuccess(
+            context,
+            AppLocalizations.of(context)!.webDavUnmounted,
+          );
+        }
+        return true;
+      }
+      return false;
     } catch (error) {
       if (mounted) {
         ErrorHelper.showError(
           context,
           errorType: ErrorType.operationFailed,
           originalError: error.toString(),
-          operation: 'webdav/mount',
+          operation: mount ? 'webdav/mount' : 'webdav/unmount',
         );
       }
       return false;
+    } finally {
+      try {
+        // If the widget disappears before the final poll, stop the native
+        // command instead of leaving a background mount operation alive.
+        _webDavService.cancelOperation(operationID);
+      } catch (_) {}
+      _webDavMountOperations.remove(session.id);
     }
   }
 
-  Future<bool> _unmountWebDavSession(WebDavSessionStatus session) async {
+  Future<bool> _mountWebDavSession(WebDavSessionStatus session) {
+    return _runWebDavMountOperation(session, mount: true);
+  }
+
+  Future<bool> _unmountWebDavSession(WebDavSessionStatus session) {
+    return _runWebDavMountOperation(session, mount: false);
+  }
+
+  Future<bool> _cancelWebDavMount(WebDavSessionStatus session) async {
+    final operationID = _webDavMountOperations[session.id];
+    if (operationID == null) return false;
     try {
-      _webDavService.unmount(session.id);
-      if (mounted) {
-        ErrorHelper.showSuccess(
-          context,
-          AppLocalizations.of(context)!.webDavUnmounted,
-        );
-      }
-      return true;
+      return _webDavService.cancelOperation(operationID);
     } catch (error) {
       if (mounted) {
         ErrorHelper.showError(
           context,
           errorType: ErrorType.operationFailed,
           originalError: error.toString(),
-          operation: 'webdav/unmount',
+          operation: 'webdav/cancel-mount',
         );
       }
       return false;
@@ -1919,6 +1983,50 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _setWebDavSessionCount(int rootID, int count) async {
     if (!mounted || _webDavSessionCounts[rootID] == count) return;
     setState(() => _webDavSessionCounts[rootID] = count);
+  }
+
+  Future<void> _setWebDavEnabled(bool enabled) async {
+    if (mounted) setState(() => _webDavEnabled = enabled);
+    if (enabled) return;
+
+    for (final operationID in _webDavMountOperations.values.toList()) {
+      try {
+        _webDavService.cancelOperation(operationID);
+      } catch (_) {}
+    }
+
+    for (final directory in List<EncryptedDirectory>.from(_openedDirs)) {
+      final sessionID = directory.tempKeyID;
+      final rootID = sessionID == null ? null : int.tryParse(sessionID);
+      if (rootID == null) continue;
+      final sessions = await _listWebDavSessions(rootID, reportErrors: false);
+      if (sessions == null) continue;
+      await _revokeWebDavSessionsForRoot(rootID, sessions: sessions);
+      final remaining = await _listWebDavSessions(rootID, reportErrors: false);
+      if (mounted) {
+        setState(() => _webDavSessionCounts[rootID] =
+            remaining?.length ?? sessions.length);
+      }
+    }
+  }
+
+  Future<void> _revokeWebDavSessionsForRoot(
+    int rootID, {
+    List<WebDavSessionStatus>? sessions,
+  }) async {
+    final active = sessions ??
+        await _listWebDavSessions(
+          rootID,
+          reportErrors: false,
+        );
+    if (active == null) return;
+    for (final session in active) {
+      try {
+        _webDavService.close(session.id);
+      } catch (_) {
+        // The switch remains disabled; Go remains authoritative for status.
+      }
+    }
   }
 
   Future<List<WebDavSessionStatus>?> _listWebDavSessions(
@@ -3171,6 +3279,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           settingsService: _settingsService,
           onThemeModeChanged: widget.onThemeModeChanged,
           onLocaleChanged: widget.onLocaleChanged,
+          onWebDavEnabledChanged: _setWebDavEnabled,
         ),
       ),
     );
@@ -3325,9 +3434,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             webDavSessionCount: _webDavSessionCounts[
                     int.tryParse(_currentDir?.tempKeyID ?? '')] ??
                 0,
-            onShowWebDavSessions: () {
-              unawaited(_showWebDavSessions());
-            },
+            onShowWebDavSessions:
+                _webDavEnabled ? () => unawaited(_showWebDavSessions()) : null,
             onExternalDrop: (candidates) {
               unawaited(_importDroppedCandidates(candidates));
             },

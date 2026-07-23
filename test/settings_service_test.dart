@@ -63,6 +63,14 @@ void main() {
     expect(await service.getOpenOnDoubleClick(), isTrue);
   });
 
+  test('WebDAV sharing switch defaults on and persists', () async {
+    final service = SettingsService();
+
+    expect(await service.getWebDavEnabled(), isTrue);
+    await service.setWebDavEnabled(false);
+    expect(await service.getWebDavEnabled(), isFalse);
+  });
+
   test('locale preference defaults safely and rejects unsupported values',
       () async {
     final service = SettingsService();

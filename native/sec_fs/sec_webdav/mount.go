@@ -3,6 +3,7 @@ package sec_webdav
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 )
 
@@ -39,4 +40,15 @@ func (m *MountedSession) Unmount(ctx context.Context) error {
 		m.err = m.unmount(ctx)
 	})
 	return m.err
+}
+
+func sanitizeMountOutput(output string) string {
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return "command returned no diagnostic"
+	}
+	if len(output) > 240 {
+		return output[:240]
+	}
+	return output
 }

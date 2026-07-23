@@ -71,6 +71,30 @@ typedef SecWebDavMountDart = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
 typedef SecWebDavUnmountC = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
 typedef SecWebDavUnmountDart = Pointer<Utf8> Function(Pointer<Utf8> sessionID);
 
+// sec_webdav_mount_start: (operationID, sessionID) -> JSON string
+typedef SecWebDavMountStartC = Pointer<Utf8> Function(
+    Pointer<Utf8> operationID, Pointer<Utf8> sessionID);
+typedef SecWebDavMountStartDart = Pointer<Utf8> Function(
+    Pointer<Utf8> operationID, Pointer<Utf8> sessionID);
+
+// sec_webdav_unmount_start: (operationID, sessionID) -> JSON string
+typedef SecWebDavUnmountStartC = Pointer<Utf8> Function(
+    Pointer<Utf8> operationID, Pointer<Utf8> sessionID);
+typedef SecWebDavUnmountStartDart = Pointer<Utf8> Function(
+    Pointer<Utf8> operationID, Pointer<Utf8> sessionID);
+
+// sec_webdav_operation_poll: (operationID) -> JSON string
+typedef SecWebDavOperationPollC = Pointer<Utf8> Function(
+    Pointer<Utf8> operationID);
+typedef SecWebDavOperationPollDart = Pointer<Utf8> Function(
+    Pointer<Utf8> operationID);
+
+// sec_webdav_operation_cancel: (operationID) -> JSON string
+typedef SecWebDavOperationCancelC = Pointer<Utf8> Function(
+    Pointer<Utf8> operationID);
+typedef SecWebDavOperationCancelDart = Pointer<Utf8> Function(
+    Pointer<Utf8> operationID);
+
 // sec_create_root_config: (rootPath, password, optionsJSON) -> JSON string
 typedef SecCreateRootConfigC = Pointer<Utf8> Function(
     Pointer<Utf8> rootPath, Pointer<Utf8> password, Pointer<Utf8> optionsJSON);
@@ -309,6 +333,10 @@ class NativeBindings {
   late final SecWebDavListDart secWebDavList;
   late final SecWebDavMountDart secWebDavMount;
   late final SecWebDavUnmountDart secWebDavUnmount;
+  late final SecWebDavMountStartDart secWebDavMountStart;
+  late final SecWebDavUnmountStartDart secWebDavUnmountStart;
+  late final SecWebDavOperationPollDart secWebDavOperationPoll;
+  late final SecWebDavOperationCancelDart secWebDavOperationCancel;
   late final SecCreateRootConfigDart secCreateRootConfig;
   late final SecRootChangePasswordDart secRootChangePassword;
   late final SecRootReadPasswordHintDart secRootReadPasswordHint;
@@ -418,6 +446,17 @@ class NativeBindings {
     secWebDavUnmount = _lib!
         .lookupFunction<SecWebDavUnmountC, SecWebDavUnmountDart>(
             'sec_webdav_unmount');
+    secWebDavMountStart = _lib!
+        .lookupFunction<SecWebDavMountStartC, SecWebDavMountStartDart>(
+            'sec_webdav_mount_start');
+    secWebDavUnmountStart = _lib!
+        .lookupFunction<SecWebDavUnmountStartC, SecWebDavUnmountStartDart>(
+            'sec_webdav_unmount_start');
+    secWebDavOperationPoll = _lib!
+        .lookupFunction<SecWebDavOperationPollC, SecWebDavOperationPollDart>(
+            'sec_webdav_operation_poll');
+    secWebDavOperationCancel = _lib!.lookupFunction<SecWebDavOperationCancelC,
+        SecWebDavOperationCancelDart>('sec_webdav_operation_cancel');
     secCreateRootConfig = _lib!
         .lookupFunction<SecCreateRootConfigC, SecCreateRootConfigDart>(
             'sec_create_root_config');

@@ -855,12 +855,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('继续'));
     await tester.pumpAndSettle();
-    expect(find.text('凭据显示方式'), findsOneWidget);
-    await tester.tap(find.text('继续'));
-    await tester.pumpAndSettle();
-    expect(find.text('会话保留方式'), findsOneWidget);
-    await tester.tap(find.text('继续'));
-    await tester.pumpAndSettle();
 
     expect(find.text('第三方工具访问凭据'), findsOneWidget);
     expect(find.text('one-time-token'), findsOneWidget);

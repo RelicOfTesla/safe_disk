@@ -18,6 +18,9 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 	if _, err := exec.LookPath("mount"); err != nil {
 		return nil, fmt.Errorf("%w: mount command is unavailable", ErrMountUnsupported)
 	}
+	if _, err := exec.LookPath("mount.davfs"); err != nil {
+		return nil, fmt.Errorf("%w: mount.davfs is unavailable", ErrMountUnsupported)
+	}
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
 		return nil, fmt.Errorf("%w: locate user cache", ErrMountFailed)
@@ -70,15 +73,4 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 			return nil
 		},
 	}, nil
-}
-
-func sanitizeMountOutput(output string) string {
-	output = strings.TrimSpace(output)
-	if output == "" {
-		return "command returned no diagnostic"
-	}
-	if len(output) > 240 {
-		return output[:240]
-	}
-	return output
 }

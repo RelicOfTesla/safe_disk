@@ -87,6 +87,26 @@ func sec_webdav_unmount(sessionID *C.char) *C.char {
 	return C.CString(WebDavUnmount_FFI(C.GoString(sessionID)))
 }
 
+//export sec_webdav_mount_start
+func sec_webdav_mount_start(operationID *C.char, sessionID *C.char) *C.char {
+	return C.CString(WebDavMountStart_FFI(C.GoString(operationID), C.GoString(sessionID)))
+}
+
+//export sec_webdav_unmount_start
+func sec_webdav_unmount_start(operationID *C.char, sessionID *C.char) *C.char {
+	return C.CString(WebDavUnmountStart_FFI(C.GoString(operationID), C.GoString(sessionID)))
+}
+
+//export sec_webdav_operation_poll
+func sec_webdav_operation_poll(operationID *C.char) *C.char {
+	return C.CString(WebDavOperationPoll_FFI(C.GoString(operationID)))
+}
+
+//export sec_webdav_operation_cancel
+func sec_webdav_operation_cancel(operationID *C.char) *C.char {
+	return C.CString(WebDavOperationCancel_FFI(C.GoString(operationID)))
+}
+
 //export sec_dir_cursor_open
 func sec_dir_cursor_open(rootID C.int64_t, path *C.char) *C.char {
 	return C.CString(OpenDirCursor_FFI(int64(rootID), C.GoString(path)))

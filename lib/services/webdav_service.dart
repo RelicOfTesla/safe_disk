@@ -279,4 +279,26 @@ class WebDavService {
       throw StateError('webdav-invalid-unmount-response');
     }
   }
+
+  void startMount({required String operationID, required String sessionID}) {
+    final data = _cryptoService.startWebDavMount(operationID, sessionID);
+    if (data['operation_id'] != operationID || data['state'] != 'running') {
+      throw StateError('webdav-invalid-mount-start-response');
+    }
+  }
+
+  void startUnmount({required String operationID, required String sessionID}) {
+    final data = _cryptoService.startWebDavUnmount(operationID, sessionID);
+    if (data['operation_id'] != operationID || data['state'] != 'running') {
+      throw StateError('webdav-invalid-unmount-start-response');
+    }
+  }
+
+  Map<String, dynamic> pollOperation(String operationID) {
+    return _cryptoService.pollWebDavOperation(operationID);
+  }
+
+  bool cancelOperation(String operationID) {
+    return _cryptoService.cancelWebDavOperation(operationID);
+  }
 }

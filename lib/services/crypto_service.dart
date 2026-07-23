@@ -101,6 +101,28 @@ class CryptoService {
     return _native.secWebDavUnmount(sessionID);
   }
 
+  Map<String, dynamic> startWebDavMount(
+    String operationID,
+    String sessionID,
+  ) {
+    return _native.secWebDavMountStart(operationID, sessionID);
+  }
+
+  Map<String, dynamic> startWebDavUnmount(
+    String operationID,
+    String sessionID,
+  ) {
+    return _native.secWebDavUnmountStart(operationID, sessionID);
+  }
+
+  Map<String, dynamic> pollWebDavOperation(String operationID) {
+    return _native.secWebDavOperationPoll(operationID);
+  }
+
+  bool cancelWebDavOperation(String operationID) {
+    return _native.secWebDavOperationCancel(operationID);
+  }
+
   /// Creates a secure root configuration.
   void createRootConfig(String rootPath, String password, String optionsJSON) {
     final directory = Directory(rootPath);

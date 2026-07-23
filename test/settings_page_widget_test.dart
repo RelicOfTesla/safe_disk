@@ -79,6 +79,7 @@ void main() {
     expect(find.text('Open notes read-only'), findsOneWidget);
     expect(find.text('Monitor clipboard by default'), findsOneWidget);
     expect(find.text('Show detailed error information'), findsOneWidget);
+    expect(find.text('Allow WebDAV sharing'), findsOneWidget);
     expect(find.text('About'), findsOneWidget);
     expect(
       find.text('Version 1.0.0\nEncrypted file manager'),
@@ -238,6 +239,27 @@ void main() {
     await tester.tap(find.text('保存设置'));
     await tester.pumpAndSettle();
     expect(await service.getOpenOnDoubleClick(), isTrue);
+  });
+
+  testWidgets('WebDAV switch participates in the settings save transaction',
+      (tester) async {
+    final service = SettingsService();
+    await tester.pumpWidget(
+      _settingsTestApp(home: SettingsPage(settingsService: service)),
+    );
+    await tester.pumpAndSettle();
+
+    final toggle = find.byKey(const Key('webdav-enabled'));
+    await tester.ensureVisible(toggle);
+    await tester.tap(toggle);
+    await tester.pump();
+    expect(await service.getWebDavEnabled(), isTrue);
+
+    final save = find.text('保存设置');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(await service.getWebDavEnabled(), isFalse);
   });
 
   testWidgets(

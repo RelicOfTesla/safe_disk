@@ -428,6 +428,18 @@ abstract class AppLocalizations {
   /// **'创建只读访问'**
   String get webDavExposeReadOnly;
 
+  /// No description provided for @webDavOptionsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置 WebDAV 访问'**
+  String get webDavOptionsTitle;
+
+  /// No description provided for @webDavOptionsDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择鉴权、凭据显示和会话保留方式。创建后可在访问列表中挂载或撤销。'**
+  String get webDavOptionsDescription;
+
   /// No description provided for @webDavAuthModeTitle.
   ///
   /// In zh, this message translates to:
@@ -674,11 +686,29 @@ abstract class AppLocalizations {
   /// **'卸载'**
   String get webDavUnmount;
 
+  /// No description provided for @webDavCancelMount.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消挂载操作'**
+  String get webDavCancelMount;
+
   /// No description provided for @webDavMountedAt.
   ///
   /// In zh, this message translates to:
   /// **'已挂载：{path}'**
   String webDavMountedAt(String path);
+
+  /// No description provided for @webDavMountPath.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统挂载路径'**
+  String get webDavMountPath;
+
+  /// No description provided for @webDavMountPathCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制系统挂载路径'**
+  String get webDavMountPathCopied;
 
   /// No description provided for @webDavUnmounted.
   ///
@@ -703,6 +733,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'已撤销第三方访问'**
   String get webDavSessionRevoked;
+
+  /// No description provided for @webDavGlobalSwitch.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许 WebDAV 共享'**
+  String get webDavGlobalSwitch;
+
+  /// No description provided for @webDavGlobalSwitchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭后禁止创建新的共享，并撤销当前已打开 root 的 WebDAV 访问。'**
+  String get webDavGlobalSwitchHint;
+
+  /// No description provided for @webDavDisabledMessage.
+  ///
+  /// In zh, this message translates to:
+  /// **'WebDAV 共享已关闭，请在设置中重新开启。'**
+  String get webDavDisabledMessage;
 
   /// No description provided for @retry.
   ///

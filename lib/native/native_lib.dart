@@ -265,6 +265,68 @@ class NativeLib {
     }
   }
 
+  Map<String, dynamic> secWebDavMountStart(
+    String operationID,
+    String sessionID,
+  ) {
+    final operationPtr = operationID.toNativeUtf8();
+    final sessionPtr = sessionID.toNativeUtf8();
+    try {
+      final result = _parseJson(_ptrToString(
+        _bindings.secWebDavMountStart(operationPtr, sessionPtr),
+      ));
+      _checkResult(result, 'secWebDavMountStart');
+      return Map<String, dynamic>.from(result['data'] as Map);
+    } finally {
+      calloc.free(operationPtr);
+      calloc.free(sessionPtr);
+    }
+  }
+
+  Map<String, dynamic> secWebDavUnmountStart(
+    String operationID,
+    String sessionID,
+  ) {
+    final operationPtr = operationID.toNativeUtf8();
+    final sessionPtr = sessionID.toNativeUtf8();
+    try {
+      final result = _parseJson(_ptrToString(
+        _bindings.secWebDavUnmountStart(operationPtr, sessionPtr),
+      ));
+      _checkResult(result, 'secWebDavUnmountStart');
+      return Map<String, dynamic>.from(result['data'] as Map);
+    } finally {
+      calloc.free(operationPtr);
+      calloc.free(sessionPtr);
+    }
+  }
+
+  Map<String, dynamic> secWebDavOperationPoll(String operationID) {
+    final operationPtr = operationID.toNativeUtf8();
+    try {
+      final result = _parseJson(_ptrToString(
+        _bindings.secWebDavOperationPoll(operationPtr),
+      ));
+      _checkResult(result, 'secWebDavOperationPoll');
+      return Map<String, dynamic>.from(result['data'] as Map);
+    } finally {
+      calloc.free(operationPtr);
+    }
+  }
+
+  bool secWebDavOperationCancel(String operationID) {
+    final operationPtr = operationID.toNativeUtf8();
+    try {
+      final result = _parseJson(_ptrToString(
+        _bindings.secWebDavOperationCancel(operationPtr),
+      ));
+      _checkResult(result, 'secWebDavOperationCancel');
+      return (result['data'] as Map)['active'] == true;
+    } finally {
+      calloc.free(operationPtr);
+    }
+  }
+
   /// Creates a secure root configuration.
   void secCreateRootConfig(
       String rootPath, String password, String optionsJSON) {

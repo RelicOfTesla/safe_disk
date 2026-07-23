@@ -184,6 +184,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavExposeReadOnly => '创建只读访问';
 
   @override
+  String get webDavOptionsTitle => '配置 WebDAV 访问';
+
+  @override
+  String get webDavOptionsDescription => '选择鉴权、凭据显示和会话保留方式。创建后可在访问列表中挂载或撤销。';
+
+  @override
   String get webDavAuthModeTitle => '选择鉴权方式';
 
   @override
@@ -317,9 +323,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavUnmount => '卸载';
 
   @override
+  String get webDavCancelMount => '取消挂载操作';
+
+  @override
   String webDavMountedAt(String path) {
     return '已挂载：$path';
   }
+
+  @override
+  String get webDavMountPath => '系统挂载路径';
+
+  @override
+  String get webDavMountPathCopied => '已复制系统挂载路径';
 
   @override
   String get webDavUnmounted => '已卸载';
@@ -332,6 +347,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webDavSessionRevoked => '已撤销第三方访问';
+
+  @override
+  String get webDavGlobalSwitch => '允许 WebDAV 共享';
+
+  @override
+  String get webDavGlobalSwitchHint => '关闭后禁止创建新的共享，并撤销当前已打开 root 的 WebDAV 访问。';
+
+  @override
+  String get webDavDisabledMessage => 'WebDAV 共享已关闭，请在设置中重新开启。';
 
   @override
   String get retry => '重试';

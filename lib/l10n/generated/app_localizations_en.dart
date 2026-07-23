@@ -192,6 +192,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavExposeReadOnly => 'Create read-only access';
 
   @override
+  String get webDavOptionsTitle => 'Configure WebDAV access';
+
+  @override
+  String get webDavOptionsDescription =>
+      'Choose authentication, credential display, and session lifetime. You can mount or revoke the session from the access list.';
+
+  @override
   String get webDavAuthModeTitle => 'Choose authentication';
 
   @override
@@ -326,9 +333,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavUnmount => 'Unmount';
 
   @override
+  String get webDavCancelMount => 'Cancel mount operation';
+
+  @override
   String webDavMountedAt(String path) {
     return 'Mounted at: $path';
   }
+
+  @override
+  String get webDavMountPath => 'System mount path';
+
+  @override
+  String get webDavMountPathCopied => 'System mount path copied';
 
   @override
   String get webDavUnmounted => 'Unmounted';
@@ -342,6 +358,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webDavSessionRevoked => 'Third-party access revoked';
+
+  @override
+  String get webDavGlobalSwitch => 'Allow WebDAV sharing';
+
+  @override
+  String get webDavGlobalSwitchHint =>
+      'When disabled, new shares are blocked and WebDAV access for open roots is revoked.';
+
+  @override
+  String get webDavDisabledMessage =>
+      'WebDAV sharing is disabled. Re-enable it in Settings to create a share.';
 
   @override
   String get retry => 'Retry';

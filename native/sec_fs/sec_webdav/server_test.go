@@ -332,6 +332,53 @@ func TestThirdPartyHandlerPreservesReadOnlyContract(t *testing.T) {
 	}
 }
 
+func TestDavfsPropfindRequestShapeListsEscapedEntries(t *testing.T) {
+	manager := NewManager()
+	defer manager.Close()
+	provider := mapProvider{files: fstest.MapFS{
+		"docs/中文 name.txt":      &fstest.MapFile{Data: []byte("hello")},
+		"docs/sub dir/data.bin": &fstest.MapFile{Data: []byte{1, 2, 3}},
+	}}
+	session, err := manager.Open("root-davfs", "Documents", "docs", provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	options := authenticatedRequest(t, http.MethodOptions, session.URL, session.Token)
+	options.Header.Set("User-Agent", "davfs2/1.7.0 neon/0.33")
+	response, err := http.DefaultClient.Do(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.Header.Get("DAV") != "1" {
+		t.Fatalf("davfs options = status %d DAV %q", response.StatusCode, response.Header.Get("DAV"))
+	}
+
+	body := strings.NewReader(`<propfind xmlns="DAV:"><allprop/></propfind>`)
+	propfind := authenticatedRequest(t, "PROPFIND", session.URL, session.Token)
+	propfind.Body = io.NopCloser(body)
+	propfind.ContentLength = int64(body.Len())
+	propfind.Header.Set("Content-Type", "application/xml")
+	propfind.Header.Set("Depth", "1")
+	propfind.Header.Set("User-Agent", "davfs2/1.7.0 neon/0.33")
+	response, err = http.DefaultClient.Do(propfind)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusMultiStatus {
+		t.Fatalf("davfs propfind status = %d body = %q", response.StatusCode, data)
+	}
+	if !containsAll(string(data), "%E4%B8%AD%E6%96%87%20name.txt", "sub%20dir") {
+		t.Fatalf("davfs propfind hrefs are not escaped: %s", data)
+	}
+}
+
 func TestSecureFileSystemDirectoryAdapterUsesProviderEntries(t *testing.T) {
 	provider := mapProvider{files: fstest.MapFS{
 		"docs/readme.txt": &fstest.MapFile{Data: []byte("hello")},

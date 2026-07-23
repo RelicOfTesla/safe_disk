@@ -1,6 +1,6 @@
 # 第三方工具 WebDAV 文件交接设计
 
-> 状态：已完成 Go 只读 loopback、Bearer/Digest（SHA-256）会话鉴权、`x/net/webdav` 协议适配、FFI/Dart/CLI 鉴权与挂载控制、凭据显示策略和持久会话的代码链路。Linux Digest 的 Go 挂载适配已实现但未做真实系统挂载验收；编辑模式、Basic 兼容模式、Windows/macOS 自动挂载和常见客户端互操作仍未完成。
+> 状态：已完成 Go 只读 loopback、Bearer/Digest（SHA-256）会话鉴权、`x/net/webdav` 协议适配、FFI/Dart/CLI 鉴权与挂载控制、凭据显示策略和持久会话的代码链路。Flutter 的共享配置已合并为单一配置框；Linux 已补 davfs 请求形状和标准 DAV 能力声明测试，但真实系统挂载仍未验收；Windows 已接入 Go WebDAV Redirector 适配但未做 Windows 实机验收。编辑模式、Basic 兼容模式、macOS 自动挂载和完整第三方互操作仍未完成。
 
 ## 1. 目标
 
@@ -16,7 +16,7 @@
 协议 handler、限定子树、请求监视和 root 关闭撤销；`ffi_sec_fs` 提供 Bearer 兼容 ABI、带
 `auth_mode` 的新 ABI 以及 Go-owned mount/unmount ABI。Flutter 已接入鉴权选择、一次性凭据展示、状态列表、挂载和撤销；CLI 已提供
 前台 `webdav serve`、JSON Lines 生命周期事件和 `--auth`、`--credential-visibility`、
-`--session-lifetime`、`--port`。Linux 下 Go 已接入 Digest/davfs 挂载适配，但真实挂载和卸载尚未验收。编辑会话和 Windows/macOS 自动挂载仍未实现，
+`--session-lifetime`、`--port`。Linux 下 Go 已接入 Digest/davfs 挂载适配，但真实挂载和卸载尚未验收；Windows 已接入 Digest/WebDAV Redirector 适配，但真实盘符映射尚未验收。编辑会话和 macOS 自动挂载仍未实现，
 因此当前切片仍不是完整的编辑型 WebDAV 交接功能。
 
 实现分层约束：loopback HTTP 服务、系统磁盘挂载/卸载、平台命令调用和挂载生命周期全部由
@@ -73,7 +73,7 @@ WebDAV 凭据。
 
 ### 3.1.1 常见系统工具兼容策略
 
-- 系统挂载不使用 Bearer 作为默认方案；优先验证 Digest `SHA-256`，再按平台客户端矩阵评估 Basic
+- 系统挂载不使用 Bearer 作为默认方案；Linux davfs 和 Windows WebClient 当前只允许 Go 适配器尝试 Digest，优先验证 Digest `SHA-256`，再按平台客户端矩阵评估 Basic
   兼容模式。认证方式是否“已实现”与是否“被某平台客户端实测支持”分开记录。
 - Linux `davfs2`、Windows WebClient、macOS Finder/系统挂载和常见编辑器分别建立最小互操作矩阵：
   连接、目录枚举、读取、断开、撤销、重启恢复和凭据失败都要独立验证。
@@ -222,13 +222,17 @@ Digest 共享这条路径，避免某种鉴权绕过范围检查或产生不同�
 
 默认只提供 WebDAV 地址，适合能直接打开 WebDAV URL 的工具。
 
-用户可请求 Go 原生层执行平台 WebDAV 挂载，以支持只接受本地路径的工具。当前只实现 Linux
-Digest/davfs 适配，Flutter 通过 `mount/unmount` FFI 请求 Go 执行；该能力是可选项：
+用户可请求 Go 原生层执行平台 WebDAV 挂载，以支持只接受本地路径的工具。Linux 使用
+`mount.davfs`，Windows 使用 WebDAV Redirector/`net.exe use` 映射空闲盘符；Flutter 通过
+`mount/unmount` FFI 请求 Go 执行，Dart 不拼接平台命令。该能力是可选项：
 
 - 挂载前提示系统和第三方工具可能缓存明文。
 - 平台没有可靠挂载方式时由 Go 返回“不支持”，不退化为普通明文临时目录。
 - 关闭会话时由 Go 请求卸载；若卸载失败，FFI 返回明确状态，界面保留警告和重试入口。
 - 挂载不是额外的安全隔离，同一系统用户下其他进程可能访问挂载点。
+- Windows 映射使用 `\\127.0.0.1@port\DavWWWRoot\webdav\session-id` 形式的 loopback UNC 路径，密码通过
+  `net.exe use` 的标准输入传递，不放进命令行；若 WebClient 未启用、盘符不足或认证不兼容，Go 必须失败并清理已建立的映射。
+- 会话列表中的系统挂载路径是普通系统路径，可选择、复制到系统剪贴板；这不是 Safe Disk 内部文件剪贴板，也不复制凭据。
 
 ### 7.1 会话持久化模式
 
@@ -256,6 +260,29 @@ Digest/davfs 适配，Flutter 通过 `mount/unmount` FFI 请求 Go 执行；该�
 建议的创建参数为 `credential_visibility=once|persistent` 与
 `session_lifetime=ephemeral|persistent`。两者必须独立保存和展示：前者控制凭据是否可再次显示，后者
 控制地址与会话是否跨重启恢复；任何一个开关变化都只影响新建会话。
+
+## 全局开关
+
+设置中的“允许 WebDAV 共享”是本机持久化的安全开关，默认开启以保持既有行为。关闭后：
+
+- 主页不显示 WebDAV 会话入口，文件菜单不能新建共享；
+- 当前已打开 root 的 WebDAV 会话会被逐个撤销，正在进行的系统挂载请求会收到取消请求；
+- 后续解锁 root 时不会保留或恢复 WebDAV 会话；
+- 再次开启只恢复创建共享的能力，不恢复已经撤销的会话。
+
+该开关由 Dart 设置页保存，由 Go 会话管理器执行撤销；Go/FFI 仍是会话状态的最终来源。
+
+## 系统挂载取消
+
+系统挂载不再要求 Dart 同步等待系统命令。Go 暴露开始、轮询和取消操作入口，Dart 只保存不透明的操作 ID：
+
+1. `sec_webdav_mount_start` 或 `sec_webdav_unmount_start` 创建带 30 秒上限的 Go 操作；
+2. `sec_webdav_operation_poll` 返回 `running`、`completed`、`cancelled` 或 `failed`；
+3. `sec_webdav_operation_cancel` 取消 Go context，使 Linux `mount/umount` 和 Windows `net.exe` 的子进程收到取消信号；
+4. Linux 临时配置、凭据文件和挂载目录由平台挂载对象统一清理；Windows 盘符由 Go 统一回收；
+5. 取消与命令成功的竞态由 Go 以真实挂载状态为准，必要时执行补偿卸载，不向 UI 报告虚假的成功。
+
+取消后 UI 必须重新 list 会话，不能仅依据本地按钮状态判断是否已卸载。
 
 ## 8. 状态与日志
 
@@ -330,4 +357,5 @@ helper，不能另建弱化路径。
 - CLI 收到 `Ctrl-C` 或启动后异常退出时，旧地址立即失效；若指定 `--mount`，Go 会尝试卸载并
   将失败以稳定状态报告。
 - Linux、Windows、macOS 分别验证 Go WebDAV 访问、撤销和可选挂载的实际行为，并以各平台常用
-  WebDAV 客户端验证 Digest `SHA-256` 互操作；未验证的平台不宣称支持自动挂载或 Digest 兼容。
+  WebDAV 客户端验证 Digest `SHA-256` 互操作；当前 Linux/Windows 只有请求形状测试和 Windows
+  交叉编译证据，未验证的平台不宣称支持自动挂载或 Digest 兼容。

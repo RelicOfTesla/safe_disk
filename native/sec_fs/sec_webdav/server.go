@@ -579,6 +579,8 @@ func (m *Manager) handle(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodOptions:
+		// The wrapper rejects LOCK and all content-changing methods, so it must
+		// advertise class 1 rather than claiming x/net/webdav's class-2 locks.
 		w.Header().Set("DAV", "1")
 		w.Header().Set("Allow", methodAllow)
 		w.Header().Set("MS-Author-Via", "DAV")

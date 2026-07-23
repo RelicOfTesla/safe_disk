@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe_disk/l10n/generated/app_localizations.dart';
@@ -137,6 +139,42 @@ void main() {
     expect(find.text('密码'), findsOneWidget);
     expect(find.text('Realm'), findsOneWidget);
     expect(find.text('访问令牌'), findsNothing);
+  });
+
+  testWidgets('collects all new-session policies in one dialog',
+      (tester) async {
+    WebDavOpenOptions? selected;
+    await tester.pumpWidget(_localizedApp(
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () async {
+            selected = await chooseWebDavOpenOptions(context: context);
+          },
+          child: const Text('open'),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('配置 WebDAV 访问'), findsOneWidget);
+    expect(find.text('选择鉴权方式'), findsOneWidget);
+    expect(find.text('凭据显示方式'), findsOneWidget);
+    expect(find.text('会话保留方式'), findsOneWidget);
+    await tester.tap(find.text('Digest（用户名和密码）'));
+    await tester.tap(find.text('允许再次显示'));
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -280),
+    );
+    await tester.tap(find.text('持久会话'));
+    await tester.tap(find.text('继续'));
+    await tester.pumpAndSettle();
+
+    expect(selected?.authMode, WebDavAuthMode.digest);
+    expect(
+        selected?.credentialVisibility, WebDavCredentialVisibility.persistent);
+    expect(selected?.sessionLifetime, WebDavSessionLifetime.persistent);
   });
 
   testWidgets('selects persistent credential display and session lifetime',
@@ -285,11 +323,68 @@ void main() {
     await tester.pumpAndSettle();
     expect(mounted, isTrue);
     expect(find.text('已挂载到系统'), findsOneWidget);
+    expect(find.text('系统挂载路径'), findsOneWidget);
     expect(find.text('/cache/safe-disk/webdav'), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('webdav-mount-path')),
+        matching: find.byIcon(Icons.copy_outlined),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('已复制系统挂载路径'), findsAtLeastNWidgets(1));
 
     await tester.tap(find.text('卸载'));
     await tester.pumpAndSettle();
     expect(mounted, isFalse);
+  });
+
+  testWidgets('offers cancellation while a mount callback is pending',
+      (tester) async {
+    final completion = Completer<bool>();
+    var cancelled = false;
+    final session = WebDavSessionStatus.fromNative(
+      rootID: 7,
+      data: const {
+        'id': 'session-cancel',
+        'display_name': 'notes',
+        'exposed_path': 'notes',
+        'url': 'http://127.0.0.1:1234/webdav/session-cancel/',
+        'auth_mode': 'digest',
+        'read_only': true,
+        'active_requests': 0,
+      },
+    );
+    await tester.pumpWidget(_localizedApp(
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => showWebDavSessionsDialog(
+            context: context,
+            sessions: [session],
+            onRevoke: (_) async => true,
+            onMount: (_) => completion.future,
+            onUnmount: (_) async => true,
+            onCancelMount: (_) async {
+              cancelled = true;
+              completion.complete(true);
+              return true;
+            },
+            onReveal: (_) async => true,
+            onRefresh: () async => [session],
+          ),
+          child: const Text('open'),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('挂载到系统'));
+    await tester.pump();
+    expect(find.text('取消挂载操作'), findsOneWidget);
+    await tester.tap(find.text('取消挂载操作'));
+    await tester.pumpAndSettle();
+    expect(cancelled, isTrue);
   });
 }
 

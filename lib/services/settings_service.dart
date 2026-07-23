@@ -23,6 +23,7 @@ class SettingsService {
       'notepad_default_monitor_clipboard';
   static const String _keyDetailedErrorReports = 'detailed_error_reports';
   static const String _keyOpenOnDoubleClick = 'open_on_double_click';
+  static const String _keyWebDavEnabled = 'webdav_enabled';
 
   // Default values
   static const int defaultKeyStrengthMs = 1000; // 1 second
@@ -37,6 +38,7 @@ class SettingsService {
   static const bool defaultNotepadMonitorClipboard = false;
   static const bool defaultDetailedErrorReports = false;
   static const bool defaultOpenOnDoubleClick = false;
+  static const bool defaultWebDavEnabled = true;
 
   static const List<int> notepadAutoSaveOptions = [0, 15, 30, 60, 300];
 
@@ -277,6 +279,16 @@ class SettingsService {
     await prefs.setBool(_keyOpenOnDoubleClick, enabled);
   }
 
+  Future<bool> getWebDavEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyWebDavEnabled) ?? defaultWebDavEnabled;
+  }
+
+  Future<void> setWebDavEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyWebDavEnabled, enabled);
+  }
+
   // ==================== Reset to Defaults ====================
 
   /// Reset all settings to defaults
@@ -293,5 +305,6 @@ class SettingsService {
     await setNotepadDefaultMonitorClipboard(defaultNotepadMonitorClipboard);
     await setDetailedErrorReports(defaultDetailedErrorReports);
     await setOpenOnDoubleClick(defaultOpenOnDoubleClick);
+    await setWebDavEnabled(defaultWebDavEnabled);
   }
 }

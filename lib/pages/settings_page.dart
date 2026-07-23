@@ -15,11 +15,13 @@ class SettingsPage extends StatefulWidget {
     this.settingsService,
     this.onThemeModeChanged,
     this.onLocaleChanged,
+    this.onWebDavEnabledChanged,
   });
 
   final SettingsService? settingsService;
   final ValueChanged<ThemeMode>? onThemeModeChanged;
   final ValueChanged<Locale?>? onLocaleChanged;
+  final Future<void> Function(bool enabled)? onWebDavEnabledChanged;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -39,6 +41,7 @@ class _SettingsPageState extends State<SettingsPage> {
       SettingsService.defaultNotepadMonitorClipboard;
   bool _detailedErrorReports = SettingsService.defaultDetailedErrorReports;
   bool _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
+  bool _webDavEnabled = SettingsService.defaultWebDavEnabled;
   _SettingsSnapshot? _saved;
   bool _isLoading = true;
   bool _allowPop = false;
@@ -57,6 +60,7 @@ class _SettingsPageState extends State<SettingsPage> {
         notepadDefaultMonitorClipboard: _notepadDefaultMonitorClipboard,
         detailedErrorReports: _detailedErrorReports,
         openOnDoubleClick: _openOnDoubleClick,
+        webDavEnabled: _webDavEnabled,
       );
 
   @override
@@ -83,6 +87,7 @@ class _SettingsPageState extends State<SettingsPage> {
             await _settingsService.getNotepadDefaultMonitorClipboard(),
         detailedErrorReports: await _settingsService.getDetailedErrorReports(),
         openOnDoubleClick: await _settingsService.getOpenOnDoubleClick(),
+        webDavEnabled: await _settingsService.getWebDavEnabled(),
       );
       if (!mounted) return;
       setState(() {
@@ -98,6 +103,7 @@ class _SettingsPageState extends State<SettingsPage> {
             snapshot.notepadDefaultMonitorClipboard;
         _detailedErrorReports = snapshot.detailedErrorReports;
         _openOnDoubleClick = snapshot.openOnDoubleClick;
+        _webDavEnabled = snapshot.webDavEnabled;
         _saved = snapshot;
         _isLoading = false;
       });
@@ -130,6 +136,8 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       await _settingsService.setDetailedErrorReports(_detailedErrorReports);
       await _settingsService.setOpenOnDoubleClick(_openOnDoubleClick);
+      await _settingsService.setWebDavEnabled(_webDavEnabled);
+      await widget.onWebDavEnabledChanged?.call(_webDavEnabled);
       ErrorReportingService.configure(
         detailedErrorsEnabled: _detailedErrorReports,
       );
@@ -224,6 +232,7 @@ class _SettingsPageState extends State<SettingsPage> {
           SettingsService.defaultNotepadMonitorClipboard;
       _detailedErrorReports = SettingsService.defaultDetailedErrorReports;
       _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
+      _webDavEnabled = SettingsService.defaultWebDavEnabled;
     });
     widget.onThemeModeChanged?.call(ThemeMode.system);
     widget.onLocaleChanged?.call(null);
@@ -475,6 +484,15 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _detailedErrorReports,
             onChanged: (value) => setState(() => _detailedErrorReports = value),
           ),
+          const Divider(),
+          SwitchListTile(
+            key: const Key('webdav-enabled'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(strings.webDavGlobalSwitch),
+            subtitle: Text(strings.webDavGlobalSwitchHint),
+            value: _webDavEnabled,
+            onChanged: (value) => setState(() => _webDavEnabled = value),
+          ),
         ],
       );
 
@@ -612,6 +630,7 @@ class _SettingsSnapshot {
     required this.notepadDefaultMonitorClipboard,
     required this.detailedErrorReports,
     required this.openOnDoubleClick,
+    required this.webDavEnabled,
   });
 
   final String themeMode;
@@ -625,6 +644,7 @@ class _SettingsSnapshot {
   final bool notepadDefaultMonitorClipboard;
   final bool detailedErrorReports;
   final bool openOnDoubleClick;
+  final bool webDavEnabled;
 
   @override
   bool operator ==(Object other) =>
@@ -639,7 +659,8 @@ class _SettingsSnapshot {
       notepadDefaultReadOnly == other.notepadDefaultReadOnly &&
       notepadDefaultMonitorClipboard == other.notepadDefaultMonitorClipboard &&
       detailedErrorReports == other.detailedErrorReports &&
-      openOnDoubleClick == other.openOnDoubleClick;
+      openOnDoubleClick == other.openOnDoubleClick &&
+      webDavEnabled == other.webDavEnabled;
 
   @override
   int get hashCode => Object.hash(
@@ -654,5 +675,6 @@ class _SettingsSnapshot {
         notepadDefaultMonitorClipboard,
         detailedErrorReports,
         openOnDoubleClick,
+        webDavEnabled,
       );
 }
