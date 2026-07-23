@@ -2,7 +2,7 @@
 
 > 本文档定义 Safe Disk CLI 的目标形态、命令语义、底层 `sec_fs/sec_transfer` 配合要求和测试规划。当前实现进度以实际代码为准；`sec_transfer` 原理与规划见 [TRANSFER_DESIGN.md](TRANSFER_DESIGN.md)。
 
-最后更新：2026-06-20
+最后更新：2026-07-23
 
 ## 设计目标
 
@@ -21,6 +21,7 @@ CLI 需要负责：
 - convert 未完成时按 phase 恢复、重跑或进入人工处理。
 - 支持安全密码输入。
 - 使用完整算法注册，确保 CLI 能打开所有当前后端支持的配置。
+- 为第三方工具启动受限、临时的 WebDAV 只读会话，并可选请求 Go 完成系统挂载。
 
 ## 当前实现状态
 
@@ -28,7 +29,7 @@ CLI 需要负责：
 
 已确认：
 
-- `native/cli/cmd/root.go` 已注册 `version`、`list`、`import`、`export`、`create`。
+- `native/cli/cmd/root.go` 已注册 `version`、`list`、`import`、`export`、`create`；`webdav` 尚未注册。
 - `native/cli/main.go` 已 blank import `crypto_all` 和 `sec_transfer/v3`。
 - `import/export/list/create` 已支持 `--password`、`--password-env`、`--password-stdin` 和交互式隐藏输入。
 - `import/export` 已通过 `sec_transfer.GetDefaultTransferV3()` 执行同步 V3 操作，并在失败/中断时保留 operation marker。
@@ -38,6 +39,7 @@ CLI 需要负责：
 - `create` 已注册，`info/passwd` 未注册为 CLI 命令。
 - `create` 对非空目录默认要求显式 `--in-place`；交互式终端可确认后进入原地加密，非交互和 `--json` 模式仍直接拒绝。
 - `export --dest -` 的单文件 stdout 路径存在；目录导出到 stdout 会明确报错。
+- Go 原生层已有只读 loopback WebDAV 会话及 FFI open/close ABI；CLI 尚未调用该会话管理器，也尚未提供系统挂载命令。
 
 明确不再作为主线：
 
@@ -62,6 +64,7 @@ CLI 参数使用绝对路径。
 - `export --dest`：外部明文绝对路径。
 - `list --path`：加密目录视图中的绝对路径。
 - `create --path`：待创建的加密 root 绝对路径。
+- `webdav serve --path`：加密视图中要暴露的文件或目录绝对路径。
 
 命令内部可以继续用 `FindRootConfig(absPath)` 向上查找 `_cryption.json`，从用户角度不暴露 `--root + --relative-path` 这种拆分模型。
 
@@ -79,6 +82,9 @@ CLI 参数使用绝对路径。
 8. 返回 root、相对路径、transfer manager。
 
 不要在每个命令中复制这套流程。
+
+`webdav serve` 成功打开 root 后，还必须把 root 生命周期绑定到 Go WebDAV 会话。它是前台常驻
+命令，不能在打印地址后立即退出；进程退出前必须关闭会话并请求卸载。
 
 ### 密码原则
 
@@ -228,6 +234,36 @@ safe-disk info --path /abs/encrypted/root/or/file
 - 配置算法。
 - 是否存在 pending task。
 - 文件/目录基本信息。
+
+### webdav serve
+
+> 规划中，当前 CLI 尚未实现。完整安全模型见 [THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md](design/THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md)。
+
+```bash
+safe-disk webdav serve --path /abs/encrypted/root/or/item
+safe-disk webdav serve --path /abs/encrypted/root/or/item --mount
+safe-disk webdav serve --path /abs/encrypted/root/or/item --json
+```
+
+语义：
+
+- 使用统一密码与 root open helper；文件仅暴露该文件，目录仅暴露该目录树。
+- 直接复用 Go `sec_webdav` 会话管理器；CLI 不经过 FFI，不自行实现 HTTP 服务或平台挂载。
+- 固定创建只读 loopback 会话。首期不支持 `--edit`，不写明文临时目录。
+- 默认前台持续运行，`Ctrl-C`、正常退出和启动失败清理路径均关闭会话并请求 Go 卸载。
+- `--mount` 仅请求 Go 平台适配层挂载。平台不支持、挂载失败或卸载失败必须输出稳定错误码或状态，不能退化为普通目录。
+- 人类模式只向终端显示一次地址和访问凭据；不得写入日志或 stderr。`--json` 向 stdout 输出 JSON Lines 生命周期事件，地址/token 只出现在启动事件中。
+- 首期不提供跨进程 `list/close/mount/unmount`，也不能操作 GUI 进程创建的会话。现有会话是进程内资源；需要跨进程控制时必须先实现经本地认证的常驻 Go daemon/IPC。
+
+建议的 JSON Lines 事件：
+
+```json
+{"event":"webdav_started","url":"http://127.0.0.1:...","token":"...","read_only":true,"mounted":false}
+{"event":"webdav_mount_changed","mounted":true,"mount_path":"..."}
+{"event":"webdav_stopped","reason":"signal","unmount_error":null}
+```
+
+`token` 是访问能力，不属于普通诊断信息；实现不得在错误、进度或日志事件中重复输出，也不得在测试快照和失败转储中保留真实 token。
 
 ## 未完成 Operation 处理设计
 
@@ -521,6 +557,15 @@ import _ "safe_disk/native/sec_fs/sec_transfer/v3"
 - 使用不同算法配置的 root 可被 CLI 打开。
 - 嵌套 root 的路径查找符合最近 root 优先原则。
 
+### 8. WebDAV CLI 测试
+
+- 真实 CLI 子进程以文件和目录路径启动 `webdav serve`，能读取限定范围。
+- 无 token、错误 token、越界 URL 和全部写方法必须失败；合法 `OPTIONS/GET/HEAD/PROPFIND` 行为与 Go 协议测试一致。
+- `Ctrl-C`、启动错误和异常退出均撤销地址；旧 token 不能在下一次启动中复用。
+- `--json` 仅向 stdout 输出可解析事件；stderr、错误和日志不包含 token 或密码。
+- `--mount` 在每个支持平台验证挂载、卸载和失败状态；未实现平台适配时明确报不支持。
+- Flutter/GUI 创建的 root 能由 CLI 暴露；CLI 创建的 root 也能由 GUI 对同一范围创建会话。
+
 ## 实施顺序
 
 1. 定义 `sec_transfer` V3 operation marker 和 convert phase marker。
@@ -530,7 +575,8 @@ import _ "safe_disk/native/sec_fs/sec_transfer/v3"
 5. 增加 `create` 命令。
 6. 实现 import/export marker、运行时进度和 JSON 输出。
 7. 实现 `create --in-place`，基于 convert work/backup 目录切换。
-8. 补齐实践测试矩阵。
+8. 增加前台 `webdav serve`，复用 Go 会话管理器和 root 生命周期。
+9. 补齐实践测试矩阵。
 
 ## 不做的事
 
@@ -541,3 +587,5 @@ import _ "safe_disk/native/sec_fs/sec_transfer/v3"
 - 不让 CLI 绕过 `sec_fs/sec_transfer` 直接操作内部加密文件。
 - 不为 import/export 做断点续传。
 - 不围绕 v2 `ResumeAllTasks` 设计 CLI。
+- 不把短生命周期的 CLI 命令伪装成可跨进程管理的 WebDAV 会话控制器。
+- 不让 CLI 直接调用 FFI、另起 WebDAV server、拼接系统挂载命令或用明文临时目录替代挂载。

@@ -68,7 +68,7 @@
 |---|---:|---|---|
 | KDF 成本动态校准 | 15% | 当前使用固定配置参数 | 目标耗时校准、上下限、防 DoS 和设备矩阵 |
 | 可配置 config 文件名 | 0% | 当前固定 `_cryption.json` | 先评估发现/冲突/兼容成本，再决定是否实现 |
-| 第三方工具安全文件交接 | 5% | 只有 FUSE/memfd/受限临时文件方向 | 威胁模型、分平台原型、权限与清理攻击测试 |
+| 第三方工具安全文件交接 | 45% | Go 已完成仅 loopback、Bearer 认证和限定范围的只读 WebDAV 会话，以及 FFI open/close；设计要求 GUI 走 FFI、CLI 直接复用 Go 会话管理器 | 主界面会话管理、前台 `webdav serve` CLI、Go 分平台挂载/卸载、编辑协议和三平台攻击/生命周期测试 |
 | 备份恢复与密码提示 | 12% | 密码提示已完成 sec/FFI/Dart、创建/解锁/已解锁属性页基础流程；备份恢复仍只有安全设计，见 [BACKUP_RECOVERY_AND_PASSWORD_HINT_DESIGN.md](design/BACKUP_RECOVERY_AND_PASSWORD_HINT_DESIGN.md) | 提示的故障/并发/三平台验收；认证备份格式、恢复流程和灾难测试 |
 
 ## 平台与发布
