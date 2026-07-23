@@ -376,6 +376,13 @@ void main() {
     await tester.tap(find.byTooltip('监视剪贴板'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('secure-clipboard-monitor')), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(const Key('secure-clipboard-monitor'))).dy,
+      greaterThanOrEqualTo(
+        tester.getBottomLeft(find.byKey(const Key('secure-notepad-editor'))).dy,
+      ),
+      reason: '剪贴板监视条应位于编辑器底部',
+    );
     final preview = tester.widget<Text>(
       find.byKey(const Key('secure-clipboard-preview')),
     );

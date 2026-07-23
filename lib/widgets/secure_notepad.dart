@@ -450,14 +450,6 @@ class _SecureNotepadState extends State<SecureNotepad>
               onQueryChanged: _editorViewport.clearSelectionHighlight,
               onClose: _hideFind,
             ),
-          if (_monitorClipboard)
-            SecureClipboardMonitorBar(
-              preview: _clipboardPreview,
-              error: _clipboardError,
-              onRefresh: _refreshClipboardPreview,
-              onClear: _clearSystemClipboard,
-              onClose: _toggleClipboardMonitor,
-            ),
           SecureNotepadStatusBar(
             hasChanges: _controller.hasChanges,
             isSaving: _controller.isSaving,
@@ -477,6 +469,14 @@ class _SecureNotepadState extends State<SecureNotepad>
               viewport: _editorViewport,
             ),
           ),
+          if (_monitorClipboard)
+            SecureClipboardMonitorBar(
+              preview: _clipboardPreview,
+              error: _clipboardError,
+              onRefresh: _refreshClipboardPreview,
+              onClear: _clearSystemClipboard,
+              onClose: _toggleClipboardMonitor,
+            ),
         ],
       ),
     );

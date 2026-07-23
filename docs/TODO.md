@@ -44,7 +44,7 @@
 | UI-66 | 多语言换行转义一致性 | i18n/正确性 | 0% | 清点 ARB、生成代码和 UI 渲染中的换行语义：需要换行的位置显示真实换行，不应把 `\\n` 显示为两个字符；需要保留协议文本的地方不得被误转换。中英文 ARB、生成代码、widget 渲染和占位符组合均有回归。 |
 | UI-67 | 设置界面重新分类与响应式排版 | UX/可访问性 | 0% | 设置项按外观、行为、安全和关于等用户可理解的分类组织；窄屏、宽屏和较大字号下不溢出、不挤压，相关开关说明保持完整；中英文标题与返回未保存提示有 widget 回归。 |
 | UI-68 | 安全记事本小键盘回车后的空格输入 | Bug/编辑器 | 0% | 复现“小键盘 Enter → 输入文字 → 连续空格 → 输入英文”路径，确认空格逐次立即进入文本且光标位置正确；普通 Enter 行为不回归。补小键盘 Enter、普通 Enter、光标/文本值的 widget 回归后再修复。 |
-| UI-69 | 安全记事本剪贴板监视位置 | UX/布局 | 0% | 剪贴板监视条移至编辑器底部，不再占用顶部操作区；监视、刷新、清空、关闭和错误状态在窄屏/宽屏均可用，编辑器仍占据剩余空间并有 widget 布局回归。 |
+| UI-69 | 安全记事本剪贴板监视位置 | UX/布局 | 90% | 剪贴板监视条已移至编辑器底部，不再占用顶部操作区；监视、刷新、清空、关闭和错误状态保持可用，编辑器占据剩余空间。widget 已覆盖底部布局、短文本截断、快速清空和关闭监视；仍缺三平台宽窄窗口与大字号实测。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
@@ -113,6 +113,8 @@
 - 2026-07-23 服务诊断稳定标识与详细错误本地化：目录 marker、root 会话、原生加载、Transfer worker 和设置校验的可传播异常改为无路径、无密码的稳定标识；详细诊断的标签、密码/路径替代符和截断提示由 ARB 按当前 locale 生成。新增英文原生启动详细错误脱敏断言。`flutter analyze --no-pub` 通过；错误报告、原生启动、目录 marker、导入目标和创建 root 定向回归共 20 通过；完整 `flutter test --no-pub --timeout 180s -r compact` 为 234 通过、12 跳过。词法审计由 31 降至 0；该静态结果不替代三平台英文视觉、截断和读屏验收。
 - 2026-07-23 属性首击 Linux 复现与修复：真实“右键菜单 → 文件/root 属性”首次冷帧分别约 336ms/249ms，完成一次属性挂载后另一种属性降至约 8ms；菜单 route 移除与属性 overlay 同帧导致首次初始化成本叠加。HomePage 的两个属性入口现等待一个 `endOfFrame` 后再插入 overlay；Linux A/B smoke 降至约 7.7ms，`flutter analyze --no-pub`、文件/root 属性与主页右键定向回归通过。Windows/macOS 和真实主界面鼠标路径仍在跨平台验收清单。
 - 2026-07-23 主界面复制/剪切快捷键：补齐 `Ctrl/Cmd+C` 与 `Ctrl/Cmd+X`，优先处理当前选中项，无多选时复用最近右键目标，并保持安全文件剪贴板路径。主界面快捷键 widget 回归已通过；三平台真实键盘布局与读屏验收仍在平台清单。
+- 2026-07-23 UI-68 小键盘回车初步复现：临时 Linux 桌面诊断程序使用与安全记事本相同的多行 `TextField`，通过真实 `xdotool KP_Enter → 连续空格 → 英文` 输入；观察到光标逐次移动、空格立即进入文本，composing 区域始终为空，未复现用户描述的问题。未修改编辑器代码，仍需在用户出现问题的键盘布局/输入法环境复验。
+- 2026-07-23 UI-69 安全记事本剪贴板监视布局：监视条从编辑器上方移到编辑器底部，保留刷新、快速清空、关闭和错误状态；新增布局断言。controller/widget 共 28 项回归与 `flutter analyze --no-pub` 通过。
 - 2026-07-22 多语言主页剩余操作回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/home_page_unlock_widget_test.dart -r compact` 共 47 项通过。批量粘贴摘要/失败 operation、新建、重命名、删除确认和删除成功均进入 ARB；审计候选总数由 99 降至 68，`home_page.dart` 已无候选。英文路径仍缺覆盖新增提示的专门断言，主页未计为完整英文桌面验收。
 - 2026-07-22 多语言主页导入导出与剪贴板首批回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/home_page_unlock_widget_test.dart -r compact` 共 47 项通过。文件选择、文件导入/导出成功、明文导出确认、复制名称/路径、单项与批量复制/剪切提示均已进入 ARB；候选总数由 113 降至 99，主页由 45 降至 31。批量粘贴结果和新建/重命名/删除仍待迁移，新增英文提示尚缺专门断言。
 - 2026-07-22 多语言 root 会话与自动锁定回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/home_page_unlock_widget_test.dart -r compact` 共 47 项通过。覆盖英文 root 会话移除提示和可滚动的长 root 操作对话框；自动锁定摘要、内容窗口/活动保存阻断、改密前阻断与成功状态均由 ARB 呈现。审计报告由 133 项降至 113 项，主页由 65 项降至 45 项。
