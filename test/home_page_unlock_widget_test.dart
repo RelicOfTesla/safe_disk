@@ -1045,6 +1045,71 @@ void main() {
     );
   });
 
+  testWidgets('batch deletion confirmation is complete in English',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/english-batch-delete';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final fileService = _FakeFileService(cryptoService, items: [
+      FileSystemNode(
+        name: 'first.txt',
+        path: '/first.txt',
+        isDirectory: false,
+      ),
+      FileSystemNode(
+        name: 'second.txt',
+        path: '/second.txt',
+        isDirectory: false,
+      ),
+    ]);
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: fileService,
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('english-batch-delete'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('Unlock'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('first.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('second.txt'));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('More batch actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete selected'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Confirm batch deletion'), findsOneWidget);
+    expect(
+      find.text(
+        'Delete 2 selected items? This cannot be undone. Items are deleted '
+        'one at a time; items already deleted are not restored if a later '
+        'deletion fails.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+        find.widgetWithText(FilledButton, 'Delete selected'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(cryptoService.deletedFiles, isEmpty);
+  });
+
   testWidgets('selected files enter one clipboard queue and paste in order',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));

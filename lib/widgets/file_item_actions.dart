@@ -380,9 +380,13 @@ class _FileItemActionRow extends StatelessWidget {
           color: isDestructive ? Colors.red : null,
         ),
         const SizedBox(width: 12),
-        Text(
-          fileItemActionLabel(AppLocalizations.of(context)!, action, item),
-          style: isDestructive ? const TextStyle(color: Colors.red) : null,
+        Expanded(
+          child: Text(
+            fileItemActionLabel(AppLocalizations.of(context)!, action, item),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: isDestructive ? const TextStyle(color: Colors.red) : null,
+          ),
         ),
       ],
     );
