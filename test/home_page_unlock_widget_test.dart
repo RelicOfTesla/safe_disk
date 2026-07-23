@@ -1808,6 +1808,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(fileService.listCalls, 1);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    final filter = find.byKey(const Key('current-directory-filter'));
+    expect(filter, findsOneWidget);
+    expect(tester.widget<TextField>(filter).focusNode?.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
     await tester.sendKeyEvent(LogicalKeyboardKey.f5);
     await tester.pumpAndSettle();
     expect(fileService.listCalls, 2);

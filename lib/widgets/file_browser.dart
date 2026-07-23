@@ -96,10 +96,10 @@ class FileBrowser extends StatefulWidget {
   final VoidCallback? onRetryLoadMore;
 
   @override
-  State<FileBrowser> createState() => _FileBrowserState();
+  FileBrowserState createState() => FileBrowserState();
 }
 
-class _FileBrowserState extends State<FileBrowser> {
+class FileBrowserState extends State<FileBrowser> {
   bool _isFiltering = false;
   bool _showTreeNavigator = false;
   final TextEditingController _filterController = TextEditingController();
@@ -170,6 +170,17 @@ class _FileBrowserState extends State<FileBrowser> {
         if (mounted) _filterFocusNode.requestFocus();
       });
     }
+  }
+
+  /// Opens the current-directory filter and returns focus to its input.
+  ///
+  /// The filter remains scoped to the entries supplied by the parent; this
+  /// entry point only exposes the existing toolbar behavior to desktop keys.
+  void focusFilter() {
+    if (!_isFiltering) setState(() => _isFiltering = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _filterFocusNode.requestFocus();
+    });
   }
 
   void _clearFilter({required bool close}) {

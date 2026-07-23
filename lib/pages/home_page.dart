@@ -35,6 +35,7 @@ import '../widgets/secure_notepad.dart';
 import '../widgets/secure_image_viewer.dart';
 import '../widgets/progress_dialog.dart';
 import '../widgets/home_shell.dart';
+import '../widgets/file_browser.dart';
 import '../widgets/file_item_actions.dart';
 import '../widgets/entry_conflict_dialog.dart';
 import '../widgets/directory_background_actions.dart';
@@ -131,6 +132,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? _keyboardSelectionAnchorPath;
   int _gridColumnCount = 1;
   final FocusNode _shortcutFocusNode = FocusNode(debugLabel: 'home-shortcuts');
+  final GlobalKey<FileBrowserState> _fileBrowserKey =
+      GlobalKey<FileBrowserState>();
 
   @override
   void initState() {
@@ -2938,6 +2941,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _refreshCurrentDirectory,
         const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
             _refreshCurrentDirectory,
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () {
+          _touchCurrentRoot();
+          _fileBrowserKey.currentState?.focusFilter();
+        },
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () {
+          _touchCurrentRoot();
+          _fileBrowserKey.currentState?.focusFilter();
+        },
         const SingleActivator(LogicalKeyboardKey.keyV, control: true): () {
           if (_secureClipboard.hasEntry) {
             _touchCurrentRoot();
@@ -3060,6 +3071,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onExternalDrop: (candidates) {
               unawaited(_importDroppedCandidates(candidates));
             },
+            fileBrowserKey: _fileBrowserKey,
             onPaste: () => _pasteClipboard(),
             onClearClipboard: () {
               _secureClipboard.clear();

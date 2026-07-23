@@ -63,6 +63,7 @@ class HomeShell extends StatelessWidget {
     this.onGridColumnCountChanged,
     this.focusedPath,
     required this.onExternalDrop,
+    this.fileBrowserKey,
     this.loading = false,
     this.canPaste = false,
     this.clipboardEntry,
@@ -130,6 +131,7 @@ class HomeShell extends StatelessWidget {
   final ValueChanged<int>? onGridColumnCountChanged;
   final String? focusedPath;
   final ValueChanged<List<DragDropCandidate>> onExternalDrop;
+  final GlobalKey<FileBrowserState>? fileBrowserKey;
 
   @override
   Widget build(BuildContext context) {
@@ -313,6 +315,7 @@ class HomeShell extends StatelessWidget {
             rootPath: directory.path,
             onDrop: onExternalDrop,
             child: FileBrowser(
+              key: fileBrowserKey,
               items: items,
               currentPath: currentPath,
               rootPath: directory.path,
