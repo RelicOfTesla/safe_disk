@@ -312,6 +312,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   isVerified: false,
                   displayAlias: directory.displayAlias,
                 ),
+                expectedSessionID: sessionID,
               );
             }
             lockedCount++;
@@ -1067,7 +1068,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         await delete(dir.path);
       } catch (error) {
         if (mounted) {
-          _replaceWithLockedDirectory(dir, lockedDirectory);
+          _replaceWithLockedDirectory(
+            dir,
+            lockedDirectory,
+            expectedSessionID: sessionID,
+          );
           ErrorHelper.showError(
             context,
             errorType: ErrorType.operationFailed,
@@ -1080,7 +1085,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
 
     if (action == RootDirectoryAction.endSession) {
-      _replaceWithLockedDirectory(dir, lockedDirectory);
+      _replaceWithLockedDirectory(
+        dir,
+        lockedDirectory,
+        expectedSessionID: sessionID,
+      );
       return;
     }
 
@@ -1165,6 +1174,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           config: directory.config,
           displayAlias: directory.displayAlias,
         ),
+        expectedSessionID: sessionID,
       );
     }
     return true;
@@ -1280,13 +1290,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   void _replaceWithLockedDirectory(
     EncryptedDirectory directory,
-    EncryptedDirectory lockedDirectory,
-  ) {
+    EncryptedDirectory lockedDirectory, {
+    String? expectedSessionID,
+  }) {
     setState(() {
       final index =
           _openedDirs.indexWhere((item) => item.path == directory.path);
-      if (index >= 0) _openedDirs[index] = lockedDirectory;
-      if (_currentDir?.path == directory.path) {
+      final openedDirectory = index >= 0 ? _openedDirs[index] : null;
+      final openedMatches = expectedSessionID == null ||
+          openedDirectory?.tempKeyID == expectedSessionID;
+      if (index >= 0 && openedMatches) {
+        _openedDirs[index] = lockedDirectory;
+      }
+      final currentMatches = expectedSessionID == null ||
+          _currentDir?.tempKeyID == expectedSessionID;
+      if (_currentDir?.path == directory.path && currentMatches) {
         _currentDir = lockedDirectory;
         _currentPath = lockedDirectory.path;
         _items = [];
