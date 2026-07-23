@@ -204,10 +204,15 @@ void main() {
             find.byKey(
               const ValueKey('file-grid-select-/root/sub/alpha.txt'),
             ),
-          )
+      )
           .value,
       isTrue,
     );
+    await tester.tap(
+      find.byKey(const ValueKey('file-grid-select-/root/sub/alpha.txt')),
+    );
+    await tester.pump();
+    expect(find.text('selected: 1'), findsOneWidget);
   });
 
   testWidgets('directories participate in range and keyboard-style selection',
