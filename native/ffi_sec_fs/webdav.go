@@ -30,6 +30,13 @@ func WebDavClose_FFI(sessionID string) string {
 	return Success()
 }
 
+func WebDavList_FFI(rootID int64) string {
+	if _, ok := RootStore.Get(rootID); !ok {
+		return ErrorWithCode("root session not found", ErrorCodeRootSessionNotFound)
+	}
+	return successResponse(WebDavManager.List(rootKey(rootID)))
+}
+
 type rootResourceProvider struct {
 	root sec_fs.ISecRoot
 }

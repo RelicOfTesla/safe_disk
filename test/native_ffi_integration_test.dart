@@ -14,6 +14,7 @@ import 'package:safe_disk/services/directory_service.dart';
 import 'package:safe_disk/services/file_service.dart';
 import 'package:safe_disk/services/secure_clipboard_service.dart';
 import 'package:safe_disk/services/secure_entry_move_service.dart';
+import 'package:safe_disk/services/webdav_service.dart';
 import 'package:safe_disk/widgets/secure_image_viewer.dart';
 
 import 'support/image_fixtures.dart';
@@ -26,6 +27,50 @@ void main() {
       skip: hasFfiLibrary
           ? null
           : 'Set SAFE_DISK_FFI_LIBRARY to run native FFI tests', () {
+    test('opens, lists and revokes token-free WebDAV status through FFI',
+        () async {
+      final tmp = await Directory.systemTemp.createTemp('safe-disk-webdav-');
+      addTearDown(() async {
+        if (await tmp.exists()) await tmp.delete(recursive: true);
+      });
+
+      final rootPath = '${tmp.path}/root';
+      const password = 'webdav-password';
+      final native = NativeLib.instance;
+      final crypto = CryptoService();
+      native.secCreateRootConfig(
+        rootPath,
+        password,
+        jsonEncode({'dataFactory': 'AES-CTR', 'nameFactory': 'None'}),
+      );
+      final rootID = crypto.openRoot(rootPath, password, '');
+      addTearDown(() {
+        try {
+          crypto.closeRoot(rootID);
+        } catch (_) {
+          // The root may already be closed after a failed assertion.
+        }
+      });
+      native.secQuickWriteFile(rootID, 'note.txt', utf8.encode('content'));
+
+      final webDav = WebDavService(cryptoService: crypto);
+      final opened = webDav.open(
+        rootID: rootID,
+        logicalPath: '$rootPath/note.txt',
+        displayName: 'note.txt',
+      );
+      expect(opened.token, isNotEmpty);
+
+      final statuses = webDav.list(rootID: rootID);
+      expect(statuses, hasLength(1));
+      expect(statuses.single.id, opened.id);
+      expect(statuses.single.exposedPath, 'note.txt');
+      expect(statuses.single.readOnly, isTrue);
+
+      webDav.close(opened.id);
+      expect(webDav.list(rootID: rootID), isEmpty);
+    });
+
     test('creates a password-changeable root and reopens it with new password',
         () async {
       final tmp = await Directory.systemTemp.createTemp('safe-disk-change-');

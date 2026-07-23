@@ -15,8 +15,10 @@ import (
 	"net/http"
 	"net/url"
 	pathpkg "path"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -49,8 +51,22 @@ type Session struct {
 }
 
 type activeSession struct {
-	session  Session
-	provider ResourceProvider
+	session        Session
+	provider       ResourceProvider
+	lastAccessedAt *time.Time
+	activeRequests int
+}
+
+// SessionStatus is safe to render outside the native process. It deliberately
+// excludes the bearer token, which is returned only when a session is opened.
+type SessionStatus struct {
+	ID             string     `json:"id"`
+	DisplayName    string     `json:"display_name"`
+	ExposedPath    string     `json:"exposed_path"`
+	URL            string     `json:"url"`
+	ReadOnly       bool       `json:"read_only"`
+	LastAccessedAt *time.Time `json:"last_accessed_at"`
+	ActiveRequests int        `json:"active_requests"`
 }
 
 type Manager struct {
@@ -136,6 +152,27 @@ func (m *Manager) Count() int {
 	return len(m.sessions)
 }
 
+// List returns monitoring and permission state for a root. An empty rootKey
+// intentionally means all sessions; callers normally scope this by root.
+func (m *Manager) List(rootKey string) []SessionStatus {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	statuses := make([]SessionStatus, 0, len(m.sessions))
+	for _, active := range m.sessions {
+		if rootKey != "" && active.session.RootKey != rootKey {
+			continue
+		}
+		statuses = append(statuses, statusFromActive(active))
+	}
+	sort.Slice(statuses, func(i, j int) bool {
+		if statuses[i].DisplayName != statuses[j].DisplayName {
+			return statuses[i].DisplayName < statuses[j].DisplayName
+		}
+		return statuses[i].ID < statuses[j].ID
+	})
+	return statuses
+}
+
 func (m *Manager) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -189,14 +226,13 @@ func (m *Manager) handle(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	m.mu.Lock()
-	active, ok := m.sessions[segments[1]]
-	m.mu.Unlock()
-	if !ok || !authorized(r, active.session.Token) {
+	active, ok := m.acquireAuthorized(segments[1], r)
+	if !ok {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="safe-disk"`)
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
+	defer m.releaseRequest(segments[1])
 	for _, segment := range segments[2:] {
 		if segment == "" || segment == "." || segment == ".." || strings.Contains(segment, `\`) || strings.ContainsRune(segment, 0) {
 			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -216,6 +252,45 @@ func (m *Manager) handle(w http.ResponseWriter, r *http.Request) {
 	default:
 		w.Header().Set("Allow", methodAllow)
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+	}
+}
+
+func (m *Manager) acquireAuthorized(id string, request *http.Request) (activeSession, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	active, ok := m.sessions[id]
+	if !ok || !authorized(request, active.session.Token) {
+		return activeSession{}, false
+	}
+	now := time.Now().UTC()
+	active.lastAccessedAt = &now
+	active.activeRequests++
+	m.sessions[id] = active
+	return active, true
+}
+
+func (m *Manager) releaseRequest(id string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	active, ok := m.sessions[id]
+	if !ok {
+		return
+	}
+	if active.activeRequests > 0 {
+		active.activeRequests--
+	}
+	m.sessions[id] = active
+}
+
+func statusFromActive(active activeSession) SessionStatus {
+	return SessionStatus{
+		ID:             active.session.ID,
+		DisplayName:    active.session.DisplayName,
+		ExposedPath:    active.session.ExposedPath,
+		URL:            active.session.URL,
+		ReadOnly:       active.session.ReadOnly,
+		LastAccessedAt: active.lastAccessedAt,
+		ActiveRequests: active.activeRequests,
 	}
 }
 

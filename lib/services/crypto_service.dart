@@ -52,6 +52,25 @@ class CryptoService {
     _rootPaths.remove(rootID);
   }
 
+  /// Opens a native read-only WebDAV session for a path relative to [rootID].
+  Map<String, dynamic> openWebDavSession({
+    required int rootID,
+    required String exposedPath,
+    required String displayName,
+  }) {
+    return _native.secWebDavOpen(rootID, exposedPath, displayName);
+  }
+
+  /// Revokes a native WebDAV session by its opaque ID.
+  void closeWebDavSession(String sessionID) {
+    _native.secWebDavClose(sessionID);
+  }
+
+  /// Returns token-free WebDAV monitoring state owned by the Go session layer.
+  List<Map<String, dynamic>> listWebDavSessions(int rootID) {
+    return _native.secWebDavList(rootID);
+  }
+
   /// Creates a secure root configuration.
   void createRootConfig(String rootPath, String password, String optionsJSON) {
     final directory = Directory(rootPath);

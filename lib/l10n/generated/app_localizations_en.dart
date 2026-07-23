@@ -177,6 +177,72 @@ class AppLocalizationsEn extends AppLocalizations {
   String get close => 'Close';
 
   @override
+  String get exposeToThirdParty => 'Expose to third-party tool';
+
+  @override
+  String get webDavExposureConfirmTitle =>
+      'Expose content to a third-party tool?';
+
+  @override
+  String webDavExposureConfirmDescription(String name) {
+    return '$name will be exposed through a loopback, read-only WebDAV session. Third-party tools may cache or export plaintext, so expose only what is necessary.';
+  }
+
+  @override
+  String get webDavExposeReadOnly => 'Create read-only access';
+
+  @override
+  String get webDavSessions => 'Third-party access';
+
+  @override
+  String get webDavSessionsTitle => 'Third-party tool access';
+
+  @override
+  String get webDavNoActiveSessions => 'There is no active third-party access.';
+
+  @override
+  String get webDavCredentialsTitle => 'Third-party tool credentials';
+
+  @override
+  String get webDavCredentialsDescription =>
+      'Provide the URL and token to the selected trusted tool. The token is not shown again after this window closes.';
+
+  @override
+  String get webDavReadOnly => 'Permission: read-only';
+
+  @override
+  String get webDavUrl => 'WebDAV URL';
+
+  @override
+  String get webDavToken => 'Access token';
+
+  @override
+  String webDavLastAccessed(String time) {
+    return 'Last accessed: $time';
+  }
+
+  @override
+  String webDavActiveRequests(int count) {
+    return 'Active requests: $count';
+  }
+
+  @override
+  String get webDavUrlCopied => 'WebDAV URL copied';
+
+  @override
+  String get webDavTokenCopied => 'Access token copied';
+
+  @override
+  String get webDavCapabilityWarning =>
+      'Both the URL and token can access the exposed content. Share them only with trusted tools and revoke access when finished.';
+
+  @override
+  String get webDavRevoke => 'Revoke access';
+
+  @override
+  String get webDavSessionRevoked => 'Third-party access revoked';
+
+  @override
   String get retry => 'Retry';
 
   @override

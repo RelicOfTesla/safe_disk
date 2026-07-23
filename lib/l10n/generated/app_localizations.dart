@@ -404,6 +404,120 @@ abstract class AppLocalizations {
   /// **'关闭'**
   String get close;
 
+  /// No description provided for @exposeToThirdParty.
+  ///
+  /// In zh, this message translates to:
+  /// **'向第三方工具暴露'**
+  String get exposeToThirdParty;
+
+  /// No description provided for @webDavExposureConfirmTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'向第三方工具暴露内容？'**
+  String get webDavExposureConfirmTitle;
+
+  /// No description provided for @webDavExposureConfirmDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'{name} 将通过仅本机可访问的只读 WebDAV 暴露给第三方工具。第三方工具可能缓存或导出明文，请只暴露必要内容。'**
+  String webDavExposureConfirmDescription(String name);
+
+  /// No description provided for @webDavExposeReadOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建只读访问'**
+  String get webDavExposeReadOnly;
+
+  /// No description provided for @webDavSessions.
+  ///
+  /// In zh, this message translates to:
+  /// **'第三方访问'**
+  String get webDavSessions;
+
+  /// No description provided for @webDavSessionsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'第三方工具访问'**
+  String get webDavSessionsTitle;
+
+  /// No description provided for @webDavNoActiveSessions.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前没有活跃的第三方访问。'**
+  String get webDavNoActiveSessions;
+
+  /// No description provided for @webDavCredentialsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'第三方工具访问凭据'**
+  String get webDavCredentialsTitle;
+
+  /// No description provided for @webDavCredentialsDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'请将地址和令牌提供给所选的可信工具。关闭此窗口后，令牌不会再次显示。'**
+  String get webDavCredentialsDescription;
+
+  /// No description provided for @webDavReadOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'权限：只读'**
+  String get webDavReadOnly;
+
+  /// No description provided for @webDavUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'WebDAV 地址'**
+  String get webDavUrl;
+
+  /// No description provided for @webDavToken.
+  ///
+  /// In zh, this message translates to:
+  /// **'访问令牌'**
+  String get webDavToken;
+
+  /// No description provided for @webDavLastAccessed.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近访问：{time}'**
+  String webDavLastAccessed(String time);
+
+  /// No description provided for @webDavActiveRequests.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前请求：{count}'**
+  String webDavActiveRequests(int count);
+
+  /// No description provided for @webDavUrlCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制 WebDAV 地址'**
+  String get webDavUrlCopied;
+
+  /// No description provided for @webDavTokenCopied.
+  ///
+  /// In zh, this message translates to:
+  /// **'已复制访问令牌'**
+  String get webDavTokenCopied;
+
+  /// No description provided for @webDavCapabilityWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'地址和令牌都可访问已暴露内容。请只交给可信工具，使用结束后立即撤销。'**
+  String get webDavCapabilityWarning;
+
+  /// No description provided for @webDavRevoke.
+  ///
+  /// In zh, this message translates to:
+  /// **'撤销访问'**
+  String get webDavRevoke;
+
+  /// No description provided for @webDavSessionRevoked.
+  ///
+  /// In zh, this message translates to:
+  /// **'已撤销第三方访问'**
+  String get webDavSessionRevoked;
+
   /// No description provided for @retry.
   ///
   /// In zh, this message translates to:

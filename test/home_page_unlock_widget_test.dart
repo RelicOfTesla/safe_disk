@@ -782,6 +782,7 @@ void main() {
 
     expect(find.text('使用安全记事本编辑'), findsOneWidget);
     expect(find.text('导出解密文件'), findsOneWidget);
+    expect(find.text('向第三方工具暴露'), findsOneWidget);
     expect(find.text('删除文件'), findsOneWidget);
     expect(find.text('打开目录'), findsNothing);
 
@@ -800,6 +801,7 @@ void main() {
 
     expect(find.text('使用安全记事本编辑'), findsOneWidget);
     expect(find.text('导出解密文件'), findsOneWidget);
+    expect(find.text('向第三方工具暴露'), findsOneWidget);
     expect(
       tester
           .widget<Card>(
@@ -818,6 +820,57 @@ void main() {
 
     expect(find.byKey(const Key('secure-notepad-editor')), findsOneWidget);
     expect(find.text('右键菜单测试内容'), findsOneWidget);
+  });
+
+  testWidgets('WebDAV exposure uses Go status and explicit revocation',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: _FakePersistenceService(rootPath),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('visible.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('向第三方工具暴露'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('创建只读访问'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('第三方工具访问凭据'), findsOneWidget);
+    expect(find.text('one-time-token'), findsOneWidget);
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+    expect(cryptoService.webDavOpenCalls, [
+      (rootID: 7, path: 'visible.txt', displayName: 'visible.txt'),
+    ]);
+
+    await tester.tap(find.byTooltip('第三方访问'));
+    await tester.pumpAndSettle();
+    expect(find.text('visible.txt'), findsAtLeastNWidgets(2));
+    expect(find.text('访问令牌'), findsNothing);
+    await tester.tap(find.text('撤销访问'));
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedWebDavSessionIDs, ['webdav-1']);
+    expect(find.text('当前没有活跃的第三方访问。'), findsOneWidget);
   });
 
   testWidgets('Menu and Shift+F10 reopen the keyboard target context menu',
@@ -3134,6 +3187,9 @@ class _FakeCryptoService extends CryptoService {
   final List<String> openedPasswords = [];
   final List<String> decryptedPaths = [];
   final List<int> closedRootIDs = [];
+  final List<({int rootID, String path, String displayName})> webDavOpenCalls =
+      [];
+  final List<String> closedWebDavSessionIDs = [];
   final List<(String oldPassword, String newPassword)> passwordChanges = [];
   final List<({String path, String sessionID})> deletedFiles = [];
   final List<({String path, String sessionID})> deletedDirectories = [];
@@ -3153,6 +3209,8 @@ class _FakeCryptoService extends CryptoService {
   final List<({String path, String sessionID})> createdDirectories = [];
   final Map<String, int> _rootIDs = {};
   final Map<int, String> _rootPaths = {};
+  final List<Map<String, dynamic>> _webDavStatuses = [];
+  var _nextWebDavSessionID = 1;
   int _nextRootID = 7;
 
   @override
@@ -3201,6 +3259,47 @@ class _FakeCryptoService extends CryptoService {
   @override
   void closeRoot(int rootID) {
     closedRootIDs.add(rootID);
+  }
+
+  @override
+  Map<String, dynamic> openWebDavSession({
+    required int rootID,
+    required String exposedPath,
+    required String displayName,
+  }) {
+    final id = 'webdav-${_nextWebDavSessionID++}';
+    webDavOpenCalls.add((
+      rootID: rootID,
+      path: exposedPath,
+      displayName: displayName,
+    ));
+    _webDavStatuses.add({
+      'id': id,
+      'display_name': displayName,
+      'exposed_path': exposedPath,
+      'url': 'http://127.0.0.1:1234/webdav/$id/',
+      'read_only': true,
+      'active_requests': 0,
+    });
+    return {
+      'id': id,
+      'display_name': displayName,
+      'exposed_path': exposedPath,
+      'url': 'http://127.0.0.1:1234/webdav/$id/',
+      'token': 'one-time-token',
+      'read_only': true,
+    };
+  }
+
+  @override
+  List<Map<String, dynamic>> listWebDavSessions(int rootID) {
+    return List<Map<String, dynamic>>.from(_webDavStatuses);
+  }
+
+  @override
+  void closeWebDavSession(String sessionID) {
+    closedWebDavSessionIDs.add(sessionID);
+    _webDavStatuses.removeWhere((session) => session['id'] == sessionID);
   }
 
   @override

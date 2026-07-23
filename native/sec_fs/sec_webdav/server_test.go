@@ -1,6 +1,7 @@
 package sec_webdav
 
 import (
+	"encoding/json"
 	"io"
 	"io/fs"
 	"net/http"
@@ -8,6 +9,52 @@ import (
 	"testing"
 	"testing/fstest"
 )
+
+func TestListReportsGoOwnedMonitoringWithoutToken(t *testing.T) {
+	manager := NewManager()
+	defer manager.Close()
+	provider := mapProvider{files: fstest.MapFS{
+		"note.txt": &fstest.MapFile{Data: []byte("private")},
+	}}
+	session, err := manager.Open("root-1", "Note", "note.txt", provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	statuses := manager.List("root-1")
+	if len(statuses) != 1 || statuses[0].LastAccessedAt != nil ||
+		statuses[0].ActiveRequests != 0 || !statuses[0].ReadOnly {
+		t.Fatalf("initial status = %#v", statuses)
+	}
+	encoded, err := json.Marshal(statuses[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), session.Token) ||
+		strings.Contains(string(encoded), "token") {
+		t.Fatalf("status leaked token: %s", encoded)
+	}
+	if got := manager.List("other-root"); len(got) != 0 {
+		t.Fatalf("other root status = %#v", got)
+	}
+
+	response, err := http.DefaultClient.Do(
+		authenticatedRequest(t, http.MethodGet, session.URL, session.Token),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("read status = %d", response.StatusCode)
+	}
+
+	statuses = manager.List("root-1")
+	if len(statuses) != 1 || statuses[0].LastAccessedAt == nil ||
+		statuses[0].ActiveRequests != 0 {
+		t.Fatalf("updated status = %#v", statuses)
+	}
+}
 
 func TestReadOnlySessionScopesAndRevokesAccess(t *testing.T) {
 	manager := NewManager()

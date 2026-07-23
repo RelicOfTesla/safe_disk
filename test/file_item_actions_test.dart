@@ -34,6 +34,7 @@ void main() {
         FileItemAction.copy,
         FileItemAction.cut,
         FileItemAction.export,
+        FileItemAction.exposeToThirdParty,
         FileItemAction.copyName,
         FileItemAction.copyPath,
         FileItemAction.properties,
@@ -50,6 +51,7 @@ void main() {
         FileItemAction.copy,
         FileItemAction.cut,
         FileItemAction.export,
+        FileItemAction.exposeToThirdParty,
         FileItemAction.copyName,
         FileItemAction.copyPath,
         FileItemAction.properties,
@@ -67,6 +69,7 @@ void main() {
         FileItemAction.copy,
         FileItemAction.cut,
         FileItemAction.export,
+        FileItemAction.exposeToThirdParty,
         FileItemAction.copyName,
         FileItemAction.copyPath,
         FileItemAction.properties,
@@ -84,6 +87,7 @@ void main() {
         FileItemAction.copy,
         FileItemAction.cut,
         FileItemAction.export,
+        FileItemAction.exposeToThirdParty,
         FileItemAction.copyName,
         FileItemAction.copyPath,
         FileItemAction.properties,
@@ -134,6 +138,10 @@ void main() {
       '导出解密文件',
     );
     expect(
+      fileItemActionLabel(chinese, FileItemAction.exposeToThirdParty, file),
+      '向第三方工具暴露',
+    );
+    expect(
       fileItemActionLabel(chinese, FileItemAction.delete, file),
       '删除文件',
     );
@@ -150,6 +158,10 @@ void main() {
     expect(
       fileItemActionLabel(english, FileItemAction.copyPath, file),
       'Copy logical path (plaintext)',
+    );
+    expect(
+      fileItemActionLabel(english, FileItemAction.exposeToThirdParty, file),
+      'Expose to third-party tool',
     );
   });
 

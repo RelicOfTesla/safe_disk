@@ -18,6 +18,7 @@ enum FileItemAction {
   cut,
   pasteInto,
   export,
+  exposeToThirdParty,
   copyName,
   copyPath,
   properties,
@@ -37,6 +38,7 @@ List<FileItemAction> fileItemActionsFor(
       FileItemAction.cut,
       if (canPasteInto) FileItemAction.pasteInto,
       FileItemAction.export,
+      FileItemAction.exposeToThirdParty,
       FileItemAction.copyName,
       FileItemAction.copyPath,
       FileItemAction.properties,
@@ -54,6 +56,7 @@ List<FileItemAction> fileItemActionsFor(
     FileItemAction.copy,
     FileItemAction.cut,
     FileItemAction.export,
+    FileItemAction.exposeToThirdParty,
     FileItemAction.copyName,
     FileItemAction.copyPath,
     FileItemAction.properties,
@@ -90,6 +93,7 @@ String fileItemActionLabel(
     FileItemAction.pasteInto => strings.pasteIntoDirectory,
     FileItemAction.export =>
       item.isDirectory ? strings.exportDirectory : strings.exportDecryptedFile,
+    FileItemAction.exposeToThirdParty => strings.exposeToThirdParty,
     FileItemAction.copyName => strings.copyPlaintextName,
     FileItemAction.copyPath => strings.copyPlaintextLogicalPath,
     FileItemAction.properties => strings.properties,
@@ -109,6 +113,7 @@ IconData _fileItemActionIcon(FileItemAction action) {
     FileItemAction.cut => Icons.content_cut,
     FileItemAction.pasteInto => Icons.content_paste_go_outlined,
     FileItemAction.export => Icons.download,
+    FileItemAction.exposeToThirdParty => Icons.share_outlined,
     FileItemAction.copyName => Icons.content_copy,
     FileItemAction.copyPath => Icons.link,
     FileItemAction.properties => Icons.info_outline,
@@ -313,6 +318,7 @@ Future<FileItemAction?> showFileItemContextMenu({
         .map(
           (action) => PopupMenuItem<FileItemAction>(
             value: action,
+            height: 40,
             child: _FileItemActionRow(action: action, item: item),
           ),
         )

@@ -41,6 +41,8 @@ class HomeShell extends StatelessWidget {
     required this.onUnlock,
     required this.onImportFile,
     required this.onImportDirectory,
+    this.webDavSessionCount = 0,
+    this.onShowWebDavSessions,
     required this.onPaste,
     required this.onClearClipboard,
     required this.onOpenSettings,
@@ -110,6 +112,8 @@ class HomeShell extends StatelessWidget {
   final Future<bool> Function(String password) onUnlock;
   final VoidCallback onImportFile;
   final VoidCallback onImportDirectory;
+  final int webDavSessionCount;
+  final VoidCallback? onShowWebDavSessions;
   final VoidCallback onPaste;
   final VoidCallback onClearClipboard;
   final VoidCallback onOpenSettings;
@@ -255,6 +259,16 @@ class HomeShell extends StatelessWidget {
         onImportFile: onImportFile,
         onImportDirectory: onImportDirectory,
       ),
+      if (currentDirectory?.isVerified == true && onShowWebDavSessions != null)
+        Badge(
+          isLabelVisible: webDavSessionCount > 0,
+          label: Text('$webDavSessionCount'),
+          child: IconButton(
+            icon: const Icon(Icons.share_outlined),
+            onPressed: onShowWebDavSessions,
+            tooltip: strings.webDavSessions,
+          ),
+        ),
       if (currentDirectory?.isVerified == true)
         IconButton(
           icon: const Icon(Icons.folder_off_outlined),

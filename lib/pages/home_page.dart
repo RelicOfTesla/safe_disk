@@ -25,6 +25,7 @@ import '../services/root_idle_tracker.dart';
 import '../services/secure_notepad_policy.dart';
 import '../services/content_window_host_bridge.dart';
 import '../services/drag_drop_controller.dart';
+import '../services/webdav_service.dart';
 import '../utils/error_messages.dart';
 import '../utils/error_diagnostics.dart';
 import '../utils/unlock_error_classifier.dart';
@@ -43,6 +44,7 @@ import '../widgets/root_directory_action_dialog.dart';
 import '../widgets/root_directory_properties.dart';
 import '../widgets/root_password_change_dialog.dart';
 import '../widgets/root_password_hint_dialog.dart';
+import '../widgets/webdav_sessions_dialog.dart';
 import 'dialogs.dart';
 import 'settings_page.dart';
 
@@ -68,6 +70,7 @@ class HomePage extends StatefulWidget {
     this.deleteRootDirectory,
     this.idleCheckInterval,
     this.idleNow,
+    this.webDavService,
   });
 
   final CryptoService? cryptoService;
@@ -87,6 +90,7 @@ class HomePage extends StatefulWidget {
   final Future<void> Function(String path)? deleteRootDirectory;
   final Duration? idleCheckInterval;
   final DateTime Function()? idleNow;
+  final WebDavService? webDavService;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -105,7 +109,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late final RootCloseCoordinator _rootCloseCoordinator;
   late final RootIdleTracker _idleTracker;
   late final ContentWindowHostBridge _contentWindowBridge;
+  late final WebDavService _webDavService;
   final DragDropController _dragDropController = const DragDropController();
+  // This is only a badge cache. Go remains authoritative for session state.
+  final Map<int, int> _webDavSessionCounts = {};
 
   final List<EncryptedDirectory> _openedDirs = [];
   EncryptedDirectory? _currentDir;
@@ -157,6 +164,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       broker: _documentBroker,
       platform: widget.contentWindowPlatform,
     );
+    _webDavService =
+        widget.webDavService ?? WebDavService(cryptoService: _cryptoService);
     WidgetsBinding.instance.addObserver(this);
     _loadPersistedDirectories();
     _loadDrawerPinnedState();
@@ -796,6 +805,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     if (loaded) {
       _idleTracker.touch(rootID.toString());
+      unawaited(_refreshWebDavSessionCount(rootID));
       ErrorHelper.showSuccess(
         context,
         AppLocalizations.of(context)!.passwordVerified,
@@ -960,6 +970,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
     if (dir.isVerified) {
       _loadCurrentPath();
+      final rootID = int.tryParse(dir.tempKeyID ?? '');
+      if (rootID != null) unawaited(_refreshWebDavSessionCount(rootID));
     }
   }
 
@@ -1691,6 +1703,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           await _exportFile(item);
         }
         return;
+      case FileItemAction.exposeToThirdParty:
+        await _exposeToThirdParty(item);
+        return;
       case FileItemAction.copyName:
         await Clipboard.setData(ClipboardData(text: item.name));
         if (mounted) {
@@ -1720,6 +1735,129 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       case FileItemAction.delete:
         await _deleteFile(item);
         return;
+    }
+  }
+
+  Future<void> _exposeToThirdParty(FileSystemNode item) async {
+    if (!_validateSession()) return;
+    final directory = _currentDir;
+    final activeSessionID = directory?.tempKeyID;
+    if (directory == null || activeSessionID == null) return;
+    final rootID = int.tryParse(activeSessionID);
+    if (rootID == null) return;
+
+    final confirmed = await confirmWebDavReadOnlyExposure(
+      context: context,
+      displayName: item.name,
+    );
+    if (!confirmed || !mounted) return;
+    if (!_isCurrentDirectorySession(directory.path, activeSessionID)) return;
+
+    try {
+      final session = _webDavService.open(
+        rootID: rootID,
+        logicalPath: item.path,
+        displayName: item.name,
+      );
+      if (!mounted ||
+          !_isCurrentDirectorySession(directory.path, activeSessionID)) {
+        _webDavService.close(session.id);
+        return;
+      }
+      await showWebDavCredentialsDialog(context: context, session: session);
+      await _refreshWebDavSessionCount(rootID);
+    } catch (error) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: error.toString(),
+          operation: 'webdav/open',
+        );
+      }
+    }
+  }
+
+  Future<void> _showWebDavSessions() async {
+    final directory = _currentDir;
+    final activeSessionID = directory?.tempKeyID;
+    if (directory == null || activeSessionID == null) return;
+    final rootID = int.tryParse(activeSessionID);
+    if (rootID == null) return;
+    final sessions = await _listWebDavSessions(rootID, reportErrors: true);
+    if (sessions == null ||
+        !mounted ||
+        !_isCurrentDirectorySession(directory.path, activeSessionID)) {
+      return;
+    }
+    await _setWebDavSessionCount(rootID, sessions.length);
+    if (!mounted) return;
+    await showWebDavSessionsDialog(
+      context: context,
+      sessions: sessions,
+      onRevoke: _revokeWebDavSession,
+      onRefresh: () => _refreshWebDavSessionsForDialog(rootID),
+    );
+  }
+
+  Future<bool> _revokeWebDavSession(WebDavSessionStatus session) async {
+    try {
+      _webDavService.close(session.id);
+      await _refreshWebDavSessionCount(session.rootID);
+      if (mounted) {
+        ErrorHelper.showSuccess(
+          context,
+          AppLocalizations.of(context)!.webDavSessionRevoked,
+        );
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: error.toString(),
+          operation: 'webdav/close',
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<void> _refreshWebDavSessionCount(int rootID) async {
+    final sessions = await _listWebDavSessions(rootID, reportErrors: false);
+    if (sessions != null) await _setWebDavSessionCount(rootID, sessions.length);
+  }
+
+  Future<List<WebDavSessionStatus>?> _refreshWebDavSessionsForDialog(
+    int rootID,
+  ) async {
+    final sessions = await _listWebDavSessions(rootID, reportErrors: true);
+    if (sessions != null) await _setWebDavSessionCount(rootID, sessions.length);
+    return sessions;
+  }
+
+  Future<void> _setWebDavSessionCount(int rootID, int count) async {
+    if (!mounted || _webDavSessionCounts[rootID] == count) return;
+    setState(() => _webDavSessionCounts[rootID] = count);
+  }
+
+  Future<List<WebDavSessionStatus>?> _listWebDavSessions(
+    int rootID, {
+    required bool reportErrors,
+  }) async {
+    try {
+      return _webDavService.list(rootID: rootID);
+    } catch (error) {
+      if (reportErrors && mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: error.toString(),
+          operation: 'webdav/list',
+        );
+      }
+      return null;
     }
   }
 
@@ -2939,6 +3077,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (rootID == null) return false;
     try {
       _cryptoService.closeRoot(rootID);
+      _webDavSessionCounts.remove(rootID);
       return true;
     } catch (_) {
       return false;
@@ -3104,6 +3243,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onUnlock: _verifyPassword,
             onImportFile: _importFile,
             onImportDirectory: _importDirectory,
+            webDavSessionCount: _webDavSessionCounts[
+                    int.tryParse(_currentDir?.tempKeyID ?? '')] ??
+                0,
+            onShowWebDavSessions: () {
+              unawaited(_showWebDavSessions());
+            },
             onExternalDrop: (candidates) {
               unawaited(_importDroppedCandidates(candidates));
             },

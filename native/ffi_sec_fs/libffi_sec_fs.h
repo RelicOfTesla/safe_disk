@@ -99,6 +99,9 @@ extern "C" {
 
 extern char* sec_root_open(char* rootPath, char* password, char* configJSON);
 extern char* sec_root_close(int64_t rootID);
+extern char* sec_webdav_open(int64_t rootID, char* exposedPath, char* displayName);
+extern char* sec_webdav_close(char* sessionID);
+extern char* sec_webdav_list(int64_t rootID);
 extern char* sec_dir_cursor_open(int64_t rootID, char* path);
 extern char* sec_dir_cursor_read_page(int64_t cursorID, int limit);
 extern char* sec_dir_cursor_close(int64_t cursorID);

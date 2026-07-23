@@ -170,6 +170,70 @@ class AppLocalizationsZh extends AppLocalizations {
   String get close => '关闭';
 
   @override
+  String get exposeToThirdParty => '向第三方工具暴露';
+
+  @override
+  String get webDavExposureConfirmTitle => '向第三方工具暴露内容？';
+
+  @override
+  String webDavExposureConfirmDescription(String name) {
+    return '$name 将通过仅本机可访问的只读 WebDAV 暴露给第三方工具。第三方工具可能缓存或导出明文，请只暴露必要内容。';
+  }
+
+  @override
+  String get webDavExposeReadOnly => '创建只读访问';
+
+  @override
+  String get webDavSessions => '第三方访问';
+
+  @override
+  String get webDavSessionsTitle => '第三方工具访问';
+
+  @override
+  String get webDavNoActiveSessions => '当前没有活跃的第三方访问。';
+
+  @override
+  String get webDavCredentialsTitle => '第三方工具访问凭据';
+
+  @override
+  String get webDavCredentialsDescription =>
+      '请将地址和令牌提供给所选的可信工具。关闭此窗口后，令牌不会再次显示。';
+
+  @override
+  String get webDavReadOnly => '权限：只读';
+
+  @override
+  String get webDavUrl => 'WebDAV 地址';
+
+  @override
+  String get webDavToken => '访问令牌';
+
+  @override
+  String webDavLastAccessed(String time) {
+    return '最近访问：$time';
+  }
+
+  @override
+  String webDavActiveRequests(int count) {
+    return '当前请求：$count';
+  }
+
+  @override
+  String get webDavUrlCopied => '已复制 WebDAV 地址';
+
+  @override
+  String get webDavTokenCopied => '已复制访问令牌';
+
+  @override
+  String get webDavCapabilityWarning => '地址和令牌都可访问已暴露内容。请只交给可信工具，使用结束后立即撤销。';
+
+  @override
+  String get webDavRevoke => '撤销访问';
+
+  @override
+  String get webDavSessionRevoked => '已撤销第三方访问';
+
+  @override
   String get retry => '重试';
 
   @override

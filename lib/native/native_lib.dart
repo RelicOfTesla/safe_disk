@@ -175,6 +175,18 @@ class NativeLib {
     }
   }
 
+  /// Returns Go-owned, token-free monitoring state for one open root.
+  List<Map<String, dynamic>> secWebDavList(int rootID) {
+    final result = _parseJson(_ptrToString(_bindings.secWebDavList(rootID)));
+    _checkResult(result, 'secWebDavList');
+    final data = result['data'];
+    if (data is! List) throw StateError('secWebDavList-invalid-data');
+    return data.map((item) {
+      if (item is! Map) throw StateError('secWebDavList-invalid-session');
+      return Map<String, dynamic>.from(item);
+    }).toList(growable: false);
+  }
+
   /// Creates a secure root configuration.
   void secCreateRootConfig(
       String rootPath, String password, String optionsJSON) {

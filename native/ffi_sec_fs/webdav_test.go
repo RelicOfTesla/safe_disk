@@ -48,3 +48,34 @@ func TestWebDavFFIExposesAndRevokesOpenedRoot(t *testing.T) {
 		t.Fatalf("revoked WebDAV request unexpectedly succeeded with %d", response.StatusCode)
 	}
 }
+
+func TestWebDavFFIListsTokenFreeRootScopedState(t *testing.T) {
+	rootPath := t.TempDir() + "/root"
+	assertSuccess(t, CreateRootConfig_FFI(
+		rootPath,
+		"pw",
+		`{"dataFactory":"AES-CTR","nameFactory":"None"}`,
+	))
+	opened := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(opened["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+	assertSuccess(t, QuickWriteFile_FFI(rootID, "note.txt", []byte("content")))
+	openedSession := assertSuccess(t, WebDavOpen_FFI(rootID, "note.txt", "Note"))
+	token := openedSession["data"].(map[string]interface{})["token"].(string)
+
+	listed := assertSuccess(t, WebDavList_FFI(rootID))
+	entries := listed["data"].([]interface{})
+	if len(entries) != 1 {
+		t.Fatalf("listed sessions = %#v", entries)
+	}
+	entry := entries[0].(map[string]interface{})
+	if _, found := entry["token"]; found {
+		t.Fatalf("list leaked token: %#v", entry)
+	}
+	if entry["read_only"] != true || entry["exposed_path"] != "note.txt" {
+		t.Fatalf("listed session = %#v", entry)
+	}
+	if token == "" {
+		t.Fatal("open did not return token")
+	}
+}
