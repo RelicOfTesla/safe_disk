@@ -309,6 +309,32 @@ class DocumentSessionBroker {
     ]);
   }
 
+  /// Temporarily blocks new document calls while preserving every lease so a
+  /// failed native-window close can be cancelled without losing capability.
+  /// Accepted saves are allowed to drain before this future completes.
+  Future<void> freezeRootSessions(String rootSessionID) async {
+    final sessions = _sessions.values
+        .where((session) => session.rootSessionID == rootSessionID)
+        .toList(growable: false);
+    final documentIDs = sessions.map((session) => session.documentID).toSet();
+    for (final session in sessions) {
+      session.closeFrozen = true;
+    }
+    await Future.wait([
+      for (final documentID in documentIDs)
+        if (_saveQueues[documentID] case final queue?) queue,
+    ]);
+  }
+
+  /// Restores leases held by [freezeRootSessions] after a native close failure.
+  void unfreezeRootSessions(String rootSessionID) {
+    for (final session in _sessions.values) {
+      if (session.rootSessionID == rootSessionID) {
+        session.closeFrozen = false;
+      }
+    }
+  }
+
   RootLeaseSummary summarizeRoot(String rootSessionID) {
     final sessions = _sessions.values
         .where((session) => session.rootSessionID == rootSessionID)
@@ -346,7 +372,7 @@ class DocumentSessionBroker {
 
   _DocumentSession _requireSession(String token) {
     final session = _sessions[token];
-    if (session == null || session.closeRequested) {
+    if (session == null || session.closeRequested || session.closeFrozen) {
       throw const DocumentSessionNotFound();
     }
     return session;
@@ -404,6 +430,7 @@ class _DocumentSession {
   bool dirty = false;
   int pendingWrites = 0;
   bool closeRequested = false;
+  bool closeFrozen = false;
 }
 
 bool _bytesEqual(List<int> left, List<int> right) {

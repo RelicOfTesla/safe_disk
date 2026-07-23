@@ -336,16 +336,20 @@ class ContentWindowHostBridge {
   }
 
   Future<void> closeRootWindows(String rootSessionID) async {
-    final tokens = _broker.tokensForRoot(rootSessionID).intersection(
-          _nativeTokens,
-        );
-    // A native close is asynchronous. Revoke before awaiting it so a window
-    // that is still tearing down cannot use its token after the root changes.
-    // Existing writes finish while the native root is still available.
-    await _broker.revokeRootSessions(rootSessionID);
-    await _platform.closeTokens(tokens);
-    for (final token in tokens) {
-      _nativeTokens.remove(token);
+    final tokens = _nativeTokensForRoot(rootSessionID);
+    await _broker.freezeRootSessions(rootSessionID);
+    try {
+      if (!_sameNativeTokenSet(rootSessionID, tokens)) {
+        throw StateError('content-window-set-changed-during-close');
+      }
+      await _platform.closeTokens(tokens);
+      await _broker.revokeRootSessions(rootSessionID);
+      for (final token in tokens) {
+        _nativeTokens.remove(token);
+      }
+    } catch (_) {
+      _broker.unfreezeRootSessions(rootSessionID);
+      rethrow;
     }
   }
 
@@ -386,10 +390,22 @@ class ContentWindowHostBridge {
         await _cancelRootLockPreparation(tokens, lockRequestID);
         return false;
       }
-      await _broker.revokeRootSessions(rootSessionID);
-      await _platform.closeTokens(tokens);
-      _nativeTokens.removeAll(tokens);
-      return true;
+      await _broker.freezeRootSessions(rootSessionID);
+      if (!_sameNativeTokenSet(rootSessionID, tokens)) {
+        await _cancelRootLockPreparation(tokens, lockRequestID);
+        _broker.unfreezeRootSessions(rootSessionID);
+        return false;
+      }
+      try {
+        await _platform.closeTokens(tokens);
+        await _broker.revokeRootSessions(rootSessionID);
+        _nativeTokens.removeAll(tokens);
+        return true;
+      } catch (_) {
+        await _cancelRootLockPreparation(tokens, lockRequestID);
+        _broker.unfreezeRootSessions(rootSessionID);
+        return false;
+      }
     } catch (_) {
       await _cancelRootLockPreparation(tokens, lockRequestID);
       return false;

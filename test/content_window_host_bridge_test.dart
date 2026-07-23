@@ -184,8 +184,7 @@ void main() {
     expect(broker.containsToken(lease.token), isFalse);
   });
 
-  test('revokes a root token before the native window close completes',
-      () async {
+  test('blocks a root token while the native window close completes', () async {
     final broker = DocumentSessionBroker(
       cryptoService: _BridgeCryptoService('initial'),
     );
@@ -218,6 +217,58 @@ void main() {
     await bridge.closeRootWindows('7');
 
     expect(broker.containsToken(lease.token), isFalse);
+  });
+
+  test('keeps a prepared lease when native close fails', () async {
+    final broker = DocumentSessionBroker(
+      cryptoService: _BridgeCryptoService('initial'),
+    );
+    final lease = broker.open(
+      rootSessionID: '7',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform()
+      ..onCloseTokens = (_) async => throw StateError('close failed');
+    final bridge = ContentWindowHostBridge(broker: broker, platform: platform);
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(lease, localePreference: 'zh');
+
+    expect(await bridge.prepareAndCloseRootWindows('7'), isFalse);
+    expect(platform.preparedTokens, {lease.token});
+    expect(platform.cancelledTokens, {lease.token});
+    expect(broker.containsToken(lease.token), isTrue);
+
+    final read = await platform.call('document.read', {
+      'token': lease.token,
+    }) as Map;
+    expect(utf8.decode(read['content'] as Uint8List), 'initial');
+  });
+
+  test('keeps a lease when manual native close fails', () async {
+    final broker = DocumentSessionBroker(
+      cryptoService: _BridgeCryptoService('initial'),
+    );
+    final lease = broker.open(
+      rootSessionID: '7',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+    final platform = _FakeContentWindowPlatform()
+      ..onCloseTokens = (_) async => throw StateError('close failed');
+    final bridge = ContentWindowHostBridge(broker: broker, platform: platform);
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(lease, localePreference: 'zh');
+
+    await expectLater(
+      bridge.closeRootWindows('7'),
+      throwsA(isA<StateError>()),
+    );
+    expect(broker.containsToken(lease.token), isTrue);
+    final read = await platform.call('document.read', {
+      'token': lease.token,
+    }) as Map;
+    expect(utf8.decode(read['content'] as Uint8List), 'initial');
   });
 
   test('prepares every content window before revoking its root capability',
@@ -322,6 +373,55 @@ void main() {
     expect(crypto.content, 'saved before close');
     expect(platform.closedTokens, {lease.token});
     expect(broker.containsToken(lease.token), isFalse);
+  });
+
+  test('keeps every lease when a native window opens while a save drains',
+      () async {
+    final crypto = _DelayedWriteBridgeCryptoService('initial');
+    final broker = DocumentSessionBroker(cryptoService: crypto);
+    final first = broker.open(
+      rootSessionID: '7',
+      path: '/first.txt',
+      displayName: 'first.txt',
+    );
+    final second = broker.open(
+      rootSessionID: '7',
+      path: '/second.txt',
+      displayName: 'second.txt',
+    );
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(
+      broker: broker,
+      platform: platform,
+    );
+    addTearDown(bridge.dispose);
+    await bridge.openNotepad(first, localePreference: 'zh');
+    final snapshot = await platform.call('document.read', {
+      'token': first.token,
+    }) as Map;
+    final saving = platform.call('document.save', {
+      'token': first.token,
+      'revision': snapshot['revision'],
+      'content': Uint8List.fromList(utf8.encode('saved before close')),
+    });
+    await crypto.writeStarted.future;
+
+    final closing = bridge.prepareAndCloseRootWindows('7');
+    await Future<void>.delayed(Duration.zero);
+    expect(platform.preparedTokens, {first.token});
+    expect(await bridge.openNotepad(second, localePreference: 'zh'), isTrue);
+    crypto.allowWrite.complete();
+    await saving;
+
+    expect(await closing, isFalse);
+    expect(platform.closedTokens, isEmpty);
+    expect(platform.cancelledTokens, {first.token});
+    expect(broker.containsToken(first.token), isTrue);
+    expect(broker.containsToken(second.token), isTrue);
+    final read = await platform.call('document.read', {
+      'token': first.token,
+    }) as Map;
+    expect(utf8.decode(read['content'] as Uint8List), 'saved before close');
   });
 
   test('opens an image window through the same capability boundary', () async {

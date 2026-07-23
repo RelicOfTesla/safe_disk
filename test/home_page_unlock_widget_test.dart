@@ -484,6 +484,53 @@ void main() {
     expect(find.text('照片.png'), findsOneWidget);
   });
 
+  testWidgets(
+      'background auto-lock keeps root open when native window close fails',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final platform = _FakeContentWindowPlatform()..closeThrows = true;
+    addTearDown(platform.dispose);
+    final image = FileSystemNode(
+      name: '照片.png',
+      path: '/照片.png',
+      isDirectory: false,
+      size: 128,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService, items: [image]),
+        persistenceService: _FakePersistenceService(rootPath),
+        settingsService: _AutoLockSettingsService(enabled: true),
+        contentWindowPlatform: platform,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('照片.png')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在新窗口中查看'));
+    await tester.pumpAndSettle();
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+
+    expect(cryptoService.closedRootIDs, isEmpty);
+    expect(platform.closedTokens, isEmpty);
+    expect(find.text('照片.png'), findsOneWidget);
+  });
+
   testWidgets('idle TTL keeps a root with a dirty secure notepad open',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
@@ -3049,6 +3096,7 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
   var notepadOpenRequests = 0;
   Set<String> closedTokens = {};
   bool prepareResult = true;
+  bool closeThrows = false;
 
   @override
   Stream<Set<String>> get aliveTokens => _alive.stream;
@@ -3082,6 +3130,7 @@ class _FakeContentWindowPlatform implements ContentWindowPlatform {
 
   @override
   Future<void> closeTokens(Set<String> tokens) async {
+    if (closeThrows) throw StateError('close tokens failed');
     closedTokens = {...closedTokens, ...tokens};
   }
 
