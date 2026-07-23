@@ -32,7 +32,7 @@
 |---|---|---|---:|---|
 | UI-68 | 安全记事本小键盘回车后的空格输入 | Bug/编辑器 | 20% | 查找栏已覆盖普通 Enter、数字键盘 Enter 和 Shift+数字键盘 Enter 的查找方向；但用户报告的“编辑器小键盘 Enter → 输入文字 → 连续空格 → 输入英文”路径仍未在真实 Linux 诊断环境复现，未修改编辑器输入链路。仍需在用户出现问题的键盘布局/输入法环境复现，再补编辑器文本值、选区、composing 状态回归后修复。此前重复登记的 UI-73 已合并到本任务。 |
 | UI-75 | 外部拖放 Windows 路径边界 | Bug/跨平台 UI | 70% | 拖放控制器现在在 Windows 规则下统一 `/` 与 `\\` 分隔符并做大小写不敏感比较；注入 Windows 模式的 Linux 回归已覆盖 root 内部路径拒绝和外部路径保留，拖放控制器与 HomeShell 定向回归通过。仍需真实 Windows 资源管理器、盘符/UNC 路径和权限场景验收。 |
-| UI-78 | 安全记事本桌面快捷键兼容 | Bug/编辑器 UI | 70% | 已补齐常见 `Ctrl/Cmd+H` 打开查找、`Ctrl/Cmd+Y` 重做，以及查找框 `onSubmitted` 回调作为普通回车和数字键盘回车的统一兜底；仍需补 widget 回归并完成三平台真实键盘验收。 |
+| UI-78 | 安全记事本桌面快捷键兼容 | Bug/编辑器 UI | 80% | 已补齐常见 `Ctrl/Cmd+H` 打开查找、`Ctrl/Cmd+Y` 重做，以及查找框 `onSubmitted` 回调作为普通回车和数字键盘回车的统一兜底；widget 回归已覆盖，仍需完成三平台真实键盘验收。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
