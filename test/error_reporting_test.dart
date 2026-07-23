@@ -71,7 +71,7 @@ void main() {
 
     await pumpError(const Locale('zh'), 'show-zh');
     expect(find.text('不能导入此目录'), findsOneWidget);
-    expect(find.text('不能将当前加密目录中的目录再次导入到自身。'), findsOneWidget);
+    expect(find.text('不能把当前加密目录中的目录导入到它自己内部。'), findsOneWidget);
     expect(find.textContaining('建议：请选择加密目录外的来源目录。'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -80,7 +80,7 @@ void main() {
     expect(find.text('Cannot import this directory'), findsOneWidget);
     expect(
       find.text(
-          'A directory inside the current encrypted directory cannot be imported back into itself.'),
+          'A directory inside the current encrypted directory cannot be imported into that directory.'),
       findsOneWidget,
     );
     expect(

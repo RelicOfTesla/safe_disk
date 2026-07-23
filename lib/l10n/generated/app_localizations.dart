@@ -653,7 +653,7 @@ abstract class AppLocalizations {
   /// No description provided for @errorImportDirectoryInsideCurrentRootDescription.
   ///
   /// In zh, this message translates to:
-  /// **'不能将当前加密目录中的目录再次导入到自身。'**
+  /// **'不能把当前加密目录中的目录导入到它自己内部。'**
   String get errorImportDirectoryInsideCurrentRootDescription;
 
   /// No description provided for @errorImportDirectoryInsideCurrentRootSuggestion.
@@ -1541,7 +1541,7 @@ abstract class AppLocalizations {
   /// No description provided for @transferCancelledWithUnfinishedState.
   ///
   /// In zh, this message translates to:
-  /// **'操作已取消，可在下次打开目录时清理未完成状态。'**
+  /// **'操作已取消；下次打开目录时可以清理未完成的导入/导出状态。'**
   String get transferCancelledWithUnfinishedState;
 
   /// No description provided for @directoryExportCompleted.
@@ -1991,7 +1991,7 @@ abstract class AppLocalizations {
   /// No description provided for @encryptedRootFound.
   ///
   /// In zh, this message translates to:
-  /// **'已找到上层加密目录：{path}'**
+  /// **'当前路径位于加密目录中：{path}'**
   String encryptedRootFound(String path);
 
   /// No description provided for @passwordVerified.
@@ -2003,7 +2003,7 @@ abstract class AppLocalizations {
   /// No description provided for @unfinishedStatesCleaned.
   ///
   /// In zh, this message translates to:
-  /// **'已清理 {count} 个未完成状态'**
+  /// **'已清理 {count} 个未完成的导入/导出状态'**
   String unfinishedStatesCleaned(int count);
 
   /// No description provided for @notepadFileTooLarge.

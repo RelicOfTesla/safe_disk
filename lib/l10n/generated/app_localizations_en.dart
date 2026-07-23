@@ -329,7 +329,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorImportDirectoryInsideCurrentRootDescription =>
-      'A directory inside the current encrypted directory cannot be imported back into itself.';
+      'A directory inside the current encrypted directory cannot be imported into that directory.';
 
   @override
   String get errorImportDirectoryInsideCurrentRootSuggestion =>
@@ -875,7 +875,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get transferCancelledWithUnfinishedState =>
-      'The operation was cancelled. You can clean the unfinished state the next time this directory is opened.';
+      'The operation was cancelled. You can clean up the unfinished import or export state the next time you open this directory.';
 
   @override
   String directoryExportCompleted(int count) {
@@ -1146,7 +1146,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String encryptedRootFound(String path) {
-    return 'Encrypted parent directory found: $path';
+    return 'The current path is inside an encrypted directory: $path';
   }
 
   @override
@@ -1154,7 +1154,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String unfinishedStatesCleaned(int count) {
-    return 'Cleaned $count unfinished states';
+    return 'Cleaned $count unfinished import/export states';
   }
 
   @override

@@ -301,7 +301,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorImportDirectoryInsideCurrentRootDescription =>
-      '不能将当前加密目录中的目录再次导入到自身。';
+      '不能把当前加密目录中的目录导入到它自己内部。';
 
   @override
   String get errorImportDirectoryInsideCurrentRootSuggestion =>
@@ -786,7 +786,8 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get transferCancelledWithUnfinishedState => '操作已取消，可在下次打开目录时清理未完成状态。';
+  String get transferCancelledWithUnfinishedState =>
+      '操作已取消；下次打开目录时可以清理未完成的导入/导出状态。';
 
   @override
   String directoryExportCompleted(int count) {
@@ -1049,7 +1050,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String encryptedRootFound(String path) {
-    return '已找到上层加密目录：$path';
+    return '当前路径位于加密目录中：$path';
   }
 
   @override
@@ -1057,7 +1058,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String unfinishedStatesCleaned(int count) {
-    return '已清理 $count 个未完成状态';
+    return '已清理 $count 个未完成的导入/导出状态';
   }
 
   @override
