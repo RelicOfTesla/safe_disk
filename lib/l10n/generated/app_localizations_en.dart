@@ -1121,6 +1121,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get closeOrRemoveDirectory => 'Close or remove directory';
 
   @override
+  String get moveDirectoryUp => 'Move up';
+
+  @override
+  String get moveDirectoryDown => 'Move down';
+
+  @override
   String get directoryUnlocked => 'Unlocked';
 
   @override

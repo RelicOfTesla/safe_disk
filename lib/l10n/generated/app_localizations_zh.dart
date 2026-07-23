@@ -1025,6 +1025,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get closeOrRemoveDirectory => '关闭或移除目录';
 
   @override
+  String get moveDirectoryUp => '上移';
+
+  @override
+  String get moveDirectoryDown => '下移';
+
+  @override
   String get directoryUnlocked => '已解锁';
 
   @override

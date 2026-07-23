@@ -1940,6 +1940,18 @@ abstract class AppLocalizations {
   /// **'关闭或移除目录'**
   String get closeOrRemoveDirectory;
 
+  /// No description provided for @moveDirectoryUp.
+  ///
+  /// In zh, this message translates to:
+  /// **'上移'**
+  String get moveDirectoryUp;
+
+  /// No description provided for @moveDirectoryDown.
+  ///
+  /// In zh, this message translates to:
+  /// **'下移'**
+  String get moveDirectoryDown;
+
   /// No description provided for @directoryUnlocked.
   ///
   /// In zh, this message translates to:

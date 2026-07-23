@@ -350,6 +350,8 @@
   "directoryAliasLabel": "别名",
   "directoryAliasHint": "留空将恢复目录名",
   "closeOrRemoveDirectory": "关闭或移除目录",
+  "moveDirectoryUp": "上移",
+  "moveDirectoryDown": "下移",
   "directoryUnlocked": "已解锁",
   "directoryNeedsPassword": "需要密码",
   "moreDirectoryActions": "更多目录操作",

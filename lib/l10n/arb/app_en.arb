@@ -350,6 +350,8 @@
   "directoryAliasLabel": "Alias",
   "directoryAliasHint": "Leave empty to restore the directory name",
   "closeOrRemoveDirectory": "Close or remove directory",
+  "moveDirectoryUp": "Move up",
+  "moveDirectoryDown": "Move down",
   "directoryUnlocked": "Unlocked",
   "directoryNeedsPassword": "Password required",
   "moreDirectoryActions": "More directory actions",

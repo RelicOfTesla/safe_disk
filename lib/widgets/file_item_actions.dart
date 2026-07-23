@@ -283,11 +283,11 @@ Future<void> showFileItemProperties({
     context: context,
     title: strings.properties,
     values: [
-      PropertyValue(strings.name, item.name),
+      PropertyValue(strings.name, item.name, copyable: true),
       PropertyValue(strings.type, type),
       if (!item.isDirectory) PropertyValue(strings.size, item.formattedSize),
       PropertyValue(strings.modifiedTime, modifiedTime),
-      PropertyValue(strings.logicalPath, item.path),
+      PropertyValue(strings.logicalPath, item.path, copyable: true),
     ],
   );
 }

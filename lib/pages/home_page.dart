@@ -503,6 +503,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     await _persistenceService.saveOpenedDirectories(paths);
   }
 
+  Future<void> _moveDirectory(EncryptedDirectory directory, int delta) async {
+    final index = _openedDirs.indexWhere((item) => item.path == directory.path);
+    final target = index + delta;
+    if (index < 0 || target < 0 || target >= _openedDirs.length) return;
+    setState(() {
+      final moved = _openedDirs.removeAt(index);
+      _openedDirs.insert(target, moved);
+    });
+    await _saveOpenedDirectories();
+  }
+
   // ── Directory open / create ───────────────────────────────────────
 
   Future<void> _openOrCreateEncryptedDirectory() async {
@@ -3084,6 +3095,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onChangeRootPassword: (directory) {
               unawaited(_changeRootPassword(directory));
             },
+            onMoveDirectoryUp: (directory) => _moveDirectory(directory, -1),
+            onMoveDirectoryDown: (directory) => _moveDirectory(directory, 1),
             onToggleDrawerPin: (pinned) async {
               setState(() => _drawerPinned = pinned);
               await _persistenceService.saveDrawerPinned(pinned);

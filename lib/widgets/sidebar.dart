@@ -9,11 +9,13 @@ enum SidebarDirectoryAction {
   changePassword,
   setAlias,
   clearAlias,
+  moveUp,
+  moveDown,
   directoryActions,
 }
 
 /// Sidebar widget for displaying opened directories
-class SidebarWidget extends StatelessWidget {
+class SidebarWidget extends StatefulWidget {
   final List<EncryptedDirectory> openedDirs;
   final EncryptedDirectory? currentDir;
   final bool drawerPinned;
@@ -23,6 +25,8 @@ class SidebarWidget extends StatelessWidget {
   final void Function(EncryptedDirectory) onRenameDirectory;
   final void Function(EncryptedDirectory) onShowProperties;
   final void Function(EncryptedDirectory) onChangePassword;
+  final Future<void> Function(EncryptedDirectory)? onMoveDirectoryUp;
+  final Future<void> Function(EncryptedDirectory)? onMoveDirectoryDown;
   final Future<void> Function(bool) onTogglePin;
 
   const SidebarWidget({
@@ -36,8 +40,17 @@ class SidebarWidget extends StatelessWidget {
     required this.onRenameDirectory,
     required this.onShowProperties,
     required this.onChangePassword,
+    this.onMoveDirectoryUp,
+    this.onMoveDirectoryDown,
     required this.onTogglePin,
   });
+
+  @override
+  State<SidebarWidget> createState() => _SidebarWidgetState();
+}
+
+class _SidebarWidgetState extends State<SidebarWidget> {
+  String? _contextMenuPath;
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +78,7 @@ class SidebarWidget extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      strings.openedDirectoriesCount(openedDirs.length),
+                      strings.openedDirectoriesCount(widget.openedDirs.length),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -73,16 +86,19 @@ class SidebarWidget extends StatelessWidget {
               ),
               // Pin/Unpin button
               IconButton(
-                icon: Icon(drawerPinned ? Icons.lock : Icons.lock_open),
+                icon: Icon(
+                  widget.drawerPinned ? Icons.lock : Icons.lock_open,
+                ),
                 onPressed: () async {
-                  await onTogglePin(!drawerPinned);
+                  await widget.onTogglePin(!widget.drawerPinned);
                   if (!context.mounted) return;
-                  if (!drawerPinned && Navigator.canPop(context)) {
+                  if (!widget.drawerPinned && Navigator.canPop(context)) {
                     Navigator.pop(context);
                   }
                 },
-                tooltip:
-                    drawerPinned ? strings.unpinSidebar : strings.pinSidebar,
+                tooltip: widget.drawerPinned
+                    ? strings.unpinSidebar
+                    : strings.pinSidebar,
               ),
             ],
           ),
@@ -93,10 +109,10 @@ class SidebarWidget extends StatelessWidget {
           padding: const EdgeInsets.all(8.0),
           child: ElevatedButton.icon(
             onPressed: () {
-              if (!drawerPinned && Navigator.canPop(context)) {
+              if (!widget.drawerPinned && Navigator.canPop(context)) {
                 Navigator.pop(context);
               }
-              onOpenDirectory();
+              widget.onOpenDirectory();
             },
             icon: const Icon(Icons.create_new_folder),
             label: Text(strings.openOrCreateEncryptedDirectory),
@@ -110,7 +126,7 @@ class SidebarWidget extends StatelessWidget {
 
         // List of opened directories
         Expanded(
-          child: openedDirs.isEmpty
+          child: widget.openedDirs.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -122,10 +138,10 @@ class SidebarWidget extends StatelessWidget {
                   ),
                 )
               : ListView.builder(
-                  itemCount: openedDirs.length,
+                  itemCount: widget.openedDirs.length,
                   itemBuilder: (context, index) {
-                    final dir = openedDirs[index];
-                    final isSelected = currentDir?.path == dir.path;
+                    final dir = widget.openedDirs[index];
+                    final isSelected = widget.currentDir?.path == dir.path;
 
                     final displayName =
                         dir.displayAlias?.trim().isNotEmpty == true
@@ -133,6 +149,7 @@ class SidebarWidget extends StatelessWidget {
                             : logicalPathBasename(dir.path);
                     return GestureDetector(
                       onSecondaryTapDown: (details) async {
+                        setState(() => _contextMenuPath = dir.path);
                         final action = await showMenu<SidebarDirectoryAction>(
                           context: context,
                           position: RelativeRect.fromLTRB(
@@ -160,6 +177,17 @@ class SidebarWidget extends StatelessWidget {
                                 value: SidebarDirectoryAction.clearAlias,
                                 child: Text(strings.clearAlias),
                               ),
+                            if (widget.onMoveDirectoryUp != null && index > 0)
+                              PopupMenuItem(
+                                value: SidebarDirectoryAction.moveUp,
+                                child: Text(strings.moveDirectoryUp),
+                              ),
+                            if (widget.onMoveDirectoryDown != null &&
+                                index < widget.openedDirs.length - 1)
+                              PopupMenuItem(
+                                value: SidebarDirectoryAction.moveDown,
+                                child: Text(strings.moveDirectoryDown),
+                              ),
                             const PopupMenuDivider(),
                             PopupMenuItem(
                               value: SidebarDirectoryAction.directoryActions,
@@ -167,20 +195,26 @@ class SidebarWidget extends StatelessWidget {
                             ),
                           ],
                         );
-                        if (!context.mounted || action == null) return;
+                        if (!context.mounted) return;
+                        setState(() => _contextMenuPath = null);
+                        if (action == null) return;
                         switch (action) {
                           case SidebarDirectoryAction.properties:
-                            onShowProperties(dir);
+                            widget.onShowProperties(dir);
                           case SidebarDirectoryAction.changePassword:
-                            onChangePassword(dir);
+                            widget.onChangePassword(dir);
                           case SidebarDirectoryAction.setAlias:
-                            onRenameDirectory(dir);
+                            widget.onRenameDirectory(dir);
                           case SidebarDirectoryAction.clearAlias:
-                            onRenameDirectory(
+                            widget.onRenameDirectory(
                               dir.copyWith(clearDisplayAlias: true),
                             );
+                          case SidebarDirectoryAction.moveUp:
+                            await widget.onMoveDirectoryUp?.call(dir);
+                          case SidebarDirectoryAction.moveDown:
+                            await widget.onMoveDirectoryDown?.call(dir);
                           case SidebarDirectoryAction.directoryActions:
-                            onCloseDirectory(dir);
+                            widget.onCloseDirectory(dir);
                         }
                       },
                       child: Tooltip(
@@ -204,17 +238,18 @@ class SidebarWidget extends StatelessWidget {
                                   dir.isVerified ? Colors.green : Colors.orange,
                             ),
                           ),
-                          selected: isSelected,
+                          selected: isSelected || _contextMenuPath == dir.path,
                           trailing: IconButton(
                             icon: const Icon(Icons.close, size: 18),
-                            onPressed: () => onCloseDirectory(dir),
+                            onPressed: () => widget.onCloseDirectory(dir),
                             tooltip: strings.moreDirectoryActions,
                           ),
                           onTap: () {
-                            if (!drawerPinned && Navigator.canPop(context)) {
+                            if (!widget.drawerPinned &&
+                                Navigator.canPop(context)) {
                               Navigator.pop(context);
                             }
-                            onSwitchDirectory(dir);
+                            widget.onSwitchDirectory(dir);
                           },
                         ),
                       ),

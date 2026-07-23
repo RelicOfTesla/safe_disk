@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import '../l10n/generated/app_localizations.dart';
 
 class PropertyValue {
-  const PropertyValue(this.label, this.value, {this.copyable = true});
+  const PropertyValue(this.label, this.value, {this.copyable = false});
 
   final String label;
   final String value;
@@ -19,6 +19,7 @@ Future<void> showPropertyOverlay({
   required List<PropertyValue> values,
   Widget? notice,
   Widget Function(BuildContext context, VoidCallback close)? actionsBuilder,
+  bool compactRows = false,
 }) {
   final overlay = Overlay.of(context, rootOverlay: true);
   final completed = Completer<void>();
@@ -38,6 +39,7 @@ Future<void> showPropertyOverlay({
       values: values,
       notice: notice,
       actionsBuilder: actionsBuilder,
+      compactRows: compactRows,
       onClose: close,
     ),
   );
@@ -52,6 +54,7 @@ class _PropertyOverlay extends StatelessWidget {
     required this.onClose,
     this.notice,
     this.actionsBuilder,
+    required this.compactRows,
   });
 
   final String title;
@@ -59,6 +62,7 @@ class _PropertyOverlay extends StatelessWidget {
   final Widget? notice;
   final Widget Function(BuildContext context, VoidCallback close)?
       actionsBuilder;
+  final bool compactRows;
   final VoidCallback onClose;
 
   @override
@@ -115,7 +119,10 @@ class _PropertyOverlay extends StatelessWidget {
                               ),
                               const SizedBox(height: 20),
                               for (final value in values)
-                                _PropertyRow(value: value),
+                                _PropertyRow(
+                                  value: value,
+                                  bottomPadding: compactRows ? 6 : 12,
+                                ),
                               if (notice != null) ...[
                                 const SizedBox(height: 4),
                                 notice!,
@@ -148,9 +155,10 @@ class _PropertyOverlay extends StatelessWidget {
 }
 
 class _PropertyRow extends StatelessWidget {
-  const _PropertyRow({required this.value});
+  const _PropertyRow({required this.value, required this.bottomPadding});
 
   final PropertyValue value;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +166,7 @@ class _PropertyRow extends StatelessWidget {
     final displayValue = value.value.isEmpty ? strings.unknown : value.value;
     final canCopy = value.copyable && value.value.isNotEmpty;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: bottomPadding),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

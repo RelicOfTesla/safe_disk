@@ -43,6 +43,36 @@ void main() {
     expect(find.byType(SelectableText), findsOneWidget);
     expect(find.byKey(const Key('copy-property-Secret')), findsNothing);
   });
+
+  testWidgets('ordinary properties rely on text selection instead of buttons',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showPropertyOverlay(
+              context: context,
+              title: 'Properties',
+              values: const [
+                PropertyValue('Name', 'note.txt', copyable: true),
+                PropertyValue('Type', 'Text file'),
+              ],
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('open'));
+    await tester.pump();
+
+    expect(find.byKey(const Key('copy-property-Name')), findsOneWidget);
+    expect(find.byKey(const Key('copy-property-Type')), findsNothing);
+    expect(find.byKey(const Key('property-value-Type')), findsOneWidget);
+  });
 }
 
 Widget _app({bool sensitive = false}) {

@@ -86,6 +86,95 @@ void main() {
     expect(renamed?.displayAlias, isNull);
   });
 
+  testWidgets('Sidebar highlights the root while its context menu is open',
+      (tester) async {
+    final first = EncryptedDirectory(
+      path: '/safe/first',
+      config: CryptionConfig(const {}),
+    );
+    final second = EncryptedDirectory(
+      path: '/safe/second',
+      config: CryptionConfig(const {}),
+    );
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: SidebarWidget(
+          openedDirs: [first, second],
+          currentDir: first,
+          drawerPinned: true,
+          onOpenDirectory: () {},
+          onCloseDirectory: (_) {},
+          onSwitchDirectory: (_) {},
+          onRenameDirectory: (_) {},
+          onShowProperties: (_) {},
+          onChangePassword: (_) {},
+          onTogglePin: (_) async {},
+        ),
+      ),
+    ));
+
+    final secondTile = find.ancestor(
+      of: find.text('second'),
+      matching: find.byType(ListTile),
+    );
+    expect(tester.widget<ListTile>(secondTile).selected, isFalse);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('second')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pump();
+    expect(tester.widget<ListTile>(secondTile).selected, isTrue);
+  });
+
+  testWidgets('Sidebar can move a root up and keeps the callback semantic',
+      (tester) async {
+    final first = EncryptedDirectory(
+      path: '/safe/first',
+      config: CryptionConfig(const {}),
+    );
+    final second = EncryptedDirectory(
+      path: '/safe/second',
+      config: CryptionConfig(const {}),
+    );
+    EncryptedDirectory? moved;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: SidebarWidget(
+          openedDirs: [first, second],
+          currentDir: first,
+          drawerPinned: true,
+          onOpenDirectory: () {},
+          onCloseDirectory: (_) {},
+          onSwitchDirectory: (_) {},
+          onRenameDirectory: (_) {},
+          onShowProperties: (_) {},
+          onChangePassword: (_) {},
+          onMoveDirectoryUp: (directory) async => moved = directory,
+          onMoveDirectoryDown: (_) async {},
+          onTogglePin: (_) async {},
+        ),
+      ),
+    ));
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('second')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('上移'));
+    await tester.pumpAndSettle();
+    expect(moved?.path, '/safe/second');
+  });
+
   testWidgets('Sidebar uses the active English locale', (tester) async {
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('en'),

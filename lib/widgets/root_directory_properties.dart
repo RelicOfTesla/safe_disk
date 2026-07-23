@@ -18,8 +18,8 @@ Future<void> showRootDirectoryProperties({
       ? directory.displayAlias!
       : logicalPathBasename(directory.path);
   final values = <PropertyValue>[
-    PropertyValue(strings.displayName, displayName),
-    PropertyValue(strings.diskPath, directory.path),
+    PropertyValue(strings.displayName, displayName, copyable: true),
+    PropertyValue(strings.diskPath, directory.path, copyable: true),
     PropertyValue(
       strings.currentStatus,
       directory.isVerified
@@ -64,6 +64,7 @@ Future<void> showRootDirectoryProperties({
     context: context,
     title: strings.rootDirectoryProperties,
     values: values,
+    compactRows: true,
     notice: Text(strings.rootPropertiesSensitiveNotice),
     actionsBuilder: onManagePasswordHint == null
         ? null
@@ -94,7 +95,10 @@ Future<void> showUnsupportedRootPasswordChange({
     title: strings.passwordChange,
     values: [
       PropertyValue(
-          strings.directory, directory.displayAlias ?? directory.path),
+        strings.directory,
+        directory.displayAlias ?? directory.path,
+        copyable: true,
+      ),
       PropertyValue(strings.status, strings.directoryCannotChangePassword),
       PropertyValue(
         strings.reason,
