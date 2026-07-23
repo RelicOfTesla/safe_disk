@@ -52,6 +52,7 @@ class HomeShell extends StatelessWidget {
     required this.onNavigateToDirectory,
     required this.onNavigateUp,
     required this.onOpenItem,
+    this.onItemFocused,
     required this.onShowItemOptions,
     required this.onShowItemContextMenu,
     required this.onShowBackgroundContextMenu,
@@ -116,6 +117,7 @@ class HomeShell extends StatelessWidget {
   final ValueChanged<String> onNavigateToDirectory;
   final VoidCallback onNavigateUp;
   final ValueChanged<FileSystemNode> onOpenItem;
+  final ValueChanged<FileSystemNode>? onItemFocused;
   final ValueChanged<FileSystemNode> onShowItemOptions;
   final void Function(FileSystemNode item, Offset globalPosition)
       onShowItemContextMenu;
@@ -320,6 +322,7 @@ class HomeShell extends StatelessWidget {
               onNavigateToDirectory: onNavigateToDirectory,
               onNavigateUp: onNavigateUp,
               onOpenItem: onOpenItem,
+              onItemFocused: onItemFocused,
               onItemLongPress: onShowItemOptions,
               onItemSecondaryTap: onShowItemContextMenu,
               onBackgroundSecondaryTap: onShowBackgroundContextMenu,

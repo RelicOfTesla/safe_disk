@@ -2984,6 +2984,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onNavigateToDirectory: _navigateToDirectory,
             onNavigateUp: _navigateUp,
             onOpenItem: _openItem,
+            onItemFocused: (item) {
+              setState(() {
+                _keyboardTarget = item;
+                _keyboardSelectionAnchorPath = item.path;
+              });
+            },
             onShowItemOptions: _showFileOptions,
             onShowItemContextMenu: _showFileContextMenu,
             onShowBackgroundContextMenu: _showBackgroundContextMenu,

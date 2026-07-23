@@ -25,6 +25,7 @@ class FileBrowser extends StatefulWidget {
     required this.onNavigateToDirectory,
     required this.onNavigateUp,
     required this.onOpenItem,
+    this.onItemFocused,
     required this.onItemLongPress,
     required this.onItemSecondaryTap,
     required this.onBackgroundSecondaryTap,
@@ -58,6 +59,9 @@ class FileBrowser extends StatefulWidget {
 
   /// Open a file (notepad, image viewer, etc.) or navigate into a directory.
   final void Function(FileSystemNode item) onOpenItem;
+
+  /// Notify the parent about the primary-click keyboard focus target.
+  final ValueChanged<FileSystemNode>? onItemFocused;
 
   /// Long press on an item (show file options).
   final void Function(FileSystemNode item) onItemLongPress;
@@ -813,6 +817,7 @@ class _FileBrowserState extends State<FileBrowser> {
     bool isSelected,
     List<FileSystemNode> visibleItems,
   ) {
+    if (!widget.openOnDoubleClick) widget.onItemFocused?.call(item);
     final keys = HardwareKeyboard.instance.logicalKeysPressed;
     final hasControl = keys.contains(LogicalKeyboardKey.controlLeft) ||
         keys.contains(LogicalKeyboardKey.controlRight) ||
