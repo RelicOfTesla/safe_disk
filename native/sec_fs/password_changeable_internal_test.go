@@ -103,3 +103,96 @@ func TestRootConfigLockCoordinatesAcrossProcesses(t *testing.T) {
 	require.NoError(t, lock.release())
 	require.NotEqual(t, filepath.Dir(lockPath), filepath.Dir(rootPath))
 }
+
+func TestRootConfigCommitKillHelperProcess(t *testing.T) {
+	rootPath := os.Getenv("SAFE_DISK_ROOT_CONFIG_COMMIT_KILL_ROOT")
+	point := rootConfigCommitPoint(os.Getenv("SAFE_DISK_ROOT_CONFIG_COMMIT_KILL_POINT"))
+	if rootPath == "" || point == "" {
+		return
+	}
+	rootConfigCommitHook = func(current rootConfigCommitPoint) {
+		if current != point {
+			return
+		}
+		fmt.Println(current)
+		for {
+			time.Sleep(time.Second)
+		}
+	}
+	defer func() { rootConfigCommitHook = nil }()
+	if err := ChangeRootPasswordQuick(FullStorePath(rootPath), "old-password", "new-password"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRootConfigCommitSurvivesProcessKillAtRenameBoundaries(t *testing.T) {
+	for _, point := range []rootConfigCommitPoint{
+		rootConfigCommitBeforeRename,
+		rootConfigCommitAfterRename,
+	} {
+		t.Run(string(point), func(t *testing.T) {
+			rootPath := FullStorePath(filepath.Join(t.TempDir(), "root"))
+			_, _, err := CreateRootConfigQuick(
+				rootPath,
+				"old-password",
+				WithDataFactory("AES-CTR"),
+				WithNameFactory("AES-256-GCM"),
+				WithDeriverFactory("PBKDF2"),
+				WithKeyStrengthMs(1),
+				WithPasswordChangeable(true),
+			)
+			require.NoError(t, err)
+			configPath := filepath.Join(string(rootPath), ConfigFileName)
+			original, err := os.ReadFile(configPath)
+			require.NoError(t, err)
+
+			cmd := exec.Command(os.Args[0], "-test.run=^TestRootConfigCommitKillHelperProcess$")
+			cmd.Env = append(os.Environ(),
+				"SAFE_DISK_ROOT_CONFIG_COMMIT_KILL_ROOT="+string(rootPath),
+				"SAFE_DISK_ROOT_CONFIG_COMMIT_KILL_POINT="+string(point),
+			)
+			stdout, err := cmd.StdoutPipe()
+			require.NoError(t, err)
+			cmd.Stderr = os.Stderr
+			require.NoError(t, cmd.Start())
+			helperDone := false
+			t.Cleanup(func() {
+				if !helperDone && cmd.Process != nil {
+					_ = cmd.Process.Kill()
+					_ = cmd.Wait()
+				}
+			})
+			scanner := bufio.NewScanner(stdout)
+			require.True(t, scanner.Scan(), "commit helper did not reach %s", point)
+			require.Equal(t, string(point), scanner.Text())
+			require.NoError(t, cmd.Process.Kill())
+			require.Error(t, cmd.Wait())
+			helperDone = true
+
+			if point == rootConfigCommitBeforeRename {
+				current, readErr := os.ReadFile(configPath)
+				require.NoError(t, readErr)
+				require.True(t, bytes.Equal(original, current), "config changed before rename")
+				requireRootPasswordWorks(t, rootPath, "old-password")
+				requireRootPasswordFails(t, rootPath, "new-password")
+				return
+			}
+			requireRootPasswordFails(t, rootPath, "old-password")
+			requireRootPasswordWorks(t, rootPath, "new-password")
+		})
+	}
+}
+
+func requireRootPasswordWorks(t *testing.T, rootPath FullStorePath, password string) {
+	t.Helper()
+	root, err := OpenRootQuick(rootPath, password)
+	require.NoError(t, err)
+	require.NoError(t, root.Close())
+}
+
+func requireRootPasswordFails(t *testing.T, rootPath FullStorePath, password string) {
+	t.Helper()
+	root, err := OpenRootQuick(rootPath, password)
+	require.Nil(t, root)
+	require.ErrorIs(t, err, ErrInvalidPassword)
+}

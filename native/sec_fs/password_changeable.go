@@ -25,6 +25,18 @@ const (
 	passwordWrappingKeyLength    = 32
 )
 
+type rootConfigCommitPoint string
+
+const (
+	rootConfigCommitBeforeRename rootConfigCommitPoint = "before-rename"
+	rootConfigCommitAfterRename  rootConfigCommitPoint = "after-rename"
+)
+
+// rootConfigCommitHook is only set by same-package fault-injection tests.
+// Production leaves it nil, so commit behavior remains a sync followed by an
+// atomic replace and directory sync.
+var rootConfigCommitHook func(rootConfigCommitPoint)
+
 // ErrPasswordChangeUnsupported means that a legacy root uses its password as
 // the content key and therefore cannot change passwords without re-encryption.
 var ErrPasswordChangeUnsupported = fmt.Errorf("password change is not supported by this root format: %w", ErrUnsupportedOperation)
@@ -346,12 +358,20 @@ func commitStagedRootConfig(stagedPath, cfgPath string) error {
 	if err != nil {
 		return NewConfigError("config", "failed to sync staged config", err)
 	}
+	notifyRootConfigCommitPoint(rootConfigCommitBeforeRename)
 	if err := os.Rename(stagedPath, cfgPath); err != nil {
 		return NewConfigError("config", "failed to replace config", err)
 	}
+	notifyRootConfigCommitPoint(rootConfigCommitAfterRename)
 	if directory, err := os.Open(filepath.Dir(cfgPath)); err == nil {
 		_ = directory.Sync() // Some platforms do not support directory sync.
 		_ = directory.Close()
 	}
 	return nil
+}
+
+func notifyRootConfigCommitPoint(point rootConfigCommitPoint) {
+	if rootConfigCommitHook != nil {
+		rootConfigCommitHook(point)
+	}
 }
