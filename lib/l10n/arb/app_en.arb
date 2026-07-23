@@ -100,7 +100,7 @@
   "errorImportDirectoryFailedDescription": "The directory could not be imported into the encrypted directory.",
   "errorImportDirectoryFailedSuggestion": "Check source permissions, symbolic links, and the destination directory state, then try again.",
   "errorImportDirectoryInsideCurrentRootTitle": "Cannot import this directory",
-  "errorImportDirectoryInsideCurrentRootDescription": "A directory inside the current encrypted directory cannot be imported into that directory.",
+  "errorImportDirectoryInsideCurrentRootDescription": "A subdirectory of the current encrypted directory cannot be imported into the current encrypted directory.",
   "errorImportDirectoryInsideCurrentRootSuggestion": "Choose a source directory outside the encrypted directory.",
   "errorExportFileFailedTitle": "Could not export file",
   "errorExportFileFailedDescription": "The file could not be exported to the selected location.",

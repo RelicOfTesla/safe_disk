@@ -329,7 +329,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorImportDirectoryInsideCurrentRootDescription =>
-      'A directory inside the current encrypted directory cannot be imported into that directory.';
+      'A subdirectory of the current encrypted directory cannot be imported into the current encrypted directory.';
 
   @override
   String get errorImportDirectoryInsideCurrentRootSuggestion =>

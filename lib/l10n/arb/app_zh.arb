@@ -100,7 +100,7 @@
   "errorImportDirectoryFailedDescription": "无法将目录导入到加密目录。",
   "errorImportDirectoryFailedSuggestion": "请检查源目录权限、符号链接和目标目录状态，然后重试。",
   "errorImportDirectoryInsideCurrentRootTitle": "不能导入此目录",
-  "errorImportDirectoryInsideCurrentRootDescription": "不能把当前加密目录中的目录导入到它自己内部。",
+  "errorImportDirectoryInsideCurrentRootDescription": "当前加密目录中的子目录不能再次导入当前加密目录。",
   "errorImportDirectoryInsideCurrentRootSuggestion": "请选择加密目录外的来源目录。",
   "errorExportFileFailedTitle": "导出文件失败",
   "errorExportFileFailedDescription": "无法将文件导出到指定位置。",

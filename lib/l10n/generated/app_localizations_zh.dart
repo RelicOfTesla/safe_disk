@@ -301,7 +301,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get errorImportDirectoryInsideCurrentRootDescription =>
-      '不能把当前加密目录中的目录导入到它自己内部。';
+      '当前加密目录中的子目录不能再次导入当前加密目录。';
 
   @override
   String get errorImportDirectoryInsideCurrentRootSuggestion =>

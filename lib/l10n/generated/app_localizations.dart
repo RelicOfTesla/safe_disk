@@ -653,7 +653,7 @@ abstract class AppLocalizations {
   /// No description provided for @errorImportDirectoryInsideCurrentRootDescription.
   ///
   /// In zh, this message translates to:
-  /// **'不能把当前加密目录中的目录导入到它自己内部。'**
+  /// **'当前加密目录中的子目录不能再次导入当前加密目录。'**
   String get errorImportDirectoryInsideCurrentRootDescription;
 
   /// No description provided for @errorImportDirectoryInsideCurrentRootSuggestion.
