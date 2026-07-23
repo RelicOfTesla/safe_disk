@@ -327,6 +327,8 @@ class _SecureNotepadState extends State<SecureNotepad>
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyF, control: true):
             _showFind,
+        const SingleActivator(LogicalKeyboardKey.keyH, control: true):
+            _showFind,
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
           unawaited(_save());
         },
@@ -337,6 +339,8 @@ class _SecureNotepadState extends State<SecureNotepad>
           control: true,
           shift: true,
         ): _controller.redo,
+        const SingleActivator(LogicalKeyboardKey.keyY, control: true):
+            _controller.redo,
         const SingleActivator(LogicalKeyboardKey.keyZ, meta: true):
             _controller.undo,
         const SingleActivator(
@@ -344,6 +348,8 @@ class _SecureNotepadState extends State<SecureNotepad>
           meta: true,
           shift: true,
         ): _controller.redo,
+        const SingleActivator(LogicalKeyboardKey.keyY, meta: true):
+            _controller.redo,
         const SingleActivator(LogicalKeyboardKey.escape): _hideFind,
       },
       child: PopScope(

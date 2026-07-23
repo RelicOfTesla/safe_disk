@@ -312,6 +312,7 @@ class _SecureFindReplaceBarState extends State<SecureFindReplaceBar> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   border: const OutlineInputBorder(),
                 ),
+                onSubmitted: (_) => _find(),
                 onChanged: (_) {
                   setState(() => _findResult = null);
                   widget.onQueryChanged();

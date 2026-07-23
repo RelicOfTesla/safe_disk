@@ -168,6 +168,14 @@ void main() {
     await tester.tap(editor);
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('secure-notepad-find-field')), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pumpAndSettle();
@@ -224,6 +232,29 @@ void main() {
       findsNothing,
     );
     expect(tester.widget<TextField>(editor).focusNode?.hasFocus, isTrue);
+  });
+
+  testWidgets('search field submission handles the text input action',
+      (tester) async {
+    await _openNotepad(tester, _FakeCryptoService('alpha beta alpha'));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+
+    final findField = find.byKey(const Key('secure-notepad-find-field'));
+    await tester.enterText(findField, 'alpha');
+    tester.widget<TextField>(findField).onSubmitted!('alpha');
+    await tester.pump();
+
+    expect(find.text('1/2'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('secure-notepad-editor')))
+          .controller!
+          .selection,
+      const TextSelection(baseOffset: 0, extentOffset: 5),
+    );
   });
 
   testWidgets('find centers a distant match without stealing query focus',
@@ -332,6 +363,16 @@ void main() {
     expect(tester.widget<TextField>(editor).controller!.text, 'initial');
     expect(tester.widget<IconButton>(redoButton).onPressed, isNotNull);
 
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyY);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(tester.widget<TextField>(editor).controller!.text, 'changed');
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
     await tester.tap(redoButton);
     await tester.pump();
     expect(tester.widget<TextField>(editor).controller!.text, 'changed');
