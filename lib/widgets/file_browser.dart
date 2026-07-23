@@ -105,6 +105,7 @@ class _FileBrowserState extends State<FileBrowser> {
   String? _contextSelectedPath;
   String? _selectionAnchorPath;
   final Map<String, GlobalKey> _itemKeys = {};
+  final GlobalKey _selectionSurfaceKey = GlobalKey();
   Offset? _dragStart;
   Offset? _dragCurrent;
   bool _isDraggingSelection = false;
@@ -739,45 +740,78 @@ class _FileBrowserState extends State<FileBrowser> {
     List<FileSystemNode> items,
     Widget child,
   ) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (event) {
-        if (event.kind == PointerDeviceKind.mouse &&
-            event.buttons & kPrimaryMouseButton != 0) {
-          _dragStart = event.position;
-          _dragCurrent = event.position;
-          _isDraggingSelection = false;
-        }
-      },
-      onPointerMove: (event) {
-        final start = _dragStart;
-        if (start == null || event.kind != PointerDeviceKind.mouse) return;
-        if (!_isDraggingSelection &&
-            (event.position - start).distance > kTouchSlop) {
-          _isDraggingSelection = true;
-          _dragCurrent = event.position;
-        }
-        if (_isDraggingSelection) {
-          setState(() => _dragCurrent = event.position);
-        }
-      },
-      onPointerUp: (event) {
-        final start = _dragStart;
-        final end = _dragCurrent;
-        final dragging = _isDraggingSelection;
-        _dragStart = null;
-        _dragCurrent = null;
-        _isDraggingSelection = false;
-        if (dragging && start != null && end != null) {
-          _selectItemsInRect(items, Rect.fromPoints(start, end));
-        }
-      },
-      onPointerCancel: (_) {
-        _dragStart = null;
-        _dragCurrent = null;
-        _isDraggingSelection = false;
-      },
-      child: child,
+    final marqueeRect = _selectionMarqueeRect();
+    final colors = Theme.of(context).colorScheme;
+    return Stack(
+      key: _selectionSurfaceKey,
+      fit: StackFit.expand,
+      children: [
+        Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (event) {
+            if (event.kind == PointerDeviceKind.mouse &&
+                event.buttons & kPrimaryMouseButton != 0) {
+              _dragStart = event.position;
+              _dragCurrent = event.position;
+              _isDraggingSelection = false;
+            }
+          },
+          onPointerMove: (event) {
+            final start = _dragStart;
+            if (start == null || event.kind != PointerDeviceKind.mouse) return;
+            if (!_isDraggingSelection &&
+                (event.position - start).distance > kTouchSlop) {
+              _isDraggingSelection = true;
+              _dragCurrent = event.position;
+            }
+            if (_isDraggingSelection) {
+              setState(() => _dragCurrent = event.position);
+            }
+          },
+          onPointerUp: (event) {
+            final start = _dragStart;
+            final end = _dragCurrent;
+            final dragging = _isDraggingSelection;
+            _dragStart = null;
+            _dragCurrent = null;
+            _isDraggingSelection = false;
+            if (dragging && start != null && end != null) {
+              _selectItemsInRect(items, Rect.fromPoints(start, end));
+            }
+          },
+          onPointerCancel: (_) {
+            _dragStart = null;
+            _dragCurrent = null;
+            _isDraggingSelection = false;
+          },
+          child: child,
+        ),
+        if (marqueeRect != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                key: const Key('file-selection-marquee'),
+                painter: _SelectionMarqueePainter(
+                  marqueeRect,
+                  colors.primary,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Rect? _selectionMarqueeRect() {
+    if (!_isDraggingSelection || _dragStart == null || _dragCurrent == null) {
+      return null;
+    }
+    final renderObject =
+        _selectionSurfaceKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox) return null;
+    return Rect.fromPoints(
+      renderObject.globalToLocal(_dragStart!),
+      renderObject.globalToLocal(_dragCurrent!),
     );
   }
 
@@ -1085,6 +1119,29 @@ class _FileGridCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _SelectionMarqueePainter extends CustomPainter {
+  const _SelectionMarqueePainter(this.rect, this.color);
+
+  final Rect rect;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final fill = Paint()..color = color.withValues(alpha: 0.12);
+    final border = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    canvas.drawRect(rect, fill);
+    canvas.drawRect(rect, border);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SelectionMarqueePainter oldDelegate) {
+    return oldDelegate.rect != rect || oldDelegate.color != color;
   }
 }
 

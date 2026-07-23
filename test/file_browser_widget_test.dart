@@ -216,10 +216,13 @@ void main() {
       buttons: kPrimaryMouseButton,
     );
     await gesture.moveTo(beta + const Offset(0, 20));
+    await tester.pump();
+    expect(find.byKey(const Key('file-selection-marquee')), findsOneWidget);
     await gesture.up();
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('selected: 2'), findsOneWidget);
+    expect(find.byKey(const Key('file-selection-marquee')), findsNothing);
   });
 
   testWidgets('tree is a side navigator on wide layouts and a sheet on narrow',
