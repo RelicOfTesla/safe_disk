@@ -1122,6 +1122,51 @@ void main() {
     expect(find.byType(SnackBar), findsOneWidget);
   });
 
+  testWidgets('unknown text size is rejected before opening a new window',
+      (tester) async {
+    const rootPath = '/tmp/safe-disk-home-test/vault';
+    final cryptoService = _FakeCryptoService(rootPath);
+    final platform = _FakeContentWindowPlatform();
+    addTearDown(platform.dispose);
+    final unknownSizeFile = FileSystemNode(
+      name: '大小未知.txt',
+      path: '/大小未知.txt',
+      isDirectory: false,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(
+          cryptoService,
+          items: [unknownSizeFile],
+        ),
+        persistenceService: _FakePersistenceService(rootPath),
+        contentWindowPlatform: platform,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('大小未知.txt')),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在新窗口中编辑'));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(platform.notepadOpenRequests, 0);
+    expect(cryptoService.decryptedPaths, isEmpty);
+    expect(find.byType(SnackBar), findsOneWidget);
+  });
+
   testWidgets('file context menu enters selection mode and batch exports',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
