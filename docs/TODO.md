@@ -140,6 +140,7 @@
 - 2026-07-23 UI-68 Fcitx 条件复验：当前 X11 环境变量虽为 `XMODIFIERS=@im=fcitx`、`GTK_IM_MODULE=fcitx`，但机器上没有运行 Fcitx 守护进程，`fcitx-remote` 返回 0，无法建立有效 Fcitx 输入法会话；未将该次尝试计为复现，也未启动新的输入法进程或修改编辑器。
 - 2026-07-23 大目录 UI 当前提交基线：运行 `benchmark_directory_cursor.dart --entries=100000`，真实 AES-256-GCM 名称 root 创建 5022ms；首屏 200 条 8ms，完整 501 页/100000 条 776ms，单页最大 8ms，分页后 RSS 采样上界 239362048 bytes。该结果只证明 cursor/FFI 分页基线，不替代 Flutter 实际滚动帧率、精确堆峰值或其它平台验收。
 - 2026-07-23 UI-75 拖放 Windows 路径边界：发现 Windows 分隔符混用时原控制器只做大小写比较，可能误放行 root 内部路径；新增可注入 Windows 路径规则，统一分隔符后再做边界判断。Linux 注入 Windows 模式的 controller 回归与 HomeShell 定向回归共 4 项通过，Dart analyzer 通过；真实 Windows 资源管理器仍待验收。
+- 2026-07-23 完整 Flutter UI 回归：使用真实 FFI 动态库 `/tmp/safe_disk_ffi/libffi_sec_fs.so` 执行 `flutter test --no-pub --timeout 240s -r compact`，299 项全部通过，退出码 0。该结果覆盖当前已登记的主界面、文件浏览、设置、记事本、图片、拖放和 FFI 集成回归，但不替代 Windows/macOS 实机及读屏/性能验收。
 - 2026-07-23 UI-39/UI-44 session 边界修复：解锁后的首次目录加载、手动关闭等待子窗口和改密关闭等待子窗口均在异步返回后重新核对 path/session；若旧解锁已失效则关闭其 rootID，不覆盖新 session。主页定向回归新增“首次目录加载期间切换 root”场景，`flutter analyze --no-pub` 通过，主页 widget 回归 62 项通过；真实窗口消失、部分关闭失败和三平台生命周期仍待验收。
 - 2026-07-23 UI-67 设置默认值复核：发现恢复默认设置遗漏自动锁定和会话 TTL，已登记为设置功能缺口，补齐后需增加回归。
 - 2026-07-23 UI-67 设置默认值修复：恢复默认设置现在同步重置自动锁定开关与会话 TTL；设置页回归验证内存状态和保存后的持久化值。
