@@ -58,6 +58,26 @@ cursor 只保存一个 native walker，不保存 JSON 页或整目录。应用�
 - tree 的 root 与每个展开节点已接入独立 cursor。tree 模式不累计已读普通文件，只保留当前页；纯文件页会继续读取至发现目录或 EOF。刷新、节点 dispose 和 root 关闭会释放 cursor。
 - 增量模式的全局排序、自动枚举以获得完整筛选结果，以及 10 万条性能基线仍未完成；当前筛选不会伪装成全目录搜索，空结果提供继续加载入口。
 
+## 可选性能基准
+
+`tool/benchmark_directory_cursor.dart` 是手动执行的真实 FFI 基准，不进入常规 Flutter 测试。它使用 `AES-256-GCM` 名称加密生成指定数量的直系空文件，测量首屏读取、完整分页、每页响应上界和每页返回后的进程 RSS 采样值：
+
+```bash
+SAFE_DISK_FFI_LIBRARY=/path/to/libffi_sec_fs.so \
+  dart run tool/benchmark_directory_cursor.dart --entries=100000
+```
+
+- 默认生成 100000 条、页大小为 200；`--entries` 和 `--page-size` 可用于冒烟或复测，页大小限定为 1 至 1000。
+- 默认在临时目录运行并清理；仅 `--keep` 才保留现场。输出为 JSON，包含本机实际耗时和采样 RSS，不记录 root 路径外的用户数据。
+- `max_sampled_rss_bytes` 只是每个页面返回后读取的进程 RSS 上界，不是语言运行时或系统级精确峰值。运行结果必须附带操作系统、动态库版本和条目数后才能作为性能基线；仅存在工具不构成 10 万条验收证据。
+
+### 本机基线记录（2026-07-23）
+
+- 环境：Linux `7.0.0-28-generic` x86_64，Flutter `3.44.6`，应用提交 `8f6e873`；动态库 `libffi_sec_fs.so` SHA-256 为 `1fb7608f9fbba69929b3a4cb727388ef3341957999934164e59711c60c7acef5`。
+- 命令：`SAFE_DISK_FFI_LIBRARY=/tmp/safe_disk_ffi_kdf_rekey/libffi_sec_fs.so dart run tool/benchmark_directory_cursor.dart --entries=100000`。
+- 结果：创建 100000 个加密名称的直系空文件为 4918 ms；首屏读取 200 条为 8 ms、RSS 采样 202244096 bytes；完整 501 页读取 100000 条为 643 ms，单页最大响应 8 ms，逐页 RSS 采样上界 236847104 bytes。
+- 限制：该结果包含 Dart `DirectoryPageSession` 的已读条目累计，不代表 Flutter 实际滚动帧耗时、GPU 内存、真实精确峰值或其它设备表现；Windows/macOS 与筛选时的桌面可用性仍需独立验收。
+
 ## 目录树增量阶段
 
 目录树只显示目录，但不能通过“先读取并累计所有文件、再过滤目录”实现分页：文件占多数时仍会把完整目录保存在 Dart 内存中。
