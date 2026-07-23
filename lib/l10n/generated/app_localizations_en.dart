@@ -529,7 +529,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notepadMonitorClipboardHint =>
-      'Only show a short text preview; do not write it to files or settings.';
+      'Only show a text preview; do not write it to files or settings.';
 
   @override
   String get notepadRecoveryDraftFound => 'Secure draft found';

@@ -385,7 +385,7 @@ void main() {
     await tester.tap(find.byTooltip('快速清空系统剪贴板'));
     await tester.pumpAndSettle();
     expect(clipboard.text, '');
-    expect(find.text('剪贴板中没有短文本'), findsOneWidget);
+    expect(find.text('剪贴板中没有文本'), findsOneWidget);
 
     await tester.tap(find.byTooltip('停止剪贴板监视').last);
     await tester.pumpAndSettle();

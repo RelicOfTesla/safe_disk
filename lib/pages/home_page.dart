@@ -1513,6 +1513,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted) _shortcutFocusNode.requestFocus();
   }
 
+  Future<void> _showRootDirectoryPropertiesAfterMenu(
+    EncryptedDirectory directory,
+  ) async {
+    // Let the popup-menu route finish before inserting another overlay.
+    // Linux otherwise pays the first-frame cost for both layers at once.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    await showRootDirectoryProperties(
+      context: context,
+      directory: directory,
+      onManagePasswordHint: directory.isVerified
+          ? () => _manageRootPasswordHint(directory)
+          : null,
+    );
+  }
+
   Future<void> _showBackgroundContextMenu(Offset globalPosition) async {
     _keyboardTarget = null;
     final action = await showDirectoryBackgroundContextMenu(
@@ -1616,6 +1632,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
         return;
       case FileItemAction.properties:
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return;
         await showFileItemProperties(context: context, item: item);
         return;
       case FileItemAction.refresh:
@@ -2818,15 +2836,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onCloseDirectory: _closeDirectory,
             onSwitchDirectory: _switchToDirectory,
             onRenameDirectory: _renameDirectoryAlias,
-            onShowRootProperties: (directory) {
-              unawaited(showRootDirectoryProperties(
-                context: context,
-                directory: directory,
-                onManagePasswordHint: directory.isVerified
-                    ? () => _manageRootPasswordHint(directory)
-                    : null,
-              ));
-            },
+            onShowRootProperties: (directory) =>
+                unawaited(_showRootDirectoryPropertiesAfterMenu(directory)),
             onChangeRootPassword: (directory) {
               unawaited(_changeRootPassword(directory));
             },

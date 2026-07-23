@@ -1187,7 +1187,7 @@ abstract class AppLocalizations {
   /// No description provided for @notepadClipboardEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'剪贴板中没有短文本'**
+  /// **'剪贴板中没有文本'**
   String get notepadClipboardEmpty;
 
   /// No description provided for @notepadClipboardReadFailed.

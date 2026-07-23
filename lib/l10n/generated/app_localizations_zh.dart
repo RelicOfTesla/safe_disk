@@ -581,7 +581,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notepadClipboardMonitor => '剪贴板监视';
 
   @override
-  String get notepadClipboardEmpty => '剪贴板中没有短文本';
+  String get notepadClipboardEmpty => '剪贴板中没有文本';
 
   @override
   String get notepadClipboardReadFailed => '无法读取剪贴板，请重试。';

@@ -45,7 +45,7 @@
 
 | 原 ID | 验收范围 | 待验证内容 |
 |---|---|---|
-| UI-03、UI-21、UI-30 | 首次属性打开性能 | 采集当前 Ubuntu `./run.sh` 的 build/raster/present timeline；若仍卡顿，再以实际阻塞点新建活跃 bug。 |
+| UI-03、UI-21、UI-30 | 首次属性打开性能 | Linux 已用真实“右键菜单 → 属性”路径复现首次冷帧：文件属性约 `build_us=309136`、`total_us=336002`，root 属性约 `build_us=243498`、`total_us=248529`；完成一次属性挂载并等待卸载帧后，另一种属性降至 `build_us=381`、`total_us=8434`。根因是菜单 route 移除与属性 overlay 在同一帧触发首次初始化；HomePage 的文件/root 属性入口现先等待 `WidgetsBinding.instance.endOfFrame` 再插入 overlay。A/B smoke 中延后一帧后为 `build_us=507`、`total_us=7743`；未触发 FFI 或磁盘读取。仍需实际主界面鼠标路径和其它平台复验。 |
 | UI-15、UI-16 | 浏览模式和当前目录筛选 | 深层目录懒加载、超大目录和不同缩放比；全 root 递归搜索仍是独立未实现功能。 |
 | UI-19、UI-31 | Linux 子窗口关闭 | 当前产品决策采用软件渲染止崩和 `FlView` wrapper 留存到进程退出的已接受资源泄漏方案；恢复根因修复前先建立子窗口数量、内存上限和进程级回收策略。 |
 | UI-38、UI-42、UI-47、UI-49、UI-51 | Linux 安全记事本交互与脱敏错误 | Linux 主线 widget/controller 回归已覆盖查找、撤销重做、数字键盘 Enter、只读边界和脱敏错误 | 在不同缩放下验证查找可见与选中高亮、Ctrl 快捷键、普通/数字键盘 Enter、关闭/草稿/剪贴板错误的脱敏展示和读屏状态。 |
