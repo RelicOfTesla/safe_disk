@@ -1316,6 +1316,20 @@ void main() {
     expect(find.byKey(const Key('file-clipboard-status')), findsOneWidget);
   });
 
+  testWidgets('Shift plus arrow keys extend file selection from the keyboard',
+      (tester) async {
+    await _openTwoFileVault(tester);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+
+    expect(find.text('已选择 2 项'), findsOneWidget);
+  });
+
   testWidgets('batch paste reports partial failure and leaves it retryable',
       (tester) async {
     final (:cryptoService, :fileService) = await _openTwoFileVault(

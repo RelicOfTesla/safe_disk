@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' hide MaterialApp;
 import 'package:flutter/material.dart' as material show MaterialApp;
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:safe_disk/l10n/generated/app_localizations.dart';
 import 'package:safe_disk/models/view_mode.dart';
@@ -158,6 +159,67 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump();
     expect(find.text('opened: 1'), findsOneWidget);
+  });
+
+  testWidgets('ctrl and shift clicks select a range in list view',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
+    await tester.pumpAndSettle();
+
+    final alpha = find.byKey(const ValueKey('file-list-/root/sub/alpha.txt'));
+    final beta = find.byKey(const ValueKey('file-list-/root/sub/beta.txt'));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(
+      HardwareKeyboard.instance.logicalKeysPressed,
+      contains(LogicalKeyboardKey.controlLeft),
+    );
+    await tester.tap(alpha);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    expect(find.text('selected: 1'), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    await tester.tap(beta);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    expect(find.text('selected: 2'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('网格视图'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Card>(
+            find.byKey(const ValueKey('file-grid-/root/sub/alpha.txt')),
+          )
+          .color,
+      Theme.of(tester.element(find.byType(FileBrowser)))
+          .colorScheme
+          .primaryContainer,
+    );
+  });
+
+  testWidgets('mouse drag selects intersecting files', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
+    await tester.pumpAndSettle();
+
+    final alpha = tester.getCenter(
+      find.byKey(const ValueKey('file-list-/root/sub/alpha.txt')),
+    );
+    final beta = tester.getCenter(
+      find.byKey(const ValueKey('file-list-/root/sub/beta.txt')),
+    );
+    final gesture = await tester.startGesture(
+      alpha - const Offset(0, 20),
+      kind: PointerDeviceKind.mouse,
+      buttons: kPrimaryMouseButton,
+    );
+    await gesture.moveTo(beta + const Offset(0, 20));
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('selected: 2'), findsOneWidget);
   });
 
   testWidgets('tree is a side navigator on wide layouts and a sheet on narrow',
@@ -373,6 +435,8 @@ class _BrowserHarnessState extends State<_BrowserHarness> {
   int backgroundClicks = 0;
   int itemClicks = 0;
   int openedItems = 0;
+  bool selectMode = false;
+  final Set<FileSystemNode> selectedItems = {};
 
   final items = [
     FileSystemNode(
@@ -402,8 +466,8 @@ class _BrowserHarnessState extends State<_BrowserHarness> {
             currentPath: currentPath,
             rootPath: '/root',
             viewMode: viewMode,
-            isSelectMode: false,
-            selectedFiles: const {},
+            isSelectMode: selectMode,
+            selectedFiles: selectedItems,
             fileService: _TreeFileService(),
             onNavigateToDirectory: (path) => setState(() => currentPath = path),
             onNavigateUp: () => setState(() => currentPath = '/root'),
@@ -412,9 +476,22 @@ class _BrowserHarnessState extends State<_BrowserHarness> {
             onItemSecondaryTap: (_, __) => setState(() => itemClicks++),
             onBackgroundSecondaryTap: (_) => setState(() => backgroundClicks++),
             onViewModeChanged: (mode) => setState(() => viewMode = mode),
-            onToggleSelectMode: (_) {},
-            onSelectionToggle: (_, __) {},
+            onToggleSelectMode: (value) => setState(() => selectMode = value),
+            onSelectionToggle: (item, selected) => setState(() {
+              selectMode = true;
+              if (selected) {
+                selectedItems.add(item);
+              } else {
+                selectedItems.remove(item);
+              }
+            }),
             onSelectAll: () {},
+            onSelectionChanged: (items) => setState(() {
+              selectedItems
+                ..clear()
+                ..addAll(items);
+              selectMode = items.isNotEmpty;
+            }),
             openOnDoubleClick: widget.openOnDoubleClick,
           ),
           IgnorePointer(
@@ -423,6 +500,7 @@ class _BrowserHarnessState extends State<_BrowserHarness> {
                 Text('background-clicks: $backgroundClicks'),
                 Text('item-clicks: $itemClicks'),
                 Text('opened: $openedItems'),
+                Text('selected: ${selectedItems.length}'),
               ],
             ),
           ),

@@ -58,6 +58,8 @@ class HomeShell extends StatelessWidget {
     required this.onCloseCurrentRoot,
     required this.onToggleSelectMode,
     required this.onSelectionToggle,
+    this.onSelectionChanged,
+    this.focusedPath,
     required this.onExternalDrop,
     this.loading = false,
     this.canPaste = false,
@@ -121,6 +123,8 @@ class HomeShell extends StatelessWidget {
   final VoidCallback onCloseCurrentRoot;
   final ValueChanged<bool> onToggleSelectMode;
   final void Function(FileSystemNode item, bool selected) onSelectionToggle;
+  final ValueChanged<Set<FileSystemNode>>? onSelectionChanged;
+  final String? focusedPath;
   final ValueChanged<List<DragDropCandidate>> onExternalDrop;
 
   @override
@@ -322,6 +326,8 @@ class HomeShell extends StatelessWidget {
               onViewModeChanged: onViewModeChanged,
               onToggleSelectMode: onToggleSelectMode,
               onSelectionToggle: onSelectionToggle,
+              onSelectionChanged: onSelectionChanged,
+              focusedPath: focusedPath,
               onSelectAll: onSelectAll,
               hasMore: hasMore,
               isLoadingMore: isLoadingMore,

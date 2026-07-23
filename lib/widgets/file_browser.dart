@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../l10n/generated/app_localizations.dart';
 import '../models/view_mode.dart';
@@ -29,6 +31,8 @@ class FileBrowser extends StatefulWidget {
     required this.onViewModeChanged,
     required this.onToggleSelectMode,
     required this.onSelectionToggle,
+    this.onSelectionChanged,
+    this.focusedPath,
     required this.onSelectAll,
     this.hasMore = false,
     this.isLoadingMore = false,
@@ -71,6 +75,12 @@ class FileBrowser extends StatefulWidget {
   /// Toggle selection of a single file.
   final void Function(FileSystemNode item, bool selected) onSelectionToggle;
 
+  /// Replace the current selection after a range or drag operation.
+  final ValueChanged<Set<FileSystemNode>>? onSelectionChanged;
+
+  /// Path currently targeted by keyboard navigation in the parent page.
+  final String? focusedPath;
+
   /// Select all non-directory items.
   final VoidCallback onSelectAll;
   final bool hasMore;
@@ -89,6 +99,11 @@ class _FileBrowserState extends State<FileBrowser> {
   final TextEditingController _filterController = TextEditingController();
   final FocusNode _filterFocusNode = FocusNode();
   String? _contextSelectedPath;
+  String? _selectionAnchorPath;
+  final Map<String, GlobalKey> _itemKeys = {};
+  Offset? _dragStart;
+  Offset? _dragCurrent;
+  bool _isDraggingSelection = false;
   double _lastContentWidth = 0;
   FileSortOrder _sortOrder = FileSortOrder.nameAscending;
   final ScrollController _contentScrollController = ScrollController();
@@ -125,6 +140,7 @@ class _FileBrowserState extends State<FileBrowser> {
     if (oldWidget.currentPath != widget.currentPath) {
       _filterController.clear();
       _contextSelectedPath = null;
+      _selectionAnchorPath = null;
     }
   }
 
@@ -591,74 +607,88 @@ class _FileBrowserState extends State<FileBrowser> {
   }
 
   Widget _buildListView(List<FileSystemNode> items) {
-    return CustomScrollView(
-      controller: _contentScrollController,
-      slivers: [
-        SliverList.builder(
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
-            final isSelected = widget.selectedFiles.contains(item) ||
-                _contextSelectedPath == item.path;
-            return _FileListTile(
-              item: item,
-              isSelectMode: widget.isSelectMode,
-              isSelected: isSelected,
-              onTap: () => _handleItemTap(item, isSelected),
-              onDoubleTap: () => _handleItemDoubleTap(item),
-              onLongPress: () => _handleItemLongPress(item, isSelected),
-              onSecondaryTapDown: (position) =>
-                  _handleItemSecondaryTap(item, position),
-              onToggleSelection: (selected) =>
-                  widget.onSelectionToggle(item, selected),
-            );
-          },
-        ),
-        _buildLoadMoreStatus(),
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: _withBackgroundActions(const SizedBox.expand()),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGridView(List<FileSystemNode> items) {
-    return CustomScrollView(
-      controller: _contentScrollController,
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.all(8),
-          sliver: SliverGrid.builder(
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 150,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 1.0,
-            ),
+    return _withSelectionPointerHandlers(
+      items,
+      CustomScrollView(
+        controller: _contentScrollController,
+        slivers: [
+          SliverList.builder(
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
               final isSelected = widget.selectedFiles.contains(item) ||
                   _contextSelectedPath == item.path;
-              return _FileGridCard(
+              return _FileListTile(
+                key: _itemKey(item),
                 item: item,
+                isSelectMode: widget.isSelectMode,
                 isSelected: isSelected,
-                onTap: () => _handleItemTap(item, isSelected),
-                onDoubleTap: () => _handleItemDoubleTap(item),
+                isFocused: widget.focusedPath == item.path,
+                onTap: () => _handleItemTap(item, isSelected, items),
+                onDoubleTap: widget.openOnDoubleClick && !widget.isSelectMode
+                    ? () => _handleItemDoubleTap(item)
+                    : null,
                 onLongPress: () => _handleItemLongPress(item, isSelected),
                 onSecondaryTapDown: (position) =>
                     _handleItemSecondaryTap(item, position),
+                onToggleSelection: (selected) =>
+                    widget.onSelectionToggle(item, selected),
               );
             },
           ),
-        ),
-        _buildLoadMoreStatus(),
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: _withBackgroundActions(const SizedBox.expand()),
-        ),
-      ],
+          _buildLoadMoreStatus(),
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _withBackgroundActions(const SizedBox.expand()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGridView(List<FileSystemNode> items) {
+    return _withSelectionPointerHandlers(
+      items,
+      CustomScrollView(
+        controller: _contentScrollController,
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(8),
+            sliver: SliverGrid.builder(
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 150,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1.0,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final isSelected = widget.selectedFiles.contains(item) ||
+                    _contextSelectedPath == item.path;
+                return _FileGridCard(
+                  key: _itemKey(item),
+                  item: item,
+                  isSelected: isSelected,
+                  isFocused: widget.focusedPath == item.path,
+                  onTap: () => _handleItemTap(item, isSelected, items),
+                  onDoubleTap: widget.openOnDoubleClick && !widget.isSelectMode
+                      ? () => _handleItemDoubleTap(item)
+                      : null,
+                  onLongPress: () => _handleItemLongPress(item, isSelected),
+                  onSecondaryTapDown: (position) =>
+                      _handleItemSecondaryTap(item, position),
+                );
+              },
+            ),
+          ),
+          _buildLoadMoreStatus(),
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _withBackgroundActions(const SizedBox.expand()),
+          ),
+        ],
+      ),
     );
   }
 
@@ -693,6 +723,73 @@ class _FileBrowserState extends State<FileBrowser> {
     return const SliverToBoxAdapter(child: SizedBox.shrink());
   }
 
+  GlobalKey _itemKey(FileSystemNode item) {
+    return _itemKeys.putIfAbsent(item.path, GlobalKey.new);
+  }
+
+  Widget _withSelectionPointerHandlers(
+    List<FileSystemNode> items,
+    Widget child,
+  ) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        if (event.kind == PointerDeviceKind.mouse &&
+            event.buttons & kPrimaryMouseButton != 0) {
+          _dragStart = event.position;
+          _dragCurrent = event.position;
+          _isDraggingSelection = false;
+        }
+      },
+      onPointerMove: (event) {
+        final start = _dragStart;
+        if (start == null || event.kind != PointerDeviceKind.mouse) return;
+        if (!_isDraggingSelection &&
+            (event.position - start).distance > kTouchSlop) {
+          _isDraggingSelection = true;
+          _dragCurrent = event.position;
+        }
+        if (_isDraggingSelection) {
+          setState(() => _dragCurrent = event.position);
+        }
+      },
+      onPointerUp: (event) {
+        final start = _dragStart;
+        final end = _dragCurrent;
+        final dragging = _isDraggingSelection;
+        _dragStart = null;
+        _dragCurrent = null;
+        _isDraggingSelection = false;
+        if (dragging && start != null && end != null) {
+          _selectItemsInRect(items, Rect.fromPoints(start, end));
+        }
+      },
+      onPointerCancel: (_) {
+        _dragStart = null;
+        _dragCurrent = null;
+        _isDraggingSelection = false;
+      },
+      child: child,
+    );
+  }
+
+  void _selectItemsInRect(
+    List<FileSystemNode> items,
+    Rect selectionRect,
+  ) {
+    final selected = <FileSystemNode>{};
+    for (final item in items.where((item) => !item.isDirectory)) {
+      final renderObject =
+          _itemKeys[item.path]?.currentContext?.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) continue;
+      final itemTopLeft = renderObject.localToGlobal(Offset.zero);
+      final itemRect = itemTopLeft & renderObject.size;
+      if (selectionRect.overlaps(itemRect)) selected.add(item);
+    }
+    _selectionAnchorPath = selected.isEmpty ? null : selected.last.path;
+    _replaceSelection(selected);
+  }
+
   Widget _withBackgroundActions(Widget child) {
     return GestureDetector(
       key: const Key('directory-browser-background'),
@@ -711,9 +808,53 @@ class _FileBrowserState extends State<FileBrowser> {
     widget.onItemSecondaryTap(item, position);
   }
 
-  void _handleItemTap(FileSystemNode item, bool isSelected) {
-    if (widget.isSelectMode && !item.isDirectory) {
-      widget.onSelectionToggle(item, !isSelected);
+  void _handleItemTap(
+    FileSystemNode item,
+    bool isSelected,
+    List<FileSystemNode> visibleItems,
+  ) {
+    final keys = HardwareKeyboard.instance.logicalKeysPressed;
+    final hasControl = keys.contains(LogicalKeyboardKey.controlLeft) ||
+        keys.contains(LogicalKeyboardKey.controlRight) ||
+        keys.contains(LogicalKeyboardKey.metaLeft) ||
+        keys.contains(LogicalKeyboardKey.metaRight);
+    final hasShift = keys.contains(LogicalKeyboardKey.shiftLeft) ||
+        keys.contains(LogicalKeyboardKey.shiftRight);
+
+    if (!item.isDirectory && (widget.isSelectMode || hasControl || hasShift)) {
+      final selectable = visibleItems.where((entry) => !entry.isDirectory);
+      final next = Set<FileSystemNode>.from(widget.selectedFiles);
+      if (hasShift) {
+        final ordered = selectable.toList();
+        final anchorIndex = ordered.indexWhere(
+          (entry) => entry.path == _selectionAnchorPath,
+        );
+        final targetIndex = ordered.indexOf(item);
+        if (targetIndex >= 0) {
+          final start = anchorIndex < 0
+              ? targetIndex
+              : (anchorIndex < targetIndex ? anchorIndex : targetIndex);
+          final end = anchorIndex < 0
+              ? targetIndex
+              : (anchorIndex < targetIndex ? targetIndex : anchorIndex);
+          if (!hasControl) next.clear();
+          next.addAll(ordered.sublist(start, end + 1));
+        }
+      } else if (hasControl) {
+        if (isSelected) {
+          next.remove(item);
+        } else {
+          next.add(item);
+        }
+      } else if (isSelected) {
+        next.remove(item);
+      } else {
+        next.add(item);
+      }
+      _selectionAnchorPath = item.path;
+      _replaceSelection(next);
+    } else if (widget.isSelectMode && item.isDirectory) {
+      return;
     } else if (widget.openOnDoubleClick) {
       // Do not rebuild after the first click; rebuilding would reset the
       // double-tap recognizer before it can receive the second click.
@@ -721,6 +862,23 @@ class _FileBrowserState extends State<FileBrowser> {
     } else {
       if (item.isDirectory) _clearFilter(close: false);
       widget.onOpenItem(item);
+    }
+  }
+
+  void _replaceSelection(Set<FileSystemNode> selected) {
+    if (selected.isNotEmpty && !widget.isSelectMode) {
+      widget.onToggleSelectMode(true);
+    }
+    if (widget.onSelectionChanged != null) {
+      widget.onSelectionChanged!(selected);
+      return;
+    }
+    final current = widget.selectedFiles;
+    for (final item in current.difference(selected)) {
+      widget.onSelectionToggle(item, false);
+    }
+    for (final item in selected.difference(current)) {
+      widget.onSelectionToggle(item, true);
     }
   }
 
@@ -745,11 +903,13 @@ class _FileBrowserState extends State<FileBrowser> {
 /// A single file/directory entry in list view.
 class _FileListTile extends StatelessWidget {
   const _FileListTile({
+    super.key,
     required this.item,
     required this.isSelectMode,
     required this.isSelected,
+    required this.isFocused,
     required this.onTap,
-    required this.onDoubleTap,
+    this.onDoubleTap,
     required this.onLongPress,
     required this.onSecondaryTapDown,
     required this.onToggleSelection,
@@ -758,8 +918,9 @@ class _FileListTile extends StatelessWidget {
   final FileSystemNode item;
   final bool isSelectMode;
   final bool isSelected;
+  final bool isFocused;
   final VoidCallback onTap;
-  final VoidCallback onDoubleTap;
+  final VoidCallback? onDoubleTap;
   final VoidCallback onLongPress;
   final ValueChanged<Offset> onSecondaryTapDown;
   final void Function(bool selected) onToggleSelection;
@@ -785,6 +946,10 @@ class _FileListTile extends StatelessWidget {
               left: BorderSide(
                 color: isSelected ? colors.primary : Colors.transparent,
                 width: 4,
+              ),
+              right: BorderSide(
+                color: isFocused ? colors.secondary : Colors.transparent,
+                width: 3,
               ),
               bottom: BorderSide(
                 color: colors.outlineVariant.withValues(alpha: 0.45),
@@ -827,18 +992,21 @@ class _FileListTile extends StatelessWidget {
 /// A single file/directory entry in grid view.
 class _FileGridCard extends StatelessWidget {
   const _FileGridCard({
+    super.key,
     required this.item,
     required this.isSelected,
+    required this.isFocused,
     required this.onTap,
-    required this.onDoubleTap,
+    this.onDoubleTap,
     required this.onLongPress,
     required this.onSecondaryTapDown,
   });
 
   final FileSystemNode item;
   final bool isSelected;
+  final bool isFocused;
   final VoidCallback onTap;
-  final VoidCallback onDoubleTap;
+  final VoidCallback? onDoubleTap;
   final VoidCallback onLongPress;
   final ValueChanged<Offset> onSecondaryTapDown;
 
@@ -867,8 +1035,10 @@ class _FileGridCard extends StatelessWidget {
               side: BorderSide(
                 color: isSelected
                     ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.outlineVariant,
-                width: isSelected ? 2.5 : 1,
+                    : isFocused
+                        ? Theme.of(context).colorScheme.secondary
+                        : Theme.of(context).colorScheme.outlineVariant,
+                width: isSelected || isFocused ? 2.5 : 1,
               ),
             ),
             child: Column(

@@ -128,6 +128,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isSelectMode = false;
   final Set<FileSystemNode> _selectedFiles = {};
   FileSystemNode? _keyboardTarget;
+  String? _keyboardSelectionAnchorPath;
   final FocusNode _shortcutFocusNode = FocusNode(debugLabel: 'home-shortcuts');
 
   @override
@@ -1290,6 +1291,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _items = [];
         _selectedFiles.clear();
         _keyboardTarget = null;
+        _keyboardSelectionAnchorPath = null;
         _isSelectMode = false;
       }
     });
@@ -1538,6 +1540,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _showBackgroundContextMenu(Offset globalPosition) async {
     _keyboardTarget = null;
+    _keyboardSelectionAnchorPath = null;
     final action = await showDirectoryBackgroundContextMenu(
       context: context,
       globalPosition: globalPosition,
@@ -2372,6 +2375,49 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  void _moveKeyboardTarget(int delta, {required bool extendSelection}) {
+    if (_items.isEmpty) return;
+    final currentIndex = _keyboardTarget == null
+        ? -1
+        : _items.indexWhere((item) => item.path == _keyboardTarget!.path);
+    final nextIndex = (currentIndex + delta).clamp(0, _items.length - 1);
+    final target = _items[nextIndex];
+    setState(() {
+      _keyboardTarget = target;
+      if (!extendSelection) {
+        _keyboardSelectionAnchorPath = target.path;
+        return;
+      }
+      final anchorPath = _keyboardSelectionAnchorPath ?? target.path;
+      final anchorIndex = _items.indexWhere((item) => item.path == anchorPath);
+      final start = anchorIndex < 0
+          ? nextIndex
+          : (anchorIndex < nextIndex ? anchorIndex : nextIndex);
+      final end = anchorIndex < 0
+          ? nextIndex
+          : (anchorIndex < nextIndex ? nextIndex : anchorIndex);
+      _selectedFiles
+        ..clear()
+        ..addAll(
+          _items.sublist(start, end + 1).where((item) => !item.isDirectory),
+        );
+      _isSelectMode = _selectedFiles.isNotEmpty;
+    });
+  }
+
+  void _toggleKeyboardTargetSelection() {
+    final target = _keyboardTarget;
+    if (target == null || target.isDirectory) return;
+    setState(() {
+      _isSelectMode = true;
+      if (_selectedFiles.contains(target)) {
+        _selectedFiles.remove(target);
+      } else {
+        _selectedFiles.add(target);
+      }
+    });
+  }
+
   Future<void> _createEntry({required bool isDirectory}) async {
     if (!_validateSession()) return;
     final name = await showCreateEntryDialog(
@@ -2844,6 +2890,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _showKeyboardContextMenu,
         const SingleActivator(LogicalKeyboardKey.f10, shift: true):
             _showKeyboardContextMenu,
+        const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
+            _moveKeyboardTarget(-1, extendSelection: false),
+        const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
+            _moveKeyboardTarget(1, extendSelection: false),
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+            _moveKeyboardTarget(-1, extendSelection: false),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+            _moveKeyboardTarget(1, extendSelection: false),
+        const SingleActivator(LogicalKeyboardKey.arrowUp, shift: true): () =>
+            _moveKeyboardTarget(-1, extendSelection: true),
+        const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true): () =>
+            _moveKeyboardTarget(1, extendSelection: true),
+        const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): () =>
+            _moveKeyboardTarget(-1, extendSelection: true),
+        const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): () =>
+            _moveKeyboardTarget(1, extendSelection: true),
+        const SingleActivator(LogicalKeyboardKey.space, control: true):
+            _toggleKeyboardTargetSelection,
       },
       child: Listener(
         onPointerDown: (_) => _touchCurrentRoot(),
@@ -2855,6 +2919,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             openedDirectories: _openedDirs,
             currentDirectory: _currentDir,
             currentPath: _currentPath,
+            focusedPath: _keyboardTarget?.path,
             items: _items,
             drawerPinned: _drawerPinned,
             viewMode: _viewMode,
@@ -2903,6 +2968,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               setState(() {
                 _isSelectMode = false;
                 _selectedFiles.clear();
+                _keyboardSelectionAnchorPath = null;
               });
             },
             onSelectAll: () {
@@ -2935,6 +3001,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 } else {
                   _selectedFiles.remove(item);
                 }
+              });
+            },
+            onSelectionChanged: (selected) {
+              setState(() {
+                _selectedFiles
+                  ..clear()
+                  ..addAll(selected);
+                _isSelectMode = selected.isNotEmpty;
               });
             },
           ),
