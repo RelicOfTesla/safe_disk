@@ -458,6 +458,78 @@ abstract class AppLocalizations {
   /// **'继续'**
   String get webDavAuthContinue;
 
+  /// No description provided for @webDavCredentialVisibilityTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'凭据显示方式'**
+  String get webDavCredentialVisibilityTitle;
+
+  /// No description provided for @webDavCredentialVisibilityDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'一次性显示更安全；持久显示允许在会话有效期间再次查看凭据。该选择只影响新会话。'**
+  String get webDavCredentialVisibilityDescription;
+
+  /// No description provided for @webDavCredentialOnce.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅显示一次（推荐）'**
+  String get webDavCredentialOnce;
+
+  /// No description provided for @webDavCredentialPersistent.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许再次显示'**
+  String get webDavCredentialPersistent;
+
+  /// No description provided for @webDavPersistentCredentialWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'持久显示会增加凭据泄露风险。只有在需要反复配置可信工具时使用。'**
+  String get webDavPersistentCredentialWarning;
+
+  /// No description provided for @webDavRevealCredentials.
+  ///
+  /// In zh, this message translates to:
+  /// **'显示凭据'**
+  String get webDavRevealCredentials;
+
+  /// No description provided for @webDavCredentialsRevealed.
+  ///
+  /// In zh, this message translates to:
+  /// **'凭据已显示'**
+  String get webDavCredentialsRevealed;
+
+  /// No description provided for @webDavSessionLifetimeTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'会话保留方式'**
+  String get webDavSessionLifetimeTitle;
+
+  /// No description provided for @webDavSessionLifetimeDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'临时会话在结束或关闭 root 后失效；持久会话会在重新解锁 root 后恢复。'**
+  String get webDavSessionLifetimeDescription;
+
+  /// No description provided for @webDavSessionEphemeral.
+  ///
+  /// In zh, this message translates to:
+  /// **'临时会话（推荐）'**
+  String get webDavSessionEphemeral;
+
+  /// No description provided for @webDavSessionPersistent.
+  ///
+  /// In zh, this message translates to:
+  /// **'持久会话'**
+  String get webDavSessionPersistent;
+
+  /// No description provided for @webDavPersistentSessionWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'持久会话会保留端口和访问凭据，直到你明确撤销访问。仅在确有需要时使用。'**
+  String get webDavPersistentSessionWarning;
+
   /// No description provided for @webDavSessions.
   ///
   /// In zh, this message translates to:

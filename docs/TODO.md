@@ -34,7 +34,9 @@
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---:|---|
-| WEB-01 | WebDAV 第三方工具交接实现 | P1/第三方工具 | 75% | Go 已完成 loopback 只读会话、随机会话 ID、显式子树范围、Bearer/Digest `SHA-256` 认证、`OPTIONS/GET/HEAD/PROPFIND`、写操作拒绝、token-free 会话快照、访问监视和 root 关闭撤销；协议层已接 `golang.org/x/net/webdav`，`ffi_sec_fs` 已暴露鉴权及 mount/unmount ABI，Flutter 已接鉴权选择/凭据展示/状态列表/挂载/卸载/撤销，CLI 已接前台 `webdav serve`、JSON 生命周期和 Linux Digest 挂载适配。挂载状态由 Go 维护，CLI 退出前会先卸载再上报 stopped。仍缺编辑协议与冲突控制、常见系统工具认证兼容矩阵及必要的 Basic 兼容模式、Windows/macOS 挂载适配、Linux 实际挂载验收、凭据显示策略、持久端口/session ID 模式、真实第三方互操作和三平台攻击/生命周期测试；不宣称第三方工具交接整体完成。 |
+| WEB-01 | WebDAV 第三方工具交接实现 | P1/第三方工具 | 82% | Go 已完成 loopback 只读会话、Bearer/Digest `SHA-256`、协议范围、访问监视、root 撤销、凭据策略和 root 内持久会话；FFI/Dart/CLI 已接选项、状态、恢复和挂载/卸载。仍缺编辑协议与冲突控制、常见系统工具认证兼容矩阵及必要的 Basic 兼容模式、Windows/macOS 挂载适配、Linux 实际挂载验收、真实第三方互操作和三平台攻击/异常生命周期测试；不宣称第三方工具交接整体完成。 |
+| WEB-02 | WebDAV 凭据显示策略 | P1/第三方工具/凭据 | 85% | Go `reveal`、FFI ABI、Dart/Flutter 选择与持久会话列表入口已实现；一次性策略不返回秘密，持久策略有风险提示且不进入 list/status。仍需 CLI 的独立 reveal 管理入口和三平台凭据泄露/日志审计。 |
+| WEB-03 | WebDAV 持久会话 | P1/第三方工具/持久化 | 75% | Go 已实现 root 内加密状态、稳定 root 关联、固定端口、ID/凭据恢复、root 重开 warning、显式撤销删除；FFI/Dart/CLI 已接配置，Go/FFI 有关闭重开和端口生命周期测试。仍需暂停/轮换、恢复失败 UI、跨进程管理、系统客户端重启恢复和三平台异常生命周期测试。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
 
 
@@ -74,7 +76,7 @@
 | 拖放 | 70% | 设计见 [DRAG_DROP_DESIGN.md](design/DRAG_DROP_DESIGN.md)。首期已接入 `desktop_drop`：已验证且空闲的当前目录浏览区可接收外部 drop 并显示高亮；插件载荷先经 `DragDropController`，只接受存在的普通绝对文件/目录，拒绝 file promise、内存载荷、链接、相对/失效路径、重复项和当前 root 内部路径，再按顺序复用既有文件/目录导入、冲突、进度、取消和 unfinished 链路。Windows 路径边界现统一 `/` 与 `\\` 分隔符并有注入模式回归。默认仍禁止拖出，未添加拖出设置。策略层与主页 target 有自动化证据；真实平台 drop 事件尚未验收。 | 三平台外部拖入的多文件/目录、取消、权限与临时明文泄漏验收；补平台事件高亮/回调 E2E；在具备可信目标目录协议前不得实现拖出 |
 | 备份恢复与可选密码提示 | 12% | 设计见 [BACKUP_RECOVERY_AND_PASSWORD_HINT_DESIGN.md](design/BACKUP_RECOVERY_AND_PASSWORD_HINT_DESIGN.md)：提示是可选公开信息而非找回凭据。密码提示已完成 sec staged replace、FFI/Dart ABI、创建高级选项、默认折叠的解锁展示，以及仅限已解锁属性页的当前密码确认更新/清除；Go、真实 Dart ABI 和 widget 有定向回归。备份/恢复仍无格式和实现。 | 提示补 staged-replace 故障注入、跨进程锁竞争、打开窗口配置刷新和三平台桌面验收；定义并实现 snapshot/manifest、恢复和灾难测试 |
 | 安全记事本草稿间隔与只读模式 | 92% | 间隔设置已接入加密草稿而非原文件；默认只读、默认剪贴板监视、编辑切换、恢复与状态保护有主/子窗口测试 | 保存冲突、快捷键、系统剪贴板、进程级崩溃与跨平台桌面实测 |
-| 第三方工具安全文件交接（WEB-01，P1） | 75% | [THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md](design/THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md)；Go 协议适配、Bearer/Digest `SHA-256`、重放防护、限定范围、只读权限、监视快照、root close 撤销和 CLI `webdav serve` 已实现；FFI/Dart 已接鉴权模式、状态和挂载/卸载，Linux Digest 挂载适配已接入 | 编辑协议、冲突控制、常见系统工具认证兼容矩阵/必要的 Basic 兼容模式、Windows/macOS 挂载适配、Linux 实际挂载和第三方客户端互操作、凭据显示策略、持久端口/session ID 模式、三平台实机与攻击测试 |
+| 第三方工具安全文件交接（WEB-01，P1） | 82% | [THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md](design/THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md)；Go 已实现只读协议、Bearer/Digest `SHA-256`、重放防护、限定范围、监视快照、root close 撤销、凭据策略和 root 内持久会话；FFI/Dart/CLI 已接选项、状态、恢复和挂载/卸载 | 编辑协议、冲突控制、常见系统工具认证兼容矩阵/必要的 Basic 兼容模式、Windows/macOS 挂载适配、Linux 实际挂载和第三方客户端互操作、CLI 独立 reveal 管理、三平台实机与攻击/异常生命周期测试 |
 
 ## P3 发布与平台
 

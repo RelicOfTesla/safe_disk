@@ -24,13 +24,32 @@ const (
 	AuthModeDigest AuthMode = "digest"
 )
 
+type CredentialVisibility string
+
+const (
+	CredentialVisibilityOnce       CredentialVisibility = "once"
+	CredentialVisibilityPersistent CredentialVisibility = "persistent"
+)
+
+var ErrCredentialsNotRevealable = errors.New("webdav credentials are one-time only")
+
+type SessionLifetime string
+
+const (
+	SessionLifetimeEphemeral  SessionLifetime = "ephemeral"
+	SessionLifetimePersistent SessionLifetime = "persistent"
+)
+
 type OpenOptions struct {
-	AuthMode AuthMode `json:"auth_mode"`
+	AuthMode             AuthMode             `json:"auth_mode"`
+	CredentialVisibility CredentialVisibility `json:"credential_visibility"`
+	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
+	Port                 int                  `json:"port,omitempty"`
 }
 
 func ParseOpenOptions(optionsJSON string) (OpenOptions, error) {
 	if strings.TrimSpace(optionsJSON) == "" {
-		return OpenOptions{AuthMode: AuthModeBearer}, nil
+		return normalizeOpenOptions(OpenOptions{AuthMode: AuthModeBearer})
 	}
 	var options OpenOptions
 	decoder := json.NewDecoder(strings.NewReader(optionsJSON))
@@ -42,11 +61,32 @@ func ParseOpenOptions(optionsJSON string) (OpenOptions, error) {
 	if err := decoder.Decode(&trailing); err != io.EOF {
 		return OpenOptions{}, errors.New("invalid webdav options: trailing data")
 	}
+	return normalizeOpenOptions(options)
+}
+
+func normalizeOpenOptions(options OpenOptions) (OpenOptions, error) {
 	if options.AuthMode == "" {
 		options.AuthMode = AuthModeBearer
 	}
 	if options.AuthMode != AuthModeBearer && options.AuthMode != AuthModeDigest {
 		return OpenOptions{}, fmt.Errorf("unsupported webdav auth mode: %q", options.AuthMode)
+	}
+	if options.CredentialVisibility == "" {
+		options.CredentialVisibility = CredentialVisibilityOnce
+	}
+	if options.CredentialVisibility != CredentialVisibilityOnce &&
+		options.CredentialVisibility != CredentialVisibilityPersistent {
+		return OpenOptions{}, fmt.Errorf("unsupported webdav credential visibility: %q", options.CredentialVisibility)
+	}
+	if options.SessionLifetime == "" {
+		options.SessionLifetime = SessionLifetimeEphemeral
+	}
+	if options.SessionLifetime != SessionLifetimeEphemeral &&
+		options.SessionLifetime != SessionLifetimePersistent {
+		return OpenOptions{}, fmt.Errorf("unsupported webdav session lifetime: %q", options.SessionLifetime)
+	}
+	if options.Port < 0 || options.Port > 65535 {
+		return OpenOptions{}, fmt.Errorf("invalid webdav port: %d", options.Port)
 	}
 	return options, nil
 }
@@ -103,6 +143,39 @@ func (m *Manager) newAuthLocked(mode AuthMode) (authState, error) {
 		}, nil
 	default:
 		return authState{}, fmt.Errorf("unsupported webdav auth mode: %q", mode)
+	}
+}
+
+func authFromPersistent(record PersistentSession) (authState, error) {
+	switch record.AuthMode {
+	case AuthModeBearer:
+		if record.Token == "" {
+			return authState{}, ErrPersistentRecordInvalid
+		}
+		return authState{mode: AuthModeBearer, token: record.Token}, nil
+	case AuthModeDigest:
+		if record.Username == "" || record.Password == "" || record.Realm == "" || record.DigestKey == "" {
+			return authState{}, ErrPersistentRecordInvalid
+		}
+		key, err := hex.DecodeString(record.DigestKey)
+		if err != nil || len(key) != sha256.Size {
+			return authState{}, ErrPersistentRecordInvalid
+		}
+		return authState{
+			mode:     AuthModeDigest,
+			username: record.Username,
+			password: record.Password,
+			realm:    record.Realm,
+			digest: &digestState{
+				username: record.Username,
+				password: record.Password,
+				realm:    record.Realm,
+				key:      key,
+				maxNC:    make(map[string]uint32),
+			},
+		}, nil
+	default:
+		return authState{}, ErrPersistentRecordInvalid
 	}
 }
 

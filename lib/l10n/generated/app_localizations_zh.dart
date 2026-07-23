@@ -199,6 +199,46 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavAuthContinue => '继续';
 
   @override
+  String get webDavCredentialVisibilityTitle => '凭据显示方式';
+
+  @override
+  String get webDavCredentialVisibilityDescription =>
+      '一次性显示更安全；持久显示允许在会话有效期间再次查看凭据。该选择只影响新会话。';
+
+  @override
+  String get webDavCredentialOnce => '仅显示一次（推荐）';
+
+  @override
+  String get webDavCredentialPersistent => '允许再次显示';
+
+  @override
+  String get webDavPersistentCredentialWarning =>
+      '持久显示会增加凭据泄露风险。只有在需要反复配置可信工具时使用。';
+
+  @override
+  String get webDavRevealCredentials => '显示凭据';
+
+  @override
+  String get webDavCredentialsRevealed => '凭据已显示';
+
+  @override
+  String get webDavSessionLifetimeTitle => '会话保留方式';
+
+  @override
+  String get webDavSessionLifetimeDescription =>
+      '临时会话在结束或关闭 root 后失效；持久会话会在重新解锁 root 后恢复。';
+
+  @override
+  String get webDavSessionEphemeral => '临时会话（推荐）';
+
+  @override
+  String get webDavSessionPersistent => '持久会话';
+
+  @override
+  String get webDavPersistentSessionWarning =>
+      '持久会话会保留端口和访问凭据，直到你明确撤销访问。仅在确有需要时使用。';
+
+  @override
   String get webDavSessions => '第三方访问';
 
   @override

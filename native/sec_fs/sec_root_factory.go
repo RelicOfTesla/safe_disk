@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 
 	"safe_disk/native/config"
@@ -154,7 +155,8 @@ func (d *defaultIgnoreMatcher) ShouldIgnore1(encryptedName string, isDir bool) b
 		// entries. They must be filtered before encrypted-name decryption.
 		return encryptedName == ".transfer_v3"
 	}
-	return encryptedName == d.configFileName
+	return encryptedName == d.configFileName ||
+		strings.HasPrefix(encryptedName, ".safe_disk.webdav.")
 }
 
 // ShouldIgnore2 checks if the file should be ignored AFTER name decryption.
@@ -165,7 +167,8 @@ func (d *defaultIgnoreMatcher) ShouldIgnore2(decryptedName string, isDir bool) b
 	if isDir {
 		return false
 	}
-	return decryptedName == d.configFileName
+	return decryptedName == d.configFileName ||
+		strings.HasPrefix(decryptedName, ".safe_disk.webdav.")
 }
 
 // newDefaultIgnoreMatcher creates a new default ignore matcher with the given config file name.

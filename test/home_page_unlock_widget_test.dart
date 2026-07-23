@@ -855,6 +855,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('继续'));
     await tester.pumpAndSettle();
+    expect(find.text('凭据显示方式'), findsOneWidget);
+    await tester.tap(find.text('继续'));
+    await tester.pumpAndSettle();
+    expect(find.text('会话保留方式'), findsOneWidget);
+    await tester.tap(find.text('继续'));
+    await tester.pumpAndSettle();
 
     expect(find.text('第三方工具访问凭据'), findsOneWidget);
     expect(find.text('one-time-token'), findsOneWidget);
@@ -3269,6 +3275,9 @@ class _FakeCryptoService extends CryptoService {
     required String exposedPath,
     required String displayName,
     String authMode = 'bearer',
+    String credentialVisibility = 'once',
+    String sessionLifetime = 'ephemeral',
+    int port = 0,
   }) {
     final id = 'webdav-${_nextWebDavSessionID++}';
     webDavOpenCalls.add((
@@ -3290,6 +3299,9 @@ class _FakeCryptoService extends CryptoService {
       'exposed_path': exposedPath,
       'url': 'http://127.0.0.1:1234/webdav/$id/',
       'auth_mode': authMode,
+      'credential_visibility': credentialVisibility,
+      'session_lifetime': sessionLifetime,
+      'port': port,
       'token': 'one-time-token',
       'read_only': true,
     };

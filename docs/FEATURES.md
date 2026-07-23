@@ -68,7 +68,7 @@
 |---|---:|---|---|
 | KDF 成本动态校准 | 15% | 当前使用固定配置参数 | 目标耗时校准、上下限、防 DoS 和设备矩阵 |
 | 可配置 config 文件名 | 0% | 当前固定 `_cryption.json` | 先评估发现/冲突/兼容成本，再决定是否实现 |
-| 第三方工具安全文件交接 | 75% | Go 已完成 loopback、Bearer/Digest `SHA-256` 认证、`x/net/webdav` 限定子树、只读权限、访问监视和 root 撤销；FFI 已有鉴权及 mount/unmount ABI；Flutter 已接鉴权选择、一次性凭据、状态列表、挂载/卸载和撤销；CLI 已接 `webdav serve`、JSON 生命周期和 Linux Digest 挂载适配 | 编辑协议与冲突控制、常见系统工具认证兼容矩阵/必要的 Basic 兼容模式、Windows/macOS 挂载适配、Linux 实际挂载验收、凭据显示策略、持久端口/session ID、第三方互操作和跨平台攻击/生命周期测试 |
+| 第三方工具安全文件交接 | 82% | Go 已完成 loopback、Bearer/Digest `SHA-256` 认证、`x/net/webdav` 限定子树、只读权限、访问监视、root 撤销、凭据显示策略和 root 内加密持久会话；FFI/Dart 已接选项、状态和恢复 ABI；Flutter 已接风险确认、凭据再次显示、状态列表、挂载/卸载和撤销；CLI 已接 `webdav serve`、JSON 生命周期、持久参数和 root 重开恢复 | 编辑协议与冲突控制、常见系统工具认证兼容矩阵/必要的 Basic 兼容模式、Windows/macOS 挂载适配、Linux 实际挂载验收、CLI 独立 reveal 管理、第三方互操作和跨平台攻击/生命周期测试 |
 | 备份恢复与密码提示 | 12% | 密码提示已完成 sec/FFI/Dart、创建/解锁/已解锁属性页基础流程；备份恢复仍只有安全设计，见 [BACKUP_RECOVERY_AND_PASSWORD_HINT_DESIGN.md](design/BACKUP_RECOVERY_AND_PASSWORD_HINT_DESIGN.md) | 提示的故障/并发/三平台验收；认证备份格式、恢复流程和灾难测试 |
 
 ## 平台与发布

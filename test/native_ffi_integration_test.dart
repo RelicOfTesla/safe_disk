@@ -71,6 +71,54 @@ void main() {
       expect(webDav.list(rootID: rootID), isEmpty);
     });
 
+    test('restores a persistent WebDAV session after reopening the root',
+        () async {
+      final tmp =
+          await Directory.systemTemp.createTemp('safe-disk-webdav-persistent-');
+      addTearDown(() async {
+        if (await tmp.exists()) await tmp.delete(recursive: true);
+      });
+
+      final rootPath = '${tmp.path}/root';
+      const password = 'webdav-persistent-password';
+      final native = NativeLib.instance;
+      final crypto = CryptoService();
+      native.secCreateRootConfig(
+        rootPath,
+        password,
+        jsonEncode({'dataFactory': 'AES-CTR', 'nameFactory': 'None'}),
+      );
+      var rootID = crypto.openRoot(rootPath, password, '');
+      native.secQuickWriteFile(rootID, 'note.txt', utf8.encode('content'));
+      final webDav = WebDavService(cryptoService: crypto);
+      final opened = webDav.open(
+        rootID: rootID,
+        logicalPath: '$rootPath/note.txt',
+        displayName: 'note.txt',
+        credentialVisibility: WebDavCredentialVisibility.persistent,
+        sessionLifetime: WebDavSessionLifetime.persistent,
+      );
+      crypto.closeRoot(rootID);
+
+      rootID = crypto.openRoot(rootPath, password, '');
+      addTearDown(() {
+        try {
+          crypto.closeRoot(rootID);
+        } catch (_) {
+          // The root may already be closed after a failed assertion.
+        }
+      });
+      final restored = webDav.list(rootID: rootID);
+      expect(restored, hasLength(1));
+      expect(restored.single.id, opened.id);
+      expect(restored.single.port, opened.port);
+      final revealed = webDav.reveal(opened.id, rootID: rootID);
+      expect(revealed.token, opened.token);
+
+      webDav.close(opened.id);
+      expect(webDav.list(rootID: rootID), isEmpty);
+    });
+
     test('creates a password-changeable root and reopens it with new password',
         () async {
       final tmp = await Directory.systemTemp.createTemp('safe-disk-change-');

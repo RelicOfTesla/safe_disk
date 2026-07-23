@@ -36,5 +36,5 @@ var (
 
 	// WebDAV is owned by the native process so closing a root can revoke its
 	// loopback sessions before the cryptographic root is destroyed.
-	WebDavManager = sec_webdav.NewManager()
+	WebDavManager = sec_webdav.NewManagerWithPersistentStore(webDavPersistentStore{})
 )

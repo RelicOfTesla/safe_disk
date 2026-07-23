@@ -59,6 +59,109 @@ func TestListReportsGoOwnedMonitoringWithoutToken(t *testing.T) {
 	}
 }
 
+func TestCredentialVisibilityControlsRevealWithoutLeakingStatus(t *testing.T) {
+	provider := mapProvider{files: fstest.MapFS{
+		"note.txt": &fstest.MapFile{Data: []byte("private")},
+	}}
+	manager := NewManager()
+	defer manager.Close()
+
+	once, err := manager.OpenWithOptions("root-once", "Note", "note.txt", provider, OpenOptions{
+		AuthMode:             AuthModeBearer,
+		CredentialVisibility: CredentialVisibilityOnce,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Reveal(once.ID); !errors.Is(err, ErrCredentialsNotRevealable) {
+		t.Fatalf("one-time reveal error = %v", err)
+	}
+
+	persistent, err := manager.OpenWithOptions("root-persistent", "Note", "note.txt", provider, OpenOptions{
+		AuthMode:             AuthModeDigest,
+		CredentialVisibility: CredentialVisibilityPersistent,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	revealed, err := manager.Reveal(persistent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revealed.Password != persistent.Password ||
+		revealed.CredentialVisibility != CredentialVisibilityPersistent {
+		t.Fatalf("revealed session = %#v", revealed)
+	}
+	statusJSON, err := json.Marshal(manager.List("root-persistent")[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, secret := range []string{persistent.Username, persistent.Password, persistent.Realm} {
+		if strings.Contains(string(statusJSON), secret) {
+			t.Fatalf("status leaked credential %q: %s", secret, statusJSON)
+		}
+	}
+}
+
+func TestPersistentSessionRestoresWithStableIDPortAndCredentials(t *testing.T) {
+	provider := mapProvider{files: fstest.MapFS{
+		"note.txt": &fstest.MapFile{Data: []byte("private")},
+	}}
+	store := &memoryPersistentStore{}
+	manager := NewManagerWithPersistentStore(store)
+	defer manager.Close()
+
+	opened, err := manager.OpenWithOptions(
+		"root-persistent", "Note", "note.txt", provider,
+		OpenOptions{
+			AuthMode:             AuthModeBearer,
+			CredentialVisibility: CredentialVisibilityPersistent,
+			SessionLifetime:      SessionLifetimePersistent,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opened.Port == 0 || len(store.records) != 1 {
+		t.Fatalf("opened=%#v records=%#v", opened, store.records)
+	}
+
+	manager.RevokeRoot("root-persistent")
+	if got := manager.List("root-persistent"); len(got) != 0 {
+		t.Fatalf("sessions after root close = %#v", got)
+	}
+	if errors := manager.RestorePersistent("root-persistent", provider); len(errors) != 0 {
+		t.Fatalf("restore errors = %v", errors)
+	}
+	statuses := manager.List("root-persistent")
+	if len(statuses) != 1 || statuses[0].ID != opened.ID ||
+		statuses[0].Port != opened.Port || statuses[0].SessionLifetime != SessionLifetimePersistent {
+		t.Fatalf("restored statuses = %#v", statuses)
+	}
+	revealed, err := manager.Reveal(opened.ID)
+	if err != nil || revealed.Token != opened.Token {
+		t.Fatalf("restored credentials = %#v err=%v", revealed, err)
+	}
+
+	manager.Revoke(opened.ID)
+	if len(store.records) != 0 {
+		t.Fatalf("records after revoke = %#v", store.records)
+	}
+}
+
+type memoryPersistentStore struct {
+	records []PersistentSession
+}
+
+func (s *memoryPersistentStore) Load(string) ([]PersistentSession, error) {
+	return append([]PersistentSession(nil), s.records...), nil
+}
+
+func (s *memoryPersistentStore) Save(_ string, records []PersistentSession) error {
+	s.records = append([]PersistentSession(nil), records...)
+	return nil
+}
+
 func TestReadOnlySessionScopesAndRevokesAccess(t *testing.T) {
 	manager := NewManager()
 	defer manager.Close()

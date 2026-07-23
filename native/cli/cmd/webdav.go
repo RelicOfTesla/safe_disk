@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -19,13 +20,16 @@ import (
 )
 
 var (
-	webDavPassword      string
-	webDavPasswordEnv   string
-	webDavPasswordStdin bool
-	webDavPath          string
-	webDavAuth          string
-	webDavMount         bool
-	webDavJSON          bool
+	webDavPassword             string
+	webDavPasswordEnv          string
+	webDavPasswordStdin        bool
+	webDavPath                 string
+	webDavAuth                 string
+	webDavCredentialVisibility string
+	webDavSessionLifetime      string
+	webDavPort                 int
+	webDavMount                bool
+	webDavJSON                 bool
 )
 
 var webDavServeCmd = &cobra.Command{
@@ -39,7 +43,12 @@ var webDavServeCmd = &cobra.Command{
 		if !filepath.IsAbs(webDavPath) {
 			return fmt.Errorf("path must be absolute")
 		}
-		options, err := parseWebDavOpenOptions(webDavAuth)
+		options, err := parseWebDavOpenOptions(
+			webDavAuth,
+			webDavCredentialVisibility,
+			webDavSessionLifetime,
+			webDavPort,
+		)
 		if err != nil {
 			return err
 		}
@@ -53,8 +62,14 @@ var webDavServeCmd = &cobra.Command{
 		}
 		defer cleanup()
 
-		manager := sec_webdav.NewManager()
+		manager := sec_webdav.NewManagerWithPersistentStore(
+			cliWebDavPersistentStore{root: opened.Root},
+		)
 		defer manager.Close()
+		rootKey := cliWebDavRootKey(string(opened.RootPath))
+		if restoreErrors := manager.RestorePersistent(rootKey, cliWebDavProvider{root: opened.Root}); len(restoreErrors) > 0 {
+			return fmt.Errorf("failed to restore persistent webdav sessions: %v", restoreErrors)
+		}
 		displayName := filepath.Base(string(opened.Relative))
 		if displayName == "." || displayName == string(filepath.Separator) || displayName == "" {
 			displayName = filepath.Base(string(opened.RootPath))
@@ -69,7 +84,7 @@ var webDavServeCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to start webdav: %w", err)
 		}
-		defer manager.Revoke(session.ID)
+		defer manager.RevokeRoot(rootKey)
 		var mounted *sec_webdav.MountedSession
 		if webDavMount {
 			mountContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -137,19 +152,34 @@ var webDavCmd = &cobra.Command{
 	Short: "Manage WebDAV sessions",
 }
 
-func parseWebDavOpenOptions(value string) (sec_webdav.OpenOptions, error) {
-	mode := strings.ToLower(strings.TrimSpace(value))
+func parseWebDavOpenOptions(auth, visibility, lifetime string, port int) (sec_webdav.OpenOptions, error) {
+	mode := strings.ToLower(strings.TrimSpace(auth))
 	if mode == "" {
 		mode = string(sec_webdav.AuthModeBearer)
 	}
-	if mode != string(sec_webdav.AuthModeBearer) && mode != string(sec_webdav.AuthModeDigest) {
-		return sec_webdav.OpenOptions{}, fmt.Errorf("unsupported webdav auth mode: %q", value)
+	if visibility == "" {
+		visibility = string(sec_webdav.CredentialVisibilityOnce)
 	}
-	return sec_webdav.OpenOptions{AuthMode: sec_webdav.AuthMode(mode)}, nil
+	if lifetime == "" {
+		lifetime = string(sec_webdav.SessionLifetimeEphemeral)
+	}
+	encoded, err := json.Marshal(map[string]interface{}{
+		"auth_mode":             mode,
+		"credential_visibility": visibility,
+		"session_lifetime":      lifetime,
+		"port":                  port,
+	})
+	if err != nil {
+		return sec_webdav.OpenOptions{}, err
+	}
+	return sec_webdav.ParseOpenOptions(string(encoded))
 }
 
 func webDavAuthOutput(session sec_webdav.Session) map[string]interface{} {
 	result := map[string]interface{}{"mode": session.AuthMode}
+	result["credential_visibility"] = session.CredentialVisibility
+	result["session_lifetime"] = session.SessionLifetime
+	result["port"] = session.Port
 	if session.AuthMode == sec_webdav.AuthModeDigest {
 		result["username"] = session.Username
 		result["password"] = session.Password
@@ -203,6 +233,9 @@ func init() {
 	addPasswordFlags(webDavServeCmd.Flags(), &webDavPassword, &webDavPasswordEnv, &webDavPasswordStdin)
 	webDavServeCmd.Flags().StringVar(&webDavPath, "path", "", "Absolute encrypted path to expose")
 	webDavServeCmd.Flags().StringVar(&webDavAuth, "auth", "bearer", "Authentication mode: bearer or digest")
+	webDavServeCmd.Flags().StringVar(&webDavCredentialVisibility, "credential-visibility", "once", "Credential display: once or persistent")
+	webDavServeCmd.Flags().StringVar(&webDavSessionLifetime, "session-lifetime", "ephemeral", "Session lifetime: ephemeral or persistent")
+	webDavServeCmd.Flags().IntVar(&webDavPort, "port", 0, "Loopback port; persistent sessions retain the selected port")
 	webDavServeCmd.Flags().BoolVar(&webDavMount, "mount", false, "Mount the WebDAV session in the operating system")
 	webDavServeCmd.Flags().BoolVar(&webDavJSON, "json", false, "Output JSON Lines lifecycle events")
 	webDavCmd.AddCommand(webDavServeCmd)

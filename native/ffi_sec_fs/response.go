@@ -5,18 +5,22 @@ package main
 import "encoding/json"
 
 const (
-	ErrorCodeInvalidPassword        = 1001
-	ErrorCodePasswordVerifierAbsent = 1002
-	ErrorCodeInvalidConfig          = 1101
-	ErrorCodeRootSessionNotFound    = 1201
-	ErrorCodeTransferMarkerCorrupt  = 1202
-	ErrorCodeTransferV3Unavailable  = 1203
-	ErrorCodeInvalidPath            = 1301
-	ErrorCodePathTraversal          = 1302
-	ErrorCodeNotDirectory           = 1303
-	ErrorCodeUnsupportedOperation   = 1304
-	ErrorCodeWebDavMountUnsupported = 1401
-	ErrorCodeWebDavMountFailed      = 1402
+	ErrorCodeInvalidPassword             = 1001
+	ErrorCodePasswordVerifierAbsent      = 1002
+	ErrorCodeInvalidConfig               = 1101
+	ErrorCodeRootSessionNotFound         = 1201
+	ErrorCodeTransferMarkerCorrupt       = 1202
+	ErrorCodeTransferV3Unavailable       = 1203
+	ErrorCodeInvalidPath                 = 1301
+	ErrorCodePathTraversal               = 1302
+	ErrorCodeNotDirectory                = 1303
+	ErrorCodeUnsupportedOperation        = 1304
+	ErrorCodeWebDavMountUnsupported      = 1401
+	ErrorCodeWebDavMountFailed           = 1402
+	ErrorCodeWebDavCredentialsOneTime    = 1403
+	ErrorCodeWebDavPersistentUnavailable = 1404
+	ErrorCodeWebDavPersistentInvalid     = 1405
+	ErrorCodeWebDavPortConflict          = 1406
 )
 
 // Response represents a standard FFI response structure.

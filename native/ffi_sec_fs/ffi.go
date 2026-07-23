@@ -246,6 +246,14 @@ func errorResponse(err error) string {
 		return ErrorWithCode(err.Error(), ErrorCodeWebDavMountUnsupported)
 	case errors.Is(err, sec_webdav.ErrMountFailed):
 		return ErrorWithCode(err.Error(), ErrorCodeWebDavMountFailed)
+	case errors.Is(err, sec_webdav.ErrCredentialsNotRevealable):
+		return ErrorWithCode(err.Error(), ErrorCodeWebDavCredentialsOneTime)
+	case errors.Is(err, sec_webdav.ErrPersistentStoreUnavailable):
+		return ErrorWithCode(err.Error(), ErrorCodeWebDavPersistentUnavailable)
+	case errors.Is(err, sec_webdav.ErrPersistentRecordInvalid):
+		return ErrorWithCode(err.Error(), ErrorCodeWebDavPersistentInvalid)
+	case errors.Is(err, sec_webdav.ErrPersistentPortConflict):
+		return ErrorWithCode(err.Error(), ErrorCodeWebDavPortConflict)
 	}
 	return ErrorResponse(err.Error())
 }
@@ -259,7 +267,8 @@ func errorResponseStr(msg string) string {
 
 // RootOpenResult represents the result of OpenRoot_FFI.
 type RootOpenResult struct {
-	RootID int64 `json:"root_id"`
+	RootID              int64    `json:"root_id"`
+	WebDavRestoreErrors []string `json:"webdav_restore_errors,omitempty"`
 }
 
 // FileOpenResult represents the result of OpenFile_FFI.
@@ -513,6 +522,19 @@ func OpenRoot_FFI(rootPath string, password string, optionsJSON string) string {
 	// Store the root instance and get its ID
 	rootID := RootStore.Add(RootEntry{Root: root, RootPath: rootPath})
 
+	restoreErrors := WebDavManager.RestorePersistent(
+		rootKey(rootPath), rootResourceProvider{root: root},
+	)
+	if len(restoreErrors) > 0 {
+		messages := make([]string, 0, len(restoreErrors))
+		for _, restoreErr := range restoreErrors {
+			messages = append(messages, restoreErr.Error())
+		}
+		return successResponse(RootOpenResult{
+			RootID:              rootID,
+			WebDavRestoreErrors: messages,
+		})
+	}
 	return successResponse(RootOpenResult{RootID: rootID})
 }
 
@@ -526,7 +548,7 @@ func CloseRoot_FFI(rootID int64) string {
 		return errorResponseStr("root not found")
 	}
 	root := entry.Root
-	WebDavManager.RevokeRoot(rootKey(rootID))
+	WebDavManager.RevokeRoot(rootKey(entry.RootPath))
 	for _, cursor := range DirCursorStore.TakeWhere(func(cursor *dirCursor) bool {
 		return cursor.rootID == rootID
 	}) {

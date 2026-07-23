@@ -56,6 +56,20 @@ func (s *IDStore[T]) Len() int {
 	return len(s.items)
 }
 
+// Find returns the first item selected by predicate without exposing the
+// store's internal IDs.
+func (s *IDStore[T]) Find(predicate func(T) bool) (T, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, item := range s.items {
+		if predicate(item) {
+			return item, true
+		}
+	}
+	var zero T
+	return zero, false
+}
+
 // TakeWhere removes and returns every item selected by predicate. It lets a
 // parent resource release dependent handles before the parent is closed.
 func (s *IDStore[T]) TakeWhere(predicate func(T) bool) []T {

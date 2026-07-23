@@ -67,6 +67,11 @@ func sec_webdav_close(sessionID *C.char) *C.char {
 	return C.CString(WebDavClose_FFI(C.GoString(sessionID)))
 }
 
+//export sec_webdav_reveal
+func sec_webdav_reveal(sessionID *C.char) *C.char {
+	return C.CString(WebDavReveal_FFI(C.GoString(sessionID)))
+}
+
 //export sec_webdav_list
 func sec_webdav_list(rootID C.int64_t) *C.char {
 	return C.CString(WebDavList_FFI(int64(rootID)))

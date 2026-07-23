@@ -208,6 +208,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavAuthContinue => 'Continue';
 
   @override
+  String get webDavCredentialVisibilityTitle => 'Credential display';
+
+  @override
+  String get webDavCredentialVisibilityDescription =>
+      'Showing credentials once is safer. Persistent display allows the credentials to be shown again while the session is active. This choice affects new sessions only.';
+
+  @override
+  String get webDavCredentialOnce => 'Show once (recommended)';
+
+  @override
+  String get webDavCredentialPersistent => 'Allow showing again';
+
+  @override
+  String get webDavPersistentCredentialWarning =>
+      'Persistent display increases the risk of credential exposure. Use it only when trusted tools must be configured repeatedly.';
+
+  @override
+  String get webDavRevealCredentials => 'Show credentials';
+
+  @override
+  String get webDavCredentialsRevealed => 'Credentials shown';
+
+  @override
+  String get webDavSessionLifetimeTitle => 'Session lifetime';
+
+  @override
+  String get webDavSessionLifetimeDescription =>
+      'An ephemeral session ends when the root is closed. A persistent session is restored after the root is unlocked again.';
+
+  @override
+  String get webDavSessionEphemeral => 'Ephemeral session (recommended)';
+
+  @override
+  String get webDavSessionPersistent => 'Persistent session';
+
+  @override
+  String get webDavPersistentSessionWarning =>
+      'Persistent sessions retain their port and credentials until explicitly revoked. Use this only when needed.';
+
+  @override
   String get webDavSessions => 'Third-party access';
 
   @override

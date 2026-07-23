@@ -9,6 +9,24 @@ enum WebDavAuthMode {
   final String wireName;
 }
 
+enum WebDavCredentialVisibility {
+  once('once'),
+  persistent('persistent');
+
+  const WebDavCredentialVisibility(this.wireName);
+
+  final String wireName;
+}
+
+enum WebDavSessionLifetime {
+  ephemeral('ephemeral'),
+  persistent('persistent');
+
+  const WebDavSessionLifetime(this.wireName);
+
+  final String wireName;
+}
+
 /// The capability material returned exactly once when a session is opened.
 class WebDavOpenedSession {
   const WebDavOpenedSession({
@@ -18,6 +36,9 @@ class WebDavOpenedSession {
     required this.exposedPath,
     required this.url,
     required this.authMode,
+    required this.credentialVisibility,
+    required this.sessionLifetime,
+    required this.port,
     this.token,
     this.username,
     this.password,
@@ -30,6 +51,9 @@ class WebDavOpenedSession {
   final String exposedPath;
   final String url;
   final WebDavAuthMode authMode;
+  final WebDavCredentialVisibility credentialVisibility;
+  final WebDavSessionLifetime sessionLifetime;
+  final int port;
   final String? token;
   final String? username;
   final String? password;
@@ -55,6 +79,20 @@ class WebDavOpenedSession {
       'digest' => WebDavAuthMode.digest,
       _ => throw StateError('webdav-invalid-native-response:auth_mode'),
     };
+    final credentialVisibility =
+        switch (data['credential_visibility'] as String? ?? 'once') {
+      'once' => WebDavCredentialVisibility.once,
+      'persistent' => WebDavCredentialVisibility.persistent,
+      _ => throw StateError(
+          'webdav-invalid-native-response:credential_visibility'),
+    };
+    final sessionLifetime =
+        switch (data['session_lifetime'] as String? ?? 'ephemeral') {
+      'ephemeral' => WebDavSessionLifetime.ephemeral,
+      'persistent' => WebDavSessionLifetime.persistent,
+      _ => throw StateError('webdav-invalid-native-response:session_lifetime'),
+    };
+    final port = data['port'] is num ? (data['port'] as num).toInt() : 0;
     String requiredCredential(String key) {
       final value = data[key];
       if (value is! String || value.isEmpty) {
@@ -70,6 +108,9 @@ class WebDavOpenedSession {
       exposedPath: requiredString('exposed_path'),
       url: requiredString('url'),
       authMode: authMode,
+      credentialVisibility: credentialVisibility,
+      sessionLifetime: sessionLifetime,
+      port: port,
       token: authMode == WebDavAuthMode.bearer
           ? requiredCredential('token')
           : null,
@@ -96,6 +137,9 @@ class WebDavSessionStatus {
     required this.url,
     required this.readOnly,
     required this.authMode,
+    required this.credentialVisibility,
+    required this.sessionLifetime,
+    required this.port,
     required this.mounted,
     required this.mountPath,
     required this.lastAccessedAt,
@@ -109,6 +153,9 @@ class WebDavSessionStatus {
   final String url;
   final bool readOnly;
   final WebDavAuthMode authMode;
+  final WebDavCredentialVisibility credentialVisibility;
+  final WebDavSessionLifetime sessionLifetime;
+  final int port;
   final bool mounted;
   final String? mountPath;
   final DateTime? lastAccessedAt;
@@ -135,6 +182,20 @@ class WebDavSessionStatus {
       'digest' => WebDavAuthMode.digest,
       _ => throw StateError('webdav-invalid-native-status:auth_mode'),
     };
+    final credentialVisibility =
+        switch (data['credential_visibility'] as String? ?? 'once') {
+      'once' => WebDavCredentialVisibility.once,
+      'persistent' => WebDavCredentialVisibility.persistent,
+      _ =>
+        throw StateError('webdav-invalid-native-status:credential_visibility'),
+    };
+    final sessionLifetime =
+        switch (data['session_lifetime'] as String? ?? 'ephemeral') {
+      'ephemeral' => WebDavSessionLifetime.ephemeral,
+      'persistent' => WebDavSessionLifetime.persistent,
+      _ => throw StateError('webdav-invalid-native-status:session_lifetime'),
+    };
+    final port = data['port'] is num ? (data['port'] as num).toInt() : 0;
     return WebDavSessionStatus(
       id: requiredString('id'),
       rootID: rootID,
@@ -143,6 +204,9 @@ class WebDavSessionStatus {
       url: requiredString('url'),
       readOnly: true,
       authMode: authMode,
+      credentialVisibility: credentialVisibility,
+      sessionLifetime: sessionLifetime,
+      port: port,
       mounted: data['mounted'] == true,
       mountPath: data['mount_path'] as String?,
       lastAccessedAt: timestamp is String ? DateTime.tryParse(timestamp) : null,
@@ -164,6 +228,10 @@ class WebDavService {
     required String logicalPath,
     required String displayName,
     WebDavAuthMode authMode = WebDavAuthMode.bearer,
+    WebDavCredentialVisibility credentialVisibility =
+        WebDavCredentialVisibility.once,
+    WebDavSessionLifetime sessionLifetime = WebDavSessionLifetime.ephemeral,
+    int port = 0,
   }) {
     final exposedPath = _cryptoService.relativePathForRoot(rootID, logicalPath);
     final data = _cryptoService.openWebDavSession(
@@ -171,6 +239,9 @@ class WebDavService {
       exposedPath: exposedPath,
       displayName: displayName,
       authMode: authMode.wireName,
+      credentialVisibility: credentialVisibility.wireName,
+      sessionLifetime: sessionLifetime.wireName,
+      port: port,
     );
     return WebDavOpenedSession.fromNative(rootID: rootID, data: data);
   }
@@ -187,6 +258,11 @@ class WebDavService {
 
   void close(String sessionID) {
     _cryptoService.closeWebDavSession(sessionID);
+  }
+
+  WebDavOpenedSession reveal(String sessionID, {required int rootID}) {
+    final data = _cryptoService.revealWebDavSession(sessionID);
+    return WebDavOpenedSession.fromNative(rootID: rootID, data: data);
   }
 
   String mount(String sessionID) {

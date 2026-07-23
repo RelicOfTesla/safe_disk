@@ -255,10 +255,11 @@ safe-disk webdav serve --path /abs/encrypted/root/or/item --json
 - Bearer 面向脚本和支持 Bearer 的客户端，不作为常见系统挂载的默认认证。为覆盖不支持 Digest 的
   Windows WebClient、macOS 系统挂载或 Linux 客户端，后续评估显式 `basic` 兼容模式；Basic 不能静默
   降级，必须提示本机可观察可逆认证信息的风险，并使用独立随机凭据。
-- 后续增加 `--credential-visibility=once|persistent` 和
-  `--session-lifetime=ephemeral|persistent`。两者均在创建时捕获，只影响新会话；修改 CLI 默认值不改变
-  已存在链接。持久模式还需固定端口和 session ID、加密保存 Go 恢复材料、重启后等待 root 解锁，端口
-  冲突时拒绝启动，不自动换端口。
+- `--credential-visibility=once|persistent` 和 `--session-lifetime=ephemeral|persistent` 已接入。两者
+  均在创建时捕获，只影响新会话；修改 CLI 默认值不改变已存在链接。持久模式保存固定端口和高熵
+  session ID 到 root 内加密状态，重新打开 root 时恢复；端口冲突时拒绝启动，不自动换端口。
+- `--port=0` 表示首次由 Go 分配 loopback 端口，持久会话随后保存实际端口；指定非零端口时由 Go
+  验证范围和占用情况。持久会话的显式撤销才删除加密记录，CLI 进程退出不删除记录。
 - Digest 仅支持 RFC 7616 `SHA-256` 与 `qop=auth`，使用会话随机用户名、密码和 realm；不得使用 root 密码、Basic、MD5 或静默算法降级。
 - 默认前台持续运行，`Ctrl-C`、正常退出和启动失败清理路径均关闭会话并请求 Go 卸载。
 - `--mount` 仅请求 Go 平台适配层挂载。当前只有 Linux Digest/davfs 适配；平台不支持、挂载失败或卸载失败必须输出稳定错误码或状态，不能退化为普通目录。

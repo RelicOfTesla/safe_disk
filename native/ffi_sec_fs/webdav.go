@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/fs"
+	"path/filepath"
 	"time"
 
 	"safe_disk/native/sec_fs"
@@ -25,7 +25,7 @@ func WebDavOpenWithOptions_FFI(rootID int64, exposedPath, displayName, optionsJS
 		return errorResponse(err)
 	}
 	session, err := WebDavManager.OpenWithOptions(
-		rootKey(rootID), displayName, exposedPath, rootResourceProvider{root: entry.Root}, options,
+		rootKey(entry.RootPath), displayName, exposedPath, rootResourceProvider{root: entry.Root}, options,
 	)
 	if err != nil {
 		return errorResponse(err)
@@ -38,11 +38,20 @@ func WebDavClose_FFI(sessionID string) string {
 	return Success()
 }
 
+func WebDavReveal_FFI(sessionID string) string {
+	session, err := WebDavManager.Reveal(sessionID)
+	if err != nil {
+		return errorResponse(err)
+	}
+	return successResponse(session)
+}
+
 func WebDavList_FFI(rootID int64) string {
-	if _, ok := RootStore.Get(rootID); !ok {
+	entry, ok := RootStore.Get(rootID)
+	if !ok {
 		return ErrorWithCode("root session not found", ErrorCodeRootSessionNotFound)
 	}
-	return successResponse(WebDavManager.List(rootKey(rootID)))
+	return successResponse(WebDavManager.List(rootKey(entry.RootPath)))
 }
 
 func WebDavMount_FFI(sessionID string) string {
@@ -92,6 +101,6 @@ func (p rootResourceProvider) Open(path string) (io.ReadCloser, fs.FileInfo, err
 	return file, info, nil
 }
 
-func rootKey(rootID int64) string {
-	return fmt.Sprintf("root:%d", rootID)
+func rootKey(rootPath string) string {
+	return "root-path:" + filepath.Clean(rootPath)
 }

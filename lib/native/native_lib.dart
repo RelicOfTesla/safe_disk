@@ -39,6 +39,12 @@ abstract final class NativeErrorCode {
   static const pathTraversal = 1302;
   static const notDirectory = 1303;
   static const unsupportedOperation = 1304;
+  static const webDavMountUnsupported = 1401;
+  static const webDavMountFailed = 1402;
+  static const webDavCredentialsOneTime = 1403;
+  static const webDavPersistentUnavailable = 1404;
+  static const webDavPersistentInvalid = 1405;
+  static const webDavPortConflict = 1406;
 }
 
 /// Native library wrapper for Safe Disk FFI operations.
@@ -168,10 +174,18 @@ class NativeLib {
     String exposedPath,
     String displayName,
     String authMode,
+    String credentialVisibility,
+    String sessionLifetime,
+    int port,
   ) {
     final pathPtr = exposedPath.toNativeUtf8();
     final namePtr = displayName.toNativeUtf8();
-    final optionsPtr = jsonEncode({'auth_mode': authMode}).toNativeUtf8();
+    final optionsPtr = jsonEncode({
+      'auth_mode': authMode,
+      'credential_visibility': credentialVisibility,
+      'session_lifetime': sessionLifetime,
+      'port': port,
+    }).toNativeUtf8();
     try {
       final result = _parseJson(
         _ptrToString(_bindings.secWebDavOpenWithOptions(
@@ -198,6 +212,18 @@ class NativeLib {
         _ptrToString(_bindings.secWebDavClose(sessionPtr)),
       );
       _checkResult(result, 'secWebDavClose');
+    } finally {
+      calloc.free(sessionPtr);
+    }
+  }
+
+  Map<String, dynamic> secWebDavReveal(String sessionID) {
+    final sessionPtr = sessionID.toNativeUtf8();
+    try {
+      final result =
+          _parseJson(_ptrToString(_bindings.secWebDavReveal(sessionPtr)));
+      _checkResult(result, 'secWebDavReveal');
+      return Map<String, dynamic>.from(result['data'] as Map);
     } finally {
       calloc.free(sessionPtr);
     }

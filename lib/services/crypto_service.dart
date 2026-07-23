@@ -58,8 +58,14 @@ class CryptoService {
     required String exposedPath,
     required String displayName,
     String authMode = 'bearer',
+    String credentialVisibility = 'once',
+    String sessionLifetime = 'ephemeral',
+    int port = 0,
   }) {
-    if (authMode == 'bearer') {
+    if (authMode == 'bearer' &&
+        credentialVisibility == 'once' &&
+        sessionLifetime == 'ephemeral' &&
+        port == 0) {
       return _native.secWebDavOpen(rootID, exposedPath, displayName);
     }
     return _native.secWebDavOpenWithOptions(
@@ -67,12 +73,19 @@ class CryptoService {
       exposedPath,
       displayName,
       authMode,
+      credentialVisibility,
+      sessionLifetime,
+      port,
     );
   }
 
   /// Revokes a native WebDAV session by its opaque ID.
   void closeWebDavSession(String sessionID) {
     _native.secWebDavClose(sessionID);
+  }
+
+  Map<String, dynamic> revealWebDavSession(String sessionID) {
+    return _native.secWebDavReveal(sessionID);
   }
 
   /// Returns token-free WebDAV monitoring state owned by the Go session layer.

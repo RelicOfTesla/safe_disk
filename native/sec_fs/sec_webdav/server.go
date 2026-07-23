@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,9 +22,12 @@ import (
 )
 
 var (
-	ErrInvalidRootKey = errors.New("webdav root key is empty")
-	ErrInvalidPath    = errors.New("webdav path is invalid")
-	ErrSessionClosed  = errors.New("webdav session is closed")
+	ErrInvalidRootKey             = errors.New("webdav root key is empty")
+	ErrInvalidPath                = errors.New("webdav path is invalid")
+	ErrSessionClosed              = errors.New("webdav session is closed")
+	ErrPersistentStoreUnavailable = errors.New("webdav persistent store is unavailable")
+	ErrPersistentRecordInvalid    = errors.New("webdav persistent record is invalid")
+	ErrPersistentPortConflict     = errors.New("webdav persistent port conflicts with the active server")
 )
 
 const methodAllow = "OPTIONS, GET, HEAD, PROPFIND"
@@ -37,17 +41,44 @@ type ResourceProvider interface {
 }
 
 type Session struct {
-	ID          string   `json:"id"`
-	RootKey     string   `json:"-"`
-	Token       string   `json:"token,omitempty"`
-	AuthMode    AuthMode `json:"auth_mode"`
-	Username    string   `json:"username,omitempty"`
-	Password    string   `json:"password,omitempty"`
-	Realm       string   `json:"realm,omitempty"`
-	URL         string   `json:"url"`
-	DisplayName string   `json:"display_name"`
-	ExposedPath string   `json:"exposed_path"`
-	ReadOnly    bool     `json:"read_only"`
+	ID                   string               `json:"id"`
+	RootKey              string               `json:"-"`
+	Token                string               `json:"token,omitempty"`
+	AuthMode             AuthMode             `json:"auth_mode"`
+	Username             string               `json:"username,omitempty"`
+	Password             string               `json:"password,omitempty"`
+	Realm                string               `json:"realm,omitempty"`
+	URL                  string               `json:"url"`
+	DisplayName          string               `json:"display_name"`
+	ExposedPath          string               `json:"exposed_path"`
+	ReadOnly             bool                 `json:"read_only"`
+	CredentialVisibility CredentialVisibility `json:"credential_visibility"`
+	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
+	Port                 int                  `json:"port"`
+}
+
+// PersistentSession is stored inside an already encrypted root. It never
+// contains the root password; DigestKey only preserves the WebDAV nonce key.
+type PersistentSession struct {
+	Version              int                  `json:"version"`
+	ID                   string               `json:"id"`
+	RootKey              string               `json:"root_key"`
+	Token                string               `json:"token,omitempty"`
+	AuthMode             AuthMode             `json:"auth_mode"`
+	Username             string               `json:"username,omitempty"`
+	Password             string               `json:"password,omitempty"`
+	Realm                string               `json:"realm,omitempty"`
+	DigestKey            string               `json:"digest_key,omitempty"`
+	DisplayName          string               `json:"display_name"`
+	ExposedPath          string               `json:"exposed_path"`
+	CredentialVisibility CredentialVisibility `json:"credential_visibility"`
+	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
+	Port                 int                  `json:"port"`
+}
+
+type PersistentStore interface {
+	Load(rootKey string) ([]PersistentSession, error)
+	Save(rootKey string, sessions []PersistentSession) error
 }
 
 type activeSession struct {
@@ -63,24 +94,29 @@ type activeSession struct {
 // SessionStatus is safe to render outside the native process. It deliberately
 // excludes the bearer token, which is returned only when a session is opened.
 type SessionStatus struct {
-	ID             string     `json:"id"`
-	DisplayName    string     `json:"display_name"`
-	ExposedPath    string     `json:"exposed_path"`
-	URL            string     `json:"url"`
-	ReadOnly       bool       `json:"read_only"`
-	AuthMode       AuthMode   `json:"auth_mode"`
-	LastAccessedAt *time.Time `json:"last_accessed_at"`
-	ActiveRequests int        `json:"active_requests"`
-	Mounted        bool       `json:"mounted"`
-	MountPath      string     `json:"mount_path,omitempty"`
+	ID                   string               `json:"id"`
+	DisplayName          string               `json:"display_name"`
+	ExposedPath          string               `json:"exposed_path"`
+	URL                  string               `json:"url"`
+	ReadOnly             bool                 `json:"read_only"`
+	AuthMode             AuthMode             `json:"auth_mode"`
+	LastAccessedAt       *time.Time           `json:"last_accessed_at"`
+	ActiveRequests       int                  `json:"active_requests"`
+	Mounted              bool                 `json:"mounted"`
+	MountPath            string               `json:"mount_path,omitempty"`
+	CredentialVisibility CredentialVisibility `json:"credential_visibility"`
+	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
+	Port                 int                  `json:"port"`
 }
 
 type Manager struct {
-	mu       sync.Mutex
-	random   io.Reader
-	server   *http.Server
-	listener net.Listener
-	sessions map[string]activeSession
+	mu              sync.Mutex
+	random          io.Reader
+	server          *http.Server
+	listener        net.Listener
+	serveDone       chan struct{}
+	sessions        map[string]activeSession
+	persistentStore PersistentStore
 }
 
 func NewManager() *Manager {
@@ -90,11 +126,22 @@ func NewManager() *Manager {
 	}
 }
 
+func NewManagerWithPersistentStore(store PersistentStore) *Manager {
+	manager := NewManager()
+	manager.persistentStore = store
+	return manager
+}
+
 func (m *Manager) Open(rootKey, displayName, exposedPath string, provider ResourceProvider) (Session, error) {
 	return m.OpenWithOptions(rootKey, displayName, exposedPath, provider, OpenOptions{AuthMode: AuthModeBearer})
 }
 
 func (m *Manager) OpenWithOptions(rootKey, displayName, exposedPath string, provider ResourceProvider, options OpenOptions) (Session, error) {
+	var err error
+	options, err = normalizeOpenOptions(options)
+	if err != nil {
+		return Session{}, err
+	}
 	if strings.TrimSpace(rootKey) == "" {
 		return Session{}, ErrInvalidRootKey
 	}
@@ -111,7 +158,10 @@ func (m *Manager) OpenWithOptions(rootKey, displayName, exposedPath string, prov
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if err := m.ensureServerLocked(); err != nil {
+	if options.SessionLifetime == SessionLifetimePersistent && m.persistentStore == nil {
+		return Session{}, ErrPersistentStoreUnavailable
+	}
+	if err := m.ensureServerLocked(options.Port); err != nil {
 		return Session{}, err
 	}
 	id, err := m.newValueLocked(18)
@@ -123,31 +173,170 @@ func (m *Manager) OpenWithOptions(rootKey, displayName, exposedPath string, prov
 		return Session{}, err
 	}
 	session := Session{
-		ID:          id,
-		RootKey:     rootKey,
-		Token:       auth.token,
-		AuthMode:    auth.mode,
-		Username:    auth.username,
-		Password:    auth.password,
-		Realm:       auth.realm,
-		URL:         "http://" + m.listener.Addr().String() + "/webdav/" + id + "/",
-		DisplayName: displayName,
-		ExposedPath: cleanPath,
-		ReadOnly:    true,
+		ID:                   id,
+		RootKey:              rootKey,
+		Token:                auth.token,
+		AuthMode:             auth.mode,
+		Username:             auth.username,
+		Password:             auth.password,
+		Realm:                auth.realm,
+		URL:                  "http://" + m.listener.Addr().String() + "/webdav/" + id + "/",
+		DisplayName:          displayName,
+		ExposedPath:          cleanPath,
+		ReadOnly:             true,
+		CredentialVisibility: options.CredentialVisibility,
+		SessionLifetime:      options.SessionLifetime,
+		Port:                 listenerPort(m.listener),
 	}
-	secureFS := newSecureFileSystem(provider, cleanPath)
-	active := activeSession{
+	active := m.newActiveSession(session, auth, provider)
+	if options.SessionLifetime == SessionLifetimePersistent {
+		if err := m.savePersistentLocked(active); err != nil {
+			m.stopIfIdleLocked()
+			return Session{}, err
+		}
+	}
+	m.sessions[id] = active
+	return session, nil
+}
+
+func (m *Manager) newActiveSession(session Session, auth authState, provider ResourceProvider) activeSession {
+	return activeSession{
 		session:  session,
 		auth:     auth,
 		provider: provider,
 		handler: &webdav.Handler{
-			Prefix:     "/webdav/" + id,
-			FileSystem: secureFS,
+			Prefix:     "/webdav/" + session.ID,
+			FileSystem: newSecureFileSystem(provider, session.ExposedPath),
 			LockSystem: webdav.NewMemLS(),
 		},
 	}
-	m.sessions[id] = active
-	return session, nil
+}
+
+func persistentRecordFromActive(active activeSession) PersistentSession {
+	record := PersistentSession{
+		Version:              1,
+		ID:                   active.session.ID,
+		RootKey:              active.session.RootKey,
+		Token:                active.session.Token,
+		AuthMode:             active.session.AuthMode,
+		Username:             active.session.Username,
+		Password:             active.session.Password,
+		Realm:                active.session.Realm,
+		DisplayName:          active.session.DisplayName,
+		ExposedPath:          active.session.ExposedPath,
+		CredentialVisibility: active.session.CredentialVisibility,
+		SessionLifetime:      active.session.SessionLifetime,
+		Port:                 active.session.Port,
+	}
+	if active.auth.digest != nil {
+		record.DigestKey = hex.EncodeToString(active.auth.digest.key)
+	}
+	return record
+}
+
+func (m *Manager) savePersistentLocked(active activeSession) error {
+	if m.persistentStore == nil {
+		return ErrPersistentStoreUnavailable
+	}
+	record := persistentRecordFromActive(active)
+	records, err := m.persistentStore.Load(record.RootKey)
+	if err != nil {
+		return err
+	}
+	replaced := false
+	for index := range records {
+		if records[index].ID == record.ID {
+			records[index] = record
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		records = append(records, record)
+	}
+	return m.persistentStore.Save(record.RootKey, records)
+}
+
+func (m *Manager) deletePersistentLocked(rootKey, id string) error {
+	if m.persistentStore == nil {
+		return ErrPersistentStoreUnavailable
+	}
+	records, err := m.persistentStore.Load(rootKey)
+	if err != nil {
+		return err
+	}
+	filtered := records[:0]
+	for _, record := range records {
+		if record.ID != id {
+			filtered = append(filtered, record)
+		}
+	}
+	return m.persistentStore.Save(rootKey, filtered)
+}
+
+func (m *Manager) RestorePersistent(rootKey string, provider ResourceProvider) []error {
+	if m.persistentStore == nil {
+		return []error{ErrPersistentStoreUnavailable}
+	}
+	records, err := m.persistentStore.Load(rootKey)
+	if err != nil {
+		return []error{err}
+	}
+	errorsFound := make([]error, 0)
+	for _, record := range records {
+		if err := m.restorePersistent(rootKey, provider, record); err != nil {
+			errorsFound = append(errorsFound, err)
+		}
+	}
+	return errorsFound
+}
+
+func (m *Manager) restorePersistent(rootKey string, provider ResourceProvider, record PersistentSession) error {
+	if record.Version != 1 || record.RootKey != rootKey || record.ID == "" ||
+		record.SessionLifetime != SessionLifetimePersistent || record.Port <= 0 {
+		return ErrPersistentRecordInvalid
+	}
+	if _, err := provider.Stat(record.ExposedPath); err != nil {
+		return err
+	}
+	auth, err := authFromPersistent(record)
+	if err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, exists := m.sessions[record.ID]; exists {
+		return ErrPersistentRecordInvalid
+	}
+	if err := m.ensureServerLocked(record.Port); err != nil {
+		return err
+	}
+	session := Session{
+		ID: record.ID, RootKey: rootKey, Token: record.Token,
+		AuthMode: record.AuthMode, Username: record.Username,
+		Password: record.Password, Realm: record.Realm,
+		URL:         "http://" + m.listener.Addr().String() + "/webdav/" + record.ID + "/",
+		DisplayName: record.DisplayName, ExposedPath: record.ExposedPath,
+		ReadOnly: true, CredentialVisibility: record.CredentialVisibility,
+		SessionLifetime: SessionLifetimePersistent, Port: record.Port,
+	}
+	m.sessions[record.ID] = m.newActiveSession(session, auth, provider)
+	return nil
+}
+
+// Reveal returns credentials only for sessions created with persistent
+// credential visibility. It never changes the token-free status snapshot.
+func (m *Manager) Reveal(id string) (Session, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	active, ok := m.sessions[id]
+	if !ok {
+		return Session{}, ErrSessionClosed
+	}
+	if active.session.CredentialVisibility != CredentialVisibilityPersistent {
+		return Session{}, ErrCredentialsNotRevealable
+	}
+	return active.session, nil
 }
 
 func (m *Manager) Revoke(id string) {
@@ -158,6 +347,9 @@ func (m *Manager) Revoke(id string) {
 		return
 	}
 	delete(m.sessions, id)
+	if active.session.SessionLifetime == SessionLifetimePersistent && m.persistentStore != nil {
+		_ = m.deletePersistentLocked(active.session.RootKey, id)
+	}
 	m.stopIfIdleLocked()
 	m.mu.Unlock()
 	if active.mounted != nil {
@@ -230,8 +422,12 @@ func (m *Manager) Close() error {
 		return err
 	}
 	err = m.server.Close()
+	if m.serveDone != nil {
+		<-m.serveDone
+	}
 	m.server = nil
 	m.listener = nil
+	m.serveDone = nil
 	m.mu.Unlock()
 	for _, mount := range mounted {
 		if unmountErr := mount.Unmount(context.Background()); err == nil {
@@ -305,21 +501,38 @@ func (m *Manager) Unmount(ctx context.Context, id string) error {
 	return nil
 }
 
-func (m *Manager) ensureServerLocked() error {
+func (m *Manager) ensureServerLocked(port int) error {
 	if m.server != nil {
+		if port != 0 && listenerPort(m.listener) != port {
+			return ErrPersistentPortConflict
+		}
 		return nil
 	}
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
 	if err != nil {
 		return err
 	}
 	server := &http.Server{Handler: http.HandlerFunc(m.handle)}
 	m.listener = listener
 	m.server = server
+	m.serveDone = make(chan struct{})
+	serveDone := m.serveDone
 	go func() {
+		defer close(serveDone)
 		_ = server.Serve(listener)
 	}()
 	return nil
+}
+
+func listenerPort(listener net.Listener) int {
+	if listener == nil {
+		return 0
+	}
+	address, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return 0
+	}
+	return address.Port
 }
 
 func (m *Manager) stopIfIdleLocked() {
@@ -327,8 +540,12 @@ func (m *Manager) stopIfIdleLocked() {
 		return
 	}
 	_ = m.server.Close()
+	if m.serveDone != nil {
+		<-m.serveDone
+	}
 	m.server = nil
 	m.listener = nil
+	m.serveDone = nil
 }
 
 func (m *Manager) newValueLocked(size int) (string, error) {
@@ -411,16 +628,19 @@ func statusFromActive(active activeSession) SessionStatus {
 		mountPath = active.mounted.Path()
 	}
 	return SessionStatus{
-		ID:             active.session.ID,
-		DisplayName:    active.session.DisplayName,
-		ExposedPath:    active.session.ExposedPath,
-		URL:            active.session.URL,
-		ReadOnly:       active.session.ReadOnly,
-		AuthMode:       active.session.AuthMode,
-		LastAccessedAt: active.lastAccessedAt,
-		ActiveRequests: active.activeRequests,
-		Mounted:        active.mounted != nil,
-		MountPath:      mountPath,
+		ID:                   active.session.ID,
+		DisplayName:          active.session.DisplayName,
+		ExposedPath:          active.session.ExposedPath,
+		URL:                  active.session.URL,
+		ReadOnly:             active.session.ReadOnly,
+		AuthMode:             active.session.AuthMode,
+		LastAccessedAt:       active.lastAccessedAt,
+		ActiveRequests:       active.activeRequests,
+		Mounted:              active.mounted != nil,
+		MountPath:            mountPath,
+		CredentialVisibility: active.session.CredentialVisibility,
+		SessionLifetime:      active.session.SessionLifetime,
+		Port:                 active.session.Port,
 	}
 }
 

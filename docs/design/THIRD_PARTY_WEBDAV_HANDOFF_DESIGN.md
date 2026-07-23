@@ -1,6 +1,6 @@
 # 第三方工具 WebDAV 文件交接设计
 
-> 状态：已完成 Go 只读 loopback、Bearer/Digest（SHA-256）会话鉴权、`x/net/webdav` 协议适配、FFI 鉴权/挂载 ABI、Flutter 鉴权选择/挂载控制和 CLI 前台入口。Linux Digest 的 Go 挂载适配已实现但未做真实系统挂载验收；编辑模式和 Windows/macOS 自动挂载仍未实现。
+> 状态：已完成 Go 只读 loopback、Bearer/Digest（SHA-256）会话鉴权、`x/net/webdav` 协议适配、FFI/Dart/CLI 鉴权与挂载控制、凭据显示策略和持久会话的代码链路。Linux Digest 的 Go 挂载适配已实现但未做真实系统挂载验收；编辑模式、Basic 兼容模式、Windows/macOS 自动挂载和常见客户端互操作仍未完成。
 
 ## 1. 目标
 
@@ -15,8 +15,8 @@
 当前实现边界：Go 原生层提供只读 loopback 会话、每会话 Bearer 或 Digest 凭据、`x/net/webdav`
 协议 handler、限定子树、请求监视和 root 关闭撤销；`ffi_sec_fs` 提供 Bearer 兼容 ABI、带
 `auth_mode` 的新 ABI 以及 Go-owned mount/unmount ABI。Flutter 已接入鉴权选择、一次性凭据展示、状态列表、挂载和撤销；CLI 已提供
-前台 `webdav serve`、JSON Lines 生命周期事件和 `--auth`。Linux 下 Go 已接入 Digest/davfs
-挂载适配，但真实挂载和卸载尚未验收。编辑会话和 Windows/macOS 自动挂载仍未实现，
+前台 `webdav serve`、JSON Lines 生命周期事件和 `--auth`、`--credential-visibility`、
+`--session-lifetime`、`--port`。Linux 下 Go 已接入 Digest/davfs 挂载适配，但真实挂载和卸载尚未验收。编辑会话和 Windows/macOS 自动挂载仍未实现，
 因此当前切片仍不是完整的编辑型 WebDAV 交接功能。
 
 实现分层约束：loopback HTTP 服务、系统磁盘挂载/卸载、平台命令调用和挂载生命周期全部由
@@ -45,7 +45,8 @@ Go 原生层负责。Dart 只通过 FFI 请求操作并展示结果，不直接�
   -> 第三方工具 / 可选系统挂载
 ```
 
-会话只在 Safe Disk 运行且 root 仍已解锁时有效。关闭会话、锁定 root、结束 root 会话或应用退出后，WebDAV 访问立即失效。
+临时会话只在 Safe Disk 运行且 root 仍已解锁时有效。关闭会话、锁定 root、结束 root 会话或应用退出后，
+临时 WebDAV 访问立即失效；持久会话只保存恢复材料，服务仍会在 root 未解锁时停止，重新解锁后才恢复。
 
 WebDAV 服务只监听本机 loopback，并使用随机会话地址。密码、内容密钥和真实加密路径不交给第三方。
 
@@ -116,7 +117,8 @@ WebDAV 凭据。
 选项按闭合失败处理。状态 ABI 在完成后增加非秘密的 `auth_mode` 字段。Dart 只能透传 Go 定义的选项
 并渲染快照，不能生成 Digest challenge、保存凭据或自行实现回退逻辑。
 
-GUI 已显示鉴权方式选择；CLI 以 `--auth=bearer|digest` 显式传给 Go，默认值保持 `bearer`；
+GUI 已显示鉴权方式、凭据显示方式和会话保留方式选择；CLI 以 `--auth=bearer|digest`、
+`--credential-visibility=once|persistent`、`--session-lifetime=ephemeral|persistent` 显式传给 Go，默认值保持临时、一次性和 `bearer`；
 未来兼容模式再增加 `basic`，不得复用现有 Digest ABI 的默认语义。真实客户端互操作完成前，
 不把任何认证方式标记为跨平台兼容。
 
@@ -231,8 +233,8 @@ Digest/davfs 适配，Flutter 通过 `mount/unmount` FFI 请求 Go 执行；该�
 ### 7.1 会话持久化模式
 
 默认会话仍是临时模式：应用退出、root 锁定或会话撤销后，旧地址立即失效。为满足需要固定挂载
-地址的系统工具，新增会话创建时可选的 `persistent` 模式；该模式当前只进入设计，不能把现有
-进程内随机会话误称为已支持重启恢复。
+地址的系统工具，会话创建时可选 `persistent` 模式；当前 Go、FFI、Dart 和 CLI 已实现保存与恢复，
+跨平台客户端和桌面异常生命周期仍待验收。
 
 持久模式的约束：
 
@@ -240,15 +242,16 @@ Digest/davfs 适配，Flutter 通过 `mount/unmount` FFI 请求 Go 执行；该�
   旧链接必须通过显式撤销/轮换处理。
 - 持久化 `port` 和高熵 `session_id`，重启后由 Go 在 root 成功解锁且用户明确启用服务时恢复监听；
   未解锁时不得启动 WebDAV 服务。端口被占用时必须失败并提示，不能偷偷换端口破坏已有链接。
-- 持久化材料必须由 Go 加密保存，至少包括版本、root 绑定、暴露相对路径、认证方式、端口、session ID
-  和凭据引用；不得保存明文 root 密码、明文内容、完整 Authorization、HA1 或 nonce。恢复前重新验证
-  root 身份和配置完整性。
+- 持久化材料由 Go 写入 root 内部的加密文件 `.safe_disk.webdav.sessions.json`，该文件被默认 walker
+  隐藏。记录包括版本、root 绑定、暴露相对路径、认证方式、端口、session ID 和恢复所需的会话凭据；
+  Digest 只保存会话随机密钥，不保存明文 root 密码、明文内容、完整 Authorization、HA1 或 nonce。
+  root 解锁后重新验证暴露路径和认证材料，记录损坏会以 root 打开 warning 返回。
 - 只监听 loopback；持久端口不等于对外网开放，也不等于系统级权限隔离。挂载点、客户端缓存和本机其他
   进程仍可能暴露明文。
 - 创建持久会话前必须显示高风险确认：以后每次满足恢复条件时，同一个地址都可能重新提供该范围；
   任何拿到长期凭据的本机工具都可能持续访问。默认建议使用临时模式和 `credential_visibility=once`。
-- 持久模式仍需可见的启用、暂停、撤销、轮换和恢复失败状态；不能只依赖“应用启动时自动恢复”而让用户
-  不知道哪些外部链接正在生效。
+- 持久模式已支持启用、root 重新解锁恢复、状态查看和显式撤销；暂停、凭据轮换和恢复失败后的 UI
+  处理仍需补齐，不能只依赖“应用启动时自动恢复”而让用户不知道哪些外部链接正在生效。
 
 建议的创建参数为 `credential_visibility=once|persistent` 与
 `session_lifetime=ephemeral|persistent`。两者必须独立保存和展示：前者控制凭据是否可再次显示，后者
@@ -264,8 +267,8 @@ Digest/davfs 适配，Flutter 通过 `mount/unmount` FFI 请求 Go 执行；该�
 - 最近访问时间和当前是否有请求。
 - 撤销按钮。
 
-完成多鉴权后，状态 ABI 至少提供 `id`、显示名称、暴露路径、URL、只读权限、`auth_mode`、最近访问
-时间和活跃请求数。
+完成多鉴权后，状态 ABI 至少提供 `id`、显示名称、暴露路径、URL、只读权限、`auth_mode`、
+`credential_visibility`、`session_lifetime`、端口、最近访问时间和活跃请求数。
 所有字段由 Go 在认证成功的请求路径上更新；Dart 可以短暂缓存快照用于渲染，但每次打开列表、
 创建、撤销或用户显式刷新后必须重新请求 Go，不能从缓存恢复 token 或会话；首期不在 Dart
 做轮询或本地访问计数。
@@ -290,6 +293,7 @@ Digest/davfs 适配，Flutter 通过 `mount/unmount` FFI 请求 Go 执行；该�
 safe-disk webdav serve --path /abs/encrypted/root/or/selected-item
 safe-disk webdav serve --path /abs/encrypted/root/or/selected-item --mount
 safe-disk webdav serve --path /abs/encrypted/root/or/selected-item --auth=digest
+safe-disk webdav serve --path /abs/encrypted/root/or/selected-item --auth=digest --credential-visibility=persistent --session-lifetime=persistent --port=0
 safe-disk webdav serve --path /abs/encrypted/root/or/selected-item --json
 ```
 
@@ -303,7 +307,8 @@ helper，不能另建弱化路径。
 模式仅向 stdout 输出结构化事件，供明确调用它的进程读取。Bearer 事件仅含 token；Digest 事件仅含
 用户名、密码和 realm；两者不得混合输出。
 
-首期不定义独立的 `list`、`close`、`mount` 或 `unmount` 子命令，也不允许 CLI 连接或接管 GUI
+当前 CLI 启动时会读取同一 root 内的持久 WebDAV 记录并恢复；退出时只结束当前进程内会话，持久记录
+仍保留。CLI 仍不定义独立的 `list`、`close`、`mount` 或 `unmount` 子命令，也不允许 CLI 连接或接管 GUI
 进程创建的会话。当前会话管理器是进程内对象，短命令退出后服务会随之失效；若未来需要跨进程
 管理，必须先设计带本地认证的常驻 Go daemon/IPC，不能假定另一次 CLI 调用能看到前一进程的内存。
 

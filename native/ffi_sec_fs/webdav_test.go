@@ -150,6 +150,73 @@ func TestWebDavFFIOpensDigestSession(t *testing.T) {
 	}
 }
 
+func TestWebDavFFIRevealsOnlyPersistentCredentials(t *testing.T) {
+	rootPath := t.TempDir() + "/root"
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"None"}`))
+	opened := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(opened["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(rootID)
+	assertSuccess(t, QuickWriteFile_FFI(rootID, "note.txt", []byte("persistent credentials")))
+
+	once := assertSuccess(t, WebDavOpenWithOptions_FFI(rootID, "note.txt", "Once", `{"auth_mode":"bearer","credential_visibility":"once"}`))
+	onceID := once["data"].(map[string]interface{})["id"].(string)
+	if response := WebDavReveal_FFI(onceID); jsonSuccess(response) {
+		t.Fatal("one-time credentials were revealed")
+	}
+
+	persistent := assertSuccess(t, WebDavOpenWithOptions_FFI(rootID, "note.txt", "Persistent", `{"auth_mode":"digest","credential_visibility":"persistent"}`))
+	persistentID := persistent["data"].(map[string]interface{})["id"].(string)
+	revealed := assertSuccess(t, WebDavReveal_FFI(persistentID))["data"].(map[string]interface{})
+	if revealed["password"] != persistent["data"].(map[string]interface{})["password"] {
+		t.Fatalf("revealed credentials mismatch: %#v", revealed)
+	}
+	status := assertSuccess(t, WebDavList_FFI(rootID))["data"].([]interface{})
+	if strings.Contains(stringifyForTest(status), persistent["data"].(map[string]interface{})["password"].(string)) {
+		t.Fatal("status leaked persistent password")
+	}
+}
+
+func TestWebDavFFIPersistentSessionSurvivesRootReopen(t *testing.T) {
+	rootPath := t.TempDir() + "/root"
+	assertSuccess(t, CreateRootConfig_FFI(rootPath, "pw", `{"dataFactory":"AES-CTR","nameFactory":"None"}`))
+	opened := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	rootID := int64(opened["data"].(map[string]interface{})["root_id"].(float64))
+	assertSuccess(t, QuickWriteFile_FFI(rootID, "note.txt", []byte("persistent")))
+	first := assertSuccess(t, WebDavOpenWithOptions_FFI(
+		rootID,
+		"note.txt",
+		"Persistent note",
+		`{"auth_mode":"bearer","credential_visibility":"persistent","session_lifetime":"persistent"}`,
+	))
+	firstData := first["data"].(map[string]interface{})
+	firstID := firstData["id"].(string)
+	firstURL := firstData["url"].(string)
+	assertSuccess(t, CloseRoot_FFI(rootID))
+
+	reopened := assertSuccess(t, OpenRoot_FFI(rootPath, "pw", ""))
+	newRootID := int64(reopened["data"].(map[string]interface{})["root_id"].(float64))
+	defer CloseRoot_FFI(newRootID)
+	if warnings := reopened["data"].(map[string]interface{})["webdav_restore_errors"]; warnings != nil {
+		t.Fatalf("persistent restore warnings = %#v", warnings)
+	}
+	listed := assertSuccess(t, WebDavList_FFI(newRootID))["data"].([]interface{})
+	if len(listed) != 1 {
+		t.Fatalf("restored sessions = %#v", listed)
+	}
+	restored := listed[0].(map[string]interface{})
+	if restored["id"] != firstID || restored["url"] != firstURL || restored["session_lifetime"] != "persistent" {
+		t.Fatalf("restored session = %#v, original=%#v", restored, firstData)
+	}
+	revealed := assertSuccess(t, WebDavReveal_FFI(firstID))["data"].(map[string]interface{})
+	if revealed["token"] != firstData["token"] {
+		t.Fatalf("restored token = %#v, original=%#v", revealed["token"], firstData["token"])
+	}
+	assertSuccess(t, WebDavClose_FFI(firstID))
+	if sessions := assertSuccess(t, WebDavList_FFI(newRootID))["data"].([]interface{}); len(sessions) != 0 {
+		t.Fatalf("sessions after explicit revoke = %#v", sessions)
+	}
+}
+
 func digestChallengeValue(challenge, key string) string {
 	marker := key + `="`
 	start := strings.Index(challenge, marker)

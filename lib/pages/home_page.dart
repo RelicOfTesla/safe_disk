@@ -1753,6 +1753,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!confirmed || !mounted) return;
     final authMode = await chooseWebDavAuthMode(context: context);
     if (authMode == null || !mounted) return;
+    final credentialVisibility =
+        await chooseWebDavCredentialVisibility(context: context);
+    if (credentialVisibility == null || !mounted) return;
+    final sessionLifetime = await chooseWebDavSessionLifetime(context: context);
+    if (sessionLifetime == null || !mounted) return;
     if (!_isCurrentDirectorySession(directory.path, activeSessionID)) return;
 
     try {
@@ -1761,6 +1766,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         logicalPath: item.path,
         displayName: item.name,
         authMode: authMode,
+        credentialVisibility: credentialVisibility,
+        sessionLifetime: sessionLifetime,
       );
       if (!mounted ||
           !_isCurrentDirectorySession(directory.path, activeSessionID)) {
@@ -1801,6 +1808,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       onRevoke: _revokeWebDavSession,
       onMount: _mountWebDavSession,
       onUnmount: _unmountWebDavSession,
+      onReveal: _revealWebDavSession,
       onRefresh: () => _refreshWebDavSessionsForDialog(rootID),
     );
   }
@@ -1869,6 +1877,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           errorType: ErrorType.operationFailed,
           originalError: error.toString(),
           operation: 'webdav/unmount',
+        );
+      }
+      return false;
+    }
+  }
+
+  Future<bool> _revealWebDavSession(WebDavSessionStatus session) async {
+    try {
+      final opened = _webDavService.reveal(session.id, rootID: session.rootID);
+      if (mounted) {
+        await showWebDavCredentialsDialog(context: context, session: opened);
+      }
+      return true;
+    } catch (error) {
+      if (mounted) {
+        ErrorHelper.showError(
+          context,
+          errorType: ErrorType.operationFailed,
+          originalError: error.toString(),
+          operation: 'webdav/reveal',
         );
       }
       return false;
