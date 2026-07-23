@@ -1494,6 +1494,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get derivationStrength => 'Derivation strength';
 
   @override
+  String get derivationStrengthUncalibratedHint =>
+      'This is a preset profile and has not been calibrated for this device.';
+
+  @override
+  String get defaultNewDirectoryKdfProfile =>
+      'Default derivation profile for new directories';
+
+  @override
+  String get defaultNewDirectoryKdfProfileHint =>
+      'Only affects directories created later; it has not been calibrated for this device.';
+
+  @override
+  String get kdfProfileFast => 'Fast';
+
+  @override
+  String get kdfProfileBalanced => 'Balanced (recommended)';
+
+  @override
+  String get kdfProfileStrong => 'Strong';
+
+  @override
+  String get kdfProfileMaximum => 'Maximum';
+
+  @override
   String durationMilliseconds(int count) {
     return '$count ms';
   }

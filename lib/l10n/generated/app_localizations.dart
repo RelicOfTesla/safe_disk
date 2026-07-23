@@ -2552,6 +2552,48 @@ abstract class AppLocalizations {
   /// **'派生强度'**
   String get derivationStrength;
 
+  /// No description provided for @derivationStrengthUncalibratedHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'这是预设档位，尚未按本机性能校准。'**
+  String get derivationStrengthUncalibratedHint;
+
+  /// No description provided for @defaultNewDirectoryKdfProfile.
+  ///
+  /// In zh, this message translates to:
+  /// **'新建目录默认派生档位'**
+  String get defaultNewDirectoryKdfProfile;
+
+  /// No description provided for @defaultNewDirectoryKdfProfileHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅影响以后新建的目录；尚未按本机性能校准。'**
+  String get defaultNewDirectoryKdfProfileHint;
+
+  /// No description provided for @kdfProfileFast.
+  ///
+  /// In zh, this message translates to:
+  /// **'快速'**
+  String get kdfProfileFast;
+
+  /// No description provided for @kdfProfileBalanced.
+  ///
+  /// In zh, this message translates to:
+  /// **'平衡（推荐）'**
+  String get kdfProfileBalanced;
+
+  /// No description provided for @kdfProfileStrong.
+  ///
+  /// In zh, this message translates to:
+  /// **'增强'**
+  String get kdfProfileStrong;
+
+  /// No description provided for @kdfProfileMaximum.
+  ///
+  /// In zh, this message translates to:
+  /// **'最高'**
+  String get kdfProfileMaximum;
+
   /// No description provided for @durationMilliseconds.
   ///
   /// In zh, this message translates to:

@@ -249,6 +249,65 @@ void main() {
     expect(await service.getSessionTTL(), 900);
   });
 
+  testWidgets(
+      'default new-directory derivation profile is saved transactionally',
+      (tester) async {
+    final service = SettingsService();
+    await tester.pumpWidget(
+      _settingsTestApp(home: SettingsPage(settingsService: service)),
+    );
+    await tester.pumpAndSettle();
+
+    final profile = find.byKey(const Key('default-key-strength'));
+    await tester.ensureVisible(profile);
+    await tester.tap(
+      find.descendant(of: profile, matching: find.byType(DropdownButton<int>)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('增强').last);
+    await tester.pump();
+
+    expect(
+        await service.getKeyStrengthMs(), SettingsService.defaultKeyStrengthMs);
+    final save = find.text('保存设置');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(await service.getKeyStrengthMs(), 2000);
+  });
+
+  testWidgets('restoring settings defaults resets the new-directory profile',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'key_strength_ms': 2000});
+    final service = SettingsService();
+    await tester.pumpWidget(
+      _settingsTestApp(home: SettingsPage(settingsService: service)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('恢复默认设置（未保存）'));
+    await tester.pump();
+    final profile = find.byKey(const Key('default-key-strength'));
+    expect(
+      tester
+          .widget<DropdownButton<int>>(
+            find.descendant(
+                of: profile, matching: find.byType(DropdownButton<int>)),
+          )
+          .value,
+      SettingsService.defaultKeyStrengthMs,
+    );
+
+    final save = find.text('保存设置');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(
+      await service.getKeyStrengthMs(),
+      SettingsService.defaultKeyStrengthMs,
+    );
+  });
+
   testWidgets('invalid persisted session TTL falls back to the safe default',
       (tester) async {
     SharedPreferences.setMockInitialValues({'session_ttl': 1});

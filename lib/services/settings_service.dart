@@ -64,11 +64,23 @@ class SettingsService {
   /// Get default key strength in milliseconds
   Future<int> getKeyStrengthMs() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_keyKeyStrengthMs) ?? defaultKeyStrengthMs;
+    final milliseconds = prefs.getInt(_keyKeyStrengthMs);
+    if (milliseconds == null ||
+        keyStrengthOptions.containsValue(milliseconds)) {
+      return milliseconds ?? defaultKeyStrengthMs;
+    }
+    return defaultKeyStrengthMs;
   }
 
   /// Set default key strength in milliseconds
   Future<void> setKeyStrengthMs(int ms) async {
+    if (!keyStrengthOptions.containsValue(ms)) {
+      throw ArgumentError.value(
+        ms,
+        'ms',
+        'unsupported-default-key-strength',
+      );
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_keyKeyStrengthMs, ms);
   }

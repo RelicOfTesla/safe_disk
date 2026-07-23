@@ -1376,6 +1376,27 @@ class AppLocalizationsZh extends AppLocalizations {
   String get derivationStrength => '派生强度';
 
   @override
+  String get derivationStrengthUncalibratedHint => '这是预设档位，尚未按本机性能校准。';
+
+  @override
+  String get defaultNewDirectoryKdfProfile => '新建目录默认派生档位';
+
+  @override
+  String get defaultNewDirectoryKdfProfileHint => '仅影响以后新建的目录；尚未按本机性能校准。';
+
+  @override
+  String get kdfProfileFast => '快速';
+
+  @override
+  String get kdfProfileBalanced => '平衡（推荐）';
+
+  @override
+  String get kdfProfileStrong => '增强';
+
+  @override
+  String get kdfProfileMaximum => '最高';
+
+  @override
   String durationMilliseconds(int count) {
     return '$count 毫秒';
   }

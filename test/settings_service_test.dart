@@ -62,4 +62,19 @@ void main() {
     SharedPreferences.setMockInitialValues({'locale': 'fr'});
     expect(await SettingsService().getLocale(), SettingsService.defaultLocale);
   });
+
+  test('new-directory derivation profile is constrained and recovers safely',
+      () async {
+    final service = SettingsService();
+
+    await service.setKeyStrengthMs(2000);
+    expect(await service.getKeyStrengthMs(), 2000);
+    await expectLater(service.setKeyStrengthMs(1234), throwsArgumentError);
+
+    SharedPreferences.setMockInitialValues({'key_strength_ms': 1234});
+    expect(
+      await SettingsService().getKeyStrengthMs(),
+      SettingsService.defaultKeyStrengthMs,
+    );
+  });
 }

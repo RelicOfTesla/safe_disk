@@ -81,7 +81,7 @@
 | Stream V3/增量编辑 | 15% | 有设计文档；Dart 活跃入口明确返回 unsupported | 确定格式、完整性和崩溃一致性模型，完成 sec/FFI/Dart/UI 实现及随机编辑实际测试 |
 | 大目录 UI 虚拟化 | 70% | Flutter list/grid 已使用 sliver 虚拟构建。当前目录的 native cursor、Dart binding/session 与 FileService 路径映射已接入 HomePage 的 list/grid；tree 的 root 与每个展开节点现在也使用独立 cursor。tree session 不累计普通文件，只保留当前页，并会越过纯文件页继续读取直到发现目录或 EOF；刷新/节点销毁会关闭 cursor，失败改为从头刷新。未完成目录会保持 walker 页顺序、禁用全目录排序，筛选明确限定为已加载条目且空态可继续加载。真实 name-encrypted root 两页 FFI、session 保留模式、tree 纯文件页和筛选/排序边界 widget 回归已通过。现有 `listCurrentDirectory(offset/limit)` 仍只是兼容回退的本地 `skip/take`。分页边界见 [DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 补 10 万 entry、取消/错误/导航/关闭 root 的真实跨层回归；评估筛选时自动加载的性能与可访问性 |
 | 自动锁定与密钥缓存超时 | 89% | 应用隐藏自动锁定已接入设置和 HomePage：合格 root 会关闭 native session、目录 cursor、应用内剪贴板和 broker 能力，历史保留；native 内容窗口在自动锁定前会按 token 确认并安全落草稿，任何失败会取消已冻结窗口并保留 root。自动、手动结束会话和改密关闭按 root session 使用同一 FIFO gate，并在执行点重新验证 session。per-root TTL 已接入设置、独立活动时钟和同一关闭路径，且有 tracker/Home/设置页定向测试。broker/controller 已覆盖脏文档和活动写入的关闭判定 | Home 与子窗口协议的重解锁/手动关闭主动竞态、重复回复、窗口消失、原生 close 失败、真实 FFI 与三平台 `hidden`/`paused`/TTL 验收 |
-| KDF 成本动态校准 | 15% | 当前 `keyStrengthMs` 仅被各 KDF 粗略映射，设置字段未接入 UI；设计见 [KDF_CALIBRATION_DESIGN.md](design/KDF_CALIBRATION_DESIGN.md)，尚无 sec/FFI/UI 实现 | 按设备目标耗时校准、算法参数/内存上限、防 DoS、创建设置和跨设备测试 |
+| KDF 成本动态校准 | 20% | 当前 `keyStrengthMs` 仅被各 KDF 粗略映射。阶段 A 已将受控的“新建目录默认派生档位”接入设置、主页和创建对话框：非法持久化值回退，用户可在本次创建中覆盖，且不会修改已有 root。边界和验证见 [KDF_CALIBRATION_DESIGN.md](design/KDF_CALIBRATION_DESIGN.md)。这不是设备校准，尚无 sec/FFI 校准实现，也不会声称毫秒值是实测耗时。 | 按设备目标耗时完成真正校准、算法参数/内存上限、防 DoS、取消与跨设备测试 |
 | 文件排序/过滤/批量操作 | 92% | 当前目录筛选、目录优先排序、批量文件复制/剪切/粘贴/导出/删除已实现；批量冲突支持仅此项/全部应用，取消、失败和未处理项保留重试，并有结构化结果面板 | 超大目录分页排序、真实桌面大批次与跨 root 页面 E2E；全 root 搜索另立任务 |
 | 主界面右键菜单 | 99% | 应用内单项及批量文件复制/粘贴、剪切/移动、冲突询问、跨 root 重加密、图片新窗口和右键选择/批量导出/删除已有测试；跨 root 文件及目录移动均有真实 FFI 和 widget 验证，目录删除失败会显示部分完成并保留剪贴板项。`Menu` 和 `Shift+F10` 复用当前选中项或最近键盘目标的菜单；没有目标时打开目录空白处菜单。list/grid 条目向读屏声明名称、文件或目录类型及右键选中态，widget 覆盖两种菜单键焦点恢复、无目标目录菜单和条目语义。 | 系统文件剪贴板互通；三平台鼠标 E2E、键盘菜单键、焦点和读屏测试 |
 | 剪贴板 | 84% | 应用内文件剪贴板支持有序多条复制/剪切队列、同 root rename 移动和跨 root 文件/目录 copy→delete；目录移动删除失败固定保留源、目标和剪贴板项，逐项失败、取消和未处理项也保持可重试；批量冲突策略与结果摘要已有回归；记事本短文本监视已实现 | 系统文件剪贴板安全边界、分平台实现和桌面自动化测试 |
@@ -105,6 +105,7 @@
 
 ## 本轮验证状态
 
+- 2026-07-23 KDF 安全默认档位阶段 A：设置页新增仅作用于新建目录的四档受控默认值，主页在创建对话框前读取并传递，创建对话框明确提示“尚未按本机性能校准”；非法持久化值回退到平衡档，用户可在创建时覆盖。`flutter analyze --no-pub` 通过；设置服务、设置页和创建目录定向 widget 回归通过；完整 `SAFE_DISK_FFI_LIBRARY=/tmp/safe_disk_ffi/libffi_sec_fs.so flutter test --no-pub --timeout 180s -r compact` 成功结束。未执行设备性能测量或跨平台 KDF 校准验收。
 - 2026-07-22 设置服务本地化边界回归：移除未使用且返回中文展示文本的 KDF/主题 API，自动保存间隔校验说明改为稳定技术标识；`flutter test --no-pub test/settings_service_test.dart -r compact` 共 5 项通过。审计候选由 68 降至 59，设置服务已无候选。
 - 2026-07-22 本地化审计增强：`tool/audit_i18n_strings.dart` 改为词法扫描，覆盖多行/raw 字符串、忽略注释，并按直接 UI、服务边界、人工复核及英文 fallback 分类；`dart analyze tool/audit_i18n_strings.dart` 通过，默认产品代码报告为 117 项，`--include-test` 可额外生成测试核对清单（811 项，不计入产品债务）。
 - 2026-07-23 安全记事本本地化边界回归：加载与草稿错误改为稳定枚举，UI 状态栏按 ARB 映射；剪贴板读取/清空失败不泄露原始异常，保存成功有独立提示。`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/secure_notepad_controller_test.dart test/secure_notepad_widget_test.dart -r compact` 共 26 项通过。审计候选由 117 降至 114，记事本 controller 与 widget 均无候选；子窗口及三平台英文视觉/读屏验收仍未完成。

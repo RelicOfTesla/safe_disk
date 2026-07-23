@@ -32,6 +32,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _confirmBeforeDelete = SettingsService.defaultConfirmBeforeDelete;
   bool _autoLockOnBackground = SettingsService.defaultAutoCloseSession;
   int _sessionTTL = SettingsService.defaultSessionTTL;
+  int _keyStrengthMs = SettingsService.defaultKeyStrengthMs;
   int _notepadAutoSaveSeconds = SettingsService.defaultNotepadAutoSaveSeconds;
   bool _notepadDefaultReadOnly = SettingsService.defaultNotepadReadOnly;
   bool _notepadDefaultMonitorClipboard =
@@ -49,6 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
         confirmBeforeDelete: _confirmBeforeDelete,
         autoLockOnBackground: _autoLockOnBackground,
         sessionTTL: _sessionTTL,
+        keyStrengthMs: _keyStrengthMs,
         notepadAutoSaveSeconds: _notepadAutoSaveSeconds,
         notepadDefaultReadOnly: _notepadDefaultReadOnly,
         notepadDefaultMonitorClipboard: _notepadDefaultMonitorClipboard,
@@ -70,6 +72,7 @@ class _SettingsPageState extends State<SettingsPage> {
         confirmBeforeDelete: await _settingsService.getConfirmBeforeDelete(),
         autoLockOnBackground: await _settingsService.getAutoCloseSession(),
         sessionTTL: await _settingsService.getSessionTTL(),
+        keyStrengthMs: await _settingsService.getKeyStrengthMs(),
         notepadAutoSaveSeconds:
             await _settingsService.getNotepadAutoSaveSeconds(),
         notepadDefaultReadOnly:
@@ -85,6 +88,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _confirmBeforeDelete = snapshot.confirmBeforeDelete;
         _autoLockOnBackground = snapshot.autoLockOnBackground;
         _sessionTTL = snapshot.sessionTTL;
+        _keyStrengthMs = snapshot.keyStrengthMs;
         _notepadAutoSaveSeconds = snapshot.notepadAutoSaveSeconds;
         _notepadDefaultReadOnly = snapshot.notepadDefaultReadOnly;
         _notepadDefaultMonitorClipboard =
@@ -112,6 +116,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await _settingsService.setConfirmBeforeDelete(_confirmBeforeDelete);
       await _settingsService.setAutoCloseSession(_autoLockOnBackground);
       await _settingsService.setSessionTTL(_sessionTTL);
+      await _settingsService.setKeyStrengthMs(_keyStrengthMs);
       await _settingsService.setNotepadAutoSaveSeconds(_notepadAutoSaveSeconds);
       await _settingsService.setNotepadDefaultReadOnly(
         _notepadDefaultReadOnly,
@@ -205,6 +210,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _themeMode = SettingsService.defaultThemeMode;
       _locale = SettingsService.defaultLocale;
       _confirmBeforeDelete = SettingsService.defaultConfirmBeforeDelete;
+      _keyStrengthMs = SettingsService.defaultKeyStrengthMs;
       _notepadAutoSaveSeconds = SettingsService.defaultNotepadAutoSaveSeconds;
       _notepadDefaultReadOnly = SettingsService.defaultNotepadReadOnly;
       _notepadDefaultMonitorClipboard =
@@ -387,6 +393,27 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const Divider(),
+          ListTile(
+            key: const Key('default-key-strength'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(strings.defaultNewDirectoryKdfProfile),
+            subtitle: Text(strings.defaultNewDirectoryKdfProfileHint),
+            trailing: DropdownButton<int>(
+              value: _keyStrengthMs,
+              items: SettingsService.keyStrengthOptions.entries
+                  .map(
+                    (entry) => DropdownMenuItem(
+                      value: entry.value,
+                      child: Text(_keyStrengthLabel(strings, entry.key)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) setState(() => _keyStrengthMs = value);
+              },
+            ),
+          ),
+          const Divider(),
           SwitchListTile(
             key: const Key('auto-lock-on-background'),
             contentPadding: EdgeInsets.zero,
@@ -477,6 +504,14 @@ class _SettingsPageState extends State<SettingsPage> {
     return strings.durationMinutes(seconds ~/ 60);
   }
 
+  String _keyStrengthLabel(AppLocalizations strings, String profile) =>
+      switch (profile) {
+        'fast' => strings.kdfProfileFast,
+        'strong' => strings.kdfProfileStrong,
+        'maximum' => strings.kdfProfileMaximum,
+        _ => strings.kdfProfileBalanced,
+      };
+
   Widget _sectionCard({
     required Key key,
     required String title,
@@ -520,6 +555,7 @@ class _SettingsSnapshot {
     required this.confirmBeforeDelete,
     required this.autoLockOnBackground,
     required this.sessionTTL,
+    required this.keyStrengthMs,
     required this.notepadAutoSaveSeconds,
     required this.notepadDefaultReadOnly,
     required this.notepadDefaultMonitorClipboard,
@@ -531,6 +567,7 @@ class _SettingsSnapshot {
   final bool confirmBeforeDelete;
   final bool autoLockOnBackground;
   final int sessionTTL;
+  final int keyStrengthMs;
   final int notepadAutoSaveSeconds;
   final bool notepadDefaultReadOnly;
   final bool notepadDefaultMonitorClipboard;
@@ -544,6 +581,7 @@ class _SettingsSnapshot {
       confirmBeforeDelete == other.confirmBeforeDelete &&
       autoLockOnBackground == other.autoLockOnBackground &&
       sessionTTL == other.sessionTTL &&
+      keyStrengthMs == other.keyStrengthMs &&
       notepadAutoSaveSeconds == other.notepadAutoSaveSeconds &&
       notepadDefaultReadOnly == other.notepadDefaultReadOnly &&
       notepadDefaultMonitorClipboard == other.notepadDefaultMonitorClipboard &&
@@ -556,6 +594,7 @@ class _SettingsSnapshot {
         confirmBeforeDelete,
         autoLockOnBackground,
         sessionTTL,
+        keyStrengthMs,
         notepadAutoSaveSeconds,
         notepadDefaultReadOnly,
         notepadDefaultMonitorClipboard,

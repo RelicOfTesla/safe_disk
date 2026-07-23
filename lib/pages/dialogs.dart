@@ -167,7 +167,12 @@ class _GuidePage {
 
 /// Dialog for creating encrypted directory
 class CreateEncryptedDirectoryDialog extends StatefulWidget {
-  const CreateEncryptedDirectoryDialog({super.key});
+  const CreateEncryptedDirectoryDialog({
+    super.key,
+    this.initialKeyStrengthMs = 1000,
+  });
+
+  final int initialKeyStrengthMs;
 
   @override
   State<CreateEncryptedDirectoryDialog> createState() =>
@@ -188,6 +193,15 @@ class _CreateEncryptedDirectoryDialogState
   int _keyStrengthMs = 1000;
   bool _passwordChangeable = true;
   bool _passwordHintTooLong = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (CreateRootRequest.keyStrengthOptions
+        .contains(widget.initialKeyStrengthMs)) {
+      _keyStrengthMs = widget.initialKeyStrengthMs;
+    }
+  }
 
   @override
   void dispose() {
@@ -288,6 +302,7 @@ class _CreateEncryptedDirectoryDialogState
                   initialValue: _keyStrengthMs,
                   decoration: InputDecoration(
                     labelText: strings.derivationStrength,
+                    helperText: strings.derivationStrengthUncalibratedHint,
                   ),
                   items: CreateRootRequest.keyStrengthOptions
                       .map((value) => DropdownMenuItem(

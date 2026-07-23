@@ -534,10 +534,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
       return;
     }
+    final initialKeyStrengthMs = await _settingsService.getKeyStrengthMs();
     if (!mounted) return;
     final result = await showDialog<CreateRootRequest>(
       context: context,
-      builder: (context) => const CreateEncryptedDirectoryDialog(),
+      builder: (context) => CreateEncryptedDirectoryDialog(
+        initialKeyStrengthMs: initialKeyStrengthMs,
+      ),
     );
     if (result == null) return;
 
