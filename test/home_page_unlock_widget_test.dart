@@ -284,6 +284,53 @@ void main() {
     expect(find.text('请输入密码以解锁：'), findsOneWidget);
   });
 
+  testWidgets('sidebar root move persists the new order from HomePage',
+      (tester) async {
+    const firstRootPath = '/tmp/safe-disk-home-test/vault-one';
+    const secondRootPath = '/tmp/safe-disk-home-test/vault-two';
+    final cryptoService = _FakeCryptoService(
+      firstRootPath,
+      additionalRootPaths: const [secondRootPath],
+    );
+    final persistence = _FakePersistenceService(
+      firstRootPath,
+      rootPaths: const [firstRootPath, secondRootPath],
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        cryptoService: cryptoService,
+        directoryService: _FakeDirectoryService(),
+        fileService: _FakeFileService(cryptoService),
+        persistenceService: persistence,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault-one'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('vault-two'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'correct-password');
+    await tester.tap(find.text('解锁'));
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('vault-two').first),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('上移'));
+    await tester.pumpAndSettle();
+
+    expect(
+        persistence.savedDirectoryLists.last, [secondRootPath, firstRootPath]);
+  });
+
   testWidgets('background lifecycle does not lock roots by default',
       (tester) async {
     const rootPath = '/tmp/safe-disk-home-test/vault';
