@@ -357,8 +357,9 @@ class ContentWindowHostBridge {
       _nativeTokensForRoot(rootSessionID).length;
 
   /// Requests every native content window to secure its local state before
-  /// revoking the root capability. Any missing, failed, or late reply leaves
-  /// all tokens and windows untouched.
+  /// revoking the root capability. A preparation failure leaves every token
+  /// untouched; a platform close failure restores the root lease, although a
+  /// platform may already have closed an earlier window in its close batch.
   Future<bool> prepareAndCloseRootWindows(String rootSessionID) async {
     final tokens = _nativeTokensForRoot(rootSessionID);
     if (tokens.isEmpty) return true;

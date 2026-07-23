@@ -9,7 +9,11 @@ class ContentWindowLockEndpoint {
   Future<bool> Function()? _prepareForLock;
   VoidCallback? _cancelLockPreparation;
   String? _preparedRequestID;
-  final Set<String> _cancelledRequestIDs = {};
+  String? _activeRequestID;
+  Future<Map<String, String>>? _activePreparation;
+  String? _cancelledRequestID;
+  String? _completedRequestID;
+  String? _completedStatus;
 
   void setPrepareForLock(Future<bool> Function() prepareForLock) {
     _prepareForLock = prepareForLock;
@@ -39,32 +43,63 @@ class ContentWindowLockEndpoint {
     }
     final requestID = arguments['lockRequestID'] as String;
     if (call.method == 'document.cancelLock') {
-      _cancelledRequestIDs.add(requestID);
       if (_preparedRequestID == requestID) {
         _preparedRequestID = null;
         _cancelLockPreparation?.call();
+      } else if (_activeRequestID == requestID) {
+        _cancelledRequestID = requestID;
       }
-      return {
-        'token': token,
-        'lockRequestID': requestID,
-        'status': 'cancelled',
-      };
+      _completedRequestID = requestID;
+      _completedStatus = 'cancelled';
+      return _response(requestID, 'cancelled');
     }
+    if (_completedRequestID == requestID && _completedStatus != null) {
+      return _response(requestID, _completedStatus!);
+    }
+    if (_preparedRequestID == requestID) {
+      return _response(requestID, 'prepared');
+    }
+    final activePreparation = _activePreparation;
+    if (_activeRequestID == requestID && activePreparation != null) {
+      return activePreparation;
+    }
+    if (_activeRequestID != null || _preparedRequestID != null) {
+      return _response(requestID, 'failed');
+    }
+
+    final preparation = _prepare(requestID);
+    _activeRequestID = requestID;
+    _activePreparation = preparation;
+    try {
+      return await preparation;
+    } finally {
+      if (identical(_activePreparation, preparation)) {
+        _activePreparation = null;
+        _activeRequestID = null;
+      }
+    }
+  }
+
+  Future<Map<String, String>> _prepare(String requestID) async {
     final prepareForLock = _prepareForLock;
     final prepared = prepareForLock != null && await prepareForLock();
-    if (_cancelledRequestIDs.remove(requestID)) {
+    if (_cancelledRequestID == requestID) {
+      _cancelledRequestID = null;
       _cancelLockPreparation?.call();
-      return {
+      _completedRequestID = requestID;
+      _completedStatus = 'cancelled';
+      return _response(requestID, 'cancelled');
+    }
+    final status = prepared ? 'prepared' : 'failed';
+    if (prepared) _preparedRequestID = requestID;
+    _completedRequestID = requestID;
+    _completedStatus = status;
+    return _response(requestID, status);
+  }
+
+  Map<String, String> _response(String requestID, String status) => {
         'token': token,
         'lockRequestID': requestID,
-        'status': 'cancelled',
+        'status': status,
       };
-    }
-    _preparedRequestID = prepared ? requestID : null;
-    return {
-      'token': token,
-      'lockRequestID': requestID,
-      'status': prepared ? 'prepared' : 'failed',
-    };
-  }
 }

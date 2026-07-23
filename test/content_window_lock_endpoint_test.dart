@@ -59,6 +59,56 @@ void main() {
     );
   });
 
+  test('shares one preparation for duplicate matching lock requests', () async {
+    final prepared = Completer<bool>();
+    var preparations = 0;
+    final endpoint = ContentWindowLockEndpoint(token: 'capability-token')
+      ..setPrepareForLock(() {
+        preparations++;
+        return prepared.future;
+      });
+    final first = endpoint.handle(const MethodCall('document.prepareLock', {
+      'token': 'capability-token',
+      'lockRequestID': 'request-1',
+    }));
+    final duplicate = endpoint.handle(const MethodCall('document.prepareLock', {
+      'token': 'capability-token',
+      'lockRequestID': 'request-1',
+    }));
+
+    expect(preparations, 1);
+    prepared.complete(true);
+    expect(await first, containsPair('status', 'prepared'));
+    expect(await duplicate, containsPair('status', 'prepared'));
+    expect(preparations, 1);
+  });
+
+  test('rejects a competing request while a lock preparation is active',
+      () async {
+    final prepared = Completer<bool>();
+    var preparations = 0;
+    final endpoint = ContentWindowLockEndpoint(token: 'capability-token')
+      ..setPrepareForLock(() {
+        preparations++;
+        return prepared.future;
+      });
+    final first = endpoint.handle(const MethodCall('document.prepareLock', {
+      'token': 'capability-token',
+      'lockRequestID': 'request-1',
+    }));
+
+    expect(
+      await endpoint.handle(const MethodCall('document.prepareLock', {
+        'token': 'capability-token',
+        'lockRequestID': 'request-2',
+      })),
+      containsPair('status', 'failed'),
+    );
+    expect(preparations, 1);
+    prepared.complete(true);
+    expect(await first, containsPair('status', 'prepared'));
+  });
+
   test('cancels only the matching prepared lock request', () async {
     var cancellations = 0;
     final endpoint = ContentWindowLockEndpoint(token: 'capability-token')
