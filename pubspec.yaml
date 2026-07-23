@@ -105,3 +105,12 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  fonts:
+    - family: NotoSansSC
+      fonts:
+        - asset: fonts/NotoSansSC-Regular.ttf
+          weight: 400
+        - asset: fonts/NotoSansSC-Bold.ttf
+          weight: 700
+

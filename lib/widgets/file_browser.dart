@@ -1079,10 +1079,12 @@ class _FileListTile extends StatelessWidget {
                         color: item.isDirectory ? Colors.orange : null,
                       ),
                 title: Text(item.name),
-                subtitle: Text(item.isDirectory
-                    ? AppLocalizations.of(context)!
-                        .directoryItemCount(item.children?.length ?? 0)
-                    : item.formattedSize),
+                subtitle: item.isDirectory && (item.children?.length ?? 0) > 0
+                    ? Text(AppLocalizations.of(context)!
+                        .directoryItemCount(item.children!.length))
+                    : item.isDirectory
+                        ? null
+                        : Text(item.formattedSize),
                 trailing:
                     item.isDirectory ? const Icon(Icons.chevron_right) : null,
                 selected: isHighlighted,

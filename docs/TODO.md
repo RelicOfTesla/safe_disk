@@ -38,6 +38,17 @@
 | WEB-02 | WebDAV 凭据显示策略 | P1/第三方工具/凭据 | 85% | Go `reveal`、FFI ABI、Dart/Flutter 选择与持久会话列表入口已实现；一次性策略不返回秘密，持久策略有风险提示且不进入 list/status。仍需 CLI 的独立 reveal 管理入口和三平台凭据泄露/日志审计。 |
 | WEB-03 | WebDAV 持久会话 | P1/第三方工具/持久化 | 75% | Go 已实现 root 内加密状态、稳定 root 关联、固定端口、ID/凭据恢复、root 重开 warning、显式撤销删除；FFI/Dart/CLI 已接配置，Go/FFI 有关闭重开和端口生命周期测试。仍需暂停/轮换、恢复失败 UI、跨进程管理、系统客户端重启恢复和三平台异常生命周期测试。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
+| WEB-04 | 合并 WebDAV 共享配置弹窗 | P1/UI | 90% | 保留一次明确的只读暴露确认；认证方式、凭据显示方式、会话保留方式已在同一个可滚动配置弹窗完成选择，创建共享不再连续弹出多个配置框；默认值、警告、取消语义和 HomePage/widget 回归已通过。仍需三平台视觉与键盘验收。 |
+| WEB-05 | 修复 davfs 系统挂载目录枚举 | P1/互操作 | 25% | 已确认只读包装器继续准确声明 `DAV: 1`，并补 `davfs2` 风格 `OPTIONS`、`PROPFIND Depth: 1`、XML 请求和中文/空格文件名 URL 编码测试；没有用不支持的锁能力伪装兼容。当前环境无挂载权限，尚未完成真实 `mount.davfs` 挂载、`ls` 和 rclone 对照验收；不能宣称问题已修复。 |
+| WEB-06 | Windows WebDAV 系统挂载 | P1/Windows | 50% | Go 已接入 Windows WebDAV Redirector：校验 loopback Digest、分配空闲盘符、通过 `net.exe use` 的 stdin 输入密码、检查盘符、卸载和失败清理；Windows 交叉编译通过。仍需 Windows WebClient 服务、Digest 实机兼容、盘符访问/复制和异常退出验收；Bearer 明确拒绝。 |
+| WEB-07 | 复制已挂载系统目录路径 | P2/UI | 70% | WebDAV 会话显示系统挂载路径时已提供独立复制按钮、可选择文本和控件内复制反馈，并有 widget 测试；不把挂载目录误当作安全 root 内部文件剪贴板。仍需 Linux/Windows/macOS 系统剪贴板和实际文件管理器验收。 |
+| DEV-02 | 审计 l10n 生成文件来源 | P2/工程规范 | 100% | 已完成，见 [L10N_GENERATED_AUDIT.md](L10N_GENERATED_AUDIT.md)：当前三个文件可由 ARB 重现；历史仅发现 `e95bcea` 曾直接编辑 generated，已被后续 ARB 修改覆盖。 |
+| UI-92 | Linux 属性弹窗首次打开卡顿 | Bug/Linux UI | 30% | 已完成烟雾基线、标准 `showDialog` 对照、软件渲染对照，以及真实 `lib/main.dart` 主界面冷启动：侧边栏锁定 `ff` root 右键“属性”在 profile/debug 中均未复现数秒卡顿，debug 点击菜单项到命令返回约 114ms。不能宣称已修复；仍需在用户能复现的同一构建/窗口管理器/桌面会话下采集证据，并与重命名/WebDAV/导出对照，禁止以延迟弹窗或无依据预热掩盖问题。 |
+| UI-94 | 删除目录列表中的“0 个项目” | P2/UI 文案 | 90% | 已实现：目录列表项没有子项时不渲染“0 个项目”，非零数量和文件大小显示不变；文件浏览器 20 项定向 widget 回归通过。仍需常规桌面视觉验收。 |
+| WEB-08 | WebDAV 总开关 | P1/安全设置 | 90% | 已接入设置持久化、主页入口控制、关闭时撤销当前 root 会话和解锁后清理恢复会话；中英文 UI、设置服务和设置页测试已完成。剩余真实平台验收：关闭开关时已有 Linux/Windows 系统挂载的实机回收提示。 |
+| WEB-09 | WebDAV 系统挂载请求取消 | P1/平台/并发 | 90% | 已增加 Go 异步操作存储、FFI 开始/轮询/取消 ABI、Dart 服务和会话页取消按钮；取消会中止平台命令并按真实状态刷新，Go 操作和 UI 回调已有测试。剩余真实平台验收：Linux davfs、Windows Redirector 的命令取消和临时凭据/挂载点回收。 |
+| WEB-10 | WebDAV Basic Auth 与 TLS 支持 | P1/互操作 | 10% | 需支持 Basic Auth 和 TLS 传输，以兼容 Windows 10 系统自带的网络磁盘映射（WebClient/WebDAV Redirector）。Go 需实现 Basic 认证处理器与 TLS 监听（自签名证书或用户提供的证书），设置页增加对应开关，并补充三方客户端认证兼容矩阵。 |
+| UI-96 | Grid 视图图标半宽问题 | Bug/UI | 10% | 网格模式下文件/目录卡片的圆角矩形边框只画出约一半宽度，图标区域被截断。需排查 `_FileGridCard` 布局约束或 padding，确保图标与边框完整渲染。 |
 
 
 ## P0 正确性与数据安全
@@ -76,7 +87,7 @@
 | 拖放 | 70% | 设计见 [DRAG_DROP_DESIGN.md](design/DRAG_DROP_DESIGN.md)。首期已接入 `desktop_drop`：已验证且空闲的当前目录浏览区可接收外部 drop 并显示高亮；插件载荷先经 `DragDropController`，只接受存在的普通绝对文件/目录，拒绝 file promise、内存载荷、链接、相对/失效路径、重复项和当前 root 内部路径，再按顺序复用既有文件/目录导入、冲突、进度、取消和 unfinished 链路。Windows 路径边界现统一 `/` 与 `\\` 分隔符并有注入模式回归。默认仍禁止拖出，未添加拖出设置。策略层与主页 target 有自动化证据；真实平台 drop 事件尚未验收。 | 三平台外部拖入的多文件/目录、取消、权限与临时明文泄漏验收；补平台事件高亮/回调 E2E；在具备可信目标目录协议前不得实现拖出 |
 | 备份恢复与可选密码提示 | 12% | 设计见 [BACKUP_RECOVERY_AND_PASSWORD_HINT_DESIGN.md](design/BACKUP_RECOVERY_AND_PASSWORD_HINT_DESIGN.md)：提示是可选公开信息而非找回凭据。密码提示已完成 sec staged replace、FFI/Dart ABI、创建高级选项、默认折叠的解锁展示，以及仅限已解锁属性页的当前密码确认更新/清除；Go、真实 Dart ABI 和 widget 有定向回归。备份/恢复仍无格式和实现。 | 提示补 staged-replace 故障注入、跨进程锁竞争、打开窗口配置刷新和三平台桌面验收；定义并实现 snapshot/manifest、恢复和灾难测试 |
 | 安全记事本草稿间隔与只读模式 | 92% | 间隔设置已接入加密草稿而非原文件；默认只读、默认剪贴板监视、编辑切换、恢复与状态保护有主/子窗口测试 | 保存冲突、快捷键、系统剪贴板、进程级崩溃与跨平台桌面实测 |
-| 第三方工具安全文件交接（WEB-01，P1） | 82% | [THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md](design/THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md)；Go 已实现只读协议、Bearer/Digest `SHA-256`、重放防护、限定范围、监视快照、root close 撤销、凭据策略和 root 内持久会话；FFI/Dart/CLI 已接选项、状态、恢复和挂载/卸载 | 编辑协议、冲突控制、常见系统工具认证兼容矩阵/必要的 Basic 兼容模式、Windows/macOS 挂载适配、Linux 实际挂载和第三方客户端互操作、CLI 独立 reveal 管理、三平台实机与攻击/异常生命周期测试 |
+| 第三方工具安全文件交接（WEB-01，P1） | 82% | [THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md](design/THIRD_PARTY_WEBDAV_HANDOFF_DESIGN.md)；Go 已实现只读协议、Bearer/Digest `SHA-256`、重放防护、限定范围、监视快照、root close 撤销、凭据策略和 root 内持久会话；FFI/Dart/CLI 已接选项、状态、恢复和挂载/卸载；Windows Go Redirector 适配已交叉编译 | 编辑协议、冲突控制、常见系统工具认证兼容矩阵/必要的 Basic 兼容模式、Linux davfs 实际挂载、Windows 实机盘符映射、macOS 挂载适配和第三方客户端互操作、CLI 独立 reveal 管理、三平台实机与攻击/异常生命周期测试 |
 
 ## P3 发布与平台
 

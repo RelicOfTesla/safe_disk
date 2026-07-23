@@ -100,7 +100,7 @@ class _ProgressDialogState extends State<ProgressDialog> {
           if (progress.status != null) ...[
             Text(
               progress.status!,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
           ],
@@ -123,7 +123,7 @@ class _ProgressDialogState extends State<ProgressDialog> {
               Text(
                 '${progress.progressPercent.toStringAsFixed(1)}%',
                 style:
-                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
               if (timeRemaining.isNotEmpty)
                 Text(

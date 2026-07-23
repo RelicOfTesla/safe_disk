@@ -2,7 +2,7 @@
 
 > 本文件记录当前可复用的验证证据、命令口径和环境限制；它不替代 [TODO.md](TODO.md) 的活跃任务，也不把自动化结果等同于跨平台实机验收。
 >
-> 最近整理：2026-07-23。
+> 最近整理：2026-07-24。
 
 ## 使用规则
 
@@ -18,8 +18,9 @@
 | Flutter UI 主线 | 真实 FFI 动态库下完整 Flutter 回归曾达到 305 项通过；覆盖主页、文件浏览、设置、记事本、图片、拖放和 FFI 集成 | Windows/macOS 实机、读屏、真实键盘/输入法与性能压力 |
 | 安全记事本大小边界 | 已知超过 16 MiB 与未知大小内容都在解密前拒绝；broker、主页和独立窗口入口有定向回归 | 流式大文件编辑不属于当前版本；仍需平台压力验收 |
 | 小键盘 Enter 空格问题 | Linux 诊断和真实应用路径均未复现；用户后续确认当前行为正常，未修改编辑器输入链路 | 未来若再次出现，需在实际键盘布局/输入法环境重新登记最短复现 |
-| WebDAV 只读与持久会话阶段 | Go `x/net/webdav` 协议适配、Bearer/Digest `SHA-256`、nonce-count 重放拒绝、写拒绝、子树范围、token-free status、root close 撤销、凭据 reveal 隔离、root 内加密持久记录和固定端口恢复通过；FFI c-shared 构建及 Dart open/list/reveal/mount ABI 加载通过；Go/FFI 覆盖关闭 root 后按稳定 root 路径恢复 ID/端口/凭据；Flutter widget 覆盖鉴权、凭据策略、会话保留策略、状态列表和撤销 | 常见系统工具认证兼容矩阵、必要的 Basic 兼容模式、Linux 实际 davfs 挂载/卸载、Windows/macOS 挂载、CLI 独立 reveal 管理、编辑能力、自动锁定/异常退出的桌面生命周期和三平台实机 |
-| 属性首次打开 | Linux 已定位并验证延后一帧插入 overlay 的冷启动改善；相关 widget/analyzer 回归通过 | Windows/macOS 与真实主界面鼠标路径验收 |
+| WebDAV 只读与持久会话阶段 | Go `x/net/webdav` 协议适配、Bearer/Digest `SHA-256`、nonce-count 重放拒绝、写拒绝、子树范围、token-free status、root close 撤销、凭据 reveal 隔离、root 内加密持久记录和固定端口恢复通过；只读 `OPTIONS` 准确声明 `DAV: 1`；Go 覆盖 davfs 风格 `OPTIONS`、`PROPFIND Depth: 1`、XML 请求及中文/空格文件名 href 转义；Windows WebDAV Redirector 适配交叉编译通过；Flutter 已覆盖合并配置弹窗、系统挂载路径复制、总开关和取消回调；Go/FFI 异步挂载 ABI 的开始、轮询、取消和重复 ID 测试通过 | 当前环境不能进行真实 davfs/FUSE 挂载，尚不能证明用户报告的 `ls: Invalid argument` 已修复；取消仍缺 Linux davfs/FUSE 和 Windows WebClient 实机验证；Windows WebClient/盘符/Digest、macOS 挂载、常见系统工具认证矩阵、必要的 Basic 兼容模式、CLI 独立 reveal、编辑能力、自动锁定/异常退出的桌面生命周期和三平台实机仍缺 |
+| 属性首次打开 | **已修复（2026-07-24）**。根因：`FontWeight.w600` 首次渲染触发 Linux 系统加载 semi-bold 字体变体，导致 1-4s 延迟；`FontWeight.bold` 无此问题。修复已在 `_PropertyRow`、`_BatchOperationResultDialog`、`SecureNotepadWindow` 中完成，真实环境首次打开不再卡顿。诊断分支已清理。 | Windows/macOS 桌面视觉验收 |
+| 空目录列表文案 | 文件列表 widget 回归通过：目录子项数为 0 时不渲染“0 个项目”，非零目录仍显示数量，文件仍显示大小 | grid/tree 及三平台字体布局仍需常规验收 |
 | 大目录分页 | 真实加密名称 root 的 10 万条目录 cursor 基准已完成；首屏、分页和 RSS 采样已有记录 | Flutter 实际滚动帧率、精确堆峰值和其它平台 |
 
 ## 当前执行口径

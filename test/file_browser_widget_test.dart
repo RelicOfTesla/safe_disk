@@ -113,6 +113,14 @@ void main() {
     expect(find.text('Name: Z to A'), findsOneWidget);
   });
 
+  testWidgets('空目录不显示零项目副标题', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('0 个项目'), findsNothing);
+    expect(find.text('notes'), findsOneWidget);
+  });
+
   testWidgets('current-directory filter keeps focus and clears on navigation',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(home: _BrowserHarness()));

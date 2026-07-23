@@ -138,7 +138,7 @@ class _ContentWindowStartupErrorPage extends StatelessWidget {
                   strings.contentWindowUnavailable,
                   style: const TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 12),

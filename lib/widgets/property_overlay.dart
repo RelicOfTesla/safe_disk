@@ -174,7 +174,7 @@ class _PropertyRow extends StatelessWidget {
             width: 96,
             child: Text(
               strings.propertyLabel(value.label),
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
           Expanded(

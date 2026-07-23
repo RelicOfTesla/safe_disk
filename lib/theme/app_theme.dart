@@ -12,10 +12,10 @@ ThemeData buildSafeDiskTheme({
       seedColor: Colors.blue,
       brightness: brightness,
     ),
-    fontFamily: windows ? 'Segoe UI' : null,
+    fontFamily: windows ? 'Segoe UI' : 'NotoSansSC',
     fontFamilyFallback: windows
         ? const ['Microsoft YaHei UI', 'Microsoft YaHei', 'SimSun']
-        : null,
+        : const ['NotoSansSC'],
     platform: target,
     typography: Typography.material2021(platform: target),
     useMaterial3: true,

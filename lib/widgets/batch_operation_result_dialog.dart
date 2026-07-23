@@ -35,7 +35,7 @@ Future<void> showBatchOperationResultDialog({
                 const SizedBox(height: 16),
                 Text(
                   strings.failureDetails,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
                 for (final failure in result.failures.take(10))
