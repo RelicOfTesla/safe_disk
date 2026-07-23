@@ -242,6 +242,7 @@ safe-disk info --path /abs/encrypted/root/or/file
 ```bash
 safe-disk webdav serve --path /abs/encrypted/root/or/item
 safe-disk webdav serve --path /abs/encrypted/root/or/item --mount
+safe-disk webdav serve --path /abs/encrypted/root/or/item --auth=digest
 safe-disk webdav serve --path /abs/encrypted/root/or/item --json
 ```
 
@@ -250,20 +251,23 @@ safe-disk webdav serve --path /abs/encrypted/root/or/item --json
 - 使用统一密码与 root open helper；文件仅暴露该文件，目录仅暴露该目录树。
 - 直接复用 Go `sec_webdav` 会话管理器；CLI 不经过 FFI，不自行实现 HTTP 服务或平台挂载。
 - 固定创建只读 loopback 会话。首期不支持 `--edit`，不写明文临时目录。
+- `--auth=bearer|digest` 是规划参数；当前 Go 仅实现 Bearer，Digest 完成前传入 `digest` 必须明确返回“不支持”，不得伪装为成功或回退到 Bearer。完成后每个会话只接受一种机制，初始默认值为 `bearer`。
+- Digest 仅支持 RFC 7616 `SHA-256` 与 `qop=auth`，使用会话随机用户名、密码和 realm；不得使用 root 密码、Basic、MD5 或静默算法降级。
 - 默认前台持续运行，`Ctrl-C`、正常退出和启动失败清理路径均关闭会话并请求 Go 卸载。
 - `--mount` 仅请求 Go 平台适配层挂载。平台不支持、挂载失败或卸载失败必须输出稳定错误码或状态，不能退化为普通目录。
-- 人类模式只向终端显示一次地址和访问凭据；不得写入日志或 stderr。`--json` 向 stdout 输出 JSON Lines 生命周期事件，地址/token 只出现在启动事件中。
+- 人类模式只向终端显示一次地址和访问凭据；不得写入日志或 stderr。`--json` 向 stdout 输出 JSON Lines 生命周期事件，地址和秘密凭据只出现在启动事件中。Bearer 只输出 token；Digest 只输出 username、password 和 realm。
 - 首期不提供跨进程 `list/close/mount/unmount`，也不能操作 GUI 进程创建的会话。现有会话是进程内资源；需要跨进程控制时必须先实现经本地认证的常驻 Go daemon/IPC。
 
 建议的 JSON Lines 事件：
 
 ```json
-{"event":"webdav_started","url":"http://127.0.0.1:...","token":"...","read_only":true,"mounted":false}
+{"event":"webdav_started","url":"http://127.0.0.1:...","auth":{"mode":"bearer","token":"..."},"read_only":true,"mounted":false}
+{"event":"webdav_started","url":"http://127.0.0.1:...","auth":{"mode":"digest","username":"...","password":"...","realm":"..."},"read_only":true,"mounted":false}
 {"event":"webdav_mount_changed","mounted":true,"mount_path":"..."}
 {"event":"webdav_stopped","reason":"signal","unmount_error":null}
 ```
 
-`token` 是访问能力，不属于普通诊断信息；实现不得在错误、进度或日志事件中重复输出，也不得在测试快照和失败转储中保留真实 token。
+访问凭据是能力信息，不属于普通诊断信息；实现不得在错误、进度或日志事件中重复输出，也不得在测试快照和失败转储中保留真实 token、Digest 用户名密码、realm、nonce 或摘要中间值。
 
 ## 未完成 Operation 处理设计
 
@@ -560,9 +564,10 @@ import _ "safe_disk/native/sec_fs/sec_transfer/v3"
 ### 8. WebDAV CLI 测试
 
 - 真实 CLI 子进程以文件和目录路径启动 `webdav serve`，能读取限定范围。
-- 无 token、错误 token、越界 URL 和全部写方法必须失败；合法 `OPTIONS/GET/HEAD/PROPFIND` 行为与 Go 协议测试一致。
-- `Ctrl-C`、启动错误和异常退出均撤销地址；旧 token 不能在下一次启动中复用。
-- `--json` 仅向 stdout 输出可解析事件；stderr、错误和日志不包含 token 或密码。
+- Bearer 下无 token 或错误 token 必须失败；Digest 下仅正确 `SHA-256` + `qop=auth` 响应成功，MD5、过期 nonce、nonce-count 重放与跨会话凭据必须失败；越界 URL 和全部写方法同样失败。
+- `Ctrl-C`、启动错误和异常退出均撤销地址；旧 Bearer token 和旧 Digest 凭据均不能在下一次启动中复用。
+- `--json` 仅向 stdout 输出可解析事件；stderr、错误和日志不包含 token、Digest 用户名密码、realm、nonce 或摘要中间值。
+- Linux、Windows、macOS 均使用至少一种常用 WebDAV 客户端验证 Digest `SHA-256` 互操作；未实测的平台不宣称 Digest 支持。
 - `--mount` 在每个支持平台验证挂载、卸载和失败状态；未实现平台适配时明确报不支持。
 - Flutter/GUI 创建的 root 能由 CLI 暴露；CLI 创建的 root 也能由 GUI 对同一范围创建会话。
 
