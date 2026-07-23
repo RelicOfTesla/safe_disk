@@ -121,6 +121,7 @@
 - 2026-07-23 UI-65 多选交互实现：文件浏览器新增 Ctrl/Meta 点击、Shift 范围、鼠标主键拖选、方向键焦点、Shift+方向键扩展和 Ctrl+Space 切换；HomePage 维护唯一选集并向批量操作复用，list/grid 共享选择状态。文件浏览器与主页定向回归共 72 项通过，`flutter analyze --no-pub` 通过；三平台真实输入、触控/读屏和大目录性能仍待验收。
 - 2026-07-23 UI-65 多选范围复核：确认批量目录操作已有入口，但原选择逻辑把目录排除在选择模式、Shift 范围和鼠标框选之外；本次验收口径扩展为文件与目录统一多选，普通非选择模式下目录仍保持导航行为。
 - 2026-07-23 UI-65 目录多选实现：Ctrl/Meta 点击、Shift 范围、鼠标框选、Shift+方向键、Ctrl+Space 和全选现均保留目录项；普通模式目录点击仍导航。新增文件浏览器与主页目录多选回归，定向 `flutter test` 共 74 项通过，直接 Dart analyzer 无问题。
+- 2026-07-23 UI-65 目录选择可见性：选择模式下 list 视图为目录同样显示复选框，避免目录已进入选集但缺少可操作反馈；新增选中目录复选框断言。
 - 2026-07-22 多语言主页剩余操作回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/home_page_unlock_widget_test.dart -r compact` 共 47 项通过。批量粘贴摘要/失败 operation、新建、重命名、删除确认和删除成功均进入 ARB；审计候选总数由 99 降至 68，`home_page.dart` 已无候选。英文路径仍缺覆盖新增提示的专门断言，主页未计为完整英文桌面验收。
 - 2026-07-22 多语言主页导入导出与剪贴板首批回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/home_page_unlock_widget_test.dart -r compact` 共 47 项通过。文件选择、文件导入/导出成功、明文导出确认、复制名称/路径、单项与批量复制/剪切提示均已进入 ARB；候选总数由 113 降至 99，主页由 45 降至 31。批量粘贴结果和新建/重命名/删除仍待迁移，新增英文提示尚缺专门断言。
 - 2026-07-22 多语言 root 会话与自动锁定回归：`flutter gen-l10n`、`flutter analyze --no-pub` 通过；`flutter test --no-pub test/home_page_unlock_widget_test.dart -r compact` 共 47 项通过。覆盖英文 root 会话移除提示和可滚动的长 root 操作对话框；自动锁定摘要、内容窗口/活动保存阻断、改密前阻断与成功状态均由 ARB 呈现。审计报告由 133 项降至 113 项，主页由 65 项降至 45 项。

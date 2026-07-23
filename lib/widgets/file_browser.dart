@@ -1005,7 +1005,7 @@ class _FileListTile extends StatelessWidget {
             color: isHighlighted ? colors.primaryContainer : Colors.transparent,
             child: ListTile(
               key: ValueKey('file-list-${item.path}'),
-              leading: isSelectMode && !item.isDirectory
+              leading: isSelectMode
                   ? Checkbox(
                       value: isSelected,
                       onChanged: (v) => onToggleSelection(v ?? false),
