@@ -563,7 +563,6 @@ func main() {
 		fmt.Println()
 
 		if clean {
-			flutterGenL10n()
 			fmt.Println()
 			flutterClean()
 		} else {
@@ -582,6 +581,7 @@ func main() {
 		}
 		fmt.Println()
 
+		flutterGenL10n()
 		runFlutter(flutterArgs)
 
 	case "build-go":

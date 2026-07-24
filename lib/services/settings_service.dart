@@ -1,5 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:no_screenshot/no_screenshot.dart';
+import 'package:flutter/foundation.dart';
+
 /// Settings service for Safe Disk application
 ///
 /// Manages user preferences and application settings:
@@ -315,6 +318,27 @@ class SettingsService {
   Future<void> setAntiScreenshotOnLinux(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyAntiScreenshotOnLinux, enabled);
+  }
+
+  /// Apply current anti-screenshot settings immediately via NoScreenshot.
+  Future<void> applyAntiScreenshot() async {
+    try {
+      final enabled = await getAntiScreenshot();
+      if (!enabled) {
+        await NoScreenshot.instance.screenshotOn();
+        return;
+      }
+      if (defaultTargetPlatform == TargetPlatform.linux) {
+        final linuxEnabled = await getAntiScreenshotOnLinux();
+        if (!linuxEnabled) {
+          await NoScreenshot.instance.screenshotOn();
+          return;
+        }
+      }
+      await NoScreenshot.instance.screenshotOff();
+    } catch (_) {
+      // Best-effort; may not be available on all platforms.
+    }
   }
 
   // ==================== Reset to Defaults ====================

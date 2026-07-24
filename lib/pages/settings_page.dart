@@ -148,6 +148,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await _settingsService.setWebDavEnabled(_webDavEnabled);
       await _settingsService.setAntiScreenshot(_antiScreenshot);
       await _settingsService.setAntiScreenshotOnLinux(_antiScreenshotOnLinux);
+      await _settingsService.applyAntiScreenshot();
       await widget.onWebDavEnabledChanged?.call(_webDavEnabled);
       ErrorReportingService.configure(
         detailedErrorsEnabled: _detailedErrorReports,
