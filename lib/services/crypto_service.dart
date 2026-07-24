@@ -61,6 +61,7 @@ class CryptoService {
     String credentialVisibility = 'once',
     String sessionLifetime = 'ephemeral',
     int port = 0,
+    bool tls = false,
   }) {
     if (authMode == 'bearer' &&
         credentialVisibility == 'once' &&
@@ -76,6 +77,7 @@ class CryptoService {
       credentialVisibility,
       sessionLifetime,
       port,
+      tls,
     );
   }
 

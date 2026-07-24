@@ -2,7 +2,8 @@ import 'crypto_service.dart';
 
 enum WebDavAuthMode {
   bearer('bearer'),
-  digest('digest');
+  digest('digest'),
+  basic('basic');
 
   const WebDavAuthMode(this.wireName);
 
@@ -39,6 +40,7 @@ class WebDavOpenedSession {
     required this.credentialVisibility,
     required this.sessionLifetime,
     required this.port,
+    required this.tls,
     this.token,
     this.username,
     this.password,
@@ -54,6 +56,7 @@ class WebDavOpenedSession {
   final WebDavCredentialVisibility credentialVisibility;
   final WebDavSessionLifetime sessionLifetime;
   final int port;
+  final bool tls;
   final String? token;
   final String? username;
   final String? password;
@@ -77,6 +80,7 @@ class WebDavOpenedSession {
     final authMode = switch (data['auth_mode'] as String? ?? 'bearer') {
       'bearer' => WebDavAuthMode.bearer,
       'digest' => WebDavAuthMode.digest,
+      'basic' => WebDavAuthMode.basic,
       _ => throw StateError('webdav-invalid-native-response:auth_mode'),
     };
     final credentialVisibility =
@@ -93,6 +97,7 @@ class WebDavOpenedSession {
       _ => throw StateError('webdav-invalid-native-response:session_lifetime'),
     };
     final port = data['port'] is num ? (data['port'] as num).toInt() : 0;
+    final tls = data['tls'] == true;
     String requiredCredential(String key) {
       final value = data[key];
       if (value is! String || value.isEmpty) {
@@ -111,13 +116,14 @@ class WebDavOpenedSession {
       credentialVisibility: credentialVisibility,
       sessionLifetime: sessionLifetime,
       port: port,
+      tls: tls,
       token: authMode == WebDavAuthMode.bearer
           ? requiredCredential('token')
           : null,
-      username: authMode == WebDavAuthMode.digest
+      username: authMode == WebDavAuthMode.digest || authMode == WebDavAuthMode.basic
           ? requiredCredential('username')
           : null,
-      password: authMode == WebDavAuthMode.digest
+      password: authMode == WebDavAuthMode.digest || authMode == WebDavAuthMode.basic
           ? requiredCredential('password')
           : null,
       realm: authMode == WebDavAuthMode.digest
@@ -140,6 +146,7 @@ class WebDavSessionStatus {
     required this.credentialVisibility,
     required this.sessionLifetime,
     required this.port,
+    required this.tls,
     required this.mounted,
     required this.mountPath,
     required this.lastAccessedAt,
@@ -156,6 +163,7 @@ class WebDavSessionStatus {
   final WebDavCredentialVisibility credentialVisibility;
   final WebDavSessionLifetime sessionLifetime;
   final int port;
+  final bool tls;
   final bool mounted;
   final String? mountPath;
   final DateTime? lastAccessedAt;
@@ -180,6 +188,7 @@ class WebDavSessionStatus {
     final authMode = switch (data['auth_mode'] as String? ?? 'bearer') {
       'bearer' => WebDavAuthMode.bearer,
       'digest' => WebDavAuthMode.digest,
+      'basic' => WebDavAuthMode.basic,
       _ => throw StateError('webdav-invalid-native-status:auth_mode'),
     };
     final credentialVisibility =
@@ -196,6 +205,7 @@ class WebDavSessionStatus {
       _ => throw StateError('webdav-invalid-native-status:session_lifetime'),
     };
     final port = data['port'] is num ? (data['port'] as num).toInt() : 0;
+    final tls = data['tls'] == true;
     return WebDavSessionStatus(
       id: requiredString('id'),
       rootID: rootID,
@@ -207,6 +217,7 @@ class WebDavSessionStatus {
       credentialVisibility: credentialVisibility,
       sessionLifetime: sessionLifetime,
       port: port,
+      tls: tls,
       mounted: data['mounted'] == true,
       mountPath: data['mount_path'] as String?,
       lastAccessedAt: timestamp is String ? DateTime.tryParse(timestamp) : null,
@@ -232,6 +243,7 @@ class WebDavService {
         WebDavCredentialVisibility.once,
     WebDavSessionLifetime sessionLifetime = WebDavSessionLifetime.ephemeral,
     int port = 0,
+    bool tls = false,
   }) {
     final exposedPath = _cryptoService.relativePathForRoot(rootID, logicalPath);
     final data = _cryptoService.openWebDavSession(
@@ -242,6 +254,7 @@ class WebDavService {
       credentialVisibility: credentialVisibility.wireName,
       sessionLifetime: sessionLifetime.wireName,
       port: port,
+      tls: tls,
     );
     return WebDavOpenedSession.fromNative(rootID: rootID, data: data);
   }

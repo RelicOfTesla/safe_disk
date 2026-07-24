@@ -39,11 +39,13 @@ class WebDavOpenOptions {
     required this.authMode,
     required this.credentialVisibility,
     required this.sessionLifetime,
+    required this.tls,
   });
 
   final WebDavAuthMode authMode;
   final WebDavCredentialVisibility credentialVisibility;
   final WebDavSessionLifetime sessionLifetime;
+  final bool tls;
 }
 
 /// Keeps the security confirmation separate, but collects the three session
@@ -55,6 +57,7 @@ Future<WebDavOpenOptions?> chooseWebDavOpenOptions({
   var authMode = WebDavAuthMode.bearer;
   var credentialVisibility = WebDavCredentialVisibility.once;
   var sessionLifetime = WebDavSessionLifetime.ephemeral;
+  var tls = false;
   return showDialog<WebDavOpenOptions>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
@@ -86,6 +89,11 @@ Future<WebDavOpenOptions?> chooseWebDavOpenOptions({
                       RadioListTile<WebDavAuthMode>(
                         value: WebDavAuthMode.digest,
                         title: Text(strings.webDavAuthDigest),
+                      ),
+                      RadioListTile<WebDavAuthMode>(
+                        value: WebDavAuthMode.basic,
+                        title: Text(strings.webDavAuthBasic),
+                        subtitle: Text(strings.webDavBasicRiskWarning),
                       ),
                     ],
                   ),
@@ -121,6 +129,16 @@ Future<WebDavOpenOptions?> chooseWebDavOpenOptions({
                     strings.webDavPersistentCredentialWarning,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                const Divider(),
+                CheckboxListTile(
+                  value: tls,
+                  title: Text(strings.webDavTLS),
+                  subtitle: Text(strings.webDavTLSDescription),
+                  onChanged: (v) {
+                    if (v != null) setState(() => tls = v);
+                  },
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
                 const Divider(),
                 Text(strings.webDavSessionLifetimeTitle,
                     style: Theme.of(context).textTheme.titleSmall),
@@ -165,6 +183,7 @@ Future<WebDavOpenOptions?> chooseWebDavOpenOptions({
                 authMode: authMode,
                 credentialVisibility: credentialVisibility,
                 sessionLifetime: sessionLifetime,
+                tls: tls,
               ),
             ),
             child: Text(strings.webDavAuthContinue),
@@ -599,9 +618,11 @@ class _WebDavSessionTile extends StatelessWidget {
         Text(strings.webDavReadOnly),
         const SizedBox(height: 4),
         Text(
-          session.authMode == WebDavAuthMode.bearer
-              ? strings.webDavAuthModeBearer
-              : strings.webDavAuthModeDigest,
+          switch (session.authMode) {
+            WebDavAuthMode.bearer => strings.webDavAuthModeBearer,
+            WebDavAuthMode.digest => strings.webDavAuthModeDigest,
+            WebDavAuthMode.basic => strings.webDavAuthModeBasic,
+          },
         ),
         const SizedBox(height: 4),
         Text(
@@ -661,7 +682,7 @@ class _WebDavSessionTile extends StatelessWidget {
                     : const Icon(Icons.visibility_outlined),
                 label: Text(strings.webDavRevealCredentials),
               ),
-            if (session.authMode == WebDavAuthMode.digest)
+            if (session.authMode != WebDavAuthMode.bearer)
               OutlinedButton.icon(
                 onPressed: revoking || revealing
                     ? null
@@ -720,9 +741,11 @@ Future<void> showWebDavCredentialsDialog({
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                session.authMode == WebDavAuthMode.digest
-                    ? strings.webDavDigestCredentialsDescription
-                    : strings.webDavCredentialsDescription,
+                switch (session.authMode) {
+                  WebDavAuthMode.bearer => strings.webDavCredentialsDescription,
+                  WebDavAuthMode.digest => strings.webDavDigestCredentialsDescription,
+                  WebDavAuthMode.basic => strings.webDavBasicCredentialsDescription,
+                },
               ),
               if (session.credentialVisibility ==
                   WebDavCredentialVisibility.persistent) ...[
@@ -758,11 +781,12 @@ Future<void> showWebDavCredentialsDialog({
                   copiedMessage: strings.webDavPasswordCopied,
                 ),
                 const SizedBox(height: 8),
-                _CapabilityValue(
-                  label: strings.webDavRealm,
-                  value: session.realm!,
-                  copiedMessage: strings.webDavRealmCopied,
-                ),
+                if (session.authMode != WebDavAuthMode.bearer)
+                  _CapabilityValue(
+                    label: strings.webDavRealm,
+                    value: session.realm!,
+                    copiedMessage: strings.webDavRealmCopied,
+                  ),
               ],
               const SizedBox(height: 8),
               Text(

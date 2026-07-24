@@ -177,6 +177,7 @@ class NativeLib {
     String credentialVisibility,
     String sessionLifetime,
     int port,
+    bool tls,
   ) {
     final pathPtr = exposedPath.toNativeUtf8();
     final namePtr = displayName.toNativeUtf8();
@@ -185,6 +186,7 @@ class NativeLib {
       'credential_visibility': credentialVisibility,
       'session_lifetime': sessionLifetime,
       'port': port,
+      'tls': tls,
     }).toNativeUtf8();
     try {
       final result = _parseJson(
