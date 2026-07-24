@@ -3713,7 +3713,7 @@ abstract class AppLocalizations {
   /// No description provided for @antiScreenshotHint.
   ///
   /// In zh, this message translates to:
-  /// **'阻止系统截屏工具捕获 Safe Disk 窗口内容。重启后生效。'**
+  /// **'阻止系统截屏工具捕获 Safe Disk 窗口内容。Linux/X11 下不支持此功能，仅 Windows/macOS 有效。'**
   String get antiScreenshotHint;
 
   /// No description provided for @antiScreenshotOnLinux.
@@ -3725,7 +3725,7 @@ abstract class AppLocalizations {
   /// No description provided for @antiScreenshotOnLinuxHint.
   ///
   /// In zh, this message translates to:
-  /// **'Linux 下防截屏兼容性较差，可能引起窗口渲染异常。仅在确认需要时开启。'**
+  /// **'当前系统运行在 X11 上，截屏防护不可用。此开关无实际效果，仅为将来 Linux 组合器支持预留。'**
   String get antiScreenshotOnLinuxHint;
 }
 

@@ -2164,12 +2164,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get antiScreenshotHint =>
-      'Prevent system screenshot tools from capturing Safe Disk window content. Takes effect after restart.';
+      'Prevent system screenshot tools from capturing Safe Disk window content. Not supported on Linux/X11; effective on Windows/macOS only.';
 
   @override
   String get antiScreenshotOnLinux => 'Enable anti-screenshot on Linux';
 
   @override
   String get antiScreenshotOnLinuxHint =>
-      'Anti-screenshot on Linux has known compatibility issues and may cause rendering glitches. Enable only when needed.';
+      'Screenshot prevention is unavailable on X11. This toggle has no effect and is reserved for future compositor support.';
 }

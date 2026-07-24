@@ -46,7 +46,7 @@ class SettingsService {
   static const bool defaultWebDavEnabled = true;
   // Anti-screenshot defaults: enabled on Windows, off on Linux/macOS (less reliable)
   static const bool defaultAntiScreenshot = true;
-  static const bool defaultAntiScreenshotOnLinux = true;
+  static const bool defaultAntiScreenshotOnLinux = false;
 
   static const List<int> notepadAutoSaveOptions = [0, 15, 30, 60, 300];
 
