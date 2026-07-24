@@ -1,26 +1,28 @@
 # Safe Disk
 
+> **AI Coding Notice**: This project is co-developed with AI assistance. All code, tests, and documentation are generated or reviewed by AI models. Verify critical security and cryptographic paths independently before production use.
+
 Cross-platform encrypted directory management tool. Supports Windows, Linux, and macOS.
 
 [中文版](README_zh.md)
 
 ## Project Status
 
-Current phase: Core backend is stable, Flutter UI is under active iteration.
+Core backend is stable, Flutter UI is under active iteration.
 
-- Flutter UI: root unlock, file browsing, import/export, secure notepad, image viewer, WebDAV sharing.
-- Go crypto module (): AES-CTR/XTS, ChaCha20 data encryption; AES-GCM filename encryption; PBKDF2/Argon2/scrypt key derivation.
-- FFI bindings: root management, file operations, copy, Transfer V3 import/export, convert.
-- CLI tool: root management, import/export, WebDAV service.
+- Flutter UI: vault unlock, file browsing, import/export, secure notepad, image viewer, WebDAV sharing.
+- Go crypto backend: AES-CTR/XTS, ChaCha20 data encryption; AES-GCM filename encryption; PBKDF2/Argon2/scrypt key derivation.
+- Native interop layer: vault management, file operations, copy, import/export, convert.
+- CLI tool: vault management, import/export, WebDAV service.
 - See [docs](docs/README.md) and [Code Audit Status](docs/CODE_AUDIT_STATUS.md) for detailed progress.
 
 ## Core Features
 
-- Multi-root encrypted directory management
+- Multi-vault encrypted directory management
 - Native-like file browser (grid / list / tree views)
 - Secure notepad (Flutter-rendered, anti-keylogger)
 - Encrypted image viewer (zoom, pan, multi-image navigation)
-- Secure import/export (Transfer V3, in-place encryption/decryption, atomic migration)
+- Secure import/export (in-place encryption/decryption, atomic migration)
 - WebDAV read-only sharing (Basic Auth, Digest, TLS)
 - Cross-platform clipboard support
 - Pluggable encryption (AES-CTR / XTS / ChaCha20, PBKDF2 / Argon2 / scrypt)
@@ -35,7 +37,7 @@ Current phase: Core backend is stable, Flutter UI is under active iteration.
 |---|---|
 | UI | Flutter (Dart) |
 | Backend | Go (crypto, file ops, WebDAV) |
-| IPC | FFI (C shared library) |
+| IPC | C shared library (native interop) |
 | Build | Go cross-compile + Flutter build |
 
 ## Project Structure
@@ -43,7 +45,7 @@ Current phase: Core backend is stable, Flutter UI is under active iteration.
 ```
 safe_disk/
 ├── lib/                      # Flutter code
-│   ├── native/              # FFI bindings
+│   ├── native/              # Native interop bindings
 │   ├── models/              # Data models
 │   ├── services/            # Services (crypto, settings, WebDAV, multi-window)
 │   ├── pages/               # UI pages
@@ -52,7 +54,7 @@ safe_disk/
 ├── native/                   # Go code
 │   ├── cli/                 # CLI tool
 │   ├── config/              # Config management
-│   ├── ffi_sec_fs/          # FFI export layer
+│   ├── ffi_sec_fs/          # Native bridge export layer
 │   └── sec_fs/              # Core encrypted filesystem
 │       ├── crypto_data/     # Data encryption
 │       ├── crypto_hkdf/     # Key derivation
@@ -108,7 +110,7 @@ flutter test
 | Key derivation | PBKDF2 | Argon2, scrypt |
 | Key exchange | HKDF-SHA256 | — |
 
-Configuration stored in `_cryption.json` (checksums, iterations, algorithm selection).
+Vault configuration is stored per directory (checksums, iterations, algorithm selection).
 
 ## Threat Model
 
@@ -122,7 +124,7 @@ Configuration stored in `_cryption.json` (checksums, iterations, algorithm selec
 - [Docs Index](docs/README.md)
 - [Code Audit Status](docs/CODE_AUDIT_STATUS.md)
 - [Architecture](docs/ARCHITECTURE.md)
-- [FFI Design](docs/FFI_DESIGN.md)
+- [Native Interop Design](docs/FFI_DESIGN.md)
 - [CLI Design](docs/CLI_DESIGN.md)
 - [Encryption](docs/ENCRYPTION.md)
 - [Transfer Design](docs/TRANSFER_DESIGN.md)

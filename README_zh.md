@@ -1,17 +1,19 @@
 # Safe Disk
 
+> **AI 编码提示**：本项目由 AI 辅助开发。所有代码、测试和文档均由 AI 模型生成或审查。关键安全路径和加密逻辑请在正式使用前独立验证。
+
 跨平台加密目录管理工具。支持 Windows、Linux、macOS。
 
 [English](README.md)
 
 ## 项目状态
 
-当前阶段：核心后端已成型，Flutter UI 持续迭代。
+核心后端已成型，Flutter UI 持续迭代。
 
-- Flutter 主 UI：root 解锁、文件浏览、导入/导出、安全记事本、图片浏览器、WebDAV 共享已接入。
-- Go 加密模块 (`sec_fs`)：AES-CTR/XTS、ChaCha20 数据加密，AES-GCM 文件名加密，PBKDF2/Argon2/scrypt 密钥派生。
-- FFI 绑定：root 管理、文件操作、复制、Transfer V3 导入/导出、convert。
-- CLI 工具：已支持 root 管理、导入导出、WebDAV 服务。
+- Flutter UI：加密目录解锁、文件浏览、导入/导出、安全记事本、图片浏览器、WebDAV 共享。
+- Go 加密后端：AES-CTR/XTS、ChaCha20 数据加密，AES-GCM 文件名加密，PBKDF2/Argon2/scrypt 密钥派生。
+- 原生互操作层：加密目录管理、文件操作、复制、导入/导出、convert。
+- CLI 工具：加密目录管理、导入导出、WebDAV 服务。
 - 详细进度以 [文档目录](docs/README.md) 和 [代码审计状态](docs/CODE_AUDIT_STATUS.md) 为准。
 
 ## 核心特性
@@ -20,7 +22,7 @@
 - 仿原生文件浏览器（网格 / 列表 / 树视图）
 - 安全记事本（Flutter 渲染，防木马探测）
 - 加密图片浏览器（支持缩放、平移、多图导航）
-- 安全导入/导出（Transfer V3，原地加密/解密，原子迁移）
+- 安全导入/导出（原地加密/解密，原子迁移）
 - WebDAV 只读共享（支持 Basic Auth、Digest、TLS）
 - 跨平台剪贴板支持
 - 可插拔加密算法（AES-CTR / XTS / ChaCha20，PBKDF2 / Argon2 / scrypt）
@@ -35,24 +37,24 @@
 |---|---|
 | UI | Flutter (Dart) |
 | 后端 | Go（加密、文件操作、WebDAV） |
-| 通信 | FFI (C 共享库) |
-| 构建 | Go 交叉编译 + CMake / Flutter build |
+| 通信 | C 共享库（原生互操作） |
+| 构建 | Go 交叉编译 + Flutter build |
 
 ## 项目结构
 
 ```
 safe_disk/
 ├── lib/                      # Flutter 代码
-│   ├── native/              # FFI 绑定
+│   ├── native/              # 原生互操作绑定
 │   ├── models/              # 数据模型
-│   ├── services/            # 服务层 (加密、设置、WebDAV、多窗口)
+│   ├── services/            # 服务层（加密、设置、WebDAV、多窗口）
 │   ├── pages/               # UI 页面
-│   ├── widgets/             # UI 组件 (记事本、图片浏览器、文件浏览器)
+│   ├── widgets/             # UI 组件（记事本、图片浏览器、文件浏览器）
 │   └── utils/               # 工具类
 ├── native/                   # Go 代码
 │   ├── cli/                 # 命令行工具
 │   ├── config/              # 配置管理
-│   ├── ffi_sec_fs/          # FFI 导出层
+│   ├── ffi_sec_fs/          # 原生桥接导出层
 │   └── sec_fs/              # 核心加密文件系统
 │       ├── crypto_data/     # 数据加密
 │       ├── crypto_hkdf/     # 密钥派生
@@ -112,7 +114,7 @@ flutter test
 | 密钥派生 | PBKDF2 | Argon2, scrypt |
 | 密钥交换 | HKDF-SHA256 | — |
 
-配置文件 `_cryption.json` 存储校验值、迭代次数、算法选择等参数。
+加密配置存储在各目录的配置文件中（校验值、迭代次数、算法选择等）。
 
 ## 安全威胁模型
 
@@ -126,10 +128,10 @@ flutter test
 - [文档目录](docs/README.md) — 架构、设计、任务清单入口
 - [代码审计状态](docs/CODE_AUDIT_STATUS.md)
 - [技术架构](docs/ARCHITECTURE.md)
-- [FFI 设计](docs/FFI_DESIGN.md)
+- [原生互操作设计](docs/FFI_DESIGN.md)
 - [CLI 设计](docs/CLI_DESIGN.md)
 - [加密方案](docs/ENCRYPTION.md)
-- [Transfer 设计](docs/TRANSFER_DESIGN.md)
+- [安全传输设计](docs/TRANSFER_DESIGN.md)
 - [开发规范](docs/DEVELOPMENT_STANDARDS.md)
 - [活跃任务](docs/TODO.md)
 - [跨平台验收](docs/PLATFORM_ACCEPTANCE.md)
