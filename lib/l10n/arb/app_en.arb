@@ -1289,11 +1289,11 @@
     }
   },
   "antiScreenshot": "Anti-screenshot",
-  "antiScreenshotHint": "Prevent system screenshot tools from capturing Safe Disk window content. May cause black screen in screenshots. Requires Windows 10 2004+ or macOS.",
+  "antiScreenshotHint": "When enabled, screenshot tools and screen recording software cannot capture this application's window content. The captured area will appear black.",
   "antiScreenshotEnvVarHint": "If anti-screenshot makes the app unusable, launch with environment variable SAFE_DISK_NO_ANTI_SCREENSHOT=1 to force-disable it.",
   "antiScreenshotInfoTitle": "Enable Anti-Screenshot?",
   "@antiScreenshotInfoTitle": {},
-  "antiScreenshotInfoDescription": "Anti-screenshot prevents system tools (PrintScreen, Snipping Tool, etc.) from capturing Safe Disk window content. Screenshots will appear black. On older Windows versions the protection degrades to recording-only. macOS and Windows 10 2004+ are fully supported.",
+  "antiScreenshotInfoDescription": "Anti-screenshot prevents system tools (PrintScreen, Snipping Tool, etc.) and recording software from capturing Safe Disk window content. The captured area will appear black. Most Windows 10 and newer systems fully support this; older systems may only block recording.",
   "@antiScreenshotInfoDescription": {},
   "antiScreenshotInfoEnable": "Enable",
   "@antiScreenshotInfoEnable": {},

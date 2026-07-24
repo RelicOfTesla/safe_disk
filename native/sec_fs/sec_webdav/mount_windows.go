@@ -74,8 +74,8 @@ func freeWindowsDrive() (string, error) {
 
 func windowsWebDAVUNC(rawURL string) (string, error) {
 	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "http" || parsed.Hostname() == "" {
-		return "", errors.New("WebDAV URL must be an HTTP loopback URL")
+	if err != nil || parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Hostname() == "" {
+		return "", errors.New("WebDAV URL must be an HTTP/HTTPS loopback URL")
 	}
 	if parsed.Hostname() != "127.0.0.1" && parsed.Hostname() != "localhost" {
 		return "", errors.New("WebDAV URL is not loopback")

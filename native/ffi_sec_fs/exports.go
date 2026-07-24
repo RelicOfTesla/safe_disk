@@ -107,6 +107,15 @@ func sec_webdav_operation_cancel(operationID *C.char) *C.char {
 	return C.CString(WebDavOperationCancel_FFI(C.GoString(operationID)))
 }
 
+//export sec_webdav_export_cert_pem
+func sec_webdav_export_cert_pem() *C.char {
+	return C.CString(WebDavExportCertPEM_FFI())
+}
+
+//export sec_webdav_export_ca_cert_pem
+func sec_webdav_export_ca_cert_pem() *C.char {
+	return C.CString(WebDavExportCACertPEM_FFI())
+}
 //export sec_dir_cursor_open
 func sec_dir_cursor_open(rootID C.int64_t, path *C.char) *C.char {
 	return C.CString(OpenDirCursor_FFI(int64(rootID), C.GoString(path)))

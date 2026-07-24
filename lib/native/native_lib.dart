@@ -329,6 +329,20 @@ class NativeLib {
     }
   }
 
+  /// Exports the self-signed TLS certificate PEM for WebDAV HTTPS.
+  Map<String, dynamic> secWebDavExportCertPEM() {
+    final result = _parseJson(_ptrToString(_bindings.secWebDavExportCertPEM()));
+    _checkResult(result, "secWebDavExportCertPEM");
+    return Map<String, dynamic>.from(result["data"] as Map);
+  }
+ 
+  /// Exports the CA certificate PEM for WebDAV HTTPS system trust store installation.
+  Map<String, dynamic> secWebDavExportCACertPEM() {
+    final result = _parseJson(_ptrToString(_bindings.secWebDavExportCACertPEM()));
+    _checkResult(result, "secWebDavExportCACertPEM");
+    return Map<String, dynamic>.from(result["data"] as Map);
+  }
+
   /// Creates a secure root configuration.
   void secCreateRootConfig(
       String rootPath, String password, String optionsJSON) {

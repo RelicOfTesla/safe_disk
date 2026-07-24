@@ -106,7 +106,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String imageEncodedSizeLimit(String limit) {
-    return '图片编码数据超过 $limit 上限';
+    return '图片编码数据超过 \$limit 上限';
   }
 
   @override
@@ -117,7 +117,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String imageDecodedPixelLimit(String limit) {
-    return '图片解码尺寸超过 $limit 上限';
+    return '图片解码尺寸超过 \$limit 上限';
   }
 
   @override
@@ -128,12 +128,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String viewingImage(String fileName) {
-    return '正在查看：$fileName';
+    return '正在查看：\$fileName';
   }
 
   @override
   String animatedImageFrames(int count) {
-    return '动画（$count 帧）';
+    return '动画（\$count 帧）';
   }
 
   @override
@@ -177,7 +177,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String webDavExposureConfirmDescription(String name) {
-    return '$name 将通过仅本机可访问的只读 WebDAV 暴露给第三方工具。第三方工具可能缓存或导出明文，请只暴露必要内容。';
+    return '\$name 将通过仅本机可访问的只读 WebDAV 暴露给第三方工具。第三方工具可能缓存或导出明文，请只暴露必要内容。';
   }
 
   @override
@@ -200,22 +200,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webDavAuthDigest => 'Digest（用户名和密码）';
-  @override
-  String get webDavAuthBasic => 'Basic（用户名与密码，仅限 loopback）';
-
-  @override
-  String get webDavBasicRiskWarning => 'Basic 认证以可逆形式传输凭据，其他本机进程可能观察到。仅可在受信任的系统上使用。';
-
-  @override
-  String get webDavBasicCredentialsDescription => '向选定的受信任工具提供 URL、用户名和密码。Basic 认证以可逆形式传输凭据 —— 仅可在受信任的机器上使用。';
-  @override
-  String get webDavTLS => '启用 HTTPS/TLS';
-  @override
-  String get webDavTLSDescription => '使用自签名证书为 loopback 连接启用 HTTPS。部分系统工具（如 Windows 网络磁盘映射）要求 HTTPS，但 loopback 上不增加额外的网络安全性。客户端需接受自签名证书警告。';
-
-  @override
-  String get webDavAuthModeBasic => '认证方式：Basic';
-
 
   @override
   String get webDavAuthContinue => '继续';
@@ -224,8 +208,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavCredentialVisibilityTitle => '凭据显示方式';
 
   @override
-  String get webDavCredentialVisibilityDescription =>
-      '一次性显示更安全；持久显示允许在会话有效期间再次查看凭据。该选择只影响新会话。';
+  String get webDavCredentialVisibilityDescription => '一次性显示更安全；持久显示允许在会话有效期间再次查看凭据。该选择只影响新会话。';
 
   @override
   String get webDavCredentialOnce => '仅显示一次（推荐）';
@@ -234,8 +217,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavCredentialPersistent => '允许再次显示';
 
   @override
-  String get webDavPersistentCredentialWarning =>
-      '持久显示会增加凭据泄露风险。只有在需要反复配置可信工具时使用。';
+  String get webDavPersistentCredentialWarning => '持久显示会增加凭据泄露风险。只有在需要反复配置可信工具时使用。';
 
   @override
   String get webDavRevealCredentials => '显示凭据';
@@ -247,8 +229,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavSessionLifetimeTitle => '会话保留方式';
 
   @override
-  String get webDavSessionLifetimeDescription =>
-      '临时会话在结束或关闭 root 后失效；持久会话会在重新解锁 root 后恢复。';
+  String get webDavSessionLifetimeDescription => '临时会话在结束或关闭 root 后失效；持久会话会在重新解锁 root 后恢复。';
 
   @override
   String get webDavSessionEphemeral => '临时会话（推荐）';
@@ -257,8 +238,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavSessionPersistent => '持久会话';
 
   @override
-  String get webDavPersistentSessionWarning =>
-      '持久会话会保留端口和访问凭据，直到你明确撤销访问。仅在确有需要时使用。';
+  String get webDavPersistentSessionWarning => '持久会话会保留端口和访问凭据，直到你明确撤销访问。仅在确有需要时使用。';
 
   @override
   String get webDavSessions => '第三方访问';
@@ -273,12 +253,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavCredentialsTitle => '第三方工具访问凭据';
 
   @override
-  String get webDavCredentialsDescription =>
-      '请将地址和令牌提供给所选的可信工具。关闭此窗口后，令牌不会再次显示。';
+  String get webDavCredentialsDescription => '请将地址和令牌提供给所选的可信工具。关闭此窗口后，令牌不会再次显示。';
 
   @override
-  String get webDavDigestCredentialsDescription =>
-      '请将地址、用户名、密码和 realm 提供给所选的可信工具。关闭此窗口后，凭据不会再次显示。';
+  String get webDavDigestCredentialsDescription => '请将地址、用户名、密码和 realm 提供给所选的可信工具。关闭此窗口后，凭据不会再次显示。';
 
   @override
   String get webDavReadOnly => '权限：只读';
@@ -291,12 +269,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String webDavLastAccessed(String time) {
-    return '最近访问：$time';
+    return '最近访问：\$time';
   }
 
   @override
   String webDavActiveRequests(int count) {
-    return '当前请求：$count';
+    return '当前请求：\$count';
   }
 
   @override
@@ -343,7 +321,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String webDavMountedAt(String path) {
-    return '已挂载：$path';
+    return '已挂载：\$path';
   }
 
   @override
@@ -425,8 +403,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorNotEncryptedDirectoryTitle => '无法打开目录';
 
   @override
-  String get errorNotEncryptedDirectoryDescription =>
-      '选择的目录不是可识别的 Safe Disk 加密目录。';
+  String get errorNotEncryptedDirectoryDescription => '选择的目录不是可识别的 Safe Disk 加密目录。';
 
   @override
   String get errorNotEncryptedDirectorySuggestion => '请选择已有加密目录，或创建新的加密目录。';
@@ -453,12 +430,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorUnfinishedTransferStateUnavailableTitle => '无法确认未完成传输状态';
 
   @override
-  String get errorUnfinishedTransferStateUnavailableDescription =>
-      '无法安全读取未完成的导入/导出状态，因此没有打开此加密目录。';
+  String get errorUnfinishedTransferStateUnavailableDescription => '无法安全读取未完成的导入/导出状态，因此没有打开此加密目录。';
 
   @override
-  String get errorUnfinishedTransferStateUnavailableSuggestion =>
-      '请检查目录权限和磁盘状态；请保留目录原状后重试。';
+  String get errorUnfinishedTransferStateUnavailableSuggestion => '请检查目录权限和磁盘状态；请保留目录原状后重试。';
 
   @override
   String get errorCreateEncryptedDirectoryFailedTitle => '创建加密目录失败';
@@ -467,19 +442,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorCreateEncryptedDirectoryFailedDescription => '无法创建新的加密目录。';
 
   @override
-  String get errorCreateEncryptedDirectoryFailedSuggestion =>
-      '请检查目录权限和磁盘空间，然后重试。';
+  String get errorCreateEncryptedDirectoryFailedSuggestion => '请检查目录权限和磁盘空间，然后重试。';
 
   @override
   String get errorCreateEncryptedDirectoryRequiresEmptyTitle => '目录不是空目录';
 
   @override
-  String get errorCreateEncryptedDirectoryRequiresEmptyDescription =>
-      '新加密目录只能创建在不存在或内容为空的目录中。';
+  String get errorCreateEncryptedDirectoryRequiresEmptyDescription => '新加密目录只能创建在不存在或内容为空的目录中。';
 
   @override
-  String get errorCreateEncryptedDirectoryRequiresEmptySuggestion =>
-      '请选择新的路径或空目录；已有内容请通过导入功能加入。';
+  String get errorCreateEncryptedDirectoryRequiresEmptySuggestion => '请选择新的路径或空目录；已有内容请通过导入功能加入。';
 
   @override
   String get errorImportFileFailedTitle => '导入文件失败';
@@ -497,19 +469,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorImportDirectoryFailedDescription => '无法将目录导入到加密目录。';
 
   @override
-  String get errorImportDirectoryFailedSuggestion =>
-      '请检查源目录权限、符号链接和目标目录状态，然后重试。';
+  String get errorImportDirectoryFailedSuggestion => '请检查源目录权限、符号链接和目标目录状态，然后重试。';
 
   @override
   String get errorImportDirectoryInsideCurrentRootTitle => '不能导入此目录';
 
   @override
-  String get errorImportDirectoryInsideCurrentRootDescription =>
-      '当前加密目录中的子目录不能再次导入当前加密目录。';
+  String get errorImportDirectoryInsideCurrentRootDescription => '当前加密目录中的子目录不能再次导入当前加密目录。';
 
   @override
-  String get errorImportDirectoryInsideCurrentRootSuggestion =>
-      '请选择加密目录外的来源目录。';
+  String get errorImportDirectoryInsideCurrentRootSuggestion => '请选择加密目录外的来源目录。';
 
   @override
   String get errorExportFileFailedTitle => '导出文件失败';
@@ -636,17 +605,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String autoLockSummaryLocked(int count) {
-    return '已自动锁定 $count 个目录';
+    return '已自动锁定 \$count 个目录';
   }
 
   @override
   String autoLockSummarySkipped(int count) {
-    return '$count 个目录含打开的文件窗口或未完成保存，未强制关闭';
+    return '\$count 个目录含打开的文件窗口或未完成保存，未强制关闭';
   }
 
   @override
   String autoLockSummaryFailed(int count) {
-    return '$count 个目录锁定失败';
+    return '\$count 个目录锁定失败';
   }
 
   @override
@@ -654,7 +623,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String rootActiveWritesDescription(int count) {
-    return '当前有 $count 个文件保存操作尚未完成，请等待保存结束后再关闭会话。';
+    return '当前有 \$count 个文件保存操作尚未完成，请等待保存结束后再关闭会话。';
   }
 
   @override
@@ -662,7 +631,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String rootUnsavedContentDescription(String documents) {
-    return '请先处理以下打开的文件窗口，再结束会话：\n\n$documents';
+    return '请先处理以下打开的文件窗口，再结束会话：\n\n\$documents';
   }
 
   @override
@@ -778,7 +747,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String notepadCharacterCount(int count) {
-    return '$count 字符';
+    return '\$count 字符';
   }
 
   @override
@@ -822,7 +791,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String notepadFindPosition(int current, int total) {
-    return '$current/$total';
+    return '\$current/\$total';
   }
 
   @override
@@ -845,36 +814,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String notepadReplacedCount(int count) {
-    return '已替换 $count 处';
+    return '已替换 \$count 处';
   }
 
   @override
   String get welcomeGuideWelcomeTitle => '欢迎使用 Safe Disk';
 
   @override
-  String get welcomeGuideWelcomeContent =>
-      'Safe Disk 帮助您加密并管理私密文件。\n\n输入正确密码后，才能访问加密目录中的内容。';
+  String get welcomeGuideWelcomeContent => 'Safe Disk 帮助您加密并管理私密文件。\n\n输入正确密码后，才能访问加密目录中的内容。';
 
   @override
   String get welcomeGuideEncryptedDirectoryTitle => '加密目录';
 
   @override
-  String get welcomeGuideEncryptedDirectoryContent =>
-      '创建加密目录来保护您的文件：\n\n- 打开目录：打开已有的加密目录\n- 创建目录：创建新的加密目录\n\n加密目录中的所有文件都会自动加密保护。';
+  String get welcomeGuideEncryptedDirectoryContent => '创建加密目录来保护您的文件：\n\n- 打开目录：打开已有的加密目录\n- 创建目录：创建新的加密目录\n\n加密目录中的所有文件都会自动加密保护。';
 
   @override
   String get welcomeGuideFeaturesTitle => '核心功能';
 
   @override
-  String get welcomeGuideFeaturesContent =>
-      '- 文件浏览：浏览和管理加密目录中的文件\n- 安全记事本：编辑文本文件（.txt, .md）\n- 图片浏览器：查看加密的图片文件\n- 批量导出：选择多个文件一次性导出';
+  String get welcomeGuideFeaturesContent => '- 文件浏览：浏览和管理加密目录中的文件\n- 安全记事本：编辑文本文件（.txt, .md）\n- 图片浏览器：查看加密的图片文件\n- 批量导出：选择多个文件一次性导出';
 
   @override
   String get welcomeGuideSecurityTitle => '安全提示';
 
   @override
-  String get welcomeGuideSecurityContent =>
-      '- 请牢记密码！密码丢失后无法恢复文件\n- 建议使用强密码（12位以上，混合字符）\n- 密钥仅在内存中缓存，关闭应用后自动清除\n- 定期备份重要加密目录';
+  String get welcomeGuideSecurityContent => '- 请牢记密码！密码丢失后无法恢复文件\n- 建议使用强密码（12位以上，混合字符）\n- 密钥仅在内存中缓存，关闭应用后自动清除\n- 定期备份重要加密目录';
 
   @override
   String get welcomeGuideDontShowAgain => '不再显示此引导';
@@ -905,42 +870,42 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String durationSeconds(int count) {
-    return '$count 秒';
+    return '\$count 秒';
   }
 
   @override
   String durationMinutes(int count) {
-    return '$count 分钟';
+    return '\$count 分钟';
   }
 
   @override
   String durationHours(int count) {
-    return '$count 小时';
+    return '\$count 小时';
   }
 
   @override
   String durationDays(int count) {
-    return '$count 天';
+    return '\$count 天';
   }
 
   @override
   String progressMinutesSeconds(int minutes, int seconds) {
-    return '$minutes 分 $seconds 秒';
+    return '\$minutes 分 \$seconds 秒';
   }
 
   @override
   String progressEstimatedRemaining(String duration) {
-    return '预计剩余：$duration';
+    return '预计剩余：\$duration';
   }
 
   @override
   String progressProcessed(int current, int total) {
-    return '已处理：$current / $total';
+    return '已处理：\$current / \$total';
   }
 
   @override
   String progressCurrentFile(String name) {
-    return '当前：$name';
+    return '当前：\$name';
   }
 
   @override
@@ -954,7 +919,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String rerunningUnfinishedProgress(int current, int total) {
-    return '正在重新执行 $current/$total…';
+    return '正在重新执行 \$current/\$total…';
   }
 
   @override
@@ -986,16 +951,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String directoryImportCompleted(int count) {
-    return '目录导入完成：$count 个文件';
+    return '目录导入完成：\$count 个文件';
   }
 
   @override
-  String get transferCancelledWithUnfinishedState =>
-      '操作已取消；下次打开目录时可以清理未完成的导入/导出状态。';
+  String get transferCancelledWithUnfinishedState => '操作已取消；下次打开目录时可以清理未完成的导入/导出状态。';
 
   @override
   String directoryExportCompleted(int count) {
-    return '导出完成：$count 个文件';
+    return '导出完成：\$count 个文件';
   }
 
   @override
@@ -1003,17 +967,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String batchExportCompleted(int success, int failed) {
-    return '导出完成：成功 $success 个，失败 $failed 个';
+    return '导出完成：成功 \$success 个，失败 \$failed 个';
   }
 
   @override
   String batchExportCompletedAll(int count) {
-    return '导出完成：成功 $count 个文件';
+    return '导出完成：成功 \$count 个文件';
   }
 
   @override
   String batchExportCancelled(int success, int failed) {
-    return '导出已取消：成功 $success 个，失败 $failed 个';
+    return '导出已取消：成功 \$success 个，失败 \$failed 个';
   }
 
   @override
@@ -1021,12 +985,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String batchDeleteCancelled(int success, int remaining) {
-    return '批量删除已取消：成功 $success 个，剩余 $remaining 个仍保持选择';
+    return '批量删除已取消：成功 \$success 个，剩余 \$remaining 个仍保持选择';
   }
 
   @override
   String batchDeleteCompleted(int count) {
-    return '已删除 $count 个文件';
+    return '已删除 \$count 个文件';
   }
 
   @override
@@ -1034,7 +998,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String unfinishedTransfersDetectedDescription(int count) {
-    return '检测到 $count 个未完成的导入/导出操作。\n\n这些操作无法继续。你可以先清理未完成操作，再重新执行完整的导入或导出，也可以暂时跳过。';
+    return '检测到 \$count 个未完成的导入/导出操作。\n\n这些操作无法继续。你可以先清理未完成操作，再重新执行完整的导入或导出，也可以暂时跳过。';
   }
 
   @override
@@ -1051,7 +1015,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String confirmBatchDeletionDescription(int count) {
-    return '确定删除所选 $count 项吗？此操作无法撤销。删除会逐项执行，发生失败时已删除的项目不会恢复。';
+    return '确定删除所选 \$count 项吗？此操作无法撤销。删除会逐项执行，发生失败时已删除的项目不会恢复。';
   }
 
   @override
@@ -1064,34 +1028,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get nativeBindingFailureDescription => '安全组件版本与应用不匹配，无法启动加密功能。';
 
   @override
-  String get nativeLoadingFailureDescription =>
-      '无法加载 Safe Disk 安全组件，无法安全访问加密目录。';
+  String get nativeLoadingFailureDescription => '无法加载 Safe Disk 安全组件，无法安全访问加密目录。';
 
   @override
   String get nativeBindingFailureSuggestion => '请重新安装同一版本的 Safe Disk 应用后重试。';
 
   @override
-  String get nativeLoadingFailureSuggestion =>
-      '请重新安装应用；若问题持续，请检查安全软件是否隔离了应用文件。';
+  String get nativeLoadingFailureSuggestion => '请重新安装应用；若问题持续，请检查安全软件是否隔离了应用文件。';
 
   @override
   String initializationStage(String stage) {
-    return '初始化阶段：$stage';
+    return '初始化阶段：\$stage';
   }
 
   @override
   String underlyingError(String error) {
-    return '底层错误：$error';
+    return '底层错误：\$error';
   }
 
   @override
   String errorDiagnosticType(String type) {
-    return '错误类型：$type';
+    return '错误类型：\$type';
   }
 
   @override
   String errorDiagnosticOperation(String operation) {
-    return '操作阶段：$operation';
+    return '操作阶段：\$operation';
   }
 
   @override
@@ -1107,8 +1069,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get contentWindowUnavailable => '无法连接主窗口';
 
   @override
-  String get contentWindowUnavailableDescription =>
-      '文档会话可能已结束。为避免在失效会话中编辑，请关闭此窗口后从主界面重新打开。';
+  String get contentWindowUnavailableDescription => '文档会话可能已结束。为避免在失效会话中编辑，请关闭此窗口后从主界面重新打开。';
 
   @override
   String get closeWindow => '关闭窗口';
@@ -1121,7 +1082,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String selectedItems(int count) {
-    return '已选择 $count 项';
+    return '已选择 \$count 项';
   }
 
   @override
@@ -1165,17 +1126,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String clipboardMultipleEntries(String name, int count) {
-    return '$name 等 $count 项';
+    return '\$name 等 \$count 项';
   }
 
   @override
   String clipboardStatusWide(String operation, String entries, String target) {
-    return '$operation · $entries → $target';
+    return '\$operation · \$entries → \$target';
   }
 
   @override
   String clipboardStatusNarrow(String operation, String entries) {
-    return '$operation · $entries';
+    return '\$operation · \$entries';
   }
 
   @override
@@ -1189,7 +1150,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String openedDirectoriesCount(int count) {
-    return '已打开 $count 个目录';
+    return '已打开 \$count 个目录';
   }
 
   @override
@@ -1260,7 +1221,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String encryptedRootFound(String path) {
-    return '当前路径位于加密目录中：$path';
+    return '当前路径位于加密目录中：\$path';
   }
 
   @override
@@ -1268,12 +1229,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String unfinishedStatesCleaned(int count) {
-    return '已清理 $count 个未完成的导入/导出状态';
+    return '已清理 \$count 个未完成的导入/导出状态';
   }
 
   @override
   String notepadFileTooLarge(String limit) {
-    return '文件超过 $limit，暂不支持用安全记事本打开。';
+    return '文件超过 \$limit，暂不支持用安全记事本打开。';
   }
 
   @override
@@ -1290,27 +1251,27 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String movedToDestination(String name) {
-    return '已移动：$name';
+    return '已移动：\$name';
   }
 
   @override
   String pastedToDestination(String name) {
-    return '已粘贴：$name';
+    return '已粘贴：\$name';
   }
 
   @override
   String batchPasteCancelled(int success, int remaining) {
-    return '批量粘贴已取消：成功 $success 个，剩余 $remaining 个可重试';
+    return '批量粘贴已取消：成功 \$success 个，剩余 \$remaining 个可重试';
   }
 
   @override
   String movedFiles(int count) {
-    return '已移动 $count 个文件';
+    return '已移动 \$count 个文件';
   }
 
   @override
   String pastedFiles(int count) {
-    return '已粘贴 $count 个文件';
+    return '已粘贴 \$count 个文件';
   }
 
   @override
@@ -1321,17 +1282,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String directoryCreated(String name) {
-    return '目录已创建：$name';
+    return '目录已创建：\$name';
   }
 
   @override
   String fileCreated(String name) {
-    return '文件已创建：$name';
+    return '文件已创建：\$name';
   }
 
   @override
   String renamedTo(String name) {
-    return '已重命名为：$name';
+    return '已重命名为：\$name';
   }
 
   @override
@@ -1339,7 +1300,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String confirmDeleteFileDescription(String name) {
-    return '确定要删除“$name”吗？此操作无法撤销。';
+    return '确定要删除“\$name”吗？此操作无法撤销。';
   }
 
   @override
@@ -1350,12 +1311,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fileImportCompleted(String name) {
-    return '文件导入成功：$name';
+    return '文件导入成功：\$name';
   }
 
   @override
   String fileExportCompleted(String path) {
-    return '文件导出成功：$path';
+    return '文件导出成功：\$path';
   }
 
   @override
@@ -1363,7 +1324,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String confirmPlaintextExportDescription(String name) {
-    return '“$name”将以未加密形式写入你选择的位置。导出后的副本不再受 Safe Disk 保护，是否继续？';
+    return '“\$name”将以未加密形式写入你选择的位置。导出后的副本不再受 Safe Disk 保护，是否继续？';
   }
 
   @override
@@ -1377,22 +1338,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String copiedForPaste(String name) {
-    return '已复制“$name”，请选择目标目录粘贴';
+    return '已复制“\$name”，请选择目标目录粘贴';
   }
 
   @override
   String cutForMove(String name) {
-    return '已剪切“$name”，请选择目标目录移动';
+    return '已剪切“\$name”，请选择目标目录移动';
   }
 
   @override
   String copiedManyForPaste(int count) {
-    return '已复制 $count 个文件，请选择目标目录粘贴';
+    return '已复制 \$count 个文件，请选择目标目录粘贴';
   }
 
   @override
   String cutManyForMove(int count) {
-    return '已剪切 $count 个文件，请选择目标目录移动';
+    return '已剪切 \$count 个文件，请选择目标目录移动';
   }
 
   @override
@@ -1442,7 +1403,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String directoryLabel(String name) {
-    return '目录：$name';
+    return '目录：\$name';
   }
 
   @override
@@ -1471,7 +1432,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String endSessionDescription(String name) {
-    return '锁定“$name”，保留侧边栏历史和磁盘目录';
+    return '锁定“\$name”，保留侧边栏历史和磁盘目录';
   }
 
   @override
@@ -1497,7 +1458,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String enterDirectoryNameToConfirm(String name) {
-    return '请输入目录名“$name”确认：';
+    return '请输入目录名“\$name”确认：';
   }
 
   @override
@@ -1541,7 +1502,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String versionValue(int version) {
-    return '版本 $version';
+    return '版本 \$version';
   }
 
   @override
@@ -1630,7 +1591,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String durationMilliseconds(int count) {
-    return '$count 毫秒';
+    return '\$count 毫秒';
   }
 
   @override
@@ -1677,12 +1638,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String propertyLabel(String label) {
-    return '$label：';
+    return '\$label：';
   }
 
   @override
   String copyPropertyValue(String label) {
-    return '复制$label';
+    return '复制\$label';
   }
 
   @override
@@ -1699,12 +1660,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String directoryIncompleteSummary(int count, int folders, int files) {
-    return '已加载 $count 项（$folders 个文件夹，$files 个文件）';
+    return '已加载 \$count 项（\$folders 个文件夹，\$files 个文件）';
   }
 
   @override
   String directorySummary(int folders, int files) {
-    return '$folders 个文件夹，$files 个文件';
+    return '\$folders 个文件夹，\$files 个文件';
   }
 
   @override
@@ -1712,7 +1673,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String sortTooltip(String order) {
-    return '排序：$order';
+    return '排序：\$order';
   }
 
   @override
@@ -1756,12 +1717,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String noMatchInLoadedEntries(String query) {
-    return '已加载条目中没有匹配“$query”的内容';
+    return '已加载条目中没有匹配“\$query”的内容';
   }
 
   @override
   String noMatchInCurrentDirectory(String query) {
-    return '当前目录没有匹配“$query”的条目';
+    return '当前目录没有匹配“\$query”的条目';
   }
 
   @override
@@ -1781,7 +1742,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String directoryItemCount(int count) {
-    return '$count 个项目';
+    return '\$count 个项目';
   }
 
   @override
@@ -1789,7 +1750,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fileSystemEntrySemantics(String name, String type) {
-    return '$name，$type';
+    return '\$name，\$type';
   }
 
   @override
@@ -1887,7 +1848,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String fileTypeWithExtension(String extension) {
-    return '$extension 文件';
+    return '\$extension 文件';
   }
 
   @override
@@ -1919,7 +1880,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String retryDirectoryTreeRead(String message) {
-    return '$message，刷新重试';
+    return '\$message，刷新重试';
   }
 
   @override
@@ -1944,19 +1905,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get conflictTargetExists => '目标已存在';
 
   @override
-  String get conflictReplacementUnavailable =>
-      '源和目标类型不兼容，或源与目标是同一条目。请选择“保留两者”生成新名称。';
+  String get conflictReplacementUnavailable => '源和目标类型不兼容，或源与目标是同一条目。请选择“保留两者”生成新名称。';
 
   @override
-  String get conflictDirectoryReplaceDetail =>
-      '选择“合并并替换”会保留目标目录独有的内容，并替换其中的同名文件。';
+  String get conflictDirectoryReplaceDetail => '选择“合并并替换”会保留目标目录独有的内容，并替换其中的同名文件。';
 
   @override
   String get conflictFileReplaceDetail => '选择“替换”会用新内容替换现有文件。';
 
   @override
   String conflictDescription(String name, String operation, String detail) {
-    return '“$name”已存在，无法直接$operation。\n\n$detail';
+    return '“\$name”已存在，无法直接\$operation。\n\n\$detail';
   }
 
   @override
@@ -1976,47 +1935,47 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String batchOperationCancelled(String operation) {
-    return '$operation已取消';
+    return '\$operation已取消';
   }
 
   @override
   String batchOperationPartiallyCompleted(String operation) {
-    return '$operation部分完成';
+    return '\$operation部分完成';
   }
 
   @override
   String batchOperationCompleted(String operation) {
-    return '$operation完成';
+    return '\$operation完成';
   }
 
   @override
   String batchTotal(int count) {
-    return '总数：$count';
+    return '总数：\$count';
   }
 
   @override
   String batchSucceeded(int count) {
-    return '成功：$count';
+    return '成功：\$count';
   }
 
   @override
   String batchSkipped(int count) {
-    return '跳过：$count';
+    return '跳过：\$count';
   }
 
   @override
   String batchFailed(int count) {
-    return '失败：$count';
+    return '失败：\$count';
   }
 
   @override
   String batchUnprocessed(int count) {
-    return '未处理：$count';
+    return '未处理：\$count';
   }
 
   @override
   String batchClipboardRemaining(int count) {
-    return '剪贴板剩余：$count';
+    return '剪贴板剩余：\$count';
   }
 
   @override
@@ -2024,25 +1983,59 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String batchFailureItem(String name, String reason) {
-    return '“$name”：$reason';
+    return '“\$name”：\$reason';
   }
 
   @override
   String additionalFailures(int count) {
-    return '另有 $count 项失败';
+    return '另有 \$count 项失败';
   }
 
   @override
   String get antiScreenshot => '防截屏';
 
   @override
-  String get antiScreenshotHint =>
-      '阻止系统截屏工具捕获 Safe Disk 窗口内容。Linux/X11 下不支持此功能，仅 Windows/macOS 有效。';
+  String get antiScreenshotHint => '开启后，截图工具和录屏软件将无法捕获本应用窗口内容。截图区域会显示为黑色。';
 
   @override
-  String get antiScreenshotOnLinux => 'Linux 下也启用防截屏';
+  String get antiScreenshotEnvVarHint => '如防截屏导致应用无法使用，可通过环境变量 SAFE_DISK_NO_ANTI_SCREENSHOT=1 启动以强制关闭。';
 
   @override
-  String get antiScreenshotOnLinuxHint =>
-      '当前系统运行在 X11 上，截屏防护不可用。此开关无实际效果，仅为将来 Linux 组合器支持预留。';
+  String get antiScreenshotInfoTitle => '开启防截屏？';
+
+  @override
+  String get antiScreenshotInfoDescription => '防截屏可阻止系统截图工具（PrintScreen、截图工具等）和录屏软件捕获 Safe Disk 窗口内容。截图区域将显示为黑色。多数 Windows 10 及以上系统完全支持，旧版系统可能仅能防止录屏。';
+
+  @override
+  String get antiScreenshotInfoEnable => '开启';
+
+  @override
+  String get antiScreenshotCountdownTitle => '防截屏已开启';
+
+  @override
+  String antiScreenshotCountdownHint(int countdown) {
+    return '设置已生效。如果屏幕无法正常显示，请勿操作 — \$countdown 秒后将自动恢复。\n\n点击"确认保存"以保留防截屏设置。';
+  }
+
+  @override
+  String get antiScreenshotCountdownConfirm => '确认保存';
+
+  @override
+  String get webDavAuthBasic => 'Basic（用户名与密码，仅限 loopback）';
+
+  @override
+  String get webDavBasicRiskWarning => 'Basic 认证以可逆形式传输凭据，其他本机进程可能观察到。仅可在受信任的系统上使用。';
+
+  @override
+  String get webDavBasicCredentialsDescription => '向选定的受信任工具提供 URL、用户名和密码。Basic 认证以可逆形式传输凭据 —— 仅可在受信任的机器上使用。';
+
+  @override
+  String get webDavTLS => '启用 HTTPS/TLS';
+
+  @override
+  String get webDavTLSDescription => '使用自签名证书为 loopback 连接启用 HTTPS。部分系统工具（如 Windows 网络磁盘映射）要求 HTTPS，但 loopback 上不增加额外的网络安全性。客户端需接受自签名证书警告。';
+
+  @override
+  String get webDavAuthModeBasic => '认证方式：Basic';
+
 }

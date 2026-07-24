@@ -110,6 +110,8 @@ extern char* sec_webdav_mount_start(char* operationID, char* sessionID);
 extern char* sec_webdav_unmount_start(char* operationID, char* sessionID);
 extern char* sec_webdav_operation_poll(char* operationID);
 extern char* sec_webdav_operation_cancel(char* operationID);
+extern char* sec_webdav_export_cert_pem(void);
+extern char* sec_webdav_export_ca_cert_pem(void);
 extern char* sec_dir_cursor_open(int64_t rootID, char* path);
 extern char* sec_dir_cursor_read_page(int64_t cursorID, int limit);
 extern char* sec_dir_cursor_close(int64_t cursorID);
@@ -136,19 +138,19 @@ extern char* sec_quick_read_file(int64_t rootID, char* path);
 extern char* sec_quick_write_file(int64_t rootID, char* path, char* data, int size);
 extern void sec_free_string(char* s);
 extern char* sec_clear_secure_memory(void* data, int size);
-extern char* sec_transfer_v3_import_file_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, int overwrite, CProgressCallback callback);
-extern char* sec_transfer_v3_import_directory_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, int overwrite, CProgressCallback callback);
-extern char* sec_transfer_v3_export_file_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
-extern char* sec_transfer_v3_export_directory_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, CProgressCallback callback);
+extern char* sec_transfer_v3_import_file_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, int overwrite, char* durability, CProgressCallback callback);
+extern char* sec_transfer_v3_import_directory_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, int overwrite, char* durability, CProgressCallback callback);
+extern char* sec_transfer_v3_export_file_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, char* durability, CProgressCallback callback);
+extern char* sec_transfer_v3_export_directory_with_callback(char* operationID, int64_t rootID, char* srcPath, char* destPath, char* durability, CProgressCallback callback);
 extern char* sec_transfer_v3_cancel(char* operationID);
 extern char* sec_transfer_v3_list_unfinished(int64_t rootID);
 extern char* sec_transfer_v3_clean_unfinished(int64_t rootID, char* opID);
 extern char* sec_transfer_v3_recover_convert(char* rootPath);
 extern char* sec_transfer_v3_convert_root(char* rootPath, char* password, char* kind);
-extern char* sec_transfer_v3_import_file(int64_t rootID, char* srcPath, char* destPath, int overwrite);
-extern char* sec_transfer_v3_import_directory(int64_t rootID, char* srcPath, char* destPath, int overwrite);
-extern char* sec_transfer_v3_export_file(int64_t rootID, char* srcPath, char* destPath);
-extern char* sec_transfer_v3_export_directory(int64_t rootID, char* srcPath, char* destPath);
+extern char* sec_transfer_v3_import_file(int64_t rootID, char* srcPath, char* destPath, int overwrite, char* durability);
+extern char* sec_transfer_v3_import_directory(int64_t rootID, char* srcPath, char* destPath, int overwrite, char* durability);
+extern char* sec_transfer_v3_export_file(int64_t rootID, char* srcPath, char* destPath, char* durability);
+extern char* sec_transfer_v3_export_directory(int64_t rootID, char* srcPath, char* destPath, char* durability);
 
 #ifdef __cplusplus
 }

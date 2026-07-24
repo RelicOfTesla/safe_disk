@@ -45,12 +45,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsLoadDescription => 'Unable to read local settings.';
 
   @override
-  String get settingsLoadSuggestion =>
-      'Try again. If the problem continues, restore defaults or contact support.';
+  String get settingsLoadSuggestion => 'Try again. If the problem continues, restore defaults or contact support.';
 
   @override
-  String get settingsSaveSuggestion =>
-      'Check local storage space and permissions, then try again.';
+  String get settingsSaveSuggestion => 'Check local storage space and permissions, then try again.';
 
   @override
   String get appearance => 'Appearance';
@@ -71,12 +69,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeDark => 'Dark';
 
   @override
-  String get themePreviewHint =>
-      'The theme is previewed immediately and is kept after saving.';
+  String get themePreviewHint => 'The theme is previewed immediately and is kept after saving.';
 
   @override
-  String get languagePreviewHint =>
-      'The language is previewed immediately and is kept after saving.';
+  String get languagePreviewHint => 'The language is previewed immediately and is kept after saving.';
 
   @override
   String get saveChanges => 'Save settings changes?';
@@ -110,7 +106,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String imageEncodedSizeLimit(String limit) {
-    return 'Encoded image data exceeds the $limit limit.';
+    return 'Encoded image data exceeds the \$limit limit.';
   }
 
   @override
@@ -121,25 +117,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String imageDecodedPixelLimit(String limit) {
-    return 'Decoded image dimensions exceed the $limit limit.';
+    return 'Decoded image dimensions exceed the \$limit limit.';
   }
 
   @override
-  String get imageEncryptedContentInvalid =>
-      'The encrypted image data could not be read. It may be invalid.';
+  String get imageEncryptedContentInvalid => 'The encrypted image data could not be read. It may be invalid.';
 
   @override
-  String get noDisplayableImage =>
-      'No displayable image. Choose another image or try again.';
+  String get noDisplayableImage => 'No displayable image. Choose another image or try again.';
 
   @override
   String viewingImage(String fileName) {
-    return 'Viewing: $fileName';
+    return 'Viewing: \$fileName';
   }
 
   @override
   String animatedImageFrames(int count) {
-    return 'Animated ($count frames)';
+    return 'Animated (\$count frames)';
   }
 
   @override
@@ -164,8 +158,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get imageDecodeFailed => 'Cannot display image';
 
   @override
-  String get imageDecodeFailedDescription =>
-      'The file may be damaged or use an unsupported image format.';
+  String get imageDecodeFailedDescription => 'The file may be damaged or use an unsupported image format.';
 
   @override
   String get errorSuggestionPrefix => 'Suggestion: ';
@@ -180,12 +173,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exposeToThirdParty => 'Expose to third-party tool';
 
   @override
-  String get webDavExposureConfirmTitle =>
-      'Expose content to a third-party tool?';
+  String get webDavExposureConfirmTitle => 'Expose content to a third-party tool?';
 
   @override
   String webDavExposureConfirmDescription(String name) {
-    return '$name will be exposed through a loopback, read-only WebDAV session. Third-party tools may cache or export plaintext, so expose only what is necessary.';
+    return '\$name will be exposed through a loopback, read-only WebDAV session. Third-party tools may cache or export plaintext, so expose only what is necessary.';
   }
 
   @override
@@ -195,37 +187,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavOptionsTitle => 'Configure WebDAV access';
 
   @override
-  String get webDavOptionsDescription =>
-      'Choose authentication, credential display, and session lifetime. You can mount or revoke the session from the access list.';
+  String get webDavOptionsDescription => 'Choose authentication, credential display, and session lifetime. You can mount or revoke the session from the access list.';
 
   @override
   String get webDavAuthModeTitle => 'Choose authentication';
 
   @override
-  String get webDavAuthModeDescription =>
-      'Different tools support different authentication methods. Credentials are shown only once.';
+  String get webDavAuthModeDescription => 'Different tools support different authentication methods. Credentials are shown only once.';
 
   @override
   String get webDavAuthBearer => 'Bearer (token)';
 
   @override
   String get webDavAuthDigest => 'Digest (username and password)';
-  @override
-  String get webDavAuthBasic => 'Basic (username and password, loopback only)';
-
-  @override
-  String get webDavBasicRiskWarning => 'Basic authentication transmits credentials in a form that other local processes can observe. Use only on trusted systems.';
-
-  @override
-  String get webDavBasicCredentialsDescription => 'Provide the URL, username, and password to the selected trusted tool. Basic authentication transmits credentials in a reversible form — use only on trusted machines.';
-  @override
-  String get webDavTLS => 'Enable HTTPS/TLS';
-  @override
-  String get webDavTLSDescription => 'Use HTTPS with a self-signed certificate for loopback connections. Required by some system tools (e.g., Windows WebClient) but adds no additional network security on loopback. Clients must accept the self-signed certificate warning.';
-
-  @override
-  String get webDavAuthModeBasic => 'Authentication: Basic';
-
 
   @override
   String get webDavAuthContinue => 'Continue';
@@ -234,8 +208,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavCredentialVisibilityTitle => 'Credential display';
 
   @override
-  String get webDavCredentialVisibilityDescription =>
-      'Showing credentials once is safer. Persistent display allows the credentials to be shown again while the session is active. This choice affects new sessions only.';
+  String get webDavCredentialVisibilityDescription => 'Showing credentials once is safer. Persistent display allows the credentials to be shown again while the session is active. This choice affects new sessions only.';
 
   @override
   String get webDavCredentialOnce => 'Show once (recommended)';
@@ -244,8 +217,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavCredentialPersistent => 'Allow showing again';
 
   @override
-  String get webDavPersistentCredentialWarning =>
-      'Persistent display increases the risk of credential exposure. Use it only when trusted tools must be configured repeatedly.';
+  String get webDavPersistentCredentialWarning => 'Persistent display increases the risk of credential exposure. Use it only when trusted tools must be configured repeatedly.';
 
   @override
   String get webDavRevealCredentials => 'Show credentials';
@@ -257,8 +229,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavSessionLifetimeTitle => 'Session lifetime';
 
   @override
-  String get webDavSessionLifetimeDescription =>
-      'An ephemeral session ends when the root is closed. A persistent session is restored after the root is unlocked again.';
+  String get webDavSessionLifetimeDescription => 'An ephemeral session ends when the root is closed. A persistent session is restored after the root is unlocked again.';
 
   @override
   String get webDavSessionEphemeral => 'Ephemeral session (recommended)';
@@ -267,8 +238,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavSessionPersistent => 'Persistent session';
 
   @override
-  String get webDavPersistentSessionWarning =>
-      'Persistent sessions retain their port and credentials until explicitly revoked. Use this only when needed.';
+  String get webDavPersistentSessionWarning => 'Persistent sessions retain their port and credentials until explicitly revoked. Use this only when needed.';
 
   @override
   String get webDavSessions => 'Third-party access';
@@ -283,12 +253,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavCredentialsTitle => 'Third-party tool credentials';
 
   @override
-  String get webDavCredentialsDescription =>
-      'Provide the URL and token to the selected trusted tool. The token is not shown again after this window closes.';
+  String get webDavCredentialsDescription => 'Provide the URL and token to the selected trusted tool. The token is not shown again after this window closes.';
 
   @override
-  String get webDavDigestCredentialsDescription =>
-      'Provide the URL, username, password, and realm to the selected trusted tool. The credentials are not shown again after this window closes.';
+  String get webDavDigestCredentialsDescription => 'Provide the URL, username, password, and realm to the selected trusted tool. The credentials are not shown again after this window closes.';
 
   @override
   String get webDavReadOnly => 'Permission: read-only';
@@ -301,12 +269,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String webDavLastAccessed(String time) {
-    return 'Last accessed: $time';
+    return 'Last accessed: \$time';
   }
 
   @override
   String webDavActiveRequests(int count) {
-    return 'Active requests: $count';
+    return 'Active requests: \$count';
   }
 
   @override
@@ -353,7 +321,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String webDavMountedAt(String path) {
-    return 'Mounted at: $path';
+    return 'Mounted at: \$path';
   }
 
   @override
@@ -366,8 +334,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavUnmounted => 'Unmounted';
 
   @override
-  String get webDavCapabilityWarning =>
-      'Both the URL and token can access the exposed content. Share them only with trusted tools and revoke access when finished.';
+  String get webDavCapabilityWarning => 'Both the URL and token can access the exposed content. Share them only with trusted tools and revoke access when finished.';
 
   @override
   String get webDavRevoke => 'Revoke access';
@@ -379,12 +346,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavGlobalSwitch => 'Allow WebDAV sharing';
 
   @override
-  String get webDavGlobalSwitchHint =>
-      'When disabled, new shares are blocked and WebDAV access for open roots is revoked.';
+  String get webDavGlobalSwitchHint => 'When disabled, new shares are blocked and WebDAV access for open roots is revoked.';
 
   @override
-  String get webDavDisabledMessage =>
-      'WebDAV sharing is disabled. Re-enable it in Settings to create a share.';
+  String get webDavDisabledMessage => 'WebDAV sharing is disabled. Re-enable it in Settings to create a share.';
 
   @override
   String get retry => 'Retry';
@@ -402,203 +367,163 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorDirectoryNotVerifiedTitle => 'Unlock directory first';
 
   @override
-  String get errorDirectoryNotVerifiedDescription =>
-      'Enter the password to unlock this encrypted directory before working with files.';
+  String get errorDirectoryNotVerifiedDescription => 'Enter the password to unlock this encrypted directory before working with files.';
 
   @override
-  String get errorDirectoryNotVerifiedSuggestion =>
-      'Select the directory in the sidebar, then enter its password.';
+  String get errorDirectoryNotVerifiedSuggestion => 'Select the directory in the sidebar, then enter its password.';
 
   @override
   String get errorSessionExpiredTitle => 'Directory is locked';
 
   @override
-  String get errorSessionExpiredDescription =>
-      'The directory session has ended and must be unlocked again.';
+  String get errorSessionExpiredDescription => 'The directory session has ended and must be unlocked again.';
 
   @override
-  String get errorSessionExpiredSuggestion =>
-      'Select the directory in the sidebar and enter the password again.';
+  String get errorSessionExpiredSuggestion => 'Select the directory in the sidebar and enter the password again.';
 
   @override
   String get errorInvalidPasswordTitle => 'Incorrect password';
 
   @override
-  String get errorInvalidPasswordDescription =>
-      'The password cannot decrypt this directory.';
+  String get errorInvalidPasswordDescription => 'The password cannot decrypt this directory.';
 
   @override
-  String get errorInvalidPasswordSuggestion =>
-      'Check the password, including letter case.';
+  String get errorInvalidPasswordSuggestion => 'Check the password, including letter case.';
 
   @override
   String get errorDirectoryNotExistTitle => 'Directory not found';
 
   @override
-  String get errorDirectoryNotExistDescription =>
-      'The selected directory does not exist or was deleted.';
+  String get errorDirectoryNotExistDescription => 'The selected directory does not exist or was deleted.';
 
   @override
-  String get errorDirectoryNotExistSuggestion =>
-      'Check the directory path or choose another directory.';
+  String get errorDirectoryNotExistSuggestion => 'Check the directory path or choose another directory.';
 
   @override
   String get errorNotEncryptedDirectoryTitle => 'Cannot open directory';
 
   @override
-  String get errorNotEncryptedDirectoryDescription =>
-      'The selected directory is not a recognized Safe Disk encrypted directory.';
+  String get errorNotEncryptedDirectoryDescription => 'The selected directory is not a recognized Safe Disk encrypted directory.';
 
   @override
-  String get errorNotEncryptedDirectorySuggestion =>
-      'Choose an existing encrypted directory or create a new one.';
+  String get errorNotEncryptedDirectorySuggestion => 'Choose an existing encrypted directory or create a new one.';
 
   @override
   String get errorLoadConfigFailedTitle => 'Could not load configuration';
 
   @override
-  String get errorLoadConfigFailedDescription =>
-      'The encrypted directory configuration could not be read.';
+  String get errorLoadConfigFailedDescription => 'The encrypted directory configuration could not be read.';
 
   @override
-  String get errorLoadConfigFailedSuggestion =>
-      'Check that the directory is complete and was not modified by another program.';
+  String get errorLoadConfigFailedSuggestion => 'Check that the directory is complete and was not modified by another program.';
 
   @override
   String get errorLoadDirectoryFailedTitle => 'Could not load directory';
 
   @override
-  String get errorLoadDirectoryFailedDescription =>
-      'The directory contents could not be read.';
+  String get errorLoadDirectoryFailedDescription => 'The directory contents could not be read.';
 
   @override
-  String get errorLoadDirectoryFailedSuggestion =>
-      'Check directory permissions or try opening it again.';
+  String get errorLoadDirectoryFailedSuggestion => 'Check directory permissions or try opening it again.';
 
   @override
-  String get errorUnfinishedTransferStateUnavailableTitle =>
-      'Cannot verify unfinished transfer state';
+  String get errorUnfinishedTransferStateUnavailableTitle => 'Cannot verify unfinished transfer state';
 
   @override
-  String get errorUnfinishedTransferStateUnavailableDescription =>
-      'Safe Disk could not safely read the unfinished import or export state, so this directory was not opened.';
+  String get errorUnfinishedTransferStateUnavailableDescription => 'Safe Disk could not safely read the unfinished import or export state, so this directory was not opened.';
 
   @override
-  String get errorUnfinishedTransferStateUnavailableSuggestion =>
-      'Check directory permissions and disk status. Keep the directory unchanged and try again.';
+  String get errorUnfinishedTransferStateUnavailableSuggestion => 'Check directory permissions and disk status. Keep the directory unchanged and try again.';
 
   @override
-  String get errorCreateEncryptedDirectoryFailedTitle =>
-      'Could not create encrypted directory';
+  String get errorCreateEncryptedDirectoryFailedTitle => 'Could not create encrypted directory';
 
   @override
-  String get errorCreateEncryptedDirectoryFailedDescription =>
-      'A new encrypted directory could not be created.';
+  String get errorCreateEncryptedDirectoryFailedDescription => 'A new encrypted directory could not be created.';
 
   @override
-  String get errorCreateEncryptedDirectoryFailedSuggestion =>
-      'Check directory permissions and available disk space, then try again.';
+  String get errorCreateEncryptedDirectoryFailedSuggestion => 'Check directory permissions and available disk space, then try again.';
 
   @override
-  String get errorCreateEncryptedDirectoryRequiresEmptyTitle =>
-      'Directory is not empty';
+  String get errorCreateEncryptedDirectoryRequiresEmptyTitle => 'Directory is not empty';
 
   @override
-  String get errorCreateEncryptedDirectoryRequiresEmptyDescription =>
-      'A new encrypted directory can only be created in a missing or empty directory.';
+  String get errorCreateEncryptedDirectoryRequiresEmptyDescription => 'A new encrypted directory can only be created in a missing or empty directory.';
 
   @override
-  String get errorCreateEncryptedDirectoryRequiresEmptySuggestion =>
-      'Choose a new path or an empty directory. Use import for existing content.';
+  String get errorCreateEncryptedDirectoryRequiresEmptySuggestion => 'Choose a new path or an empty directory. Use import for existing content.';
 
   @override
   String get errorImportFileFailedTitle => 'Could not import file';
 
   @override
-  String get errorImportFileFailedDescription =>
-      'The file could not be imported into the encrypted directory.';
+  String get errorImportFileFailedDescription => 'The file could not be imported into the encrypted directory.';
 
   @override
-  String get errorImportFileFailedSuggestion =>
-      'Check that the file exists and is readable, then try again.';
+  String get errorImportFileFailedSuggestion => 'Check that the file exists and is readable, then try again.';
 
   @override
   String get errorImportDirectoryFailedTitle => 'Could not import directory';
 
   @override
-  String get errorImportDirectoryFailedDescription =>
-      'The directory could not be imported into the encrypted directory.';
+  String get errorImportDirectoryFailedDescription => 'The directory could not be imported into the encrypted directory.';
 
   @override
-  String get errorImportDirectoryFailedSuggestion =>
-      'Check source permissions, symbolic links, and the destination directory state, then try again.';
+  String get errorImportDirectoryFailedSuggestion => 'Check source permissions, symbolic links, and the destination directory state, then try again.';
 
   @override
-  String get errorImportDirectoryInsideCurrentRootTitle =>
-      'Cannot import this directory';
+  String get errorImportDirectoryInsideCurrentRootTitle => 'Cannot import this directory';
 
   @override
-  String get errorImportDirectoryInsideCurrentRootDescription =>
-      'A subdirectory of the current encrypted directory cannot be imported into the current encrypted directory.';
+  String get errorImportDirectoryInsideCurrentRootDescription => 'A subdirectory of the current encrypted directory cannot be imported into the current encrypted directory.';
 
   @override
-  String get errorImportDirectoryInsideCurrentRootSuggestion =>
-      'Choose a source directory outside the encrypted directory.';
+  String get errorImportDirectoryInsideCurrentRootSuggestion => 'Choose a source directory outside the encrypted directory.';
 
   @override
   String get errorExportFileFailedTitle => 'Could not export file';
 
   @override
-  String get errorExportFileFailedDescription =>
-      'The file could not be exported to the selected location.';
+  String get errorExportFileFailedDescription => 'The file could not be exported to the selected location.';
 
   @override
-  String get errorExportFileFailedSuggestion =>
-      'Check that the destination is writable, then try again.';
+  String get errorExportFileFailedSuggestion => 'Check that the destination is writable, then try again.';
 
   @override
   String get errorExportDirectoryFailedTitle => 'Could not export directory';
 
   @override
-  String get errorExportDirectoryFailedDescription =>
-      'The directory could not be exported to the selected location.';
+  String get errorExportDirectoryFailedDescription => 'The directory could not be exported to the selected location.';
 
   @override
-  String get errorExportDirectoryFailedSuggestion =>
-      'Check that the destination is writable, then try again.';
+  String get errorExportDirectoryFailedSuggestion => 'Check that the destination is writable, then try again.';
 
   @override
   String get errorDeleteFileFailedTitle => 'Could not delete file';
 
   @override
-  String get errorDeleteFileFailedDescription =>
-      'The file could not be deleted.';
+  String get errorDeleteFileFailedDescription => 'The file could not be deleted.';
 
   @override
-  String get errorDeleteFileFailedSuggestion =>
-      'Check whether the file is in use, then try again.';
+  String get errorDeleteFileFailedSuggestion => 'Check whether the file is in use, then try again.';
 
   @override
   String get errorSaveFileFailedTitle => 'Could not save file';
 
   @override
-  String get errorSaveFileFailedDescription =>
-      'The file changes could not be saved.';
+  String get errorSaveFileFailedDescription => 'The file changes could not be saved.';
 
   @override
-  String get errorSaveFileFailedSuggestion =>
-      'Check disk space and permissions, then try again.';
+  String get errorSaveFileFailedSuggestion => 'Check disk space and permissions, then try again.';
 
   @override
   String get errorLoadFileFailedTitle => 'Could not load file';
 
   @override
-  String get errorLoadFileFailedDescription =>
-      'The file contents could not be read.';
+  String get errorLoadFileFailedDescription => 'The file contents could not be read.';
 
   @override
-  String get errorLoadFileFailedSuggestion =>
-      'Check that the file exists and is readable.';
+  String get errorLoadFileFailedSuggestion => 'Check that the file exists and is readable.';
 
   @override
   String get errorNoDirectorySelectedTitle => 'No directory selected';
@@ -622,12 +547,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorPasswordMismatchTitle => 'Passwords do not match';
 
   @override
-  String get errorPasswordMismatchDescription =>
-      'The two passwords are different.';
+  String get errorPasswordMismatchDescription => 'The two passwords are different.';
 
   @override
-  String get errorPasswordMismatchSuggestion =>
-      'Make sure both password entries are identical.';
+  String get errorPasswordMismatchSuggestion => 'Make sure both password entries are identical.';
 
   @override
   String get errorPathEmptyTitle => 'Path is required';
@@ -639,12 +562,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorOperationFailedTitle => 'Operation failed';
 
   @override
-  String get errorOperationFailedDescription =>
-      'The operation did not finish. Try again later.';
+  String get errorOperationFailedDescription => 'The operation did not finish. Try again later.';
 
   @override
-  String get errorOperationFailedSuggestion =>
-      'If the problem continues, contact support.';
+  String get errorOperationFailedSuggestion => 'If the problem continues, contact support.';
 
   @override
   String get behavior => 'Behavior';
@@ -665,39 +586,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirmBeforeDelete => 'Confirm before deleting';
 
   @override
-  String get confirmBeforeDeleteHint =>
-      'Show a confirmation dialog before deleting files.';
+  String get confirmBeforeDeleteHint => 'Show a confirmation dialog before deleting files.';
 
   @override
   String get lockAfterIdle => 'Lock after inactivity';
 
   @override
-  String get lockAfterIdleHint =>
-      'Lock the current directory after its idle timeout. Directories with open file windows, unsaved changes, or active saves are not forced closed.';
+  String get lockAfterIdleHint => 'Lock the current directory after its idle timeout. Directories with open file windows, unsaved changes, or active saves are not forced closed.';
 
   @override
   String get lockWhenHidden => 'Lock when the app is hidden';
 
   @override
-  String get lockWhenHiddenHint =>
-      'Only lock directories without open file windows, unsaved changes, or active saves. Other directories are not forced closed.';
+  String get lockWhenHiddenHint => 'Only lock directories without open file windows, unsaved changes, or active saves. Other directories are not forced closed.';
 
   @override
   String get messageListSeparator => '; ';
 
   @override
   String autoLockSummaryLocked(int count) {
-    return '$count directories were locked automatically';
+    return '\$count directories were locked automatically';
   }
 
   @override
   String autoLockSummarySkipped(int count) {
-    return '$count directories have open file windows or pending saves and were left open';
+    return '\$count directories have open file windows or pending saves and were left open';
   }
 
   @override
   String autoLockSummaryFailed(int count) {
-    return '$count directories could not be locked';
+    return '\$count directories could not be locked';
   }
 
   @override
@@ -705,7 +623,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String rootActiveWritesDescription(int count) {
-    return '$count file save operations are still running. Wait for them to finish before ending the session.';
+    return '\$count file save operations are still running. Wait for them to finish before ending the session.';
   }
 
   @override
@@ -713,7 +631,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String rootUnsavedContentDescription(String documents) {
-    return 'Handle these open file windows before ending the session:\n\n$documents';
+    return 'Handle these open file windows before ending the session:\n\n\$documents';
   }
 
   @override
@@ -723,56 +641,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String get rootDirectoryDeleted => 'Encrypted directory permanently deleted';
 
   @override
-  String get rootHistoryRemoved =>
-      'Directory history removed. Files on disk were kept.';
+  String get rootHistoryRemoved => 'Directory history removed. Files on disk were kept.';
 
   @override
-  String get passwordChangeBlockedBySaving =>
-      'This directory is saving content. Wait for the save to finish before changing its password.';
+  String get passwordChangeBlockedBySaving => 'This directory is saving content. Wait for the save to finish before changing its password.';
 
   @override
-  String get passwordChangeBlockedByDocuments =>
-      'Close or save this directory\'s open file windows before changing its password.';
+  String get passwordChangeBlockedByDocuments => 'Close or save this directory\'s open file windows before changing its password.';
 
   @override
-  String get passwordChangedUnlockAgain =>
-      'Password changed. Unlock the directory again with the new password.';
+  String get passwordChangedUnlockAgain => 'Password changed. Unlock the directory again with the new password.';
 
   @override
   String get notepadDraftInterval => 'Secure draft save interval';
 
   @override
-  String get notepadDraftIntervalHint =>
-      'Periodically save an encrypted draft beside the original file without overwriting it.';
+  String get notepadDraftIntervalHint => 'Periodically save an encrypted draft beside the original file without overwriting it.';
 
   @override
   String get notepadDefaultReadOnly => 'Open notes read-only';
 
   @override
-  String get notepadDefaultReadOnlyHint =>
-      'New files open read-only. You can start editing manually.';
+  String get notepadDefaultReadOnlyHint => 'New files open read-only. You can start editing manually.';
 
   @override
   String get notepadMonitorClipboard => 'Monitor clipboard by default';
 
   @override
-  String get notepadMonitorClipboardHint =>
-      'Only show a text preview; do not write it to files or settings.';
+  String get notepadMonitorClipboardHint => 'Only show a text preview; do not write it to files or settings.';
 
   @override
   String get notepadRecoveryDraftFound => 'Secure draft found';
 
   @override
-  String get notepadBinaryContent =>
-      'The file contains binary content and cannot be opened in Secure Notepad.';
+  String get notepadBinaryContent => 'The file contains binary content and cannot be opened in Secure Notepad.';
 
   @override
-  String get notepadLoadFailed =>
-      'Unable to read the file. Check that it exists and is readable, then try again.';
+  String get notepadLoadFailed => 'Unable to read the file. Check that it exists and is readable, then try again.';
 
   @override
-  String get notepadRecoveryDraftDescription =>
-      'An encrypted draft from an unfinished edit was found. Restore it to the editor?';
+  String get notepadRecoveryDraftDescription => 'An encrypted draft from an unfinished edit was found. Restore it to the editor?';
 
   @override
   String get notepadDiscardDraft => 'Discard draft';
@@ -839,22 +747,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String notepadCharacterCount(int count) {
-    return '$count characters';
+    return '\$count characters';
   }
 
   @override
   String get notepadDraftSaveFailed => 'Could not save recovery draft';
 
   @override
-  String get notepadDraftCleanupFailed =>
-      'The original file was saved, but the old draft could not be removed.';
+  String get notepadDraftCleanupFailed => 'The original file was saved, but the old draft could not be removed.';
 
   @override
   String get notepadDraftReadFailed => 'Could not check the recovery draft.';
 
   @override
-  String get notepadDraftDiscardFailed =>
-      'Could not remove the recovery draft.';
+  String get notepadDraftDiscardFailed => 'Could not remove the recovery draft.';
 
   @override
   String get notepadSavingDraft => 'Saving recovery draft';
@@ -869,12 +775,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notepadClipboardEmpty => 'No short text in the clipboard';
 
   @override
-  String get notepadClipboardReadFailed =>
-      'Unable to read the clipboard. Try again.';
+  String get notepadClipboardReadFailed => 'Unable to read the clipboard. Try again.';
 
   @override
-  String get notepadClipboardClearFailed =>
-      'Unable to clear the clipboard. Try again.';
+  String get notepadClipboardClearFailed => 'Unable to clear the clipboard. Try again.';
 
   @override
   String get notepadRefreshClipboard => 'Refresh clipboard now';
@@ -887,7 +791,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String notepadFindPosition(int current, int total) {
-    return '$current/$total';
+    return '\$current/\$total';
   }
 
   @override
@@ -910,36 +814,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String notepadReplacedCount(int count) {
-    return 'Replaced $count matches';
+    return 'Replaced \$count matches';
   }
 
   @override
   String get welcomeGuideWelcomeTitle => 'Welcome to Safe Disk';
 
   @override
-  String get welcomeGuideWelcomeContent =>
-      'Safe Disk helps you encrypt and manage private files.\n\nYou need the correct password to access content in an encrypted directory.';
+  String get welcomeGuideWelcomeContent => 'Safe Disk helps you encrypt and manage private files.\n\nYou need the correct password to access content in an encrypted directory.';
 
   @override
   String get welcomeGuideEncryptedDirectoryTitle => 'Encrypted directories';
 
   @override
-  String get welcomeGuideEncryptedDirectoryContent =>
-      'Create encrypted directories to protect your files:\n\n- Open directory: Open an existing encrypted directory\n- Create directory: Create a new encrypted directory\n\nAll files in an encrypted directory are protected automatically.';
+  String get welcomeGuideEncryptedDirectoryContent => 'Create encrypted directories to protect your files:\n\n- Open directory: Open an existing encrypted directory\n- Create directory: Create a new encrypted directory\n\nAll files in an encrypted directory are protected automatically.';
 
   @override
   String get welcomeGuideFeaturesTitle => 'Core features';
 
   @override
-  String get welcomeGuideFeaturesContent =>
-      '- File browser: Browse and manage files in encrypted directories\n- Secure notepad: Edit text files (.txt, .md)\n- Image viewer: View encrypted image files\n- Batch export: Export multiple files at once';
+  String get welcomeGuideFeaturesContent => '- File browser: Browse and manage files in encrypted directories\n- Secure notepad: Edit text files (.txt, .md)\n- Image viewer: View encrypted image files\n- Batch export: Export multiple files at once';
 
   @override
   String get welcomeGuideSecurityTitle => 'Security tips';
 
   @override
-  String get welcomeGuideSecurityContent =>
-      '- Keep your password safe. Files cannot be recovered if it is lost.\n- Use a strong password (12 or more characters with mixed character types).\n- Keys are kept only in memory and are cleared when the app closes.\n- Back up important encrypted directories regularly.';
+  String get welcomeGuideSecurityContent => '- Keep your password safe. Files cannot be recovered if it is lost.\n- Use a strong password (12 or more characters with mixed character types).\n- Keys are kept only in memory and are cleared when the app closes.\n- Back up important encrypted directories regularly.';
 
   @override
   String get welcomeGuideDontShowAgain => 'Don\'t show this guide again';
@@ -957,8 +857,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailedErrors => 'Show detailed error information';
 
   @override
-  String get detailedErrorsHint =>
-      'Show redacted operation stages and underlying errors in error prompts. No disk log is written.';
+  String get detailedErrorsHint => 'Show redacted operation stages and underlying errors in error prompts. No disk log is written.';
 
   @override
   String get about => 'About';
@@ -971,91 +870,63 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String durationSeconds(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count seconds',
-      one: '1 second',
-    );
-    return '$_temp0';
+    return '{count, plural, one{1 second} other{\$count seconds}}';
   }
 
   @override
   String durationMinutes(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count minutes',
-      one: '1 minute',
-    );
-    return '$_temp0';
+    return '{count, plural, one{1 minute} other{\$count minutes}}';
   }
 
   @override
   String durationHours(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count hours',
-      one: '1 hour',
-    );
-    return '$_temp0';
+    return '{count, plural, one{1 hour} other{\$count hours}}';
   }
 
   @override
   String durationDays(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count days',
-      one: '1 day',
-    );
-    return '$_temp0';
+    return '{count, plural, one{1 day} other{\$count days}}';
   }
 
   @override
   String progressMinutesSeconds(int minutes, int seconds) {
-    return '$minutes min $seconds sec';
+    return '\$minutes min \$seconds sec';
   }
 
   @override
   String progressEstimatedRemaining(String duration) {
-    return 'Estimated remaining: $duration';
+    return 'Estimated remaining: \$duration';
   }
 
   @override
   String progressProcessed(int current, int total) {
-    return 'Processed: $current / $total';
+    return 'Processed: \$current / \$total';
   }
 
   @override
   String progressCurrentFile(String name) {
-    return 'Current: $name';
+    return 'Current: \$name';
   }
 
   @override
-  String get rerunUnfinishedTransfers =>
-      'Run unfinished imports and exports again';
+  String get rerunUnfinishedTransfers => 'Run unfinished imports and exports again';
 
   @override
   String get preparing => 'Preparing...';
 
   @override
-  String get operationNotCancellableYet =>
-      'This operation cannot be cancelled yet.';
+  String get operationNotCancellableYet => 'This operation cannot be cancelled yet.';
 
   @override
   String rerunningUnfinishedProgress(int current, int total) {
-    return 'Running again: $current of $total...';
+    return 'Running again: \$current of \$total...';
   }
 
   @override
-  String get unfinishedTransfersRerunCompleted =>
-      'Unfinished imports and exports were run again.';
+  String get unfinishedTransfersRerunCompleted => 'Unfinished imports and exports were run again.';
 
   @override
-  String get unfinishedTransfersRerunCancelled =>
-      'Run again cancelled. The unfinished operation was kept.';
+  String get unfinishedTransfersRerunCancelled => 'Run again cancelled. The unfinished operation was kept.';
 
   @override
   String get preparingImport => 'Preparing import...';
@@ -1067,8 +938,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get preparingDelete => 'Preparing deletion...';
 
   @override
-  String get preparingCannotCancel =>
-      'Preparing; cancellation is unavailable...';
+  String get preparingCannotCancel => 'Preparing; cancellation is unavailable...';
 
   @override
   String get importing => 'Importing...';
@@ -1081,16 +951,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String directoryImportCompleted(int count) {
-    return 'Imported $count files.';
+    return 'Imported \$count files.';
   }
 
   @override
-  String get transferCancelledWithUnfinishedState =>
-      'The operation was cancelled. You can clean up the unfinished import or export state the next time you open this directory.';
+  String get transferCancelledWithUnfinishedState => 'The operation was cancelled. You can clean up the unfinished import or export state the next time you open this directory.';
 
   @override
   String directoryExportCompleted(int count) {
-    return 'Exported $count files.';
+    return 'Exported \$count files.';
   }
 
   @override
@@ -1098,17 +967,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String batchExportCompleted(int success, int failed) {
-    return 'Export completed: $success succeeded, $failed failed.';
+    return 'Export completed: \$success succeeded, \$failed failed.';
   }
 
   @override
   String batchExportCompletedAll(int count) {
-    return 'Export completed: $count files succeeded.';
+    return 'Export completed: \$count files succeeded.';
   }
 
   @override
   String batchExportCancelled(int success, int failed) {
-    return 'Export cancelled: $success succeeded, $failed failed.';
+    return 'Export cancelled: \$success succeeded, \$failed failed.';
   }
 
   @override
@@ -1116,21 +985,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String batchDeleteCancelled(int success, int remaining) {
-    return 'Batch deletion cancelled: $success succeeded; $remaining items remain selected.';
+    return 'Batch deletion cancelled: \$success succeeded; \$remaining items remain selected.';
   }
 
   @override
   String batchDeleteCompleted(int count) {
-    return 'Deleted $count files.';
+    return 'Deleted \$count files.';
   }
 
   @override
-  String get unfinishedTransfersDetected =>
-      'Unfinished imports or exports found';
+  String get unfinishedTransfersDetected => 'Unfinished imports or exports found';
 
   @override
   String unfinishedTransfersDetectedDescription(int count) {
-    return '$count unfinished import or export operations were found.\n\nThese operations cannot be resumed. You can clean up the unfinished operation and run the full import or export again, or skip it for now.';
+    return '\$count unfinished import or export operations were found.\n\nThese operations cannot be resumed. You can clean up the unfinished operation and run the full import or export again, or skip it for now.';
   }
 
   @override
@@ -1147,7 +1015,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String confirmBatchDeletionDescription(int count) {
-    return 'Delete $count selected items? This cannot be undone. Items are deleted one at a time; items already deleted are not restored if a later deletion fails.';
+    return 'Delete \$count selected items? This cannot be undone. Items are deleted one at a time; items already deleted are not restored if a later deletion fails.';
   }
 
   @override
@@ -1157,39 +1025,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nativeComponentUnavailable => 'Security component unavailable';
 
   @override
-  String get nativeBindingFailureDescription =>
-      'The security component version does not match this app, so encryption cannot start.';
+  String get nativeBindingFailureDescription => 'The security component version does not match this app, so encryption cannot start.';
 
   @override
-  String get nativeLoadingFailureDescription =>
-      'Safe Disk could not load its security component, so encrypted directories cannot be accessed safely.';
+  String get nativeLoadingFailureDescription => 'Safe Disk could not load its security component, so encrypted directories cannot be accessed safely.';
 
   @override
-  String get nativeBindingFailureSuggestion =>
-      'Reinstall the matching version of Safe Disk, then try again.';
+  String get nativeBindingFailureSuggestion => 'Reinstall the matching version of Safe Disk, then try again.';
 
   @override
-  String get nativeLoadingFailureSuggestion =>
-      'Reinstall the app. If the problem continues, check whether security software quarantined application files.';
+  String get nativeLoadingFailureSuggestion => 'Reinstall the app. If the problem continues, check whether security software quarantined application files.';
 
   @override
   String initializationStage(String stage) {
-    return 'Initialization stage: $stage';
+    return 'Initialization stage: \$stage';
   }
 
   @override
   String underlyingError(String error) {
-    return 'Underlying error: $error';
+    return 'Underlying error: \$error';
   }
 
   @override
   String errorDiagnosticType(String type) {
-    return 'Error type: $type';
+    return 'Error type: \$type';
   }
 
   @override
   String errorDiagnosticOperation(String operation) {
-    return 'Operation: $operation';
+    return 'Operation: \$operation';
   }
 
   @override
@@ -1205,8 +1069,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get contentWindowUnavailable => 'Cannot connect to main window';
 
   @override
-  String get contentWindowUnavailableDescription =>
-      'The document session may have ended. To avoid editing an invalid session, close this window and open the document again from the main window.';
+  String get contentWindowUnavailableDescription => 'The document session may have ended. To avoid editing an invalid session, close this window and open the document again from the main window.';
 
   @override
   String get closeWindow => 'Close window';
@@ -1215,12 +1078,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get welcomeProductTagline => 'Encrypted file manager';
 
   @override
-  String get welcomeOpenDirectoryHint =>
-      'Open or create an encrypted directory from the sidebar.';
+  String get welcomeOpenDirectoryHint => 'Open or create an encrypted directory from the sidebar.';
 
   @override
   String selectedItems(int count) {
-    return '$count selected';
+    return '\$count selected';
   }
 
   @override
@@ -1260,22 +1122,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clipboardPastePending => 'Paste pending';
 
   @override
-  String get moveSourceDeleteFailed =>
-      'The target was copied, but the source entry could not be deleted. Both entries were kept; verify the target, then remove the source manually.';
+  String get moveSourceDeleteFailed => 'The target was copied, but the source entry could not be deleted. Both entries were kept; verify the target, then remove the source manually.';
 
   @override
   String clipboardMultipleEntries(String name, int count) {
-    return '$name and $count items';
+    return '\$name and \$count items';
   }
 
   @override
   String clipboardStatusWide(String operation, String entries, String target) {
-    return '$operation · $entries → $target';
+    return '\$operation · \$entries → \$target';
   }
 
   @override
   String clipboardStatusNarrow(String operation, String entries) {
-    return '$operation · $entries';
+    return '\$operation · \$entries';
   }
 
   @override
@@ -1289,7 +1150,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String openedDirectoriesCount(int count) {
-    return '$count directories open';
+    return '\$count directories open';
   }
 
   @override
@@ -1299,12 +1160,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pinSidebar => 'Pin sidebar';
 
   @override
-  String get openOrCreateEncryptedDirectory =>
-      'Open or create encrypted directory';
+  String get openOrCreateEncryptedDirectory => 'Open or create encrypted directory';
 
   @override
-  String get noOpenedDirectories =>
-      'No directories are open yet.\n\nSelect \"Open or create encrypted directory\" to get started.';
+  String get noOpenedDirectories => 'No directories are open yet.\n\nSelect "Open or create encrypted directory" to get started.';
 
   @override
   String get properties => 'Properties';
@@ -1352,8 +1211,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get importDirectory => 'Import directory';
 
   @override
-  String get dropImportHere =>
-      'Drop to import into the current encrypted directory';
+  String get dropImportHere => 'Drop to import into the current encrypted directory';
 
   @override
   String get allFiles => 'All files';
@@ -1363,7 +1221,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String encryptedRootFound(String path) {
-    return 'The current path is inside an encrypted directory: $path';
+    return 'The current path is inside an encrypted directory: \$path';
   }
 
   @override
@@ -1371,21 +1229,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String unfinishedStatesCleaned(int count) {
-    return 'Cleaned $count unfinished import/export states';
+    return 'Cleaned \$count unfinished import/export states';
   }
 
   @override
   String notepadFileTooLarge(String limit) {
-    return 'The file exceeds $limit and cannot be opened in Secure Notepad.';
+    return 'The file exceeds \$limit and cannot be opened in Secure Notepad.';
   }
 
   @override
-  String get contentFileSizeUnknown =>
-      'The file size cannot be determined, so it cannot be opened safely.';
+  String get contentFileSizeUnknown => 'The file size cannot be determined, so it cannot be opened safely.';
 
   @override
-  String get nativeContentWindowUnavailable =>
-      'Separate file windows are unavailable on this platform. Opened in the main window instead.';
+  String get nativeContentWindowUnavailable => 'Separate file windows are unavailable on this platform. Opened in the main window instead.';
 
   @override
   String get batchMove => 'Batch move';
@@ -1395,50 +1251,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String movedToDestination(String name) {
-    return 'Moved: $name';
+    return 'Moved: \$name';
   }
 
   @override
   String pastedToDestination(String name) {
-    return 'Pasted: $name';
+    return 'Pasted: \$name';
   }
 
   @override
   String batchPasteCancelled(int success, int remaining) {
-    return 'Batch paste cancelled: $success succeeded; $remaining items can be retried.';
+    return 'Batch paste cancelled: \$success succeeded; \$remaining items can be retried.';
   }
 
   @override
   String movedFiles(int count) {
-    return 'Moved $count files';
+    return 'Moved \$count files';
   }
 
   @override
   String pastedFiles(int count) {
-    return 'Pasted $count files';
+    return 'Pasted \$count files';
   }
 
   @override
-  String get noEncryptedClipboardEntries =>
-      'There are no encrypted entries to paste in the file clipboard';
+  String get noEncryptedClipboardEntries => 'There are no encrypted entries to paste in the file clipboard';
 
   @override
-  String get cannotPasteDirectoryIntoItself =>
-      'A directory cannot be pasted into itself or one of its subdirectories';
+  String get cannotPasteDirectoryIntoItself => 'A directory cannot be pasted into itself or one of its subdirectories';
 
   @override
   String directoryCreated(String name) {
-    return 'Directory created: $name';
+    return 'Directory created: \$name';
   }
 
   @override
   String fileCreated(String name) {
-    return 'File created: $name';
+    return 'File created: \$name';
   }
 
   @override
   String renamedTo(String name) {
-    return 'Renamed to: $name';
+    return 'Renamed to: \$name';
   }
 
   @override
@@ -1446,7 +1300,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String confirmDeleteFileDescription(String name) {
-    return 'Delete \"$name\"? This cannot be undone.';
+    return 'Delete "\$name"? This cannot be undone.';
   }
 
   @override
@@ -1457,12 +1311,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fileImportCompleted(String name) {
-    return 'File imported: $name';
+    return 'File imported: \$name';
   }
 
   @override
   String fileExportCompleted(String path) {
-    return 'File exported: $path';
+    return 'File exported: \$path';
   }
 
   @override
@@ -1470,38 +1324,36 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String confirmPlaintextExportDescription(String name) {
-    return '\"$name\" will be written unencrypted to the selected location. The exported copy will no longer be protected by Safe Disk. Continue?';
+    return '"\$name" will be written unencrypted to the selected location. The exported copy will no longer be protected by Safe Disk. Continue?';
   }
 
   @override
   String get continueExport => 'Continue export';
 
   @override
-  String get copiedNameToSystemClipboard =>
-      'Plaintext name copied to the system clipboard';
+  String get copiedNameToSystemClipboard => 'Plaintext name copied to the system clipboard';
 
   @override
-  String get copiedPathToSystemClipboard =>
-      'Plaintext logical path copied to the system clipboard';
+  String get copiedPathToSystemClipboard => 'Plaintext logical path copied to the system clipboard';
 
   @override
   String copiedForPaste(String name) {
-    return 'Copied \"$name\". Select a destination directory to paste.';
+    return 'Copied "\$name". Select a destination directory to paste.';
   }
 
   @override
   String cutForMove(String name) {
-    return 'Cut \"$name\". Select a destination directory to move it.';
+    return 'Cut "\$name". Select a destination directory to move it.';
   }
 
   @override
   String copiedManyForPaste(int count) {
-    return 'Copied $count files. Select a destination directory to paste.';
+    return 'Copied \$count files. Select a destination directory to paste.';
   }
 
   @override
   String cutManyForMove(int count) {
-    return 'Cut $count files. Select a destination directory to move them.';
+    return 'Cut \$count files. Select a destination directory to move them.';
   }
 
   @override
@@ -1520,12 +1372,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get hidePasswordHint => 'Hide password hint';
 
   @override
-  String get passwordHintCreationNotice =>
-      'Helps you remember the password. Anyone with access to this directory can see it; it cannot recover your password.';
+  String get passwordHintCreationNotice => 'Helps you remember the password. Anyone with access to this directory can see it; it cannot recover your password.';
 
   @override
-  String get passwordHintPublicNotice =>
-      'Anyone with access to this directory can see this hint. It cannot recover your password.';
+  String get passwordHintPublicNotice => 'Anyone with access to this directory can see this hint. It cannot recover your password.';
 
   @override
   String get passwordHintTooLong => 'Password hints are limited to 256 bytes.';
@@ -1537,12 +1387,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get managePasswordHint => 'Manage password hint';
 
   @override
-  String get passwordHintEditNotice =>
-      'Enter a new hint, or leave it empty to clear it. Anyone with access to this directory can see it; it cannot recover your password.';
+  String get passwordHintEditNotice => 'Enter a new hint, or leave it empty to clear it. Anyone with access to this directory can see it; it cannot recover your password.';
 
   @override
-  String get passwordHintPasswordRequired =>
-      'Enter the current password to update the password hint.';
+  String get passwordHintPasswordRequired => 'Enter the current password to update the password hint.';
 
   @override
   String get savePasswordHint => 'Save hint';
@@ -1555,12 +1403,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String directoryLabel(String name) {
-    return 'Directory: $name';
+    return 'Directory: \$name';
   }
 
   @override
-  String get passwordChangeDescription =>
-      'After changing the password, reopen the directory with the new password. Existing content does not need to be re-encrypted.';
+  String get passwordChangeDescription => 'After changing the password, reopen the directory with the new password. Existing content does not need to be re-encrypted.';
 
   @override
   String get currentPassword => 'Current password';
@@ -1572,8 +1419,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirmNewPassword => 'Confirm new password';
 
   @override
-  String get passwordChangeFieldsRequired =>
-      'Enter the current password and a new password.';
+  String get passwordChangeFieldsRequired => 'Enter the current password and a new password.';
 
   @override
   String get newPasswordsDoNotMatch => 'The new passwords do not match.';
@@ -1586,7 +1432,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String endSessionDescription(String name) {
-    return 'Lock \"$name\" and keep its sidebar history and disk directory.';
+    return 'Lock "\$name" and keep its sidebar history and disk directory.';
   }
 
   @override
@@ -1596,27 +1442,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get endSessionAndRemoveHistory => 'End session and remove history';
 
   @override
-  String get removeHistoryDescription =>
-      'Remove only from the sidebar; keep the local disk directory unchanged.';
+  String get removeHistoryDescription => 'Remove only from the sidebar; keep the local disk directory unchanged.';
 
   @override
-  String get endSessionRemoveHistoryAndDelete =>
-      'End session, remove history, and delete directory';
+  String get endSessionRemoveHistoryAndDelete => 'End session, remove history, and delete directory';
 
   @override
-  String get deleteDirectoryDescription =>
-      'Permanently delete the local encrypted directory and all its contents. This cannot be undone.';
+  String get deleteDirectoryDescription => 'Permanently delete the local encrypted directory and all its contents. This cannot be undone.';
 
   @override
-  String get permanentlyDeleteLocalDirectory =>
-      'Permanently delete local directory';
+  String get permanentlyDeleteLocalDirectory => 'Permanently delete local directory';
 
   @override
   String get willPermanentlyDelete => 'Will permanently delete:';
 
   @override
   String enterDirectoryNameToConfirm(String name) {
-    return 'Enter the directory name \"$name\" to confirm:';
+    return 'Enter the directory name "\$name" to confirm:';
   }
 
   @override
@@ -1660,7 +1502,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String versionValue(int version) {
-    return 'Version $version';
+    return 'Version \$version';
   }
 
   @override
@@ -1676,8 +1518,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get passwordChangeMigrationRequired => 'Migration required';
 
   @override
-  String get rootPropertiesSensitiveNotice =>
-      'Passwords, keys, and other sensitive information are not shown.';
+  String get rootPropertiesSensitiveNotice => 'Passwords, keys, and other sensitive information are not shown.';
 
   @override
   String get directory => 'Directory';
@@ -1686,22 +1527,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get status => 'Status';
 
   @override
-  String get directoryCannotChangePassword =>
-      'This directory cannot change its password directly.';
+  String get directoryCannotChangePassword => 'This directory cannot change its password directly.';
 
   @override
   String get reason => 'Reason';
 
   @override
-  String get legacyPasswordChangeReason =>
-      'This directory uses an older encryption format. Changing its password directly would make existing content unreadable.';
+  String get legacyPasswordChangeReason => 'This directory uses an older encryption format. Changing its password directly would make existing content unreadable.';
 
   @override
   String get safeApproach => 'Safe approach';
 
   @override
-  String get legacyPasswordChangeApproach =>
-      'Create an encrypted directory with a new password, then export and import the content you need to keep.';
+  String get legacyPasswordChangeApproach => 'Create an encrypted directory with a new password, then export and import the content you need to keep.';
 
   @override
   String get createEncryptedDirectory => 'Create encrypted directory';
@@ -1719,30 +1557,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get allowFuturePasswordChange => 'Allow password changes later';
 
   @override
-  String get allowFuturePasswordChangeHint =>
-      'Recommended: change the password without re-encrypting existing files.';
+  String get allowFuturePasswordChangeHint => 'Recommended: change the password without re-encrypting existing files.';
 
   @override
   String get advancedEncryptionParameters => 'Advanced encryption parameters';
 
   @override
-  String get advancedEncryptionParametersHint =>
-      'The default configuration is suitable for most people.';
+  String get advancedEncryptionParametersHint => 'The default configuration is suitable for most people.';
 
   @override
   String get derivationStrength => 'Derivation strength';
 
   @override
-  String get derivationStrengthUncalibratedHint =>
-      'This is a preset profile and has not been calibrated for this device.';
+  String get derivationStrengthUncalibratedHint => 'This is a preset profile and has not been calibrated for this device.';
 
   @override
-  String get defaultNewDirectoryKdfProfile =>
-      'Default derivation profile for new directories';
+  String get defaultNewDirectoryKdfProfile => 'Default derivation profile for new directories';
 
   @override
-  String get defaultNewDirectoryKdfProfileHint =>
-      'Only affects directories created later; it has not been calibrated for this device.';
+  String get defaultNewDirectoryKdfProfileHint => 'Only affects directories created later; it has not been calibrated for this device.';
 
   @override
   String get kdfProfileFast => 'Fast';
@@ -1758,15 +1591,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String durationMilliseconds(int count) {
-    return '$count ms';
+    return '\$count ms';
   }
 
   @override
   String get noEncryption => 'No encryption';
 
   @override
-  String get unencryptedNamesWarning =>
-      'Warning: with No encryption, file and directory names are not encrypted.';
+  String get unencryptedNamesWarning => 'Warning: with No encryption, file and directory names are not encrypted.';
 
   @override
   String get selectDirectory => 'Select directory';
@@ -1775,8 +1607,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get directoryPath => 'Directory path';
 
   @override
-  String get directoryPathHint =>
-      'Enter a directory path or browse to select one';
+  String get directoryPathHint => 'Enter a directory path or browse to select one';
 
   @override
   String get browse => 'Browse';
@@ -1788,19 +1619,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirmDirectoryRemoval => 'Confirm removal';
 
   @override
-  String get removeEncryptedDirectoryFromSidebar =>
-      'You are about to remove this encrypted directory from the sidebar:';
+  String get removeEncryptedDirectoryFromSidebar => 'You are about to remove this encrypted directory from the sidebar:';
 
   @override
   String get chooseAnAction => 'Choose an action:';
 
   @override
-  String get removeFromSidebarOnlyDescription =>
-      '• Remove from sidebar only: keep the disk directory and encrypted files';
+  String get removeFromSidebarOnlyDescription => '• Remove from sidebar only: keep the disk directory and encrypted files';
 
   @override
-  String get deleteDirectoryFromDiskDescription =>
-      '• Also delete the disk directory: permanently delete the directory and all files';
+  String get deleteDirectoryFromDiskDescription => '• Also delete the disk directory: permanently delete the directory and all files';
 
   @override
   String get removeOnly => 'Remove only';
@@ -1810,45 +1638,42 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String propertyLabel(String label) {
-    return '$label:';
+    return '\$label:';
   }
 
   @override
   String copyPropertyValue(String label) {
-    return 'Copy $label';
+    return 'Copy \$label';
   }
 
   @override
   String get propertyValueCopied => 'Property value copied';
 
   @override
-  String get filterCurrentDirectoryHint =>
-      'Filter files and folders in the current directory...';
+  String get filterCurrentDirectoryHint => 'Filter files and folders in the current directory...';
 
   @override
-  String get filterLoadedItemsHint =>
-      'Only loaded entries are filtered. Load more to expand the scope.';
+  String get filterLoadedItemsHint => 'Only loaded entries are filtered. Load more to expand the scope.';
 
   @override
   String get navigateUp => 'Go up';
 
   @override
   String directoryIncompleteSummary(int count, int folders, int files) {
-    return '$count loaded ($folders folders, $files files)';
+    return '\$count loaded (\$folders folders, \$files files)';
   }
 
   @override
   String directorySummary(int folders, int files) {
-    return '$folders folders, $files files';
+    return '\$folders folders, \$files files';
   }
 
   @override
-  String get sortUnavailableUntilFullyLoaded =>
-      'Sorting is unavailable until the directory finishes loading';
+  String get sortUnavailableUntilFullyLoaded => 'Sorting is unavailable until the directory finishes loading';
 
   @override
   String sortTooltip(String order) {
-    return 'Sort: $order';
+    return 'Sort: \$order';
   }
 
   @override
@@ -1888,22 +1713,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gridView => 'Grid view';
 
   @override
-  String get directoryReadFailedRetry =>
-      'Could not read directory. Refresh and try again.';
+  String get directoryReadFailedRetry => 'Could not read directory. Refresh and try again.';
 
   @override
   String noMatchInLoadedEntries(String query) {
-    return 'No loaded entries match \"$query\"';
+    return 'No loaded entries match "\$query"';
   }
 
   @override
   String noMatchInCurrentDirectory(String query) {
-    return 'No entries in this directory match \"$query\"';
+    return 'No entries in this directory match "\$query"';
   }
 
   @override
-  String get unloadedEntriesMayMatch =>
-      'More entries have not loaded yet. Load more, then filter again.';
+  String get unloadedEntriesMayMatch => 'More entries have not loaded yet. Load more, then filter again.';
 
   @override
   String get currentDirectoryEmpty => 'This directory is empty';
@@ -1912,15 +1735,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loadMoreEntries => 'Load more entries';
 
   @override
-  String get loadMoreFailedRetry =>
-      'Could not load more entries. Refresh and try again.';
+  String get loadMoreFailedRetry => 'Could not load more entries. Refresh and try again.';
 
   @override
   String get scrollToLoadMore => 'Keep scrolling to load more entries';
 
   @override
   String directoryItemCount(int count) {
-    return '$count items';
+    return '\$count items';
   }
 
   @override
@@ -1928,7 +1750,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fileSystemEntrySemantics(String name, String type) {
-    return '$name, $type';
+    return '\$name, \$type';
   }
 
   @override
@@ -1989,8 +1811,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fileNameEmpty => 'A name is required';
 
   @override
-  String get fileNameLeadingOrTrailingWhitespace =>
-      'A name cannot start or end with whitespace';
+  String get fileNameLeadingOrTrailingWhitespace => 'A name cannot start or end with whitespace';
 
   @override
   String get fileNameReserved => 'This reserved name cannot be used';
@@ -1999,12 +1820,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fileNameTrailingDot => 'A name cannot end with a dot';
 
   @override
-  String get fileNamePathSeparatorOrNull =>
-      'A name cannot contain a path separator or null character';
+  String get fileNamePathSeparatorOrNull => 'A name cannot contain a path separator or null character';
 
   @override
-  String get fileNameUnsupportedCharacter =>
-      'A name contains characters unsupported across platforms';
+  String get fileNameUnsupportedCharacter => 'A name contains characters unsupported across platforms';
 
   @override
   String get fileNameReservedSystemName => 'This is a reserved system name';
@@ -2029,7 +1848,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String fileTypeWithExtension(String extension) {
-    return '$extension file';
+    return '\$extension file';
   }
 
   @override
@@ -2061,7 +1880,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String retryDirectoryTreeRead(String message) {
-    return '$message. Refresh and try again.';
+    return '\$message. Refresh and try again.';
   }
 
   @override
@@ -2086,20 +1905,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get conflictTargetExists => 'Destination already exists';
 
   @override
-  String get conflictReplacementUnavailable =>
-      'The source and destination types are incompatible, or they are the same entry. Choose Keep both to create a new name.';
+  String get conflictReplacementUnavailable => 'The source and destination types are incompatible, or they are the same entry. Choose Keep both to create a new name.';
 
   @override
-  String get conflictDirectoryReplaceDetail =>
-      'Merge and replace keeps content unique to the destination directory and replaces files with the same name.';
+  String get conflictDirectoryReplaceDetail => 'Merge and replace keeps content unique to the destination directory and replaces files with the same name.';
 
   @override
-  String get conflictFileReplaceDetail =>
-      'Replace overwrites the existing file with the new content.';
+  String get conflictFileReplaceDetail => 'Replace overwrites the existing file with the new content.';
 
   @override
   String conflictDescription(String name, String operation, String detail) {
-    return '\"$name\" already exists and cannot be directly $operation.\n\n$detail';
+    return '"\$name" already exists and cannot be directly \$operation.\n\n\$detail';
   }
 
   @override
@@ -2119,47 +1935,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String batchOperationCancelled(String operation) {
-    return '$operation cancelled';
+    return '\$operation cancelled';
   }
 
   @override
   String batchOperationPartiallyCompleted(String operation) {
-    return '$operation partially completed';
+    return '\$operation partially completed';
   }
 
   @override
   String batchOperationCompleted(String operation) {
-    return '$operation completed';
+    return '\$operation completed';
   }
 
   @override
   String batchTotal(int count) {
-    return 'Total: $count';
+    return 'Total: \$count';
   }
 
   @override
   String batchSucceeded(int count) {
-    return 'Succeeded: $count';
+    return 'Succeeded: \$count';
   }
 
   @override
   String batchSkipped(int count) {
-    return 'Skipped: $count';
+    return 'Skipped: \$count';
   }
 
   @override
   String batchFailed(int count) {
-    return 'Failed: $count';
+    return 'Failed: \$count';
   }
 
   @override
   String batchUnprocessed(int count) {
-    return 'Unprocessed: $count';
+    return 'Unprocessed: \$count';
   }
 
   @override
   String batchClipboardRemaining(int count) {
-    return 'Remaining in clipboard: $count';
+    return 'Remaining in clipboard: \$count';
   }
 
   @override
@@ -2167,25 +1983,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String batchFailureItem(String name, String reason) {
-    return '\"$name\": $reason';
+    return '"\$name": \$reason';
   }
 
   @override
   String additionalFailures(int count) {
-    return '$count more failures';
+    return '\$count more failures';
   }
 
   @override
   String get antiScreenshot => 'Anti-screenshot';
 
   @override
-  String get antiScreenshotHint =>
-      'Prevent system screenshot tools from capturing Safe Disk window content. Not supported on Linux/X11; effective on Windows/macOS only.';
+  String get antiScreenshotHint => 'When enabled, screenshot tools and screen recording software cannot capture this application\'s window content. The captured area will appear black.';
 
   @override
-  String get antiScreenshotOnLinux => 'Enable anti-screenshot on Linux';
+  String get antiScreenshotEnvVarHint => 'If anti-screenshot makes the app unusable, launch with environment variable SAFE_DISK_NO_ANTI_SCREENSHOT=1 to force-disable it.';
 
   @override
-  String get antiScreenshotOnLinuxHint =>
-      'Screenshot prevention is unavailable on X11. This toggle has no effect and is reserved for future compositor support.';
+  String get antiScreenshotInfoTitle => 'Enable Anti-Screenshot?';
+
+  @override
+  String get antiScreenshotInfoDescription => 'Anti-screenshot prevents system tools (PrintScreen, Snipping Tool, etc.) and recording software from capturing Safe Disk window content. The captured area will appear black. Most Windows 10 and newer systems fully support this; older systems may only block recording.';
+
+  @override
+  String get antiScreenshotInfoEnable => 'Enable';
+
+  @override
+  String get antiScreenshotCountdownTitle => 'Anti-Screenshot Enabled';
+
+  @override
+  String antiScreenshotCountdownHint(int countdown) {
+    return 'The setting has been applied. If the screen becomes unusable, do nothing — it will auto-revert after \$countdowns.\n\nClick "Confirm & Save" to keep anti-screenshot enabled.';
+  }
+
+  @override
+  String get antiScreenshotCountdownConfirm => 'Confirm & Save';
+
+  @override
+  String get webDavAuthBasic => 'Basic (username and password, loopback only)';
+
+  @override
+  String get webDavBasicRiskWarning => 'Basic authentication transmits credentials in a form that other local processes can observe. Use only on trusted systems.';
+
+  @override
+  String get webDavBasicCredentialsDescription => 'Provide the URL, username, and password to the selected trusted tool. Basic authentication transmits credentials in a reversible form — use only on trusted machines.';
+
+  @override
+  String get webDavTLS => 'Enable HTTPS/TLS';
+
+  @override
+  String get webDavTLSDescription => 'Use HTTPS with a self-signed certificate for loopback connections. Required by some system tools (e.g., Windows WebClient) but adds no additional network security on loopback. Clients must accept the self-signed certificate warning.';
+
+  @override
+  String get webDavAuthModeBasic => 'Authentication: Basic';
+
 }

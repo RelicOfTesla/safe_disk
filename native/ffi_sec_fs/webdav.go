@@ -104,3 +104,20 @@ func (p rootResourceProvider) Open(path string) (io.ReadCloser, fs.FileInfo, err
 func rootKey(rootPath string) string {
 	return "root-path:" + filepath.Clean(rootPath)
 }
+
+func WebDavExportCertPEM_FFI() string {
+	pem, err := sec_webdav.ExportTLSCertPEM()
+	if err != nil {
+		return errorResponse(err)
+	}
+	return successResponse(map[string]string{"cert_pem": pem})
+}
+
+// WebDavExportCACertPEM_FFI exports the CA certificate for system trust store installation.
+func WebDavExportCACertPEM_FFI() string {
+	pem, err := sec_webdav.ExportCACertPEM()
+	if err != nil {
+		return errorResponse(err)
+	}
+	return successResponse(map[string]string{"ca_cert_pem": pem})
+}

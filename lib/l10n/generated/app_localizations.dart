@@ -1,5 +1,5 @@
+// ignore: unused_import
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -12,80 +12,20 @@ import 'app_localizations_zh.dart';
 
 /// Callers can lookup localized strings with an instance of AppLocalizations
 /// returned by `AppLocalizations.of(context)`.
-///
-/// Applications need to include `AppLocalizations.delegate()` in their app's
-/// `localizationDelegates` list, and the locales they support in the app's
-/// `supportedLocales` list. For example:
-///
-/// ```dart
-/// import 'generated/app_localizations.dart';
-///
-/// return MaterialApp(
-///   localizationsDelegates: AppLocalizations.localizationsDelegates,
-///   supportedLocales: AppLocalizations.supportedLocales,
-///   home: MyApplicationHome(),
-/// );
-/// ```
-///
-/// ## Update pubspec.yaml
-///
-/// Please make sure to update your pubspec.yaml to include the following
-/// packages:
-///
-/// ```yaml
-/// dependencies:
-///   # Internationalization support.
-///   flutter_localizations:
-///     sdk: flutter
-///   intl: any # Use the pinned version from flutter_localizations
-///
-///   # Rest of dependencies
-/// ```
-///
-/// ## iOS Applications
-///
-/// iOS applications define key application metadata, including supported
-/// locales, in an Info.plist file that is built into the application bundle.
-/// To configure the locales supported by your app, you’ll need to edit this
-/// file.
-///
-/// First, open your project’s ios/Runner.xcworkspace Xcode workspace file.
-/// Then, in the Project Navigator, open the Info.plist file under the Runner
-/// project’s Runner folder.
-///
-/// Next, select the Information Property List item, select Add Item from the
-/// Editor menu, then select Localizations from the pop-up menu.
-///
-/// Select and expand the newly-created Localizations item then, for each
-/// locale your application supports, add a new item and select the locale
-/// you wish to add from the pop-up menu in the Value field. This list should
-/// be consistent with the languages listed in the AppLocalizations.supportedLocales
-/// property.
 abstract class AppLocalizations {
-  AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+  AppLocalizations(String locale) : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
-  static AppLocalizations? of(BuildContext context) {
-    return Localizations.of<AppLocalizations>(context, AppLocalizations);
+  static AppLocalizations of(BuildContext context) {
+    return Localizations.of<AppLocalizations>(context, AppLocalizations)!;
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate =
-      _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
-  ///
-  /// Returns a list of localizations delegates containing this delegate along with
-  /// GlobalMaterialLocalizations.delegate, GlobalCupertinoLocalizations.delegate,
-  /// and GlobalWidgetsLocalizations.delegate.
-  ///
-  /// Additional delegates can be added by appending to this list in
-  /// MaterialApp. This list does not have to be used at all if a custom list
-  /// of delegates is preferred or required.
-  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
-      <LocalizationsDelegate<dynamic>>[
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates = <LocalizationsDelegate<dynamic>>[
     delegate,
     GlobalMaterialLocalizations.delegate,
     GlobalCupertinoLocalizations.delegate,
@@ -95,3658 +35,3708 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('zh')
+    Locale('zh'),
   ];
 
   /// No description provided for @appTitle.
   ///
-  /// In zh, this message translates to:
+  /// In en, this message translates to:
   /// **'Safe Disk'**
   String get appTitle;
 
   /// No description provided for @settings.
   ///
-  /// In zh, this message translates to:
-  /// **'设置'**
+  /// In en, this message translates to:
+  /// **'Settings'**
   String get settings;
 
   /// No description provided for @language.
   ///
-  /// In zh, this message translates to:
-  /// **'语言'**
+  /// In en, this message translates to:
+  /// **'Language'**
   String get language;
 
   /// No description provided for @languageSystem.
   ///
-  /// In zh, this message translates to:
-  /// **'跟随系统语言'**
+  /// In en, this message translates to:
+  /// **'Follow system'**
   String get languageSystem;
 
   /// No description provided for @languageChinese.
   ///
-  /// In zh, this message translates to:
-  /// **'简体中文'**
+  /// In en, this message translates to:
+  /// **'Simplified Chinese'**
   String get languageChinese;
 
   /// No description provided for @languageEnglish.
   ///
-  /// In zh, this message translates to:
+  /// In en, this message translates to:
   /// **'English'**
   String get languageEnglish;
 
   /// No description provided for @saveSettings.
   ///
-  /// In zh, this message translates to:
-  /// **'保存设置'**
+  /// In en, this message translates to:
+  /// **'Save settings'**
   String get saveSettings;
 
   /// No description provided for @settingsSaved.
   ///
-  /// In zh, this message translates to:
-  /// **'设置已保存'**
+  /// In en, this message translates to:
+  /// **'Settings saved'**
   String get settingsSaved;
 
   /// No description provided for @settingsLoadFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'无法加载设置'**
+  /// In en, this message translates to:
+  /// **'Unable to load settings'**
   String get settingsLoadFailed;
 
   /// No description provided for @settingsSaveFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'无法保存设置'**
+  /// In en, this message translates to:
+  /// **'Unable to save settings'**
   String get settingsSaveFailed;
 
   /// No description provided for @settingsNotSaved.
   ///
-  /// In zh, this message translates to:
-  /// **'设置尚未保存。'**
+  /// In en, this message translates to:
+  /// **'Settings were not saved.'**
   String get settingsNotSaved;
 
   /// No description provided for @settingsLoadDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法读取本机设置。'**
+  /// In en, this message translates to:
+  /// **'Unable to read local settings.'**
   String get settingsLoadDescription;
 
   /// No description provided for @settingsLoadSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请重试；如果问题持续，请恢复默认设置或联系支持。'**
+  /// In en, this message translates to:
+  /// **'Try again. If the problem continues, restore defaults or contact support.'**
   String get settingsLoadSuggestion;
 
   /// No description provided for @settingsSaveSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查本机存储空间和权限，然后重试。'**
+  /// In en, this message translates to:
+  /// **'Check local storage space and permissions, then try again.'**
   String get settingsSaveSuggestion;
 
   /// No description provided for @appearance.
   ///
-  /// In zh, this message translates to:
-  /// **'外观'**
+  /// In en, this message translates to:
+  /// **'Appearance'**
   String get appearance;
 
   /// No description provided for @security.
   ///
-  /// In zh, this message translates to:
-  /// **'安全'**
+  /// In en, this message translates to:
+  /// **'Security'**
   String get security;
 
   /// No description provided for @secureNotepad.
   ///
-  /// In zh, this message translates to:
-  /// **'安全记事本'**
+  /// In en, this message translates to:
+  /// **'Secure Notepad'**
   String get secureNotepad;
 
   /// No description provided for @themeSystem.
   ///
-  /// In zh, this message translates to:
-  /// **'跟随系统'**
+  /// In en, this message translates to:
+  /// **'Follow system'**
   String get themeSystem;
 
   /// No description provided for @themeLight.
   ///
-  /// In zh, this message translates to:
-  /// **'亮色主题'**
+  /// In en, this message translates to:
+  /// **'Light'**
   String get themeLight;
 
   /// No description provided for @themeDark.
   ///
-  /// In zh, this message translates to:
-  /// **'暗色主题'**
+  /// In en, this message translates to:
+  /// **'Dark'**
   String get themeDark;
 
   /// No description provided for @themePreviewHint.
   ///
-  /// In zh, this message translates to:
-  /// **'主题会立即预览；保存后会在下次启动时保留。'**
+  /// In en, this message translates to:
+  /// **'The theme is previewed immediately and is kept after saving.'**
   String get themePreviewHint;
 
   /// No description provided for @languagePreviewHint.
   ///
-  /// In zh, this message translates to:
-  /// **'语言会立即预览；保存后会在下次启动时保留。'**
+  /// In en, this message translates to:
+  /// **'The language is previewed immediately and is kept after saving.'**
   String get languagePreviewHint;
 
   /// No description provided for @saveChanges.
   ///
-  /// In zh, this message translates to:
-  /// **'保存设置更改？'**
+  /// In en, this message translates to:
+  /// **'Save settings changes?'**
   String get saveChanges;
 
   /// No description provided for @unsavedSettings.
   ///
-  /// In zh, this message translates to:
-  /// **'当前修改尚未保存。'**
+  /// In en, this message translates to:
+  /// **'Your changes have not been saved.'**
   String get unsavedSettings;
 
   /// No description provided for @cancel.
   ///
-  /// In zh, this message translates to:
-  /// **'取消'**
+  /// In en, this message translates to:
+  /// **'Cancel'**
   String get cancel;
 
   /// No description provided for @save.
   ///
-  /// In zh, this message translates to:
-  /// **'保存'**
+  /// In en, this message translates to:
+  /// **'Save'**
   String get save;
 
   /// No description provided for @discardChanges.
   ///
-  /// In zh, this message translates to:
-  /// **'放弃修改'**
+  /// In en, this message translates to:
+  /// **'Discard changes'**
   String get discardChanges;
 
   /// No description provided for @saveAndReturn.
   ///
-  /// In zh, this message translates to:
-  /// **'保存并返回'**
+  /// In en, this message translates to:
+  /// **'Save and return'**
   String get saveAndReturn;
 
   /// No description provided for @back.
   ///
-  /// In zh, this message translates to:
-  /// **'返回'**
+  /// In en, this message translates to:
+  /// **'Back'**
   String get back;
 
   /// No description provided for @restoreDefaults.
   ///
-  /// In zh, this message translates to:
-  /// **'恢复默认设置（未保存）'**
+  /// In en, this message translates to:
+  /// **'Restore defaults (not saved)'**
   String get restoreDefaults;
 
   /// No description provided for @loadingImage.
   ///
-  /// In zh, this message translates to:
-  /// **'正在加载图片'**
+  /// In en, this message translates to:
+  /// **'Loading image'**
   String get loadingImage;
 
   /// No description provided for @imageLoadFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'图片加载失败'**
+  /// In en, this message translates to:
+  /// **'Image failed to load'**
   String get imageLoadFailed;
 
   /// No description provided for @imageEncodedSizeLimit.
   ///
-  /// In zh, this message translates to:
-  /// **'图片编码数据超过 {limit} 上限'**
+  /// In en, this message translates to:
+  /// **'Encoded image data exceeds the {limit} limit.'**
   String imageEncodedSizeLimit(String limit);
 
   /// No description provided for @imageContentEmpty.
   ///
-  /// In zh, this message translates to:
-  /// **'图片内容为空'**
+  /// In en, this message translates to:
+  /// **'The image content is empty.'**
   String get imageContentEmpty;
 
   /// No description provided for @imageDimensionsInvalid.
   ///
-  /// In zh, this message translates to:
-  /// **'图片尺寸无效'**
+  /// In en, this message translates to:
+  /// **'The image dimensions are invalid.'**
   String get imageDimensionsInvalid;
 
   /// No description provided for @imageDecodedPixelLimit.
   ///
-  /// In zh, this message translates to:
-  /// **'图片解码尺寸超过 {limit} 上限'**
+  /// In en, this message translates to:
+  /// **'Decoded image dimensions exceed the {limit} limit.'**
   String imageDecodedPixelLimit(String limit);
 
   /// No description provided for @imageEncryptedContentInvalid.
   ///
-  /// In zh, this message translates to:
-  /// **'无法读取加密图片数据，内容可能无效。'**
+  /// In en, this message translates to:
+  /// **'The encrypted image data could not be read. It may be invalid.'**
   String get imageEncryptedContentInvalid;
 
   /// No description provided for @noDisplayableImage.
   ///
-  /// In zh, this message translates to:
-  /// **'没有可显示的图片。请选择其他图片或重试。'**
+  /// In en, this message translates to:
+  /// **'No displayable image. Choose another image or try again.'**
   String get noDisplayableImage;
 
   /// No description provided for @viewingImage.
   ///
-  /// In zh, this message translates to:
-  /// **'正在查看：{fileName}'**
+  /// In en, this message translates to:
+  /// **'Viewing: {fileName}'**
   String viewingImage(String fileName);
 
   /// No description provided for @animatedImageFrames.
   ///
-  /// In zh, this message translates to:
-  /// **'动画（{count} 帧）'**
+  /// In en, this message translates to:
+  /// **'Animated ({count} frames)'**
   String animatedImageFrames(int count);
 
   /// No description provided for @zoomInShortcut.
   ///
-  /// In zh, this message translates to:
-  /// **'放大（+）'**
+  /// In en, this message translates to:
+  /// **'Zoom in (+)'**
   String get zoomInShortcut;
 
   /// No description provided for @zoomOutShortcut.
   ///
-  /// In zh, this message translates to:
-  /// **'缩小（-）'**
+  /// In en, this message translates to:
+  /// **'Zoom out (-)'**
   String get zoomOutShortcut;
 
   /// No description provided for @resetImageViewShortcut.
   ///
-  /// In zh, this message translates to:
-  /// **'重置视图（N）'**
+  /// In en, this message translates to:
+  /// **'Reset view (N)'**
   String get resetImageViewShortcut;
 
   /// No description provided for @rotateClockwiseShortcut.
   ///
-  /// In zh, this message translates to:
-  /// **'顺时针旋转（R）'**
+  /// In en, this message translates to:
+  /// **'Rotate clockwise (R)'**
   String get rotateClockwiseShortcut;
 
   /// No description provided for @previousImageShortcut.
   ///
-  /// In zh, this message translates to:
-  /// **'上一张（←）'**
+  /// In en, this message translates to:
+  /// **'Previous image (Left)'**
   String get previousImageShortcut;
 
   /// No description provided for @nextImageShortcut.
   ///
-  /// In zh, this message translates to:
-  /// **'下一张（→）'**
+  /// In en, this message translates to:
+  /// **'Next image (Right)'**
   String get nextImageShortcut;
 
   /// No description provided for @imageDecodeFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'无法显示图片'**
+  /// In en, this message translates to:
+  /// **'Cannot display image'**
   String get imageDecodeFailed;
 
   /// No description provided for @imageDecodeFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'文件可能已损坏，或不是受支持的图片格式。'**
+  /// In en, this message translates to:
+  /// **'The file may be damaged or use an unsupported image format.'**
   String get imageDecodeFailedDescription;
 
   /// No description provided for @errorSuggestionPrefix.
   ///
-  /// In zh, this message translates to:
-  /// **'建议：'**
+  /// In en, this message translates to:
+  /// **'Suggestion: '**
   String get errorSuggestionPrefix;
 
   /// No description provided for @copy.
   ///
-  /// In zh, this message translates to:
-  /// **'复制'**
+  /// In en, this message translates to:
+  /// **'Copy'**
   String get copy;
 
   /// No description provided for @close.
   ///
-  /// In zh, this message translates to:
-  /// **'关闭'**
+  /// In en, this message translates to:
+  /// **'Close'**
   String get close;
 
   /// No description provided for @exposeToThirdParty.
   ///
-  /// In zh, this message translates to:
-  /// **'向第三方工具暴露'**
+  /// In en, this message translates to:
+  /// **'Expose to third-party tool'**
   String get exposeToThirdParty;
 
   /// No description provided for @webDavExposureConfirmTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'向第三方工具暴露内容？'**
+  /// In en, this message translates to:
+  /// **'Expose content to a third-party tool?'**
   String get webDavExposureConfirmTitle;
 
   /// No description provided for @webDavExposureConfirmDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'{name} 将通过仅本机可访问的只读 WebDAV 暴露给第三方工具。第三方工具可能缓存或导出明文，请只暴露必要内容。'**
+  /// In en, this message translates to:
+  /// **'{name} will be exposed through a loopback, read-only WebDAV session. Third-party tools may cache or export plaintext, so expose only what is necessary.'**
   String webDavExposureConfirmDescription(String name);
 
   /// No description provided for @webDavExposeReadOnly.
   ///
-  /// In zh, this message translates to:
-  /// **'创建只读访问'**
+  /// In en, this message translates to:
+  /// **'Create read-only access'**
   String get webDavExposeReadOnly;
 
   /// No description provided for @webDavOptionsTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'配置 WebDAV 访问'**
+  /// In en, this message translates to:
+  /// **'Configure WebDAV access'**
   String get webDavOptionsTitle;
 
   /// No description provided for @webDavOptionsDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'选择鉴权、凭据显示和会话保留方式。创建后可在访问列表中挂载或撤销。'**
+  /// In en, this message translates to:
+  /// **'Choose authentication, credential display, and session lifetime. You can mount or revoke the session from the access list.'**
   String get webDavOptionsDescription;
 
   /// No description provided for @webDavAuthModeTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'选择鉴权方式'**
+  /// In en, this message translates to:
+  /// **'Choose authentication'**
   String get webDavAuthModeTitle;
 
   /// No description provided for @webDavAuthModeDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'不同工具支持的鉴权方式不同。凭据只会显示一次。'**
+  /// In en, this message translates to:
+  /// **'Different tools support different authentication methods. Credentials are shown only once.'**
   String get webDavAuthModeDescription;
 
   /// No description provided for @webDavAuthBearer.
   ///
-  /// In zh, this message translates to:
-  /// **'Bearer（令牌）'**
+  /// In en, this message translates to:
+  /// **'Bearer (token)'**
   String get webDavAuthBearer;
 
   /// No description provided for @webDavAuthDigest.
   ///
-  /// In zh, this message translates to:
-  /// **'Digest（用户名和密码）'**
+  /// In en, this message translates to:
+  /// **'Digest (username and password)'**
   String get webDavAuthDigest;
-
-  /// No description provided for @webDavAuthBasic.
-  String get webDavAuthBasic;
-
-  /// No description provided for @webDavBasicRiskWarning.
-  String get webDavBasicRiskWarning;
-
-  /// No description provided for @webDavBasicCredentialsDescription.
-  /// No description provided for @webDavTLS.
-  String get webDavTLS;
-  /// No description provided for @webDavTLSDescription.
-  String get webDavTLSDescription;
-  String get webDavBasicCredentialsDescription;
-
-  /// No description provided for @webDavAuthModeBasic.
-  String get webDavAuthModeBasic;
 
   /// No description provided for @webDavAuthContinue.
   ///
-  /// In zh, this message translates to:
-  /// **'继续'**
+  /// In en, this message translates to:
+  /// **'Continue'**
   String get webDavAuthContinue;
 
   /// No description provided for @webDavCredentialVisibilityTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'凭据显示方式'**
+  /// In en, this message translates to:
+  /// **'Credential display'**
   String get webDavCredentialVisibilityTitle;
 
   /// No description provided for @webDavCredentialVisibilityDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'一次性显示更安全；持久显示允许在会话有效期间再次查看凭据。该选择只影响新会话。'**
+  /// In en, this message translates to:
+  /// **'Showing credentials once is safer. Persistent display allows the credentials to be shown again while the session is active. This choice affects new sessions only.'**
   String get webDavCredentialVisibilityDescription;
 
   /// No description provided for @webDavCredentialOnce.
   ///
-  /// In zh, this message translates to:
-  /// **'仅显示一次（推荐）'**
+  /// In en, this message translates to:
+  /// **'Show once (recommended)'**
   String get webDavCredentialOnce;
 
   /// No description provided for @webDavCredentialPersistent.
   ///
-  /// In zh, this message translates to:
-  /// **'允许再次显示'**
+  /// In en, this message translates to:
+  /// **'Allow showing again'**
   String get webDavCredentialPersistent;
 
   /// No description provided for @webDavPersistentCredentialWarning.
   ///
-  /// In zh, this message translates to:
-  /// **'持久显示会增加凭据泄露风险。只有在需要反复配置可信工具时使用。'**
+  /// In en, this message translates to:
+  /// **'Persistent display increases the risk of credential exposure. Use it only when trusted tools must be configured repeatedly.'**
   String get webDavPersistentCredentialWarning;
 
   /// No description provided for @webDavRevealCredentials.
   ///
-  /// In zh, this message translates to:
-  /// **'显示凭据'**
+  /// In en, this message translates to:
+  /// **'Show credentials'**
   String get webDavRevealCredentials;
 
   /// No description provided for @webDavCredentialsRevealed.
   ///
-  /// In zh, this message translates to:
-  /// **'凭据已显示'**
+  /// In en, this message translates to:
+  /// **'Credentials shown'**
   String get webDavCredentialsRevealed;
 
   /// No description provided for @webDavSessionLifetimeTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'会话保留方式'**
+  /// In en, this message translates to:
+  /// **'Session lifetime'**
   String get webDavSessionLifetimeTitle;
 
   /// No description provided for @webDavSessionLifetimeDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'临时会话在结束或关闭 root 后失效；持久会话会在重新解锁 root 后恢复。'**
+  /// In en, this message translates to:
+  /// **'An ephemeral session ends when the root is closed. A persistent session is restored after the root is unlocked again.'**
   String get webDavSessionLifetimeDescription;
 
   /// No description provided for @webDavSessionEphemeral.
   ///
-  /// In zh, this message translates to:
-  /// **'临时会话（推荐）'**
+  /// In en, this message translates to:
+  /// **'Ephemeral session (recommended)'**
   String get webDavSessionEphemeral;
 
   /// No description provided for @webDavSessionPersistent.
   ///
-  /// In zh, this message translates to:
-  /// **'持久会话'**
+  /// In en, this message translates to:
+  /// **'Persistent session'**
   String get webDavSessionPersistent;
 
   /// No description provided for @webDavPersistentSessionWarning.
   ///
-  /// In zh, this message translates to:
-  /// **'持久会话会保留端口和访问凭据，直到你明确撤销访问。仅在确有需要时使用。'**
+  /// In en, this message translates to:
+  /// **'Persistent sessions retain their port and credentials until explicitly revoked. Use this only when needed.'**
   String get webDavPersistentSessionWarning;
 
   /// No description provided for @webDavSessions.
   ///
-  /// In zh, this message translates to:
-  /// **'第三方访问'**
+  /// In en, this message translates to:
+  /// **'Third-party access'**
   String get webDavSessions;
 
   /// No description provided for @webDavSessionsTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'第三方工具访问'**
+  /// In en, this message translates to:
+  /// **'Third-party tool access'**
   String get webDavSessionsTitle;
 
   /// No description provided for @webDavNoActiveSessions.
   ///
-  /// In zh, this message translates to:
-  /// **'当前没有活跃的第三方访问。'**
+  /// In en, this message translates to:
+  /// **'There is no active third-party access.'**
   String get webDavNoActiveSessions;
 
   /// No description provided for @webDavCredentialsTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'第三方工具访问凭据'**
+  /// In en, this message translates to:
+  /// **'Third-party tool credentials'**
   String get webDavCredentialsTitle;
 
   /// No description provided for @webDavCredentialsDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'请将地址和令牌提供给所选的可信工具。关闭此窗口后，令牌不会再次显示。'**
+  /// In en, this message translates to:
+  /// **'Provide the URL and token to the selected trusted tool. The token is not shown again after this window closes.'**
   String get webDavCredentialsDescription;
 
   /// No description provided for @webDavDigestCredentialsDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'请将地址、用户名、密码和 realm 提供给所选的可信工具。关闭此窗口后，凭据不会再次显示。'**
+  /// In en, this message translates to:
+  /// **'Provide the URL, username, password, and realm to the selected trusted tool. The credentials are not shown again after this window closes.'**
   String get webDavDigestCredentialsDescription;
 
   /// No description provided for @webDavReadOnly.
   ///
-  /// In zh, this message translates to:
-  /// **'权限：只读'**
+  /// In en, this message translates to:
+  /// **'Permission: read-only'**
   String get webDavReadOnly;
 
   /// No description provided for @webDavUrl.
   ///
-  /// In zh, this message translates to:
-  /// **'WebDAV 地址'**
+  /// In en, this message translates to:
+  /// **'WebDAV URL'**
   String get webDavUrl;
 
   /// No description provided for @webDavToken.
   ///
-  /// In zh, this message translates to:
-  /// **'访问令牌'**
+  /// In en, this message translates to:
+  /// **'Access token'**
   String get webDavToken;
 
   /// No description provided for @webDavLastAccessed.
   ///
-  /// In zh, this message translates to:
-  /// **'最近访问：{time}'**
+  /// In en, this message translates to:
+  /// **'Last accessed: {time}'**
   String webDavLastAccessed(String time);
 
   /// No description provided for @webDavActiveRequests.
   ///
-  /// In zh, this message translates to:
-  /// **'当前请求：{count}'**
+  /// In en, this message translates to:
+  /// **'Active requests: {count}'**
   String webDavActiveRequests(int count);
 
   /// No description provided for @webDavUrlCopied.
   ///
-  /// In zh, this message translates to:
-  /// **'已复制 WebDAV 地址'**
+  /// In en, this message translates to:
+  /// **'WebDAV URL copied'**
   String get webDavUrlCopied;
 
   /// No description provided for @webDavTokenCopied.
   ///
-  /// In zh, this message translates to:
-  /// **'已复制访问令牌'**
+  /// In en, this message translates to:
+  /// **'Access token copied'**
   String get webDavTokenCopied;
 
   /// No description provided for @webDavUsername.
   ///
-  /// In zh, this message translates to:
-  /// **'用户名'**
+  /// In en, this message translates to:
+  /// **'Username'**
   String get webDavUsername;
 
   /// No description provided for @webDavPassword.
   ///
-  /// In zh, this message translates to:
-  /// **'密码'**
+  /// In en, this message translates to:
+  /// **'Password'**
   String get webDavPassword;
 
   /// No description provided for @webDavRealm.
   ///
-  /// In zh, this message translates to:
+  /// In en, this message translates to:
   /// **'Realm'**
   String get webDavRealm;
 
   /// No description provided for @webDavUsernameCopied.
   ///
-  /// In zh, this message translates to:
-  /// **'已复制用户名'**
+  /// In en, this message translates to:
+  /// **'Username copied'**
   String get webDavUsernameCopied;
 
   /// No description provided for @webDavPasswordCopied.
   ///
-  /// In zh, this message translates to:
-  /// **'已复制密码'**
+  /// In en, this message translates to:
+  /// **'Password copied'**
   String get webDavPasswordCopied;
 
   /// No description provided for @webDavRealmCopied.
   ///
-  /// In zh, this message translates to:
-  /// **'已复制 Realm'**
+  /// In en, this message translates to:
+  /// **'Realm copied'**
   String get webDavRealmCopied;
 
   /// No description provided for @webDavAuthModeBearer.
   ///
-  /// In zh, this message translates to:
-  /// **'鉴权：Bearer'**
+  /// In en, this message translates to:
+  /// **'Authentication: Bearer'**
   String get webDavAuthModeBearer;
 
   /// No description provided for @webDavAuthModeDigest.
   ///
-  /// In zh, this message translates to:
-  /// **'鉴权：Digest'**
+  /// In en, this message translates to:
+  /// **'Authentication: Digest'**
   String get webDavAuthModeDigest;
 
   /// No description provided for @webDavMounted.
   ///
-  /// In zh, this message translates to:
-  /// **'已挂载到系统'**
+  /// In en, this message translates to:
+  /// **'Mounted in the operating system'**
   String get webDavMounted;
 
   /// No description provided for @webDavMount.
   ///
-  /// In zh, this message translates to:
-  /// **'挂载到系统'**
+  /// In en, this message translates to:
+  /// **'Mount in the operating system'**
   String get webDavMount;
 
   /// No description provided for @webDavUnmount.
   ///
-  /// In zh, this message translates to:
-  /// **'卸载'**
+  /// In en, this message translates to:
+  /// **'Unmount'**
   String get webDavUnmount;
 
   /// No description provided for @webDavCancelMount.
   ///
-  /// In zh, this message translates to:
-  /// **'取消挂载操作'**
+  /// In en, this message translates to:
+  /// **'Cancel mount operation'**
   String get webDavCancelMount;
 
   /// No description provided for @webDavMountedAt.
   ///
-  /// In zh, this message translates to:
-  /// **'已挂载：{path}'**
+  /// In en, this message translates to:
+  /// **'Mounted at: {path}'**
   String webDavMountedAt(String path);
 
   /// No description provided for @webDavMountPath.
   ///
-  /// In zh, this message translates to:
-  /// **'系统挂载路径'**
+  /// In en, this message translates to:
+  /// **'System mount path'**
   String get webDavMountPath;
 
   /// No description provided for @webDavMountPathCopied.
   ///
-  /// In zh, this message translates to:
-  /// **'已复制系统挂载路径'**
+  /// In en, this message translates to:
+  /// **'System mount path copied'**
   String get webDavMountPathCopied;
 
   /// No description provided for @webDavUnmounted.
   ///
-  /// In zh, this message translates to:
-  /// **'已卸载'**
+  /// In en, this message translates to:
+  /// **'Unmounted'**
   String get webDavUnmounted;
 
   /// No description provided for @webDavCapabilityWarning.
   ///
-  /// In zh, this message translates to:
-  /// **'地址和令牌都可访问已暴露内容。请只交给可信工具，使用结束后立即撤销。'**
+  /// In en, this message translates to:
+  /// **'Both the URL and token can access the exposed content. Share them only with trusted tools and revoke access when finished.'**
   String get webDavCapabilityWarning;
 
   /// No description provided for @webDavRevoke.
   ///
-  /// In zh, this message translates to:
-  /// **'撤销访问'**
+  /// In en, this message translates to:
+  /// **'Revoke access'**
   String get webDavRevoke;
 
   /// No description provided for @webDavSessionRevoked.
   ///
-  /// In zh, this message translates to:
-  /// **'已撤销第三方访问'**
+  /// In en, this message translates to:
+  /// **'Third-party access revoked'**
   String get webDavSessionRevoked;
 
   /// No description provided for @webDavGlobalSwitch.
   ///
-  /// In zh, this message translates to:
-  /// **'允许 WebDAV 共享'**
+  /// In en, this message translates to:
+  /// **'Allow WebDAV sharing'**
   String get webDavGlobalSwitch;
 
   /// No description provided for @webDavGlobalSwitchHint.
   ///
-  /// In zh, this message translates to:
-  /// **'关闭后禁止创建新的共享，并撤销当前已打开 root 的 WebDAV 访问。'**
+  /// In en, this message translates to:
+  /// **'When disabled, new shares are blocked and WebDAV access for open roots is revoked.'**
   String get webDavGlobalSwitchHint;
 
   /// No description provided for @webDavDisabledMessage.
   ///
-  /// In zh, this message translates to:
-  /// **'WebDAV 共享已关闭，请在设置中重新开启。'**
+  /// In en, this message translates to:
+  /// **'WebDAV sharing is disabled. Re-enable it in Settings to create a share.'**
   String get webDavDisabledMessage;
 
   /// No description provided for @retry.
   ///
-  /// In zh, this message translates to:
-  /// **'重试'**
+  /// In en, this message translates to:
+  /// **'Retry'**
   String get retry;
 
   /// No description provided for @viewDetails.
   ///
-  /// In zh, this message translates to:
-  /// **'查看详情'**
+  /// In en, this message translates to:
+  /// **'View details'**
   String get viewDetails;
 
   /// No description provided for @technicalDetails.
   ///
-  /// In zh, this message translates to:
-  /// **'技术详情'**
+  /// In en, this message translates to:
+  /// **'Technical details'**
   String get technicalDetails;
 
   /// No description provided for @errorDetailsCopied.
   ///
-  /// In zh, this message translates to:
-  /// **'已复制错误信息'**
+  /// In en, this message translates to:
+  /// **'Error details copied'**
   String get errorDetailsCopied;
 
   /// No description provided for @errorDirectoryNotVerifiedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'需要解锁目录'**
+  /// In en, this message translates to:
+  /// **'Unlock directory first'**
   String get errorDirectoryNotVerifiedTitle;
 
   /// No description provided for @errorDirectoryNotVerifiedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'请输入密码解锁此加密目录后再操作文件。'**
+  /// In en, this message translates to:
+  /// **'Enter the password to unlock this encrypted directory before working with files.'**
   String get errorDirectoryNotVerifiedDescription;
 
   /// No description provided for @errorDirectoryNotVerifiedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'在侧边栏选择该目录，然后输入密码。'**
+  /// In en, this message translates to:
+  /// **'Select the directory in the sidebar, then enter its password.'**
   String get errorDirectoryNotVerifiedSuggestion;
 
   /// No description provided for @errorSessionExpiredTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'目录已锁定'**
+  /// In en, this message translates to:
+  /// **'Directory is locked'**
   String get errorSessionExpiredTitle;
 
   /// No description provided for @errorSessionExpiredDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'目录会话已结束，需要重新解锁。'**
+  /// In en, this message translates to:
+  /// **'The directory session has ended and must be unlocked again.'**
   String get errorSessionExpiredDescription;
 
   /// No description provided for @errorSessionExpiredSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'在侧边栏选择该目录，然后重新输入密码。'**
+  /// In en, this message translates to:
+  /// **'Select the directory in the sidebar and enter the password again.'**
   String get errorSessionExpiredSuggestion;
 
   /// No description provided for @errorInvalidPasswordTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'密码错误'**
+  /// In en, this message translates to:
+  /// **'Incorrect password'**
   String get errorInvalidPasswordTitle;
 
   /// No description provided for @errorInvalidPasswordDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'您输入的密码不正确，无法解密此目录。'**
+  /// In en, this message translates to:
+  /// **'The password cannot decrypt this directory.'**
   String get errorInvalidPasswordDescription;
 
   /// No description provided for @errorInvalidPasswordSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查密码是否正确，注意区分大小写。'**
+  /// In en, this message translates to:
+  /// **'Check the password, including letter case.'**
   String get errorInvalidPasswordSuggestion;
 
   /// No description provided for @errorDirectoryNotExistTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'目录不存在'**
+  /// In en, this message translates to:
+  /// **'Directory not found'**
   String get errorDirectoryNotExistTitle;
 
   /// No description provided for @errorDirectoryNotExistDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'指定的目录路径不存在或已被删除。'**
+  /// In en, this message translates to:
+  /// **'The selected directory does not exist or was deleted.'**
   String get errorDirectoryNotExistDescription;
 
   /// No description provided for @errorDirectoryNotExistSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查目录路径是否正确，或选择其他目录。'**
+  /// In en, this message translates to:
+  /// **'Check the directory path or choose another directory.'**
   String get errorDirectoryNotExistSuggestion;
 
   /// No description provided for @errorNotEncryptedDirectoryTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'无法打开目录'**
+  /// In en, this message translates to:
+  /// **'Cannot open directory'**
   String get errorNotEncryptedDirectoryTitle;
 
   /// No description provided for @errorNotEncryptedDirectoryDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'选择的目录不是可识别的 Safe Disk 加密目录。'**
+  /// In en, this message translates to:
+  /// **'The selected directory is not a recognized Safe Disk encrypted directory.'**
   String get errorNotEncryptedDirectoryDescription;
 
   /// No description provided for @errorNotEncryptedDirectorySuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请选择已有加密目录，或创建新的加密目录。'**
+  /// In en, this message translates to:
+  /// **'Choose an existing encrypted directory or create a new one.'**
   String get errorNotEncryptedDirectorySuggestion;
 
   /// No description provided for @errorLoadConfigFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'加载配置失败'**
+  /// In en, this message translates to:
+  /// **'Could not load configuration'**
   String get errorLoadConfigFailedTitle;
 
   /// No description provided for @errorLoadConfigFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法读取加密目录的配置文件。'**
+  /// In en, this message translates to:
+  /// **'The encrypted directory configuration could not be read.'**
   String get errorLoadConfigFailedDescription;
 
   /// No description provided for @errorLoadConfigFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查目录是否完整且未被其他程序修改。'**
+  /// In en, this message translates to:
+  /// **'Check that the directory is complete and was not modified by another program.'**
   String get errorLoadConfigFailedSuggestion;
 
   /// No description provided for @errorLoadDirectoryFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'加载目录失败'**
+  /// In en, this message translates to:
+  /// **'Could not load directory'**
   String get errorLoadDirectoryFailedTitle;
 
   /// No description provided for @errorLoadDirectoryFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法读取目录内容。'**
+  /// In en, this message translates to:
+  /// **'The directory contents could not be read.'**
   String get errorLoadDirectoryFailedDescription;
 
   /// No description provided for @errorLoadDirectoryFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查目录权限，或尝试重新打开目录。'**
+  /// In en, this message translates to:
+  /// **'Check directory permissions or try opening it again.'**
   String get errorLoadDirectoryFailedSuggestion;
 
   /// No description provided for @errorUnfinishedTransferStateUnavailableTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'无法确认未完成传输状态'**
+  /// In en, this message translates to:
+  /// **'Cannot verify unfinished transfer state'**
   String get errorUnfinishedTransferStateUnavailableTitle;
 
   /// No description provided for @errorUnfinishedTransferStateUnavailableDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法安全读取未完成的导入/导出状态，因此没有打开此加密目录。'**
+  /// In en, this message translates to:
+  /// **'Safe Disk could not safely read the unfinished import or export state, so this directory was not opened.'**
   String get errorUnfinishedTransferStateUnavailableDescription;
 
   /// No description provided for @errorUnfinishedTransferStateUnavailableSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查目录权限和磁盘状态；请保留目录原状后重试。'**
+  /// In en, this message translates to:
+  /// **'Check directory permissions and disk status. Keep the directory unchanged and try again.'**
   String get errorUnfinishedTransferStateUnavailableSuggestion;
 
   /// No description provided for @errorCreateEncryptedDirectoryFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'创建加密目录失败'**
+  /// In en, this message translates to:
+  /// **'Could not create encrypted directory'**
   String get errorCreateEncryptedDirectoryFailedTitle;
 
   /// No description provided for @errorCreateEncryptedDirectoryFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法创建新的加密目录。'**
+  /// In en, this message translates to:
+  /// **'A new encrypted directory could not be created.'**
   String get errorCreateEncryptedDirectoryFailedDescription;
 
   /// No description provided for @errorCreateEncryptedDirectoryFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查目录权限和磁盘空间，然后重试。'**
+  /// In en, this message translates to:
+  /// **'Check directory permissions and available disk space, then try again.'**
   String get errorCreateEncryptedDirectoryFailedSuggestion;
 
   /// No description provided for @errorCreateEncryptedDirectoryRequiresEmptyTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'目录不是空目录'**
+  /// In en, this message translates to:
+  /// **'Directory is not empty'**
   String get errorCreateEncryptedDirectoryRequiresEmptyTitle;
 
   /// No description provided for @errorCreateEncryptedDirectoryRequiresEmptyDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'新加密目录只能创建在不存在或内容为空的目录中。'**
+  /// In en, this message translates to:
+  /// **'A new encrypted directory can only be created in a missing or empty directory.'**
   String get errorCreateEncryptedDirectoryRequiresEmptyDescription;
 
   /// No description provided for @errorCreateEncryptedDirectoryRequiresEmptySuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请选择新的路径或空目录；已有内容请通过导入功能加入。'**
+  /// In en, this message translates to:
+  /// **'Choose a new path or an empty directory. Use import for existing content.'**
   String get errorCreateEncryptedDirectoryRequiresEmptySuggestion;
 
   /// No description provided for @errorImportFileFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'导入文件失败'**
+  /// In en, this message translates to:
+  /// **'Could not import file'**
   String get errorImportFileFailedTitle;
 
   /// No description provided for @errorImportFileFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法将文件导入到加密目录。'**
+  /// In en, this message translates to:
+  /// **'The file could not be imported into the encrypted directory.'**
   String get errorImportFileFailedDescription;
 
   /// No description provided for @errorImportFileFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查文件是否存在且可读，然后重试。'**
+  /// In en, this message translates to:
+  /// **'Check that the file exists and is readable, then try again.'**
   String get errorImportFileFailedSuggestion;
 
   /// No description provided for @errorImportDirectoryFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'导入目录失败'**
+  /// In en, this message translates to:
+  /// **'Could not import directory'**
   String get errorImportDirectoryFailedTitle;
 
   /// No description provided for @errorImportDirectoryFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法将目录导入到加密目录。'**
+  /// In en, this message translates to:
+  /// **'The directory could not be imported into the encrypted directory.'**
   String get errorImportDirectoryFailedDescription;
 
   /// No description provided for @errorImportDirectoryFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查源目录权限、符号链接和目标目录状态，然后重试。'**
+  /// In en, this message translates to:
+  /// **'Check source permissions, symbolic links, and the destination directory state, then try again.'**
   String get errorImportDirectoryFailedSuggestion;
 
   /// No description provided for @errorImportDirectoryInsideCurrentRootTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'不能导入此目录'**
+  /// In en, this message translates to:
+  /// **'Cannot import this directory'**
   String get errorImportDirectoryInsideCurrentRootTitle;
 
   /// No description provided for @errorImportDirectoryInsideCurrentRootDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'当前加密目录中的子目录不能再次导入当前加密目录。'**
+  /// In en, this message translates to:
+  /// **'A subdirectory of the current encrypted directory cannot be imported into the current encrypted directory.'**
   String get errorImportDirectoryInsideCurrentRootDescription;
 
   /// No description provided for @errorImportDirectoryInsideCurrentRootSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请选择加密目录外的来源目录。'**
+  /// In en, this message translates to:
+  /// **'Choose a source directory outside the encrypted directory.'**
   String get errorImportDirectoryInsideCurrentRootSuggestion;
 
   /// No description provided for @errorExportFileFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'导出文件失败'**
+  /// In en, this message translates to:
+  /// **'Could not export file'**
   String get errorExportFileFailedTitle;
 
   /// No description provided for @errorExportFileFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法将文件导出到指定位置。'**
+  /// In en, this message translates to:
+  /// **'The file could not be exported to the selected location.'**
   String get errorExportFileFailedDescription;
 
   /// No description provided for @errorExportFileFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查目标位置是否可写，然后重试。'**
+  /// In en, this message translates to:
+  /// **'Check that the destination is writable, then try again.'**
   String get errorExportFileFailedSuggestion;
 
   /// No description provided for @errorExportDirectoryFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'导出目录失败'**
+  /// In en, this message translates to:
+  /// **'Could not export directory'**
   String get errorExportDirectoryFailedTitle;
 
   /// No description provided for @errorExportDirectoryFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法将目录导出到指定位置。'**
+  /// In en, this message translates to:
+  /// **'The directory could not be exported to the selected location.'**
   String get errorExportDirectoryFailedDescription;
 
   /// No description provided for @errorExportDirectoryFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查目标位置是否可写，然后重试。'**
+  /// In en, this message translates to:
+  /// **'Check that the destination is writable, then try again.'**
   String get errorExportDirectoryFailedSuggestion;
 
   /// No description provided for @errorDeleteFileFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'删除文件失败'**
+  /// In en, this message translates to:
+  /// **'Could not delete file'**
   String get errorDeleteFileFailedTitle;
 
   /// No description provided for @errorDeleteFileFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法删除此文件。'**
+  /// In en, this message translates to:
+  /// **'The file could not be deleted.'**
   String get errorDeleteFileFailedDescription;
 
   /// No description provided for @errorDeleteFileFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查文件是否被占用，然后重试。'**
+  /// In en, this message translates to:
+  /// **'Check whether the file is in use, then try again.'**
   String get errorDeleteFileFailedSuggestion;
 
   /// No description provided for @errorSaveFileFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'保存文件失败'**
+  /// In en, this message translates to:
+  /// **'Could not save file'**
   String get errorSaveFileFailedTitle;
 
   /// No description provided for @errorSaveFileFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法保存文件更改。'**
+  /// In en, this message translates to:
+  /// **'The file changes could not be saved.'**
   String get errorSaveFileFailedDescription;
 
   /// No description provided for @errorSaveFileFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查磁盘空间和权限，然后重试。'**
+  /// In en, this message translates to:
+  /// **'Check disk space and permissions, then try again.'**
   String get errorSaveFileFailedSuggestion;
 
   /// No description provided for @errorLoadFileFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'加载文件失败'**
+  /// In en, this message translates to:
+  /// **'Could not load file'**
   String get errorLoadFileFailedTitle;
 
   /// No description provided for @errorLoadFileFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法读取文件内容。'**
+  /// In en, this message translates to:
+  /// **'The file contents could not be read.'**
   String get errorLoadFileFailedDescription;
 
   /// No description provided for @errorLoadFileFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请检查文件是否存在且可读。'**
+  /// In en, this message translates to:
+  /// **'Check that the file exists and is readable.'**
   String get errorLoadFileFailedSuggestion;
 
   /// No description provided for @errorNoDirectorySelectedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'未选择目录'**
+  /// In en, this message translates to:
+  /// **'No directory selected'**
   String get errorNoDirectorySelectedTitle;
 
   /// No description provided for @errorNoDirectorySelectedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'请先选择一个目录。'**
+  /// In en, this message translates to:
+  /// **'Select a directory first.'**
   String get errorNoDirectorySelectedDescription;
 
   /// No description provided for @errorNoFileSelectedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'未选择文件'**
+  /// In en, this message translates to:
+  /// **'No file selected'**
   String get errorNoFileSelectedTitle;
 
   /// No description provided for @errorNoFileSelectedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'请先选择一个文件。'**
+  /// In en, this message translates to:
+  /// **'Select a file first.'**
   String get errorNoFileSelectedDescription;
 
   /// No description provided for @errorPasswordEmptyTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'密码不能为空'**
+  /// In en, this message translates to:
+  /// **'Password is required'**
   String get errorPasswordEmptyTitle;
 
   /// No description provided for @errorPasswordEmptyDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'请输入密码以继续操作。'**
+  /// In en, this message translates to:
+  /// **'Enter a password to continue.'**
   String get errorPasswordEmptyDescription;
 
   /// No description provided for @errorPasswordMismatchTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'密码不匹配'**
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
   String get errorPasswordMismatchTitle;
 
   /// No description provided for @errorPasswordMismatchDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'两次输入的密码不一致。'**
+  /// In en, this message translates to:
+  /// **'The two passwords are different.'**
   String get errorPasswordMismatchDescription;
 
   /// No description provided for @errorPasswordMismatchSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请确保两次输入相同的密码。'**
+  /// In en, this message translates to:
+  /// **'Make sure both password entries are identical.'**
   String get errorPasswordMismatchSuggestion;
 
   /// No description provided for @errorPathEmptyTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'路径不能为空'**
+  /// In en, this message translates to:
+  /// **'Path is required'**
   String get errorPathEmptyTitle;
 
   /// No description provided for @errorPathEmptyDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'请输入目录路径。'**
+  /// In en, this message translates to:
+  /// **'Enter a directory path.'**
   String get errorPathEmptyDescription;
 
   /// No description provided for @errorOperationFailedTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'操作失败'**
+  /// In en, this message translates to:
+  /// **'Operation failed'**
   String get errorOperationFailedTitle;
 
   /// No description provided for @errorOperationFailedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'操作未完成，请稍后重试。'**
+  /// In en, this message translates to:
+  /// **'The operation did not finish. Try again later.'**
   String get errorOperationFailedDescription;
 
   /// No description provided for @errorOperationFailedSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'如果问题持续存在，请联系技术支持。'**
+  /// In en, this message translates to:
+  /// **'If the problem continues, contact support.'**
   String get errorOperationFailedSuggestion;
 
   /// No description provided for @behavior.
   ///
-  /// In zh, this message translates to:
-  /// **'行为'**
+  /// In en, this message translates to:
+  /// **'Behavior'**
   String get behavior;
 
   /// No description provided for @openMode.
   ///
-  /// In zh, this message translates to:
-  /// **'打开方式'**
+  /// In en, this message translates to:
+  /// **'Open items with'**
   String get openMode;
 
   /// No description provided for @openModeHint.
   ///
-  /// In zh, this message translates to:
-  /// **'选择文件和目录的打开方式'**
+  /// In en, this message translates to:
+  /// **'Choose how files and folders open'**
   String get openModeHint;
 
   /// No description provided for @openModeSingleClick.
   ///
-  /// In zh, this message translates to:
-  /// **'单击打开'**
+  /// In en, this message translates to:
+  /// **'Single click'**
   String get openModeSingleClick;
 
   /// No description provided for @openModeDoubleClick.
   ///
-  /// In zh, this message translates to:
-  /// **'双击打开'**
+  /// In en, this message translates to:
+  /// **'Double click'**
   String get openModeDoubleClick;
 
   /// No description provided for @confirmBeforeDelete.
   ///
-  /// In zh, this message translates to:
-  /// **'删除前确认'**
+  /// In en, this message translates to:
+  /// **'Confirm before deleting'**
   String get confirmBeforeDelete;
 
   /// No description provided for @confirmBeforeDeleteHint.
   ///
-  /// In zh, this message translates to:
-  /// **'删除文件前显示确认对话框'**
+  /// In en, this message translates to:
+  /// **'Show a confirmation dialog before deleting files.'**
   String get confirmBeforeDeleteHint;
 
   /// No description provided for @lockAfterIdle.
   ///
-  /// In zh, this message translates to:
-  /// **'空闲后自动锁定'**
+  /// In en, this message translates to:
+  /// **'Lock after inactivity'**
   String get lockAfterIdle;
 
   /// No description provided for @lockAfterIdleHint.
   ///
-  /// In zh, this message translates to:
-  /// **'当前目录空闲到期后锁定；有打开的文件窗口、未保存修改或正在进行的保存时不会强制关闭'**
+  /// In en, this message translates to:
+  /// **'Lock the current directory after its idle timeout. Directories with open file windows, unsaved changes, or active saves are not forced closed.'**
   String get lockAfterIdleHint;
 
   /// No description provided for @lockWhenHidden.
   ///
-  /// In zh, this message translates to:
-  /// **'应用隐藏时自动锁定'**
+  /// In en, this message translates to:
+  /// **'Lock when the app is hidden'**
   String get lockWhenHidden;
 
   /// No description provided for @lockWhenHiddenHint.
   ///
-  /// In zh, this message translates to:
-  /// **'仅锁定没有打开的文件窗口、未保存修改或正在进行的保存的目录；其他目录不会被强制关闭'**
+  /// In en, this message translates to:
+  /// **'Only lock directories without open file windows, unsaved changes, or active saves. Other directories are not forced closed.'**
   String get lockWhenHiddenHint;
 
   /// No description provided for @messageListSeparator.
   ///
-  /// In zh, this message translates to:
-  /// **'；'**
+  /// In en, this message translates to:
+  /// **'; '**
   String get messageListSeparator;
 
   /// No description provided for @autoLockSummaryLocked.
   ///
-  /// In zh, this message translates to:
-  /// **'已自动锁定 {count} 个目录'**
+  /// In en, this message translates to:
+  /// **'{count} directories were locked automatically'**
   String autoLockSummaryLocked(int count);
 
   /// No description provided for @autoLockSummarySkipped.
   ///
-  /// In zh, this message translates to:
-  /// **'{count} 个目录含打开的文件窗口或未完成保存，未强制关闭'**
+  /// In en, this message translates to:
+  /// **'{count} directories have open file windows or pending saves and were left open'**
   String autoLockSummarySkipped(int count);
 
   /// No description provided for @autoLockSummaryFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'{count} 个目录锁定失败'**
+  /// In en, this message translates to:
+  /// **'{count} directories could not be locked'**
   String autoLockSummaryFailed(int count);
 
   /// No description provided for @rootActiveWritesTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'正在保存内容'**
+  /// In en, this message translates to:
+  /// **'Saving content'**
   String get rootActiveWritesTitle;
 
   /// No description provided for @rootActiveWritesDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'当前有 {count} 个文件保存操作尚未完成，请等待保存结束后再关闭会话。'**
+  /// In en, this message translates to:
+  /// **'{count} file save operations are still running. Wait for them to finish before ending the session.'**
   String rootActiveWritesDescription(int count);
 
   /// No description provided for @rootUnsavedContentTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'存在未保存内容'**
+  /// In en, this message translates to:
+  /// **'Unsaved content'**
   String get rootUnsavedContentTitle;
 
   /// No description provided for @rootUnsavedContentDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'请先处理以下打开的文件窗口，再结束会话：\n\n{documents}'**
+  /// In en, this message translates to:
+  /// **'Handle these open file windows before ending the session:\n\n{documents}'**
   String rootUnsavedContentDescription(String documents);
 
   /// No description provided for @acknowledge.
   ///
-  /// In zh, this message translates to:
-  /// **'知道了'**
+  /// In en, this message translates to:
+  /// **'OK'**
   String get acknowledge;
 
   /// No description provided for @rootDirectoryDeleted.
   ///
-  /// In zh, this message translates to:
-  /// **'本地加密目录已永久删除'**
+  /// In en, this message translates to:
+  /// **'Encrypted directory permanently deleted'**
   String get rootDirectoryDeleted;
 
   /// No description provided for @rootHistoryRemoved.
   ///
-  /// In zh, this message translates to:
-  /// **'目录历史已移除，本地磁盘内容保持不变'**
+  /// In en, this message translates to:
+  /// **'Directory history removed. Files on disk were kept.'**
   String get rootHistoryRemoved;
 
   /// No description provided for @passwordChangeBlockedBySaving.
   ///
-  /// In zh, this message translates to:
-  /// **'当前目录正在保存内容，请等待保存完成后再修改密码。'**
+  /// In en, this message translates to:
+  /// **'This directory is saving content. Wait for the save to finish before changing its password.'**
   String get passwordChangeBlockedBySaving;
 
   /// No description provided for @passwordChangeBlockedByDocuments.
   ///
-  /// In zh, this message translates to:
-  /// **'请先关闭或保存该目录中打开的文件窗口，再修改密码。'**
+  /// In en, this message translates to:
+  /// **'Close or save this directory\'s open file windows before changing its password.'**
   String get passwordChangeBlockedByDocuments;
 
   /// No description provided for @passwordChangedUnlockAgain.
   ///
-  /// In zh, this message translates to:
-  /// **'密码已修改，请使用新密码重新解锁目录'**
+  /// In en, this message translates to:
+  /// **'Password changed. Unlock the directory again with the new password.'**
   String get passwordChangedUnlockAgain;
 
   /// No description provided for @notepadDraftInterval.
   ///
-  /// In zh, this message translates to:
-  /// **'安全草稿保存间隔'**
+  /// In en, this message translates to:
+  /// **'Secure draft save interval'**
   String get notepadDraftInterval;
 
   /// No description provided for @notepadDraftIntervalHint.
   ///
-  /// In zh, this message translates to:
-  /// **'定时写入同目录加密草稿，不覆盖原文件'**
+  /// In en, this message translates to:
+  /// **'Periodically save an encrypted draft beside the original file without overwriting it.'**
   String get notepadDraftIntervalHint;
 
   /// No description provided for @notepadDefaultReadOnly.
   ///
-  /// In zh, this message translates to:
-  /// **'记事本默认只读'**
+  /// In en, this message translates to:
+  /// **'Open notes read-only'**
   String get notepadDefaultReadOnly;
 
   /// No description provided for @notepadDefaultReadOnlyHint.
   ///
-  /// In zh, this message translates to:
-  /// **'新打开的文件先以只读方式显示，可手动开始编辑'**
+  /// In en, this message translates to:
+  /// **'New files open read-only. You can start editing manually.'**
   String get notepadDefaultReadOnlyHint;
 
   /// No description provided for @notepadMonitorClipboard.
   ///
-  /// In zh, this message translates to:
-  /// **'默认监视剪贴板'**
+  /// In en, this message translates to:
+  /// **'Monitor clipboard by default'**
   String get notepadMonitorClipboard;
 
   /// No description provided for @notepadMonitorClipboardHint.
   ///
-  /// In zh, this message translates to:
-  /// **'仅显示短文本预览，不写入文件或设置'**
+  /// In en, this message translates to:
+  /// **'Only show a text preview; do not write it to files or settings.'**
   String get notepadMonitorClipboardHint;
 
   /// No description provided for @notepadRecoveryDraftFound.
   ///
-  /// In zh, this message translates to:
-  /// **'发现安全草稿'**
+  /// In en, this message translates to:
+  /// **'Secure draft found'**
   String get notepadRecoveryDraftFound;
 
   /// No description provided for @notepadBinaryContent.
   ///
-  /// In zh, this message translates to:
-  /// **'文件包含二进制内容，不能用安全记事本打开。'**
+  /// In en, this message translates to:
+  /// **'The file contains binary content and cannot be opened in Secure Notepad.'**
   String get notepadBinaryContent;
 
   /// No description provided for @notepadLoadFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'无法读取文件内容。请检查文件是否存在且可读，然后重试。'**
+  /// In en, this message translates to:
+  /// **'Unable to read the file. Check that it exists and is readable, then try again.'**
   String get notepadLoadFailed;
 
   /// No description provided for @notepadRecoveryDraftDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'发现上次未完成编辑的加密草稿。是否恢复到编辑器？'**
+  /// In en, this message translates to:
+  /// **'An encrypted draft from an unfinished edit was found. Restore it to the editor?'**
   String get notepadRecoveryDraftDescription;
 
   /// No description provided for @notepadDiscardDraft.
   ///
-  /// In zh, this message translates to:
-  /// **'放弃草稿'**
+  /// In en, this message translates to:
+  /// **'Discard draft'**
   String get notepadDiscardDraft;
 
   /// No description provided for @notepadRestoreDraft.
   ///
-  /// In zh, this message translates to:
-  /// **'恢复草稿'**
+  /// In en, this message translates to:
+  /// **'Restore draft'**
   String get notepadRestoreDraft;
 
   /// No description provided for @notepadUnsavedChanges.
   ///
-  /// In zh, this message translates to:
-  /// **'未保存的更改'**
+  /// In en, this message translates to:
+  /// **'Unsaved changes'**
   String get notepadUnsavedChanges;
 
   /// No description provided for @notepadSaveBeforeClosing.
   ///
-  /// In zh, this message translates to:
-  /// **'关闭前是否保存更改？'**
+  /// In en, this message translates to:
+  /// **'Save changes before closing?'**
   String get notepadSaveBeforeClosing;
 
   /// No description provided for @notepadDontSave.
   ///
-  /// In zh, this message translates to:
-  /// **'不保存'**
+  /// In en, this message translates to:
+  /// **'Don\'t save'**
   String get notepadDontSave;
 
   /// No description provided for @notepadStartEditing.
   ///
-  /// In zh, this message translates to:
-  /// **'开始编辑'**
+  /// In en, this message translates to:
+  /// **'Start editing'**
   String get notepadStartEditing;
 
   /// No description provided for @notepadSwitchReadOnly.
   ///
-  /// In zh, this message translates to:
-  /// **'切换为只读'**
+  /// In en, this message translates to:
+  /// **'Switch to read-only'**
   String get notepadSwitchReadOnly;
 
   /// No description provided for @notepadUndoShortcut.
   ///
-  /// In zh, this message translates to:
-  /// **'撤销（Ctrl/Cmd+Z）'**
+  /// In en, this message translates to:
+  /// **'Undo (Ctrl/Cmd+Z)'**
   String get notepadUndoShortcut;
 
   /// No description provided for @notepadRedoShortcut.
   ///
-  /// In zh, this message translates to:
-  /// **'重做（Ctrl/Cmd+Shift+Z）'**
+  /// In en, this message translates to:
+  /// **'Redo (Ctrl/Cmd+Shift+Z)'**
   String get notepadRedoShortcut;
 
   /// No description provided for @notepadFindReplace.
   ///
-  /// In zh, this message translates to:
-  /// **'查找/替换'**
+  /// In en, this message translates to:
+  /// **'Find and replace'**
   String get notepadFindReplace;
 
   /// No description provided for @notepadCloseFind.
   ///
-  /// In zh, this message translates to:
-  /// **'关闭查找'**
+  /// In en, this message translates to:
+  /// **'Close find'**
   String get notepadCloseFind;
 
   /// No description provided for @notepadStopClipboardMonitoring.
   ///
-  /// In zh, this message translates to:
-  /// **'停止剪贴板监视'**
+  /// In en, this message translates to:
+  /// **'Stop clipboard monitoring'**
   String get notepadStopClipboardMonitoring;
 
   /// No description provided for @notepadMonitorClipboardAction.
   ///
-  /// In zh, this message translates to:
-  /// **'监视剪贴板'**
+  /// In en, this message translates to:
+  /// **'Monitor clipboard'**
   String get notepadMonitorClipboardAction;
 
   /// No description provided for @notepadSave.
   ///
-  /// In zh, this message translates to:
-  /// **'保存'**
+  /// In en, this message translates to:
+  /// **'Save'**
   String get notepadSave;
 
   /// No description provided for @notepadFileSaved.
   ///
-  /// In zh, this message translates to:
-  /// **'文件已保存'**
+  /// In en, this message translates to:
+  /// **'File saved'**
   String get notepadFileSaved;
 
   /// No description provided for @notepadSaveFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'保存失败'**
+  /// In en, this message translates to:
+  /// **'Save failed'**
   String get notepadSaveFailed;
 
   /// No description provided for @notepadSaving.
   ///
-  /// In zh, this message translates to:
-  /// **'正在保存'**
+  /// In en, this message translates to:
+  /// **'Saving'**
   String get notepadSaving;
 
   /// No description provided for @notepadUnsaved.
   ///
-  /// In zh, this message translates to:
-  /// **'未保存'**
+  /// In en, this message translates to:
+  /// **'Unsaved'**
   String get notepadUnsaved;
 
   /// No description provided for @notepadSaved.
   ///
-  /// In zh, this message translates to:
-  /// **'已保存'**
+  /// In en, this message translates to:
+  /// **'Saved'**
   String get notepadSaved;
 
   /// No description provided for @notepadReadOnly.
   ///
-  /// In zh, this message translates to:
-  /// **'只读'**
+  /// In en, this message translates to:
+  /// **'Read-only'**
   String get notepadReadOnly;
 
   /// No description provided for @notepadEditing.
   ///
-  /// In zh, this message translates to:
-  /// **'编辑'**
+  /// In en, this message translates to:
+  /// **'Editing'**
   String get notepadEditing;
 
   /// No description provided for @notepadCharacterCount.
   ///
-  /// In zh, this message translates to:
-  /// **'{count} 字符'**
+  /// In en, this message translates to:
+  /// **'{count} characters'**
   String notepadCharacterCount(int count);
 
   /// No description provided for @notepadDraftSaveFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'无法保存恢复草稿'**
+  /// In en, this message translates to:
+  /// **'Could not save recovery draft'**
   String get notepadDraftSaveFailed;
 
   /// No description provided for @notepadDraftCleanupFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'原文件已保存，但无法清理旧草稿'**
+  /// In en, this message translates to:
+  /// **'The original file was saved, but the old draft could not be removed.'**
   String get notepadDraftCleanupFailed;
 
   /// No description provided for @notepadDraftReadFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'无法检查恢复草稿'**
+  /// In en, this message translates to:
+  /// **'Could not check the recovery draft.'**
   String get notepadDraftReadFailed;
 
   /// No description provided for @notepadDraftDiscardFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'无法清理恢复草稿'**
+  /// In en, this message translates to:
+  /// **'Could not remove the recovery draft.'**
   String get notepadDraftDiscardFailed;
 
   /// No description provided for @notepadSavingDraft.
   ///
-  /// In zh, this message translates to:
-  /// **'正在保存草稿'**
+  /// In en, this message translates to:
+  /// **'Saving recovery draft'**
   String get notepadSavingDraft;
 
   /// No description provided for @notepadDraftSaved.
   ///
-  /// In zh, this message translates to:
-  /// **'已保存恢复草稿'**
+  /// In en, this message translates to:
+  /// **'Recovery draft saved'**
   String get notepadDraftSaved;
 
   /// No description provided for @notepadClipboardMonitor.
   ///
-  /// In zh, this message translates to:
-  /// **'剪贴板监视'**
+  /// In en, this message translates to:
+  /// **'Clipboard monitor'**
   String get notepadClipboardMonitor;
 
   /// No description provided for @notepadClipboardEmpty.
   ///
-  /// In zh, this message translates to:
-  /// **'剪贴板中没有文本'**
+  /// In en, this message translates to:
+  /// **'No short text in the clipboard'**
   String get notepadClipboardEmpty;
 
   /// No description provided for @notepadClipboardReadFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'无法读取剪贴板，请重试。'**
+  /// In en, this message translates to:
+  /// **'Unable to read the clipboard. Try again.'**
   String get notepadClipboardReadFailed;
 
   /// No description provided for @notepadClipboardClearFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'无法清空剪贴板，请重试。'**
+  /// In en, this message translates to:
+  /// **'Unable to clear the clipboard. Try again.'**
   String get notepadClipboardClearFailed;
 
   /// No description provided for @notepadRefreshClipboard.
   ///
-  /// In zh, this message translates to:
-  /// **'立即刷新剪贴板'**
+  /// In en, this message translates to:
+  /// **'Refresh clipboard now'**
   String get notepadRefreshClipboard;
 
   /// No description provided for @notepadClearClipboard.
   ///
-  /// In zh, this message translates to:
-  /// **'快速清空系统剪贴板'**
+  /// In en, this message translates to:
+  /// **'Clear system clipboard'**
   String get notepadClearClipboard;
 
   /// No description provided for @notepadFindHint.
   ///
-  /// In zh, this message translates to:
-  /// **'查找（\\n 表示换行）'**
+  /// In en, this message translates to:
+  /// **'Find (\\n means newline)'**
   String get notepadFindHint;
 
   /// No description provided for @notepadFindPosition.
   ///
-  /// In zh, this message translates to:
+  /// In en, this message translates to:
   /// **'{current}/{total}'**
   String notepadFindPosition(int current, int total);
 
   /// No description provided for @notepadFindPrevious.
   ///
-  /// In zh, this message translates to:
-  /// **'查找上一个'**
+  /// In en, this message translates to:
+  /// **'Find previous'**
   String get notepadFindPrevious;
 
   /// No description provided for @notepadFindNext.
   ///
-  /// In zh, this message translates to:
-  /// **'查找下一个'**
+  /// In en, this message translates to:
+  /// **'Find next'**
   String get notepadFindNext;
 
   /// No description provided for @notepadReplace.
   ///
-  /// In zh, this message translates to:
-  /// **'替换'**
+  /// In en, this message translates to:
+  /// **'Replace'**
   String get notepadReplace;
 
   /// No description provided for @notepadReplaceAll.
   ///
-  /// In zh, this message translates to:
-  /// **'全部替换'**
+  /// In en, this message translates to:
+  /// **'Replace all'**
   String get notepadReplaceAll;
 
   /// No description provided for @notepadNoMatches.
   ///
-  /// In zh, this message translates to:
-  /// **'未找到匹配项'**
+  /// In en, this message translates to:
+  /// **'No matches found'**
   String get notepadNoMatches;
 
   /// No description provided for @notepadSelectMatchFirst.
   ///
-  /// In zh, this message translates to:
-  /// **'请先选择匹配项'**
+  /// In en, this message translates to:
+  /// **'Select a match first'**
   String get notepadSelectMatchFirst;
 
   /// No description provided for @notepadReplacedCount.
   ///
-  /// In zh, this message translates to:
-  /// **'已替换 {count} 处'**
+  /// In en, this message translates to:
+  /// **'Replaced {count} matches'**
   String notepadReplacedCount(int count);
 
   /// No description provided for @welcomeGuideWelcomeTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'欢迎使用 Safe Disk'**
+  /// In en, this message translates to:
+  /// **'Welcome to Safe Disk'**
   String get welcomeGuideWelcomeTitle;
 
   /// No description provided for @welcomeGuideWelcomeContent.
   ///
-  /// In zh, this message translates to:
-  /// **'Safe Disk 帮助您加密并管理私密文件。\n\n输入正确密码后，才能访问加密目录中的内容。'**
+  /// In en, this message translates to:
+  /// **'Safe Disk helps you encrypt and manage private files.\n\nYou need the correct password to access content in an encrypted directory.'**
   String get welcomeGuideWelcomeContent;
 
   /// No description provided for @welcomeGuideEncryptedDirectoryTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'加密目录'**
+  /// In en, this message translates to:
+  /// **'Encrypted directories'**
   String get welcomeGuideEncryptedDirectoryTitle;
 
   /// No description provided for @welcomeGuideEncryptedDirectoryContent.
   ///
-  /// In zh, this message translates to:
-  /// **'创建加密目录来保护您的文件：\n\n- 打开目录：打开已有的加密目录\n- 创建目录：创建新的加密目录\n\n加密目录中的所有文件都会自动加密保护。'**
+  /// In en, this message translates to:
+  /// **'Create encrypted directories to protect your files:\n\n- Open directory: Open an existing encrypted directory\n- Create directory: Create a new encrypted directory\n\nAll files in an encrypted directory are protected automatically.'**
   String get welcomeGuideEncryptedDirectoryContent;
 
   /// No description provided for @welcomeGuideFeaturesTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'核心功能'**
+  /// In en, this message translates to:
+  /// **'Core features'**
   String get welcomeGuideFeaturesTitle;
 
   /// No description provided for @welcomeGuideFeaturesContent.
   ///
-  /// In zh, this message translates to:
-  /// **'- 文件浏览：浏览和管理加密目录中的文件\n- 安全记事本：编辑文本文件（.txt, .md）\n- 图片浏览器：查看加密的图片文件\n- 批量导出：选择多个文件一次性导出'**
+  /// In en, this message translates to:
+  /// **'- File browser: Browse and manage files in encrypted directories\n- Secure notepad: Edit text files (.txt, .md)\n- Image viewer: View encrypted image files\n- Batch export: Export multiple files at once'**
   String get welcomeGuideFeaturesContent;
 
   /// No description provided for @welcomeGuideSecurityTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'安全提示'**
+  /// In en, this message translates to:
+  /// **'Security tips'**
   String get welcomeGuideSecurityTitle;
 
   /// No description provided for @welcomeGuideSecurityContent.
   ///
-  /// In zh, this message translates to:
-  /// **'- 请牢记密码！密码丢失后无法恢复文件\n- 建议使用强密码（12位以上，混合字符）\n- 密钥仅在内存中缓存，关闭应用后自动清除\n- 定期备份重要加密目录'**
+  /// In en, this message translates to:
+  /// **'- Keep your password safe. Files cannot be recovered if it is lost.\n- Use a strong password (12 or more characters with mixed character types).\n- Keys are kept only in memory and are cleared when the app closes.\n- Back up important encrypted directories regularly.'**
   String get welcomeGuideSecurityContent;
 
   /// No description provided for @welcomeGuideDontShowAgain.
   ///
-  /// In zh, this message translates to:
-  /// **'不再显示此引导'**
+  /// In en, this message translates to:
+  /// **'Don\'t show this guide again'**
   String get welcomeGuideDontShowAgain;
 
   /// No description provided for @skip.
   ///
-  /// In zh, this message translates to:
-  /// **'跳过'**
+  /// In en, this message translates to:
+  /// **'Skip'**
   String get skip;
 
   /// No description provided for @next.
   ///
-  /// In zh, this message translates to:
-  /// **'下一步'**
+  /// In en, this message translates to:
+  /// **'Next'**
   String get next;
 
   /// No description provided for @getStarted.
   ///
-  /// In zh, this message translates to:
-  /// **'开始使用'**
+  /// In en, this message translates to:
+  /// **'Get started'**
   String get getStarted;
 
   /// No description provided for @detailedErrors.
   ///
-  /// In zh, this message translates to:
-  /// **'显示详细错误信息'**
+  /// In en, this message translates to:
+  /// **'Show detailed error information'**
   String get detailedErrors;
 
   /// No description provided for @detailedErrorsHint.
   ///
-  /// In zh, this message translates to:
-  /// **'在错误提示中显示经脱敏的操作阶段与底层错误；不会写入磁盘日志'**
+  /// In en, this message translates to:
+  /// **'Show redacted operation stages and underlying errors in error prompts. No disk log is written.'**
   String get detailedErrorsHint;
 
   /// No description provided for @about.
   ///
-  /// In zh, this message translates to:
-  /// **'关于'**
+  /// In en, this message translates to:
+  /// **'About'**
   String get about;
 
   /// No description provided for @appVersionDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'版本 1.0.0\n加密文件管理器'**
+  /// In en, this message translates to:
+  /// **'Version 1.0.0\nEncrypted file manager'**
   String get appVersionDescription;
 
   /// No description provided for @durationNever.
   ///
-  /// In zh, this message translates to:
-  /// **'永不过期'**
+  /// In en, this message translates to:
+  /// **'Never'**
   String get durationNever;
 
   /// No description provided for @durationSeconds.
   ///
-  /// In zh, this message translates to:
-  /// **'{count} 秒'**
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 second} other{{count} seconds}}'**
   String durationSeconds(int count);
 
   /// No description provided for @durationMinutes.
   ///
-  /// In zh, this message translates to:
-  /// **'{count} 分钟'**
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 minute} other{{count} minutes}}'**
   String durationMinutes(int count);
 
   /// No description provided for @durationHours.
   ///
-  /// In zh, this message translates to:
-  /// **'{count} 小时'**
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 hour} other{{count} hours}}'**
   String durationHours(int count);
 
   /// No description provided for @durationDays.
   ///
-  /// In zh, this message translates to:
-  /// **'{count} 天'**
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 day} other{{count} days}}'**
   String durationDays(int count);
 
   /// No description provided for @progressMinutesSeconds.
   ///
-  /// In zh, this message translates to:
-  /// **'{minutes} 分 {seconds} 秒'**
+  /// In en, this message translates to:
+  /// **'{minutes} min {seconds} sec'**
   String progressMinutesSeconds(int minutes, int seconds);
 
   /// No description provided for @progressEstimatedRemaining.
   ///
-  /// In zh, this message translates to:
-  /// **'预计剩余：{duration}'**
+  /// In en, this message translates to:
+  /// **'Estimated remaining: {duration}'**
   String progressEstimatedRemaining(String duration);
 
   /// No description provided for @progressProcessed.
   ///
-  /// In zh, this message translates to:
-  /// **'已处理：{current} / {total}'**
+  /// In en, this message translates to:
+  /// **'Processed: {current} / {total}'**
   String progressProcessed(int current, int total);
 
   /// No description provided for @progressCurrentFile.
   ///
-  /// In zh, this message translates to:
-  /// **'当前：{name}'**
+  /// In en, this message translates to:
+  /// **'Current: {name}'**
   String progressCurrentFile(String name);
 
   /// No description provided for @rerunUnfinishedTransfers.
   ///
-  /// In zh, this message translates to:
-  /// **'重新执行未完成的导入/导出'**
+  /// In en, this message translates to:
+  /// **'Run unfinished imports and exports again'**
   String get rerunUnfinishedTransfers;
 
   /// No description provided for @preparing.
   ///
-  /// In zh, this message translates to:
-  /// **'正在准备…'**
+  /// In en, this message translates to:
+  /// **'Preparing...'**
   String get preparing;
 
   /// No description provided for @operationNotCancellableYet.
   ///
-  /// In zh, this message translates to:
-  /// **'当前操作尚未可取消。'**
+  /// In en, this message translates to:
+  /// **'This operation cannot be cancelled yet.'**
   String get operationNotCancellableYet;
 
   /// No description provided for @rerunningUnfinishedProgress.
   ///
-  /// In zh, this message translates to:
-  /// **'正在重新执行 {current}/{total}…'**
+  /// In en, this message translates to:
+  /// **'Running again: {current} of {total}...'**
   String rerunningUnfinishedProgress(int current, int total);
 
   /// No description provided for @unfinishedTransfersRerunCompleted.
   ///
-  /// In zh, this message translates to:
-  /// **'未完成导入/导出已重新执行。'**
+  /// In en, this message translates to:
+  /// **'Unfinished imports and exports were run again.'**
   String get unfinishedTransfersRerunCompleted;
 
   /// No description provided for @unfinishedTransfersRerunCancelled.
   ///
-  /// In zh, this message translates to:
-  /// **'重新执行已取消，未完成操作已保留。'**
+  /// In en, this message translates to:
+  /// **'Run again cancelled. The unfinished operation was kept.'**
   String get unfinishedTransfersRerunCancelled;
 
   /// No description provided for @preparingImport.
   ///
-  /// In zh, this message translates to:
-  /// **'正在准备导入…'**
+  /// In en, this message translates to:
+  /// **'Preparing import...'**
   String get preparingImport;
 
   /// No description provided for @preparingExport.
   ///
-  /// In zh, this message translates to:
-  /// **'正在准备导出…'**
+  /// In en, this message translates to:
+  /// **'Preparing export...'**
   String get preparingExport;
 
   /// No description provided for @preparingDelete.
   ///
-  /// In zh, this message translates to:
-  /// **'正在准备删除…'**
+  /// In en, this message translates to:
+  /// **'Preparing deletion...'**
   String get preparingDelete;
 
   /// No description provided for @preparingCannotCancel.
   ///
-  /// In zh, this message translates to:
-  /// **'正在准备，暂时无法取消…'**
+  /// In en, this message translates to:
+  /// **'Preparing; cancellation is unavailable...'**
   String get preparingCannotCancel;
 
   /// No description provided for @importing.
   ///
-  /// In zh, this message translates to:
-  /// **'正在导入…'**
+  /// In en, this message translates to:
+  /// **'Importing...'**
   String get importing;
 
   /// No description provided for @exporting.
   ///
-  /// In zh, this message translates to:
-  /// **'正在导出…'**
+  /// In en, this message translates to:
+  /// **'Exporting...'**
   String get exporting;
 
   /// No description provided for @deleting.
   ///
-  /// In zh, this message translates to:
-  /// **'正在删除…'**
+  /// In en, this message translates to:
+  /// **'Deleting...'**
   String get deleting;
 
   /// No description provided for @directoryImportCompleted.
   ///
-  /// In zh, this message translates to:
-  /// **'目录导入完成：{count} 个文件'**
+  /// In en, this message translates to:
+  /// **'Imported {count} files.'**
   String directoryImportCompleted(int count);
 
   /// No description provided for @transferCancelledWithUnfinishedState.
   ///
-  /// In zh, this message translates to:
-  /// **'操作已取消；下次打开目录时可以清理未完成的导入/导出状态。'**
+  /// In en, this message translates to:
+  /// **'The operation was cancelled. You can clean up the unfinished import or export state the next time you open this directory.'**
   String get transferCancelledWithUnfinishedState;
 
   /// No description provided for @directoryExportCompleted.
   ///
-  /// In zh, this message translates to:
-  /// **'导出完成：{count} 个文件'**
+  /// In en, this message translates to:
+  /// **'Exported {count} files.'**
   String directoryExportCompleted(int count);
 
   /// No description provided for @batchExport.
   ///
-  /// In zh, this message translates to:
-  /// **'批量导出'**
+  /// In en, this message translates to:
+  /// **'Batch export'**
   String get batchExport;
 
   /// No description provided for @batchExportCompleted.
   ///
-  /// In zh, this message translates to:
-  /// **'导出完成：成功 {success} 个，失败 {failed} 个'**
+  /// In en, this message translates to:
+  /// **'Export completed: {success} succeeded, {failed} failed.'**
   String batchExportCompleted(int success, int failed);
 
   /// No description provided for @batchExportCompletedAll.
   ///
-  /// In zh, this message translates to:
-  /// **'导出完成：成功 {count} 个文件'**
+  /// In en, this message translates to:
+  /// **'Export completed: {count} files succeeded.'**
   String batchExportCompletedAll(int count);
 
   /// No description provided for @batchExportCancelled.
   ///
-  /// In zh, this message translates to:
-  /// **'导出已取消：成功 {success} 个，失败 {failed} 个'**
+  /// In en, this message translates to:
+  /// **'Export cancelled: {success} succeeded, {failed} failed.'**
   String batchExportCancelled(int success, int failed);
 
   /// No description provided for @batchDelete.
   ///
-  /// In zh, this message translates to:
-  /// **'批量删除'**
+  /// In en, this message translates to:
+  /// **'Batch delete'**
   String get batchDelete;
 
   /// No description provided for @batchDeleteCancelled.
   ///
-  /// In zh, this message translates to:
-  /// **'批量删除已取消：成功 {success} 个，剩余 {remaining} 个仍保持选择'**
+  /// In en, this message translates to:
+  /// **'Batch deletion cancelled: {success} succeeded; {remaining} items remain selected.'**
   String batchDeleteCancelled(int success, int remaining);
 
   /// No description provided for @batchDeleteCompleted.
   ///
-  /// In zh, this message translates to:
-  /// **'已删除 {count} 个文件'**
+  /// In en, this message translates to:
+  /// **'Deleted {count} files.'**
   String batchDeleteCompleted(int count);
 
   /// No description provided for @unfinishedTransfersDetected.
   ///
-  /// In zh, this message translates to:
-  /// **'发现未完成的导入/导出'**
+  /// In en, this message translates to:
+  /// **'Unfinished imports or exports found'**
   String get unfinishedTransfersDetected;
 
   /// No description provided for @unfinishedTransfersDetectedDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'检测到 {count} 个未完成的导入/导出操作。\n\n这些操作无法继续。你可以先清理未完成操作，再重新执行完整的导入或导出，也可以暂时跳过。'**
+  /// In en, this message translates to:
+  /// **'{count} unfinished import or export operations were found.\n\nThese operations cannot be resumed. You can clean up the unfinished operation and run the full import or export again, or skip it for now.'**
   String unfinishedTransfersDetectedDescription(int count);
 
   /// No description provided for @skipForNow.
   ///
-  /// In zh, this message translates to:
-  /// **'暂时跳过'**
+  /// In en, this message translates to:
+  /// **'Skip for now'**
   String get skipForNow;
 
   /// No description provided for @cleanState.
   ///
-  /// In zh, this message translates to:
-  /// **'清理未完成操作'**
+  /// In en, this message translates to:
+  /// **'Clean unfinished operation'**
   String get cleanState;
 
   /// No description provided for @rerunAll.
   ///
-  /// In zh, this message translates to:
-  /// **'重新执行'**
+  /// In en, this message translates to:
+  /// **'Run again'**
   String get rerunAll;
 
   /// No description provided for @confirmBatchDeletion.
   ///
-  /// In zh, this message translates to:
-  /// **'确认批量删除'**
+  /// In en, this message translates to:
+  /// **'Confirm batch deletion'**
   String get confirmBatchDeletion;
 
   /// No description provided for @confirmBatchDeletionDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'确定删除所选 {count} 项吗？此操作无法撤销。删除会逐项执行，发生失败时已删除的项目不会恢复。'**
+  /// In en, this message translates to:
+  /// **'Delete {count} selected items? This cannot be undone. Items are deleted one at a time; items already deleted are not restored if a later deletion fails.'**
   String confirmBatchDeletionDescription(int count);
 
   /// No description provided for @disabled.
   ///
-  /// In zh, this message translates to:
-  /// **'关闭'**
+  /// In en, this message translates to:
+  /// **'Off'**
   String get disabled;
 
   /// No description provided for @nativeComponentUnavailable.
   ///
-  /// In zh, this message translates to:
-  /// **'安全组件不可用'**
+  /// In en, this message translates to:
+  /// **'Security component unavailable'**
   String get nativeComponentUnavailable;
 
   /// No description provided for @nativeBindingFailureDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'安全组件版本与应用不匹配，无法启动加密功能。'**
+  /// In en, this message translates to:
+  /// **'The security component version does not match this app, so encryption cannot start.'**
   String get nativeBindingFailureDescription;
 
   /// No description provided for @nativeLoadingFailureDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'无法加载 Safe Disk 安全组件，无法安全访问加密目录。'**
+  /// In en, this message translates to:
+  /// **'Safe Disk could not load its security component, so encrypted directories cannot be accessed safely.'**
   String get nativeLoadingFailureDescription;
 
   /// No description provided for @nativeBindingFailureSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请重新安装同一版本的 Safe Disk 应用后重试。'**
+  /// In en, this message translates to:
+  /// **'Reinstall the matching version of Safe Disk, then try again.'**
   String get nativeBindingFailureSuggestion;
 
   /// No description provided for @nativeLoadingFailureSuggestion.
   ///
-  /// In zh, this message translates to:
-  /// **'请重新安装应用；若问题持续，请检查安全软件是否隔离了应用文件。'**
+  /// In en, this message translates to:
+  /// **'Reinstall the app. If the problem continues, check whether security software quarantined application files.'**
   String get nativeLoadingFailureSuggestion;
 
   /// No description provided for @initializationStage.
   ///
-  /// In zh, this message translates to:
-  /// **'初始化阶段：{stage}'**
+  /// In en, this message translates to:
+  /// **'Initialization stage: {stage}'**
   String initializationStage(String stage);
 
   /// No description provided for @underlyingError.
   ///
-  /// In zh, this message translates to:
-  /// **'底层错误：{error}'**
+  /// In en, this message translates to:
+  /// **'Underlying error: {error}'**
   String underlyingError(String error);
 
   /// No description provided for @errorDiagnosticType.
   ///
-  /// In zh, this message translates to:
-  /// **'错误类型：{type}'**
+  /// In en, this message translates to:
+  /// **'Error type: {type}'**
   String errorDiagnosticType(String type);
 
   /// No description provided for @errorDiagnosticOperation.
   ///
-  /// In zh, this message translates to:
-  /// **'操作阶段：{operation}'**
+  /// In en, this message translates to:
+  /// **'Operation: {operation}'**
   String errorDiagnosticOperation(String operation);
 
   /// No description provided for @errorDiagnosticRedacted.
   ///
-  /// In zh, this message translates to:
-  /// **'[已隐藏]'**
+  /// In en, this message translates to:
+  /// **'[redacted]'**
   String get errorDiagnosticRedacted;
 
   /// No description provided for @errorDiagnosticPathRedacted.
   ///
-  /// In zh, this message translates to:
-  /// **'[路径已隐藏]'**
+  /// In en, this message translates to:
+  /// **'[path redacted]'**
   String get errorDiagnosticPathRedacted;
 
   /// No description provided for @errorDiagnosticTruncated.
   ///
-  /// In zh, this message translates to:
-  /// **'[详细信息已截断]'**
+  /// In en, this message translates to:
+  /// **'[details truncated]'**
   String get errorDiagnosticTruncated;
 
   /// No description provided for @contentWindowUnavailable.
   ///
-  /// In zh, this message translates to:
-  /// **'无法连接主窗口'**
+  /// In en, this message translates to:
+  /// **'Cannot connect to main window'**
   String get contentWindowUnavailable;
 
   /// No description provided for @contentWindowUnavailableDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'文档会话可能已结束。为避免在失效会话中编辑，请关闭此窗口后从主界面重新打开。'**
+  /// In en, this message translates to:
+  /// **'The document session may have ended. To avoid editing an invalid session, close this window and open the document again from the main window.'**
   String get contentWindowUnavailableDescription;
 
   /// No description provided for @closeWindow.
   ///
-  /// In zh, this message translates to:
-  /// **'关闭窗口'**
+  /// In en, this message translates to:
+  /// **'Close window'**
   String get closeWindow;
 
   /// No description provided for @welcomeProductTagline.
   ///
-  /// In zh, this message translates to:
-  /// **'加密文件管理器'**
+  /// In en, this message translates to:
+  /// **'Encrypted file manager'**
   String get welcomeProductTagline;
 
   /// No description provided for @welcomeOpenDirectoryHint.
   ///
-  /// In zh, this message translates to:
-  /// **'请从侧边栏打开或创建加密目录'**
+  /// In en, this message translates to:
+  /// **'Open or create an encrypted directory from the sidebar.'**
   String get welcomeOpenDirectoryHint;
 
   /// No description provided for @selectedItems.
   ///
-  /// In zh, this message translates to:
-  /// **'已选择 {count} 项'**
+  /// In en, this message translates to:
+  /// **'{count} selected'**
   String selectedItems(int count);
 
   /// No description provided for @exitSelectionMode.
   ///
-  /// In zh, this message translates to:
-  /// **'退出选择模式'**
+  /// In en, this message translates to:
+  /// **'Exit selection mode'**
   String get exitSelectionMode;
 
   /// No description provided for @copySelected.
   ///
-  /// In zh, this message translates to:
-  /// **'复制所选项'**
+  /// In en, this message translates to:
+  /// **'Copy selected'**
   String get copySelected;
 
   /// No description provided for @cutSelected.
   ///
-  /// In zh, this message translates to:
-  /// **'剪切所选项'**
+  /// In en, this message translates to:
+  /// **'Cut selected'**
   String get cutSelected;
 
   /// No description provided for @moreBatchActions.
   ///
-  /// In zh, this message translates to:
-  /// **'更多批量操作'**
+  /// In en, this message translates to:
+  /// **'More batch actions'**
   String get moreBatchActions;
 
   /// No description provided for @selectAll.
   ///
-  /// In zh, this message translates to:
-  /// **'全选'**
+  /// In en, this message translates to:
+  /// **'Select all'**
   String get selectAll;
 
   /// No description provided for @exportSelected.
   ///
-  /// In zh, this message translates to:
-  /// **'导出所选项'**
+  /// In en, this message translates to:
+  /// **'Export selected'**
   String get exportSelected;
 
   /// No description provided for @deleteSelected.
   ///
-  /// In zh, this message translates to:
-  /// **'删除所选项'**
+  /// In en, this message translates to:
+  /// **'Delete selected'**
   String get deleteSelected;
 
   /// No description provided for @closeDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'关闭目录'**
+  /// In en, this message translates to:
+  /// **'Close directory'**
   String get closeDirectory;
 
   /// No description provided for @currentDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'当前目录'**
+  /// In en, this message translates to:
+  /// **'Current directory'**
   String get currentDirectory;
 
   /// No description provided for @clipboardMovePending.
   ///
-  /// In zh, this message translates to:
-  /// **'待移动'**
+  /// In en, this message translates to:
+  /// **'Move pending'**
   String get clipboardMovePending;
 
   /// No description provided for @fileClipboard.
   ///
-  /// In zh, this message translates to:
-  /// **'文件剪贴板'**
+  /// In en, this message translates to:
+  /// **'File clipboard'**
   String get fileClipboard;
 
   /// No description provided for @clipboardPastePending.
   ///
-  /// In zh, this message translates to:
-  /// **'待粘贴'**
+  /// In en, this message translates to:
+  /// **'Paste pending'**
   String get clipboardPastePending;
 
   /// No description provided for @moveSourceDeleteFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'目标已复制，但无法删除源项。源项和目标均已保留，请确认内容后手动删除源项。'**
+  /// In en, this message translates to:
+  /// **'The target was copied, but the source entry could not be deleted. Both entries were kept; verify the target, then remove the source manually.'**
   String get moveSourceDeleteFailed;
 
   /// No description provided for @clipboardMultipleEntries.
   ///
-  /// In zh, this message translates to:
-  /// **'{name} 等 {count} 项'**
+  /// In en, this message translates to:
+  /// **'{name} and {count} items'**
   String clipboardMultipleEntries(String name, int count);
 
   /// No description provided for @clipboardStatusWide.
   ///
-  /// In zh, this message translates to:
+  /// In en, this message translates to:
   /// **'{operation} · {entries} → {target}'**
   String clipboardStatusWide(String operation, String entries, String target);
 
   /// No description provided for @clipboardStatusNarrow.
   ///
-  /// In zh, this message translates to:
+  /// In en, this message translates to:
   /// **'{operation} · {entries}'**
   String clipboardStatusNarrow(String operation, String entries);
 
   /// No description provided for @moveToCurrentDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'移动到当前目录'**
+  /// In en, this message translates to:
+  /// **'Move to current directory'**
   String get moveToCurrentDirectory;
 
   /// No description provided for @pasteToCurrentDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'粘贴到当前目录'**
+  /// In en, this message translates to:
+  /// **'Paste to current directory'**
   String get pasteToCurrentDirectory;
 
   /// No description provided for @clearFileClipboard.
   ///
-  /// In zh, this message translates to:
-  /// **'清空文件剪贴板'**
+  /// In en, this message translates to:
+  /// **'Clear file clipboard'**
   String get clearFileClipboard;
 
   /// No description provided for @openedDirectoriesCount.
   ///
-  /// In zh, this message translates to:
-  /// **'已打开 {count} 个目录'**
+  /// In en, this message translates to:
+  /// **'{count} directories open'**
   String openedDirectoriesCount(int count);
 
   /// No description provided for @unpinSidebar.
   ///
-  /// In zh, this message translates to:
-  /// **'取消固定侧边栏'**
+  /// In en, this message translates to:
+  /// **'Unpin sidebar'**
   String get unpinSidebar;
 
   /// No description provided for @pinSidebar.
   ///
-  /// In zh, this message translates to:
-  /// **'固定侧边栏'**
+  /// In en, this message translates to:
+  /// **'Pin sidebar'**
   String get pinSidebar;
 
   /// No description provided for @openOrCreateEncryptedDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'打开或创建加密目录'**
+  /// In en, this message translates to:
+  /// **'Open or create encrypted directory'**
   String get openOrCreateEncryptedDirectory;
 
   /// No description provided for @noOpenedDirectories.
   ///
-  /// In zh, this message translates to:
-  /// **'还没有打开目录\n\n选择“打开或创建加密目录”开始使用'**
+  /// In en, this message translates to:
+  /// **'No directories are open yet.\n\nSelect "Open or create encrypted directory" to get started.'**
   String get noOpenedDirectories;
 
   /// No description provided for @properties.
   ///
-  /// In zh, this message translates to:
-  /// **'属性'**
+  /// In en, this message translates to:
+  /// **'Properties'**
   String get properties;
 
   /// No description provided for @changePassword.
   ///
-  /// In zh, this message translates to:
-  /// **'修改密码'**
+  /// In en, this message translates to:
+  /// **'Change password'**
   String get changePassword;
 
   /// No description provided for @setAlias.
   ///
-  /// In zh, this message translates to:
-  /// **'设置别名'**
+  /// In en, this message translates to:
+  /// **'Set alias'**
   String get setAlias;
 
   /// No description provided for @clearAlias.
   ///
-  /// In zh, this message translates to:
-  /// **'清除别名'**
+  /// In en, this message translates to:
+  /// **'Clear alias'**
   String get clearAlias;
 
   /// No description provided for @directoryAliasTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'设置目录显示别名'**
+  /// In en, this message translates to:
+  /// **'Set directory display alias'**
   String get directoryAliasTitle;
 
   /// No description provided for @directoryAliasLabel.
   ///
-  /// In zh, this message translates to:
-  /// **'别名'**
+  /// In en, this message translates to:
+  /// **'Alias'**
   String get directoryAliasLabel;
 
   /// No description provided for @directoryAliasHint.
   ///
-  /// In zh, this message translates to:
-  /// **'留空将恢复目录名'**
+  /// In en, this message translates to:
+  /// **'Leave empty to restore the directory name'**
   String get directoryAliasHint;
 
   /// No description provided for @closeOrRemoveDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'关闭或移除目录'**
+  /// In en, this message translates to:
+  /// **'Close or remove directory'**
   String get closeOrRemoveDirectory;
 
   /// No description provided for @moveDirectoryUp.
   ///
-  /// In zh, this message translates to:
-  /// **'上移'**
+  /// In en, this message translates to:
+  /// **'Move up'**
   String get moveDirectoryUp;
 
   /// No description provided for @moveDirectoryDown.
   ///
-  /// In zh, this message translates to:
-  /// **'下移'**
+  /// In en, this message translates to:
+  /// **'Move down'**
   String get moveDirectoryDown;
 
   /// No description provided for @directoryUnlocked.
   ///
-  /// In zh, this message translates to:
-  /// **'已解锁'**
+  /// In en, this message translates to:
+  /// **'Unlocked'**
   String get directoryUnlocked;
 
   /// No description provided for @directoryNeedsPassword.
   ///
-  /// In zh, this message translates to:
-  /// **'需要密码'**
+  /// In en, this message translates to:
+  /// **'Password required'**
   String get directoryNeedsPassword;
 
   /// No description provided for @moreDirectoryActions.
   ///
-  /// In zh, this message translates to:
-  /// **'更多目录操作'**
+  /// In en, this message translates to:
+  /// **'More directory actions'**
   String get moreDirectoryActions;
 
   /// No description provided for @importFile.
   ///
-  /// In zh, this message translates to:
-  /// **'导入文件'**
+  /// In en, this message translates to:
+  /// **'Import file'**
   String get importFile;
 
   /// No description provided for @importDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'导入目录'**
+  /// In en, this message translates to:
+  /// **'Import directory'**
   String get importDirectory;
 
   /// No description provided for @dropImportHere.
   ///
-  /// In zh, this message translates to:
-  /// **'松开以导入到当前加密目录'**
+  /// In en, this message translates to:
+  /// **'Drop to import into the current encrypted directory'**
   String get dropImportHere;
 
   /// No description provided for @allFiles.
   ///
-  /// In zh, this message translates to:
-  /// **'所有文件'**
+  /// In en, this message translates to:
+  /// **'All files'**
   String get allFiles;
 
   /// No description provided for @encryptedDirectoryCreated.
   ///
-  /// In zh, this message translates to:
-  /// **'加密目录创建成功'**
+  /// In en, this message translates to:
+  /// **'Encrypted directory created'**
   String get encryptedDirectoryCreated;
 
   /// No description provided for @encryptedRootFound.
   ///
-  /// In zh, this message translates to:
-  /// **'当前路径位于加密目录中：{path}'**
+  /// In en, this message translates to:
+  /// **'The current path is inside an encrypted directory: {path}'**
   String encryptedRootFound(String path);
 
   /// No description provided for @passwordVerified.
   ///
-  /// In zh, this message translates to:
-  /// **'密码验证成功'**
+  /// In en, this message translates to:
+  /// **'Password verified'**
   String get passwordVerified;
 
   /// No description provided for @unfinishedStatesCleaned.
   ///
-  /// In zh, this message translates to:
-  /// **'已清理 {count} 个未完成的导入/导出状态'**
+  /// In en, this message translates to:
+  /// **'Cleaned {count} unfinished import/export states'**
   String unfinishedStatesCleaned(int count);
 
   /// No description provided for @notepadFileTooLarge.
   ///
-  /// In zh, this message translates to:
-  /// **'文件超过 {limit}，暂不支持用安全记事本打开。'**
+  /// In en, this message translates to:
+  /// **'The file exceeds {limit} and cannot be opened in Secure Notepad.'**
   String notepadFileTooLarge(String limit);
 
   /// No description provided for @contentFileSizeUnknown.
   ///
-  /// In zh, this message translates to:
-  /// **'无法确认文件大小，出于安全原因无法打开。'**
+  /// In en, this message translates to:
+  /// **'The file size cannot be determined, so it cannot be opened safely.'**
   String get contentFileSizeUnknown;
 
   /// No description provided for @nativeContentWindowUnavailable.
   ///
-  /// In zh, this message translates to:
-  /// **'当前平台不支持独立文件窗口，已在主窗口打开'**
+  /// In en, this message translates to:
+  /// **'Separate file windows are unavailable on this platform. Opened in the main window instead.'**
   String get nativeContentWindowUnavailable;
 
   /// No description provided for @batchMove.
   ///
-  /// In zh, this message translates to:
-  /// **'批量移动'**
+  /// In en, this message translates to:
+  /// **'Batch move'**
   String get batchMove;
 
   /// No description provided for @batchPaste.
   ///
-  /// In zh, this message translates to:
-  /// **'批量粘贴'**
+  /// In en, this message translates to:
+  /// **'Batch paste'**
   String get batchPaste;
 
   /// No description provided for @movedToDestination.
   ///
-  /// In zh, this message translates to:
-  /// **'已移动：{name}'**
+  /// In en, this message translates to:
+  /// **'Moved: {name}'**
   String movedToDestination(String name);
 
   /// No description provided for @pastedToDestination.
   ///
-  /// In zh, this message translates to:
-  /// **'已粘贴：{name}'**
+  /// In en, this message translates to:
+  /// **'Pasted: {name}'**
   String pastedToDestination(String name);
 
   /// No description provided for @batchPasteCancelled.
   ///
-  /// In zh, this message translates to:
-  /// **'批量粘贴已取消：成功 {success} 个，剩余 {remaining} 个可重试'**
+  /// In en, this message translates to:
+  /// **'Batch paste cancelled: {success} succeeded; {remaining} items can be retried.'**
   String batchPasteCancelled(int success, int remaining);
 
   /// No description provided for @movedFiles.
   ///
-  /// In zh, this message translates to:
-  /// **'已移动 {count} 个文件'**
+  /// In en, this message translates to:
+  /// **'Moved {count} files'**
   String movedFiles(int count);
 
   /// No description provided for @pastedFiles.
   ///
-  /// In zh, this message translates to:
-  /// **'已粘贴 {count} 个文件'**
+  /// In en, this message translates to:
+  /// **'Pasted {count} files'**
   String pastedFiles(int count);
 
   /// No description provided for @noEncryptedClipboardEntries.
   ///
-  /// In zh, this message translates to:
-  /// **'剪贴板中没有可粘贴的加密条目'**
+  /// In en, this message translates to:
+  /// **'There are no encrypted entries to paste in the file clipboard'**
   String get noEncryptedClipboardEntries;
 
   /// No description provided for @cannotPasteDirectoryIntoItself.
   ///
-  /// In zh, this message translates to:
-  /// **'目录不能粘贴到自身或其子目录'**
+  /// In en, this message translates to:
+  /// **'A directory cannot be pasted into itself or one of its subdirectories'**
   String get cannotPasteDirectoryIntoItself;
 
   /// No description provided for @directoryCreated.
   ///
-  /// In zh, this message translates to:
-  /// **'目录已创建：{name}'**
+  /// In en, this message translates to:
+  /// **'Directory created: {name}'**
   String directoryCreated(String name);
 
   /// No description provided for @fileCreated.
   ///
-  /// In zh, this message translates to:
-  /// **'文件已创建：{name}'**
+  /// In en, this message translates to:
+  /// **'File created: {name}'**
   String fileCreated(String name);
 
   /// No description provided for @renamedTo.
   ///
-  /// In zh, this message translates to:
-  /// **'已重命名为：{name}'**
+  /// In en, this message translates to:
+  /// **'Renamed to: {name}'**
   String renamedTo(String name);
 
   /// No description provided for @confirmDeleteFile.
   ///
-  /// In zh, this message translates to:
-  /// **'确认删除文件'**
+  /// In en, this message translates to:
+  /// **'Confirm file deletion'**
   String get confirmDeleteFile;
 
   /// No description provided for @confirmDeleteFileDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'确定要删除“{name}”吗？此操作无法撤销。'**
+  /// In en, this message translates to:
+  /// **'Delete "{name}"? This cannot be undone.'**
   String confirmDeleteFileDescription(String name);
 
   /// No description provided for @delete.
   ///
-  /// In zh, this message translates to:
-  /// **'删除'**
+  /// In en, this message translates to:
+  /// **'Delete'**
   String get delete;
 
   /// No description provided for @fileDeleted.
   ///
-  /// In zh, this message translates to:
-  /// **'文件已删除'**
+  /// In en, this message translates to:
+  /// **'File deleted'**
   String get fileDeleted;
 
   /// No description provided for @fileImportCompleted.
   ///
-  /// In zh, this message translates to:
-  /// **'文件导入成功：{name}'**
+  /// In en, this message translates to:
+  /// **'File imported: {name}'**
   String fileImportCompleted(String name);
 
   /// No description provided for @fileExportCompleted.
   ///
-  /// In zh, this message translates to:
-  /// **'文件导出成功：{path}'**
+  /// In en, this message translates to:
+  /// **'File exported: {path}'**
   String fileExportCompleted(String path);
 
   /// No description provided for @confirmPlaintextExport.
   ///
-  /// In zh, this message translates to:
-  /// **'确认导出明文'**
+  /// In en, this message translates to:
+  /// **'Confirm plaintext export'**
   String get confirmPlaintextExport;
 
   /// No description provided for @confirmPlaintextExportDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'“{name}”将以未加密形式写入你选择的位置。导出后的副本不再受 Safe Disk 保护，是否继续？'**
+  /// In en, this message translates to:
+  /// **'"{name}" will be written unencrypted to the selected location. The exported copy will no longer be protected by Safe Disk. Continue?'**
   String confirmPlaintextExportDescription(String name);
 
   /// No description provided for @continueExport.
   ///
-  /// In zh, this message translates to:
-  /// **'继续导出'**
+  /// In en, this message translates to:
+  /// **'Continue export'**
   String get continueExport;
 
   /// No description provided for @copiedNameToSystemClipboard.
   ///
-  /// In zh, this message translates to:
-  /// **'已将明文名称复制到系统剪贴板'**
+  /// In en, this message translates to:
+  /// **'Plaintext name copied to the system clipboard'**
   String get copiedNameToSystemClipboard;
 
   /// No description provided for @copiedPathToSystemClipboard.
   ///
-  /// In zh, this message translates to:
-  /// **'已将明文逻辑路径复制到系统剪贴板'**
+  /// In en, this message translates to:
+  /// **'Plaintext logical path copied to the system clipboard'**
   String get copiedPathToSystemClipboard;
 
   /// No description provided for @copiedForPaste.
   ///
-  /// In zh, this message translates to:
-  /// **'已复制“{name}”，请选择目标目录粘贴'**
+  /// In en, this message translates to:
+  /// **'Copied "{name}". Select a destination directory to paste.'**
   String copiedForPaste(String name);
 
   /// No description provided for @cutForMove.
   ///
-  /// In zh, this message translates to:
-  /// **'已剪切“{name}”，请选择目标目录移动'**
+  /// In en, this message translates to:
+  /// **'Cut "{name}". Select a destination directory to move it.'**
   String cutForMove(String name);
 
   /// No description provided for @copiedManyForPaste.
   ///
-  /// In zh, this message translates to:
-  /// **'已复制 {count} 个文件，请选择目标目录粘贴'**
+  /// In en, this message translates to:
+  /// **'Copied {count} files. Select a destination directory to paste.'**
   String copiedManyForPaste(int count);
 
   /// No description provided for @cutManyForMove.
   ///
-  /// In zh, this message translates to:
-  /// **'已剪切 {count} 个文件，请选择目标目录移动'**
+  /// In en, this message translates to:
+  /// **'Cut {count} files. Select a destination directory to move them.'**
   String cutManyForMove(int count);
 
   /// No description provided for @unlockDirectoryPrompt.
   ///
-  /// In zh, this message translates to:
-  /// **'请输入密码以解锁：'**
+  /// In en, this message translates to:
+  /// **'Enter the password to unlock:'**
   String get unlockDirectoryPrompt;
 
   /// No description provided for @password.
   ///
-  /// In zh, this message translates to:
-  /// **'密码'**
+  /// In en, this message translates to:
+  /// **'Password'**
   String get password;
 
   /// No description provided for @passwordHint.
   ///
-  /// In zh, this message translates to:
-  /// **'密码提示'**
+  /// In en, this message translates to:
+  /// **'Password hint'**
   String get passwordHint;
 
   /// No description provided for @showPasswordHint.
   ///
-  /// In zh, this message translates to:
-  /// **'显示密码提示'**
+  /// In en, this message translates to:
+  /// **'Show password hint'**
   String get showPasswordHint;
 
   /// No description provided for @hidePasswordHint.
   ///
-  /// In zh, this message translates to:
-  /// **'隐藏密码提示'**
+  /// In en, this message translates to:
+  /// **'Hide password hint'**
   String get hidePasswordHint;
 
   /// No description provided for @passwordHintCreationNotice.
   ///
-  /// In zh, this message translates to:
-  /// **'仅用于帮助回忆密码；能访问此目录的人可看到它，不能用于找回密码。'**
+  /// In en, this message translates to:
+  /// **'Helps you remember the password. Anyone with access to this directory can see it; it cannot recover your password.'**
   String get passwordHintCreationNotice;
 
   /// No description provided for @passwordHintPublicNotice.
   ///
-  /// In zh, this message translates to:
-  /// **'提示会显示给能访问此目录的人，不能用于找回密码。'**
+  /// In en, this message translates to:
+  /// **'Anyone with access to this directory can see this hint. It cannot recover your password.'**
   String get passwordHintPublicNotice;
 
   /// No description provided for @passwordHintTooLong.
   ///
-  /// In zh, this message translates to:
-  /// **'密码提示最多 256 字节'**
+  /// In en, this message translates to:
+  /// **'Password hints are limited to 256 bytes.'**
   String get passwordHintTooLong;
 
   /// No description provided for @passwordHintNotSet.
   ///
-  /// In zh, this message translates to:
-  /// **'未设置'**
+  /// In en, this message translates to:
+  /// **'Not set'**
   String get passwordHintNotSet;
 
   /// No description provided for @managePasswordHint.
   ///
-  /// In zh, this message translates to:
-  /// **'管理密码提示'**
+  /// In en, this message translates to:
+  /// **'Manage password hint'**
   String get managePasswordHint;
 
   /// No description provided for @passwordHintEditNotice.
   ///
-  /// In zh, this message translates to:
-  /// **'输入新提示，或留空以清除。提示会显示给能访问此目录的人，不能用于找回密码。'**
+  /// In en, this message translates to:
+  /// **'Enter a new hint, or leave it empty to clear it. Anyone with access to this directory can see it; it cannot recover your password.'**
   String get passwordHintEditNotice;
 
   /// No description provided for @passwordHintPasswordRequired.
   ///
-  /// In zh, this message translates to:
-  /// **'请输入当前密码以更新密码提示'**
+  /// In en, this message translates to:
+  /// **'Enter the current password to update the password hint.'**
   String get passwordHintPasswordRequired;
 
   /// No description provided for @savePasswordHint.
   ///
-  /// In zh, this message translates to:
-  /// **'保存提示'**
+  /// In en, this message translates to:
+  /// **'Save hint'**
   String get savePasswordHint;
 
   /// No description provided for @passwordHintUpdated.
   ///
-  /// In zh, this message translates to:
-  /// **'密码提示已更新'**
+  /// In en, this message translates to:
+  /// **'Password hint updated.'**
   String get passwordHintUpdated;
 
   /// No description provided for @unlock.
   ///
-  /// In zh, this message translates to:
-  /// **'解锁'**
+  /// In en, this message translates to:
+  /// **'Unlock'**
   String get unlock;
 
   /// No description provided for @directoryLabel.
   ///
-  /// In zh, this message translates to:
-  /// **'目录：{name}'**
+  /// In en, this message translates to:
+  /// **'Directory: {name}'**
   String directoryLabel(String name);
 
   /// No description provided for @passwordChangeDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'修改后需要用新密码重新打开目录。已有内容无需重新加密。'**
+  /// In en, this message translates to:
+  /// **'After changing the password, reopen the directory with the new password. Existing content does not need to be re-encrypted.'**
   String get passwordChangeDescription;
 
   /// No description provided for @currentPassword.
   ///
-  /// In zh, this message translates to:
-  /// **'当前密码'**
+  /// In en, this message translates to:
+  /// **'Current password'**
   String get currentPassword;
 
   /// No description provided for @newPassword.
   ///
-  /// In zh, this message translates to:
-  /// **'新密码'**
+  /// In en, this message translates to:
+  /// **'New password'**
   String get newPassword;
 
   /// No description provided for @confirmNewPassword.
   ///
-  /// In zh, this message translates to:
-  /// **'确认新密码'**
+  /// In en, this message translates to:
+  /// **'Confirm new password'**
   String get confirmNewPassword;
 
   /// No description provided for @passwordChangeFieldsRequired.
   ///
-  /// In zh, this message translates to:
-  /// **'请输入当前密码和新密码'**
+  /// In en, this message translates to:
+  /// **'Enter the current password and a new password.'**
   String get passwordChangeFieldsRequired;
 
   /// No description provided for @newPasswordsDoNotMatch.
   ///
-  /// In zh, this message translates to:
-  /// **'两次输入的新密码不一致'**
+  /// In en, this message translates to:
+  /// **'The new passwords do not match.'**
   String get newPasswordsDoNotMatch;
 
   /// No description provided for @rootDirectoryActions.
   ///
-  /// In zh, this message translates to:
-  /// **'目录操作'**
+  /// In en, this message translates to:
+  /// **'Directory actions'**
   String get rootDirectoryActions;
 
   /// No description provided for @endSessionOnly.
   ///
-  /// In zh, this message translates to:
-  /// **'仅结束会话'**
+  /// In en, this message translates to:
+  /// **'End session only'**
   String get endSessionOnly;
 
   /// No description provided for @endSessionDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'锁定“{name}”，保留侧边栏历史和磁盘目录'**
+  /// In en, this message translates to:
+  /// **'Lock "{name}" and keep its sidebar history and disk directory.'**
   String endSessionDescription(String name);
 
   /// No description provided for @directoryAlreadyLocked.
   ///
-  /// In zh, this message translates to:
-  /// **'当前目录已经锁定'**
+  /// In en, this message translates to:
+  /// **'This directory is already locked.'**
   String get directoryAlreadyLocked;
 
   /// No description provided for @endSessionAndRemoveHistory.
   ///
-  /// In zh, this message translates to:
-  /// **'结束会话并移除历史'**
+  /// In en, this message translates to:
+  /// **'End session and remove history'**
   String get endSessionAndRemoveHistory;
 
   /// No description provided for @removeHistoryDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'只从侧边栏移除，本地磁盘目录保持不变'**
+  /// In en, this message translates to:
+  /// **'Remove only from the sidebar; keep the local disk directory unchanged.'**
   String get removeHistoryDescription;
 
   /// No description provided for @endSessionRemoveHistoryAndDelete.
   ///
-  /// In zh, this message translates to:
-  /// **'结束会话、移除历史并删除目录'**
+  /// In en, this message translates to:
+  /// **'End session, remove history, and delete directory'**
   String get endSessionRemoveHistoryAndDelete;
 
   /// No description provided for @deleteDirectoryDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'永久删除本地加密目录及全部内容，无法撤销'**
+  /// In en, this message translates to:
+  /// **'Permanently delete the local encrypted directory and all its contents. This cannot be undone.'**
   String get deleteDirectoryDescription;
 
   /// No description provided for @permanentlyDeleteLocalDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'永久删除本地目录'**
+  /// In en, this message translates to:
+  /// **'Permanently delete local directory'**
   String get permanentlyDeleteLocalDirectory;
 
   /// No description provided for @willPermanentlyDelete.
   ///
-  /// In zh, this message translates to:
-  /// **'将永久删除：'**
+  /// In en, this message translates to:
+  /// **'Will permanently delete:'**
   String get willPermanentlyDelete;
 
   /// No description provided for @enterDirectoryNameToConfirm.
   ///
-  /// In zh, this message translates to:
-  /// **'请输入目录名“{name}”确认：'**
+  /// In en, this message translates to:
+  /// **'Enter the directory name "{name}" to confirm:'**
   String enterDirectoryNameToConfirm(String name);
 
   /// No description provided for @permanentlyDeleteDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'永久删除目录'**
+  /// In en, this message translates to:
+  /// **'Permanently delete directory'**
   String get permanentlyDeleteDirectory;
 
   /// No description provided for @unknown.
   ///
-  /// In zh, this message translates to:
-  /// **'未知'**
+  /// In en, this message translates to:
+  /// **'Unknown'**
   String get unknown;
 
   /// No description provided for @rootDirectoryProperties.
   ///
-  /// In zh, this message translates to:
-  /// **'加密目录属性'**
+  /// In en, this message translates to:
+  /// **'Encrypted directory properties'**
   String get rootDirectoryProperties;
 
   /// No description provided for @displayName.
   ///
-  /// In zh, this message translates to:
-  /// **'显示名称'**
+  /// In en, this message translates to:
+  /// **'Display name'**
   String get displayName;
 
   /// No description provided for @diskPath.
   ///
-  /// In zh, this message translates to:
-  /// **'磁盘路径'**
+  /// In en, this message translates to:
+  /// **'Disk path'**
   String get diskPath;
 
   /// No description provided for @currentStatus.
   ///
-  /// In zh, this message translates to:
-  /// **'当前状态'**
+  /// In en, this message translates to:
+  /// **'Current status'**
   String get currentStatus;
 
   /// No description provided for @directoryLocked.
   ///
-  /// In zh, this message translates to:
-  /// **'已锁定'**
+  /// In en, this message translates to:
+  /// **'Locked'**
   String get directoryLocked;
 
   /// No description provided for @directoryFormat.
   ///
-  /// In zh, this message translates to:
-  /// **'目录格式'**
+  /// In en, this message translates to:
+  /// **'Directory format'**
   String get directoryFormat;
 
   /// No description provided for @dataEncryption.
   ///
-  /// In zh, this message translates to:
-  /// **'数据加密'**
+  /// In en, this message translates to:
+  /// **'Data encryption'**
   String get dataEncryption;
 
   /// No description provided for @fileNameEncryption.
   ///
-  /// In zh, this message translates to:
-  /// **'文件名加密'**
+  /// In en, this message translates to:
+  /// **'File name encryption'**
   String get fileNameEncryption;
 
   /// No description provided for @nameEncryption.
   ///
-  /// In zh, this message translates to:
-  /// **'名称加密'**
+  /// In en, this message translates to:
+  /// **'Name encryption'**
   String get nameEncryption;
 
   /// No description provided for @passwordDerivation.
   ///
-  /// In zh, this message translates to:
-  /// **'密码派生'**
+  /// In en, this message translates to:
+  /// **'Password derivation'**
   String get passwordDerivation;
 
   /// No description provided for @passwordVerification.
   ///
-  /// In zh, this message translates to:
-  /// **'密码验证'**
+  /// In en, this message translates to:
+  /// **'Password verification'**
   String get passwordVerification;
 
   /// No description provided for @versionValue.
   ///
-  /// In zh, this message translates to:
-  /// **'版本 {version}'**
+  /// In en, this message translates to:
+  /// **'Version {version}'**
   String versionValue(int version);
 
   /// No description provided for @unavailableOrLegacy.
   ///
-  /// In zh, this message translates to:
-  /// **'不可用或旧格式'**
+  /// In en, this message translates to:
+  /// **'Unavailable or legacy format'**
   String get unavailableOrLegacy;
 
   /// No description provided for @passwordChange.
   ///
-  /// In zh, this message translates to:
-  /// **'修改密码'**
+  /// In en, this message translates to:
+  /// **'Change password'**
   String get passwordChange;
 
   /// No description provided for @passwordChangeDirectly.
   ///
-  /// In zh, this message translates to:
-  /// **'可直接修改'**
+  /// In en, this message translates to:
+  /// **'Can change directly'**
   String get passwordChangeDirectly;
 
   /// No description provided for @passwordChangeMigrationRequired.
   ///
-  /// In zh, this message translates to:
-  /// **'需要迁移'**
+  /// In en, this message translates to:
+  /// **'Migration required'**
   String get passwordChangeMigrationRequired;
 
   /// No description provided for @rootPropertiesSensitiveNotice.
   ///
-  /// In zh, this message translates to:
-  /// **'不会显示密码、密钥或其他敏感信息。'**
+  /// In en, this message translates to:
+  /// **'Passwords, keys, and other sensitive information are not shown.'**
   String get rootPropertiesSensitiveNotice;
 
   /// No description provided for @directory.
   ///
-  /// In zh, this message translates to:
-  /// **'目录'**
+  /// In en, this message translates to:
+  /// **'Directory'**
   String get directory;
 
   /// No description provided for @status.
   ///
-  /// In zh, this message translates to:
-  /// **'状态'**
+  /// In en, this message translates to:
+  /// **'Status'**
   String get status;
 
   /// No description provided for @directoryCannotChangePassword.
   ///
-  /// In zh, this message translates to:
-  /// **'此目录不能直接修改密码'**
+  /// In en, this message translates to:
+  /// **'This directory cannot change its password directly.'**
   String get directoryCannotChangePassword;
 
   /// No description provided for @reason.
   ///
-  /// In zh, this message translates to:
-  /// **'原因'**
+  /// In en, this message translates to:
+  /// **'Reason'**
   String get reason;
 
   /// No description provided for @legacyPasswordChangeReason.
   ///
-  /// In zh, this message translates to:
-  /// **'此目录使用较早的加密格式。直接修改密码会导致已有内容无法读取。'**
+  /// In en, this message translates to:
+  /// **'This directory uses an older encryption format. Changing its password directly would make existing content unreadable.'**
   String get legacyPasswordChangeReason;
 
   /// No description provided for @safeApproach.
   ///
-  /// In zh, this message translates to:
-  /// **'安全做法'**
+  /// In en, this message translates to:
+  /// **'Safe approach'**
   String get safeApproach;
 
   /// No description provided for @legacyPasswordChangeApproach.
   ///
-  /// In zh, this message translates to:
-  /// **'使用新密码创建一个加密目录，再导出并导入需要保留的内容。'**
+  /// In en, this message translates to:
+  /// **'Create an encrypted directory with a new password, then export and import the content you need to keep.'**
   String get legacyPasswordChangeApproach;
 
   /// No description provided for @createEncryptedDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'创建加密目录'**
+  /// In en, this message translates to:
+  /// **'Create encrypted directory'**
   String get createEncryptedDirectory;
 
   /// No description provided for @confirmPassword.
   ///
-  /// In zh, this message translates to:
-  /// **'确认密码'**
+  /// In en, this message translates to:
+  /// **'Confirm password'**
   String get confirmPassword;
 
   /// No description provided for @showPassword.
   ///
-  /// In zh, this message translates to:
-  /// **'显示密码'**
+  /// In en, this message translates to:
+  /// **'Show password'**
   String get showPassword;
 
   /// No description provided for @hidePassword.
   ///
-  /// In zh, this message translates to:
-  /// **'隐藏密码'**
+  /// In en, this message translates to:
+  /// **'Hide password'**
   String get hidePassword;
 
   /// No description provided for @allowFuturePasswordChange.
   ///
-  /// In zh, this message translates to:
-  /// **'允许以后修改密码'**
+  /// In en, this message translates to:
+  /// **'Allow password changes later'**
   String get allowFuturePasswordChange;
 
   /// No description provided for @allowFuturePasswordChangeHint.
   ///
-  /// In zh, this message translates to:
-  /// **'推荐：不重加密已有文件即可修改密码'**
+  /// In en, this message translates to:
+  /// **'Recommended: change the password without re-encrypting existing files.'**
   String get allowFuturePasswordChangeHint;
 
   /// No description provided for @advancedEncryptionParameters.
   ///
-  /// In zh, this message translates to:
-  /// **'高级加密参数'**
+  /// In en, this message translates to:
+  /// **'Advanced encryption parameters'**
   String get advancedEncryptionParameters;
 
   /// No description provided for @advancedEncryptionParametersHint.
   ///
-  /// In zh, this message translates to:
-  /// **'默认配置适合大多数用户'**
+  /// In en, this message translates to:
+  /// **'The default configuration is suitable for most people.'**
   String get advancedEncryptionParametersHint;
 
   /// No description provided for @derivationStrength.
   ///
-  /// In zh, this message translates to:
-  /// **'派生强度'**
+  /// In en, this message translates to:
+  /// **'Derivation strength'**
   String get derivationStrength;
 
   /// No description provided for @derivationStrengthUncalibratedHint.
   ///
-  /// In zh, this message translates to:
-  /// **'这是预设档位，尚未按本机性能校准。'**
+  /// In en, this message translates to:
+  /// **'This is a preset profile and has not been calibrated for this device.'**
   String get derivationStrengthUncalibratedHint;
 
   /// No description provided for @defaultNewDirectoryKdfProfile.
   ///
-  /// In zh, this message translates to:
-  /// **'新建目录默认派生档位'**
+  /// In en, this message translates to:
+  /// **'Default derivation profile for new directories'**
   String get defaultNewDirectoryKdfProfile;
 
   /// No description provided for @defaultNewDirectoryKdfProfileHint.
   ///
-  /// In zh, this message translates to:
-  /// **'仅影响以后新建的目录；尚未按本机性能校准。'**
+  /// In en, this message translates to:
+  /// **'Only affects directories created later; it has not been calibrated for this device.'**
   String get defaultNewDirectoryKdfProfileHint;
 
   /// No description provided for @kdfProfileFast.
   ///
-  /// In zh, this message translates to:
-  /// **'快速'**
+  /// In en, this message translates to:
+  /// **'Fast'**
   String get kdfProfileFast;
 
   /// No description provided for @kdfProfileBalanced.
   ///
-  /// In zh, this message translates to:
-  /// **'平衡（推荐）'**
+  /// In en, this message translates to:
+  /// **'Balanced (recommended)'**
   String get kdfProfileBalanced;
 
   /// No description provided for @kdfProfileStrong.
   ///
-  /// In zh, this message translates to:
-  /// **'增强'**
+  /// In en, this message translates to:
+  /// **'Strong'**
   String get kdfProfileStrong;
 
   /// No description provided for @kdfProfileMaximum.
   ///
-  /// In zh, this message translates to:
-  /// **'最高'**
+  /// In en, this message translates to:
+  /// **'Maximum'**
   String get kdfProfileMaximum;
 
   /// No description provided for @durationMilliseconds.
   ///
-  /// In zh, this message translates to:
-  /// **'{count} 毫秒'**
+  /// In en, this message translates to:
+  /// **'{count} ms'**
   String durationMilliseconds(int count);
 
   /// No description provided for @noEncryption.
   ///
-  /// In zh, this message translates to:
-  /// **'不加密'**
+  /// In en, this message translates to:
+  /// **'No encryption'**
   String get noEncryption;
 
   /// No description provided for @unencryptedNamesWarning.
   ///
-  /// In zh, this message translates to:
-  /// **'注意：选择“不加密”后，文件名和目录名不会加密。'**
+  /// In en, this message translates to:
+  /// **'Warning: with No encryption, file and directory names are not encrypted.'**
   String get unencryptedNamesWarning;
 
   /// No description provided for @selectDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'选择目录'**
+  /// In en, this message translates to:
+  /// **'Select directory'**
   String get selectDirectory;
 
   /// No description provided for @directoryPath.
   ///
-  /// In zh, this message translates to:
-  /// **'目录路径'**
+  /// In en, this message translates to:
+  /// **'Directory path'**
   String get directoryPath;
 
   /// No description provided for @directoryPathHint.
   ///
-  /// In zh, this message translates to:
-  /// **'输入目录路径或浏览选择'**
+  /// In en, this message translates to:
+  /// **'Enter a directory path or browse to select one'**
   String get directoryPathHint;
 
   /// No description provided for @browse.
   ///
-  /// In zh, this message translates to:
-  /// **'浏览'**
+  /// In en, this message translates to:
+  /// **'Browse'**
   String get browse;
 
   /// No description provided for @confirm.
   ///
-  /// In zh, this message translates to:
-  /// **'确定'**
+  /// In en, this message translates to:
+  /// **'Confirm'**
   String get confirm;
 
   /// No description provided for @confirmDirectoryRemoval.
   ///
-  /// In zh, this message translates to:
-  /// **'确认删除'**
+  /// In en, this message translates to:
+  /// **'Confirm removal'**
   String get confirmDirectoryRemoval;
 
   /// No description provided for @removeEncryptedDirectoryFromSidebar.
   ///
-  /// In zh, this message translates to:
-  /// **'您即将从侧边栏移除加密目录：'**
+  /// In en, this message translates to:
+  /// **'You are about to remove this encrypted directory from the sidebar:'**
   String get removeEncryptedDirectoryFromSidebar;
 
   /// No description provided for @chooseAnAction.
   ///
-  /// In zh, this message translates to:
-  /// **'请选择操作：'**
+  /// In en, this message translates to:
+  /// **'Choose an action:'**
   String get chooseAnAction;
 
   /// No description provided for @removeFromSidebarOnlyDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'• 仅从侧边栏移除：保留磁盘目录和加密文件'**
+  /// In en, this message translates to:
+  /// **'• Remove from sidebar only: keep the disk directory and encrypted files'**
   String get removeFromSidebarOnlyDescription;
 
   /// No description provided for @deleteDirectoryFromDiskDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'• 同时删除磁盘目录：永久删除目录及所有文件'**
+  /// In en, this message translates to:
+  /// **'• Also delete the disk directory: permanently delete the directory and all files'**
   String get deleteDirectoryFromDiskDescription;
 
   /// No description provided for @removeOnly.
   ///
-  /// In zh, this message translates to:
-  /// **'仅移除'**
+  /// In en, this message translates to:
+  /// **'Remove only'**
   String get removeOnly;
 
   /// No description provided for @deleteDiskDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'删除磁盘目录'**
+  /// In en, this message translates to:
+  /// **'Delete disk directory'**
   String get deleteDiskDirectory;
 
   /// No description provided for @propertyLabel.
   ///
-  /// In zh, this message translates to:
-  /// **'{label}：'**
+  /// In en, this message translates to:
+  /// **'{label}:'**
   String propertyLabel(String label);
 
   /// No description provided for @copyPropertyValue.
   ///
-  /// In zh, this message translates to:
-  /// **'复制{label}'**
+  /// In en, this message translates to:
+  /// **'Copy {label}'**
   String copyPropertyValue(String label);
 
   /// No description provided for @propertyValueCopied.
   ///
-  /// In zh, this message translates to:
-  /// **'已复制属性值'**
+  /// In en, this message translates to:
+  /// **'Property value copied'**
   String get propertyValueCopied;
 
   /// No description provided for @filterCurrentDirectoryHint.
   ///
-  /// In zh, this message translates to:
-  /// **'筛选当前目录的文件和文件夹…'**
+  /// In en, this message translates to:
+  /// **'Filter files and folders in the current directory...'**
   String get filterCurrentDirectoryHint;
 
   /// No description provided for @filterLoadedItemsHint.
   ///
-  /// In zh, this message translates to:
-  /// **'仅筛选已加载条目；继续加载可扩大范围'**
+  /// In en, this message translates to:
+  /// **'Only loaded entries are filtered. Load more to expand the scope.'**
   String get filterLoadedItemsHint;
 
   /// No description provided for @navigateUp.
   ///
-  /// In zh, this message translates to:
-  /// **'返回上级目录'**
+  /// In en, this message translates to:
+  /// **'Go up'**
   String get navigateUp;
 
   /// No description provided for @directoryIncompleteSummary.
   ///
-  /// In zh, this message translates to:
-  /// **'已加载 {count} 项（{folders} 个文件夹，{files} 个文件）'**
+  /// In en, this message translates to:
+  /// **'{count} loaded ({folders} folders, {files} files)'**
   String directoryIncompleteSummary(int count, int folders, int files);
 
   /// No description provided for @directorySummary.
   ///
-  /// In zh, this message translates to:
-  /// **'{folders} 个文件夹，{files} 个文件'**
+  /// In en, this message translates to:
+  /// **'{folders} folders, {files} files'**
   String directorySummary(int folders, int files);
 
   /// No description provided for @sortUnavailableUntilFullyLoaded.
   ///
-  /// In zh, this message translates to:
-  /// **'目录尚未完整加载，暂不可排序'**
+  /// In en, this message translates to:
+  /// **'Sorting is unavailable until the directory finishes loading'**
   String get sortUnavailableUntilFullyLoaded;
 
   /// No description provided for @sortTooltip.
   ///
-  /// In zh, this message translates to:
-  /// **'排序：{order}'**
+  /// In en, this message translates to:
+  /// **'Sort: {order}'**
   String sortTooltip(String order);
 
   /// No description provided for @sortNameAscending.
   ///
-  /// In zh, this message translates to:
-  /// **'名称：A 到 Z'**
+  /// In en, this message translates to:
+  /// **'Name: A to Z'**
   String get sortNameAscending;
 
   /// No description provided for @sortNameDescending.
   ///
-  /// In zh, this message translates to:
-  /// **'名称：Z 到 A'**
+  /// In en, this message translates to:
+  /// **'Name: Z to A'**
   String get sortNameDescending;
 
   /// No description provided for @sortModifiedNewest.
   ///
-  /// In zh, this message translates to:
-  /// **'修改时间：最新优先'**
+  /// In en, this message translates to:
+  /// **'Modified: newest first'**
   String get sortModifiedNewest;
 
   /// No description provided for @sortModifiedOldest.
   ///
-  /// In zh, this message translates to:
-  /// **'修改时间：最早优先'**
+  /// In en, this message translates to:
+  /// **'Modified: oldest first'**
   String get sortModifiedOldest;
 
   /// No description provided for @sortSizeLargest.
   ///
-  /// In zh, this message translates to:
-  /// **'大小：最大优先'**
+  /// In en, this message translates to:
+  /// **'Size: largest first'**
   String get sortSizeLargest;
 
   /// No description provided for @sortSizeSmallest.
   ///
-  /// In zh, this message translates to:
-  /// **'大小：最小优先'**
+  /// In en, this message translates to:
+  /// **'Size: smallest first'**
   String get sortSizeSmallest;
 
   /// No description provided for @closeCurrentDirectoryFilter.
   ///
-  /// In zh, this message translates to:
-  /// **'关闭当前目录筛选'**
+  /// In en, this message translates to:
+  /// **'Close current directory filter'**
   String get closeCurrentDirectoryFilter;
 
   /// No description provided for @filterCurrentDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'筛选当前目录'**
+  /// In en, this message translates to:
+  /// **'Filter current directory'**
   String get filterCurrentDirectory;
 
   /// No description provided for @hideDirectoryNavigator.
   ///
-  /// In zh, this message translates to:
-  /// **'隐藏目录导航'**
+  /// In en, this message translates to:
+  /// **'Hide directory navigator'**
   String get hideDirectoryNavigator;
 
   /// No description provided for @showDirectoryNavigator.
   ///
-  /// In zh, this message translates to:
-  /// **'显示目录导航'**
+  /// In en, this message translates to:
+  /// **'Show directory navigator'**
   String get showDirectoryNavigator;
 
   /// No description provided for @listView.
   ///
-  /// In zh, this message translates to:
-  /// **'列表视图'**
+  /// In en, this message translates to:
+  /// **'List view'**
   String get listView;
 
   /// No description provided for @gridView.
   ///
-  /// In zh, this message translates to:
-  /// **'网格视图'**
+  /// In en, this message translates to:
+  /// **'Grid view'**
   String get gridView;
 
   /// No description provided for @directoryReadFailedRetry.
   ///
-  /// In zh, this message translates to:
-  /// **'读取目录失败，刷新后重试'**
+  /// In en, this message translates to:
+  /// **'Could not read directory. Refresh and try again.'**
   String get directoryReadFailedRetry;
 
   /// No description provided for @noMatchInLoadedEntries.
   ///
-  /// In zh, this message translates to:
-  /// **'已加载条目中没有匹配“{query}”的内容'**
+  /// In en, this message translates to:
+  /// **'No loaded entries match "{query}"'**
   String noMatchInLoadedEntries(String query);
 
   /// No description provided for @noMatchInCurrentDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'当前目录没有匹配“{query}”的条目'**
+  /// In en, this message translates to:
+  /// **'No entries in this directory match "{query}"'**
   String noMatchInCurrentDirectory(String query);
 
   /// No description provided for @unloadedEntriesMayMatch.
   ///
-  /// In zh, this message translates to:
-  /// **'仍有未加载条目，可继续加载后再筛选'**
+  /// In en, this message translates to:
+  /// **'More entries have not loaded yet. Load more, then filter again.'**
   String get unloadedEntriesMayMatch;
 
   /// No description provided for @currentDirectoryEmpty.
   ///
-  /// In zh, this message translates to:
-  /// **'当前目录为空'**
+  /// In en, this message translates to:
+  /// **'This directory is empty'**
   String get currentDirectoryEmpty;
 
   /// No description provided for @loadMoreEntries.
   ///
-  /// In zh, this message translates to:
-  /// **'加载更多条目'**
+  /// In en, this message translates to:
+  /// **'Load more entries'**
   String get loadMoreEntries;
 
   /// No description provided for @loadMoreFailedRetry.
   ///
-  /// In zh, this message translates to:
-  /// **'加载更多失败，刷新后重试'**
+  /// In en, this message translates to:
+  /// **'Could not load more entries. Refresh and try again.'**
   String get loadMoreFailedRetry;
 
   /// No description provided for @scrollToLoadMore.
   ///
-  /// In zh, this message translates to:
-  /// **'继续滚动以加载更多条目'**
+  /// In en, this message translates to:
+  /// **'Keep scrolling to load more entries'**
   String get scrollToLoadMore;
 
   /// No description provided for @directoryItemCount.
   ///
-  /// In zh, this message translates to:
-  /// **'{count} 个项目'**
+  /// In en, this message translates to:
+  /// **'{count} items'**
   String directoryItemCount(int count);
 
   /// No description provided for @file.
   ///
-  /// In zh, this message translates to:
-  /// **'文件'**
+  /// In en, this message translates to:
+  /// **'File'**
   String get file;
 
   /// No description provided for @fileSystemEntrySemantics.
   ///
-  /// In zh, this message translates to:
-  /// **'{name}，{type}'**
+  /// In en, this message translates to:
+  /// **'{name}, {type}'**
   String fileSystemEntrySemantics(String name, String type);
 
   /// No description provided for @openDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'打开目录'**
+  /// In en, this message translates to:
+  /// **'Open directory'**
   String get openDirectory;
 
   /// No description provided for @viewImage.
   ///
-  /// In zh, this message translates to:
-  /// **'查看图片'**
+  /// In en, this message translates to:
+  /// **'View image'**
   String get viewImage;
 
   /// No description provided for @editWithSecureNotepad.
   ///
-  /// In zh, this message translates to:
-  /// **'使用安全记事本编辑'**
+  /// In en, this message translates to:
+  /// **'Edit with Secure Notepad'**
   String get editWithSecureNotepad;
 
   /// No description provided for @viewInNewWindow.
   ///
-  /// In zh, this message translates to:
-  /// **'在新窗口中查看'**
+  /// In en, this message translates to:
+  /// **'View in new window'**
   String get viewInNewWindow;
 
   /// No description provided for @editInNewWindow.
   ///
-  /// In zh, this message translates to:
-  /// **'在新窗口中编辑'**
+  /// In en, this message translates to:
+  /// **'Edit in new window'**
   String get editInNewWindow;
 
   /// No description provided for @select.
   ///
-  /// In zh, this message translates to:
-  /// **'选择'**
+  /// In en, this message translates to:
+  /// **'Select'**
   String get select;
 
   /// No description provided for @rename.
   ///
-  /// In zh, this message translates to:
-  /// **'重命名'**
+  /// In en, this message translates to:
+  /// **'Rename'**
   String get rename;
 
   /// No description provided for @cut.
   ///
-  /// In zh, this message translates to:
-  /// **'剪切'**
+  /// In en, this message translates to:
+  /// **'Cut'**
   String get cut;
 
   /// No description provided for @pasteIntoDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'粘贴到此目录'**
+  /// In en, this message translates to:
+  /// **'Paste into this directory'**
   String get pasteIntoDirectory;
 
   /// No description provided for @exportDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'导出目录'**
+  /// In en, this message translates to:
+  /// **'Export directory'**
   String get exportDirectory;
 
   /// No description provided for @exportDecryptedFile.
   ///
-  /// In zh, this message translates to:
-  /// **'导出解密文件'**
+  /// In en, this message translates to:
+  /// **'Export decrypted file'**
   String get exportDecryptedFile;
 
   /// No description provided for @copyPlaintextName.
   ///
-  /// In zh, this message translates to:
-  /// **'复制名称（明文）'**
+  /// In en, this message translates to:
+  /// **'Copy name (plaintext)'**
   String get copyPlaintextName;
 
   /// No description provided for @copyPlaintextLogicalPath.
   ///
-  /// In zh, this message translates to:
-  /// **'复制逻辑路径（明文）'**
+  /// In en, this message translates to:
+  /// **'Copy logical path (plaintext)'**
   String get copyPlaintextLogicalPath;
 
   /// No description provided for @refresh.
   ///
-  /// In zh, this message translates to:
-  /// **'刷新'**
+  /// In en, this message translates to:
+  /// **'Refresh'**
   String get refresh;
 
   /// No description provided for @deleteFile.
   ///
-  /// In zh, this message translates to:
-  /// **'删除文件'**
+  /// In en, this message translates to:
+  /// **'Delete file'**
   String get deleteFile;
 
   /// No description provided for @renameDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'重命名目录'**
+  /// In en, this message translates to:
+  /// **'Rename directory'**
   String get renameDirectory;
 
   /// No description provided for @renameFile.
   ///
-  /// In zh, this message translates to:
-  /// **'重命名文件'**
+  /// In en, this message translates to:
+  /// **'Rename file'**
   String get renameFile;
 
   /// No description provided for @newName.
   ///
-  /// In zh, this message translates to:
-  /// **'新名称'**
+  /// In en, this message translates to:
+  /// **'New name'**
   String get newName;
 
   /// No description provided for @fileNameEmpty.
   ///
-  /// In zh, this message translates to:
-  /// **'名称不能为空'**
+  /// In en, this message translates to:
+  /// **'A name is required'**
   String get fileNameEmpty;
 
   /// No description provided for @fileNameLeadingOrTrailingWhitespace.
   ///
-  /// In zh, this message translates to:
-  /// **'名称不能以空格开头或结尾'**
+  /// In en, this message translates to:
+  /// **'A name cannot start or end with whitespace'**
   String get fileNameLeadingOrTrailingWhitespace;
 
   /// No description provided for @fileNameReserved.
   ///
-  /// In zh, this message translates to:
-  /// **'不能使用保留名称'**
+  /// In en, this message translates to:
+  /// **'This reserved name cannot be used'**
   String get fileNameReserved;
 
   /// No description provided for @fileNameTrailingDot.
   ///
-  /// In zh, this message translates to:
-  /// **'名称不能以点结尾'**
+  /// In en, this message translates to:
+  /// **'A name cannot end with a dot'**
   String get fileNameTrailingDot;
 
   /// No description provided for @fileNamePathSeparatorOrNull.
   ///
-  /// In zh, this message translates to:
-  /// **'名称不能包含路径分隔符或空字符'**
+  /// In en, this message translates to:
+  /// **'A name cannot contain a path separator or null character'**
   String get fileNamePathSeparatorOrNull;
 
   /// No description provided for @fileNameUnsupportedCharacter.
   ///
-  /// In zh, this message translates to:
-  /// **'名称包含跨平台不支持的字符'**
+  /// In en, this message translates to:
+  /// **'A name contains characters unsupported across platforms'**
   String get fileNameUnsupportedCharacter;
 
   /// No description provided for @fileNameReservedSystemName.
   ///
-  /// In zh, this message translates to:
-  /// **'该名称是系统保留名称'**
+  /// In en, this message translates to:
+  /// **'This is a reserved system name'**
   String get fileNameReservedSystemName;
 
   /// No description provided for @fileNameTooLong.
   ///
-  /// In zh, this message translates to:
-  /// **'名称不能超过 255 个 UTF-8 字节'**
+  /// In en, this message translates to:
+  /// **'A name cannot exceed 255 UTF-8 bytes'**
   String get fileNameTooLong;
 
   /// No description provided for @name.
   ///
-  /// In zh, this message translates to:
-  /// **'名称'**
+  /// In en, this message translates to:
+  /// **'Name'**
   String get name;
 
   /// No description provided for @type.
   ///
-  /// In zh, this message translates to:
-  /// **'类型'**
+  /// In en, this message translates to:
+  /// **'Type'**
   String get type;
 
   /// No description provided for @size.
   ///
-  /// In zh, this message translates to:
-  /// **'大小'**
+  /// In en, this message translates to:
+  /// **'Size'**
   String get size;
 
   /// No description provided for @modifiedTime.
   ///
-  /// In zh, this message translates to:
-  /// **'修改时间'**
+  /// In en, this message translates to:
+  /// **'Modified'**
   String get modifiedTime;
 
   /// No description provided for @logicalPath.
   ///
-  /// In zh, this message translates to:
-  /// **'逻辑路径'**
+  /// In en, this message translates to:
+  /// **'Logical path'**
   String get logicalPath;
 
   /// No description provided for @fileTypeWithExtension.
   ///
-  /// In zh, this message translates to:
-  /// **'{extension} 文件'**
+  /// In en, this message translates to:
+  /// **'{extension} file'**
   String fileTypeWithExtension(String extension);
 
   /// No description provided for @newFile.
   ///
-  /// In zh, this message translates to:
-  /// **'新建文件'**
+  /// In en, this message translates to:
+  /// **'New file'**
   String get newFile;
 
   /// No description provided for @newDirectory.
   ///
-  /// In zh, this message translates to:
-  /// **'新建目录'**
+  /// In en, this message translates to:
+  /// **'New directory'**
   String get newDirectory;
 
   /// No description provided for @newFileDefaultName.
   ///
-  /// In zh, this message translates to:
-  /// **'新建文件.txt'**
+  /// In en, this message translates to:
+  /// **'New file.txt'**
   String get newFileDefaultName;
 
   /// No description provided for @newDirectoryDefaultName.
   ///
-  /// In zh, this message translates to:
-  /// **'新建目录'**
+  /// In en, this message translates to:
+  /// **'New directory'**
   String get newDirectoryDefaultName;
 
   /// No description provided for @create.
   ///
-  /// In zh, this message translates to:
-  /// **'创建'**
+  /// In en, this message translates to:
+  /// **'Create'**
   String get create;
 
   /// No description provided for @directoryTreeReadFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'无法读取目录树'**
+  /// In en, this message translates to:
+  /// **'Could not read directory tree'**
   String get directoryTreeReadFailed;
 
   /// No description provided for @directoryTreeLoadMoreFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'继续读取失败'**
+  /// In en, this message translates to:
+  /// **'Could not load more directories'**
   String get directoryTreeLoadMoreFailed;
 
   /// No description provided for @readingDirectories.
   ///
-  /// In zh, this message translates to:
-  /// **'正在读取…'**
+  /// In en, this message translates to:
+  /// **'Reading directories...'**
   String get readingDirectories;
 
   /// No description provided for @loadMoreDirectories.
   ///
-  /// In zh, this message translates to:
-  /// **'读取更多目录'**
+  /// In en, this message translates to:
+  /// **'Load more directories'**
   String get loadMoreDirectories;
 
   /// No description provided for @retryDirectoryTreeRead.
   ///
-  /// In zh, this message translates to:
-  /// **'{message}，刷新重试'**
+  /// In en, this message translates to:
+  /// **'{message}. Refresh and try again.'**
   String retryDirectoryTreeRead(String message);
 
   /// No description provided for @importOperation.
   ///
-  /// In zh, this message translates to:
-  /// **'导入'**
+  /// In en, this message translates to:
+  /// **'import'**
   String get importOperation;
 
   /// No description provided for @exportOperation.
   ///
-  /// In zh, this message translates to:
-  /// **'导出'**
+  /// In en, this message translates to:
+  /// **'export'**
   String get exportOperation;
 
   /// No description provided for @batchExportOperation.
   ///
-  /// In zh, this message translates to:
-  /// **'批量导出'**
+  /// In en, this message translates to:
+  /// **'batch export'**
   String get batchExportOperation;
 
   /// No description provided for @pasteOperation.
   ///
-  /// In zh, this message translates to:
-  /// **'粘贴'**
+  /// In en, this message translates to:
+  /// **'paste'**
   String get pasteOperation;
 
   /// No description provided for @batchPasteOperation.
   ///
-  /// In zh, this message translates to:
-  /// **'批量粘贴'**
+  /// In en, this message translates to:
+  /// **'batch paste'**
   String get batchPasteOperation;
 
   /// No description provided for @copySuffix.
   ///
-  /// In zh, this message translates to:
-  /// **'副本'**
+  /// In en, this message translates to:
+  /// **'copy'**
   String get copySuffix;
 
   /// No description provided for @conflictTargetExists.
   ///
-  /// In zh, this message translates to:
-  /// **'目标已存在'**
+  /// In en, this message translates to:
+  /// **'Destination already exists'**
   String get conflictTargetExists;
 
   /// No description provided for @conflictReplacementUnavailable.
   ///
-  /// In zh, this message translates to:
-  /// **'源和目标类型不兼容，或源与目标是同一条目。请选择“保留两者”生成新名称。'**
+  /// In en, this message translates to:
+  /// **'The source and destination types are incompatible, or they are the same entry. Choose Keep both to create a new name.'**
   String get conflictReplacementUnavailable;
 
   /// No description provided for @conflictDirectoryReplaceDetail.
   ///
-  /// In zh, this message translates to:
-  /// **'选择“合并并替换”会保留目标目录独有的内容，并替换其中的同名文件。'**
+  /// In en, this message translates to:
+  /// **'Merge and replace keeps content unique to the destination directory and replaces files with the same name.'**
   String get conflictDirectoryReplaceDetail;
 
   /// No description provided for @conflictFileReplaceDetail.
   ///
-  /// In zh, this message translates to:
-  /// **'选择“替换”会用新内容替换现有文件。'**
+  /// In en, this message translates to:
+  /// **'Replace overwrites the existing file with the new content.'**
   String get conflictFileReplaceDetail;
 
   /// No description provided for @conflictDescription.
   ///
-  /// In zh, this message translates to:
-  /// **'“{name}”已存在，无法直接{operation}。\n\n{detail}'**
+  /// In en, this message translates to:
+  /// **'"{name}" already exists and cannot be directly {operation}.\n\n{detail}'**
   String conflictDescription(String name, String operation, String detail);
 
   /// No description provided for @keepBoth.
   ///
-  /// In zh, this message translates to:
-  /// **'保留两者'**
+  /// In en, this message translates to:
+  /// **'Keep both'**
   String get keepBoth;
 
   /// No description provided for @keepBothForAll.
   ///
-  /// In zh, this message translates to:
-  /// **'全部保留两者'**
+  /// In en, this message translates to:
+  /// **'Keep both for all'**
   String get keepBothForAll;
 
   /// No description provided for @mergeAndReplace.
   ///
-  /// In zh, this message translates to:
-  /// **'合并并替换'**
+  /// In en, this message translates to:
+  /// **'Merge and replace'**
   String get mergeAndReplace;
 
   /// No description provided for @replace.
   ///
-  /// In zh, this message translates to:
-  /// **'替换'**
+  /// In en, this message translates to:
+  /// **'Replace'**
   String get replace;
 
   /// No description provided for @replaceForAll.
   ///
-  /// In zh, this message translates to:
-  /// **'全部替换'**
+  /// In en, this message translates to:
+  /// **'Replace all'**
   String get replaceForAll;
 
   /// No description provided for @batchOperationCancelled.
   ///
-  /// In zh, this message translates to:
-  /// **'{operation}已取消'**
+  /// In en, this message translates to:
+  /// **'{operation} cancelled'**
   String batchOperationCancelled(String operation);
 
   /// No description provided for @batchOperationPartiallyCompleted.
   ///
-  /// In zh, this message translates to:
-  /// **'{operation}部分完成'**
+  /// In en, this message translates to:
+  /// **'{operation} partially completed'**
   String batchOperationPartiallyCompleted(String operation);
 
   /// No description provided for @batchOperationCompleted.
   ///
-  /// In zh, this message translates to:
-  /// **'{operation}完成'**
+  /// In en, this message translates to:
+  /// **'{operation} completed'**
   String batchOperationCompleted(String operation);
 
   /// No description provided for @batchTotal.
   ///
-  /// In zh, this message translates to:
-  /// **'总数：{count}'**
+  /// In en, this message translates to:
+  /// **'Total: {count}'**
   String batchTotal(int count);
 
   /// No description provided for @batchSucceeded.
   ///
-  /// In zh, this message translates to:
-  /// **'成功：{count}'**
+  /// In en, this message translates to:
+  /// **'Succeeded: {count}'**
   String batchSucceeded(int count);
 
   /// No description provided for @batchSkipped.
   ///
-  /// In zh, this message translates to:
-  /// **'跳过：{count}'**
+  /// In en, this message translates to:
+  /// **'Skipped: {count}'**
   String batchSkipped(int count);
 
   /// No description provided for @batchFailed.
   ///
-  /// In zh, this message translates to:
-  /// **'失败：{count}'**
+  /// In en, this message translates to:
+  /// **'Failed: {count}'**
   String batchFailed(int count);
 
   /// No description provided for @batchUnprocessed.
   ///
-  /// In zh, this message translates to:
-  /// **'未处理：{count}'**
+  /// In en, this message translates to:
+  /// **'Unprocessed: {count}'**
   String batchUnprocessed(int count);
 
   /// No description provided for @batchClipboardRemaining.
   ///
-  /// In zh, this message translates to:
-  /// **'剪贴板剩余：{count}'**
+  /// In en, this message translates to:
+  /// **'Remaining in clipboard: {count}'**
   String batchClipboardRemaining(int count);
 
   /// No description provided for @failureDetails.
   ///
-  /// In zh, this message translates to:
-  /// **'失败详情'**
+  /// In en, this message translates to:
+  /// **'Failure details'**
   String get failureDetails;
 
   /// No description provided for @batchFailureItem.
   ///
-  /// In zh, this message translates to:
-  /// **'“{name}”：{reason}'**
+  /// In en, this message translates to:
+  /// **'"{name}": {reason}'**
   String batchFailureItem(String name, String reason);
 
   /// No description provided for @additionalFailures.
   ///
-  /// In zh, this message translates to:
-  /// **'另有 {count} 项失败'**
+  /// In en, this message translates to:
+  /// **'{count} more failures'**
   String additionalFailures(int count);
 
   /// No description provided for @antiScreenshot.
   ///
-  /// In zh, this message translates to:
-  /// **'防截屏'**
+  /// In en, this message translates to:
+  /// **'Anti-screenshot'**
   String get antiScreenshot;
 
   /// No description provided for @antiScreenshotHint.
   ///
-  /// In zh, this message translates to:
-  /// **'阻止系统截屏工具捕获 Safe Disk 窗口内容。Linux/X11 下不支持此功能，仅 Windows/macOS 有效。'**
+  /// In en, this message translates to:
+  /// **'When enabled, screenshot tools and screen recording software cannot capture this application\'s window content. The captured area will appear black.'**
   String get antiScreenshotHint;
 
-  /// No description provided for @antiScreenshotOnLinux.
+  /// No description provided for @antiScreenshotEnvVarHint.
   ///
-  /// In zh, this message translates to:
-  /// **'Linux 下也启用防截屏'**
-  String get antiScreenshotOnLinux;
+  /// In en, this message translates to:
+  /// **'If anti-screenshot makes the app unusable, launch with environment variable SAFE_DISK_NO_ANTI_SCREENSHOT=1 to force-disable it.'**
+  String get antiScreenshotEnvVarHint;
 
-  /// No description provided for @antiScreenshotOnLinuxHint.
+  /// No description provided for @antiScreenshotInfoTitle.
   ///
-  /// In zh, this message translates to:
-  /// **'当前系统运行在 X11 上，截屏防护不可用。此开关无实际效果，仅为将来 Linux 组合器支持预留。'**
-  String get antiScreenshotOnLinuxHint;
+  /// In en, this message translates to:
+  /// **'Enable Anti-Screenshot?'**
+  String get antiScreenshotInfoTitle;
+
+  /// No description provided for @antiScreenshotInfoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Anti-screenshot prevents system tools (PrintScreen, Snipping Tool, etc.) and recording software from capturing Safe Disk window content. The captured area will appear black. Most Windows 10 and newer systems fully support this; older systems may only block recording.'**
+  String get antiScreenshotInfoDescription;
+
+  /// No description provided for @antiScreenshotInfoEnable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get antiScreenshotInfoEnable;
+
+  /// No description provided for @antiScreenshotCountdownTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Anti-Screenshot Enabled'**
+  String get antiScreenshotCountdownTitle;
+
+  /// No description provided for @antiScreenshotCountdownHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The setting has been applied. If the screen becomes unusable, do nothing — it will auto-revert after {countdown}s.\n\nClick "Confirm & Save" to keep anti-screenshot enabled.'**
+  String antiScreenshotCountdownHint(int countdown);
+
+  /// No description provided for @antiScreenshotCountdownConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm & Save'**
+  String get antiScreenshotCountdownConfirm;
+
+  /// No description provided for @webDavAuthBasic.
+  ///
+  /// In en, this message translates to:
+  /// **'Basic (username and password, loopback only)'**
+  String get webDavAuthBasic;
+
+  /// No description provided for @webDavBasicRiskWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Basic authentication transmits credentials in a form that other local processes can observe. Use only on trusted systems.'**
+  String get webDavBasicRiskWarning;
+
+  /// No description provided for @webDavBasicCredentialsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Provide the URL, username, and password to the selected trusted tool. Basic authentication transmits credentials in a reversible form — use only on trusted machines.'**
+  String get webDavBasicCredentialsDescription;
+
+  /// No description provided for @webDavTLS.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable HTTPS/TLS'**
+  String get webDavTLS;
+
+  /// No description provided for @webDavTLSDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use HTTPS with a self-signed certificate for loopback connections. Required by some system tools (e.g., Windows WebClient) but adds no additional network security on loopback. Clients must accept the self-signed certificate warning.'**
+  String get webDavTLSDescription;
+
+  /// No description provided for @webDavAuthModeBasic.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication: Basic'**
+  String get webDavAuthModeBasic;
+
 }
 
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
+class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
   const _AppLocalizationsDelegate();
 
   @override
@@ -3755,25 +3745,19 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) =>
-      <String>['en', 'zh'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>['en', 'zh'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {
+
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'en':
-      return AppLocalizationsEn();
-    case 'zh':
-      return AppLocalizationsZh();
+    case 'en': return AppLocalizationsEn();
+    case 'zh': return AppLocalizationsZh();
   }
 
-  throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+  throw FlutterError('AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely an issue with the localizations generation tool. Please file an issue.');
 }

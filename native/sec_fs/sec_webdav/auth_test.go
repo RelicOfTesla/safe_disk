@@ -173,7 +173,7 @@ func TestParseDigestAuthorizationRejectsUnquotedAttributes(t *testing.T) {
 }
 
 func TestGenerateSelfSignedTLSConfigProducesValidConfig(t *testing.T) {
-	config, err := generateSelfSignedTLSConfig()
+	config, err := EnsureTLSConfig()
 	if err != nil {
 		t.Fatal(err)
 	}

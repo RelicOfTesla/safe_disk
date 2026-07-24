@@ -66,7 +66,7 @@ class CryptoService {
     if (authMode == 'bearer' &&
         credentialVisibility == 'once' &&
         sessionLifetime == 'ephemeral' &&
-        port == 0) {
+        port == 0 && !tls) {
       return _native.secWebDavOpen(rootID, exposedPath, displayName);
     }
     return _native.secWebDavOpenWithOptions(
@@ -85,6 +85,16 @@ class CryptoService {
   void closeWebDavSession(String sessionID) {
     _native.secWebDavClose(sessionID);
   }
+  /// Exports the self-signed TLS certificate PEM for WebDAV HTTPS clients.
+  Map<String, dynamic> exportWebDavCertPEM() {
+    return _native.secWebDavExportCertPEM();
+  }
+ 
+  /// Exports the CA certificate PEM for WebDAV HTTPS system trust store.
+  Map<String, dynamic> exportWebDavCACertPEM() {
+    return _native.secWebDavExportCACertPEM();
+  }
+
 
   Map<String, dynamic> revealWebDavSession(String sessionID) {
     return _native.secWebDavReveal(sessionID);

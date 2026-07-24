@@ -95,6 +95,14 @@ typedef SecWebDavOperationCancelC = Pointer<Utf8> Function(
 typedef SecWebDavOperationCancelDart = Pointer<Utf8> Function(
     Pointer<Utf8> operationID);
 
+// sec_webdav_export_cert_pem: () -> JSON string
+typedef SecWebDavExportCertPEMC = Pointer<Utf8> Function();
+typedef SecWebDavExportCertPEMDart = Pointer<Utf8> Function();
+ 
+// sec_webdav_export_ca_cert_pem: () -> JSON string
+typedef SecWebDavExportCACertPEMC = Pointer<Utf8> Function();
+typedef SecWebDavExportCACertPEMDart = Pointer<Utf8> Function();
+
 // sec_create_root_config: (rootPath, password, optionsJSON) -> JSON string
 typedef SecCreateRootConfigC = Pointer<Utf8> Function(
     Pointer<Utf8> rootPath, Pointer<Utf8> password, Pointer<Utf8> optionsJSON);
@@ -349,6 +357,8 @@ class NativeBindings {
   late final SecWebDavUnmountStartDart secWebDavUnmountStart;
   late final SecWebDavOperationPollDart secWebDavOperationPoll;
   late final SecWebDavOperationCancelDart secWebDavOperationCancel;
+  late final SecWebDavExportCertPEMDart secWebDavExportCertPEM;
+  late final SecWebDavExportCACertPEMDart secWebDavExportCACertPEM;
   late final SecCreateRootConfigDart secCreateRootConfig;
   late final SecRootChangePasswordDart secRootChangePassword;
   late final SecRootReadPasswordHintDart secRootReadPasswordHint;
@@ -469,6 +479,8 @@ class NativeBindings {
             'sec_webdav_operation_poll');
     secWebDavOperationCancel = _lib!.lookupFunction<SecWebDavOperationCancelC,
         SecWebDavOperationCancelDart>('sec_webdav_operation_cancel');
+    secWebDavExportCertPEM = _lib!.lookupFunction<SecWebDavExportCertPEMC,
+        SecWebDavExportCertPEMDart>('sec_webdav_export_cert_pem');
     secCreateRootConfig = _lib!
         .lookupFunction<SecCreateRootConfigC, SecCreateRootConfigDart>(
             'sec_create_root_config');

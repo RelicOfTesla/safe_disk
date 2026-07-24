@@ -5,14 +5,10 @@ package sec_webdav
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
-	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"math/big"
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net"
@@ -120,15 +116,24 @@ type SessionStatus struct {
 	TLS                  bool                 `json:"tls"`
 }
 
+// listenerState holds an HTTP server for one scheme (HTTP or HTTPS).
+// HTTP and HTTPS sessions share the same handler (Manager.handle) but run on
+// independent listeners so that the TLS checkbox in the UI actually controls
+// the URL scheme instead of being silently overridden by a shared state.
+type listenerState struct {
+	server    *http.Server
+	listener  net.Listener
+	serveDone chan struct{}
+	port      int
+}
+
 type Manager struct {
 	mu              sync.Mutex
 	random          io.Reader
-	server          *http.Server
-	listener        net.Listener
-	serveDone       chan struct{}
+	httpState       *listenerState
+	httpsState      *listenerState
 	sessions        map[string]activeSession
 	persistentStore PersistentStore
-	useTLS          bool
 }
 
 func NewManager() *Manager {
@@ -173,11 +178,8 @@ func (m *Manager) OpenWithOptions(rootKey, displayName, exposedPath string, prov
 	if options.SessionLifetime == SessionLifetimePersistent && m.persistentStore == nil {
 		return Session{}, ErrPersistentStoreUnavailable
 	}
-	// Once any session requests TLS, all sessions use TLS (shared loopback listener).
-	if options.TLS {
-		m.useTLS = true
-	}
-	if err := m.ensureServerLocked(options.Port); err != nil {
+	state, err := m.ensureServerLocked(options.TLS, options.Port)
+	if err != nil {
 		return Session{}, err
 	}
 	id, err := m.newValueLocked(18)
@@ -196,13 +198,13 @@ func (m *Manager) OpenWithOptions(rootKey, displayName, exposedPath string, prov
 		Username:             auth.username,
 		Password:             auth.password,
 		Realm:                auth.realm,
-		URL:                  webdavURLScheme(m.useTLS) + m.listener.Addr().String() + "/webdav/" + id + "/",
+		URL:                  webdavURLScheme(options.TLS) + state.listener.Addr().String() + "/webdav/" + id + "/",
 		DisplayName:          displayName,
 		ExposedPath:          cleanPath,
 		ReadOnly:             true,
 		CredentialVisibility: options.CredentialVisibility,
 		SessionLifetime:      options.SessionLifetime,
-		Port:                 listenerPort(m.listener),
+		Port:                 state.port,
 		TLS:                  options.TLS,
 	}
 	active := m.newActiveSession(session, auth, provider)
@@ -330,17 +332,15 @@ func (m *Manager) restorePersistent(rootKey string, provider ResourceProvider, r
 	if _, exists := m.sessions[record.ID]; exists {
 		return ErrPersistentRecordInvalid
 	}
-	if err := m.ensureServerLocked(record.Port); err != nil {
+	state, err := m.ensureServerLocked(record.TLS, record.Port)
+	if err != nil {
 		return err
-	}
-	if record.TLS {
-		m.useTLS = true
 	}
 	session := Session{
 		ID: record.ID, RootKey: rootKey, Token: record.Token,
 		AuthMode: record.AuthMode, Username: record.Username,
 		Password: record.Password, Realm: record.Realm,
-		URL:         webdavURLScheme(m.useTLS) + m.listener.Addr().String() + "/webdav/" + record.ID + "/",
+		URL:         webdavURLScheme(record.TLS) + state.listener.Addr().String() + "/webdav/" + record.ID + "/",
 		DisplayName: record.DisplayName, ExposedPath: record.ExposedPath,
 		ReadOnly: true, CredentialVisibility: record.CredentialVisibility,
 		SessionLifetime: SessionLifetimePersistent, Port: record.Port,
@@ -437,30 +437,18 @@ func (m *Manager) Close() error {
 		}
 	}
 	m.sessions = make(map[string]activeSession)
-	var err error
-	if m.server == nil {
-		m.mu.Unlock()
-		for _, mount := range mounted {
-			if unmountErr := mount.Unmount(context.Background()); err == nil {
-				err = unmountErr
-			}
-		}
-		return err
-	}
-	err = m.server.Close()
-	if m.serveDone != nil {
-		<-m.serveDone
-	}
-	m.server = nil
-	m.listener = nil
-	m.serveDone = nil
+	httpErr := m.closeListenerLocked(m.httpState)
+	httpsErr := m.closeListenerLocked(m.httpsState)
+	m.httpState = nil
+	m.httpsState = nil
 	m.mu.Unlock()
 	for _, mount := range mounted {
-		if unmountErr := mount.Unmount(context.Background()); err == nil {
-			err = unmountErr
-		}
+		_ = mount.Unmount(context.Background())
 	}
-	return err
+	if httpErr != nil {
+		return httpErr
+	}
+	return httpsErr
 }
 
 func (m *Manager) Mount(ctx context.Context, id string) (*MountedSession, error) {
@@ -527,70 +515,86 @@ func (m *Manager) Unmount(ctx context.Context, id string) error {
 	return nil
 }
 
-func (m *Manager) ensureServerLocked(port int) error {
-	if m.server != nil {
-		if port != 0 && listenerPort(m.listener) != port {
-			return ErrPersistentPortConflict
-		}
-		return nil
+// === Listener lifecycle (scheme-aware) ===
+
+// ensureServerLocked returns the listener state for the requested scheme,
+// creating it if necessary. The caller must hold m.mu.
+func (m *Manager) ensureServerLocked(tlsEnabled bool, port int) (*listenerState, error) {
+	if tlsEnabled {
+		return m.ensureSchemeListenerLocked(&m.httpsState, true, port)
 	}
-	listener, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
-	if err != nil {
-		return err
-	}
-	var serveListener net.Listener = listener
-	if m.useTLS {
-		tlsConfig, err := generateSelfSignedTLSConfig()
-		if err != nil {
-			listener.Close()
-			return fmt.Errorf("webdav tls: %w", err)
-		}
-		serveListener = tls.NewListener(listener, tlsConfig)
-	}
-	server := &http.Server{Handler: http.HandlerFunc(m.handle)}
-	m.listener = serveListener
-	m.server = server
-	m.serveDone = make(chan struct{})
-	serveDone := m.serveDone
-	go func() {
-		defer close(serveDone)
-		_ = server.Serve(serveListener)
-	}()
-	return nil
+	return m.ensureSchemeListenerLocked(&m.httpState, false, port)
 }
 
-// generateSelfSignedTLSConfig creates a TLS config with a self-signed
-// certificate for 127.0.0.1. The certificate is ephemeral and generated
-// anew each time the server starts. Clients must accept the self-signed
-// certificate warning.
-func generateSelfSignedTLSConfig() (*tls.Config, error) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
+// ensureSchemeListenerLocked creates or returns the listener for one scheme.
+// The caller must hold m.mu.
+func (m *Manager) ensureSchemeListenerLocked(statePtr **listenerState, tlsEnabled bool, port int) (*listenerState, error) {
+	if *statePtr != nil && (*statePtr).listener != nil {
+		if port != 0 && (*statePtr).port != port {
+			return nil, ErrPersistentPortConflict
+		}
+		return *statePtr, nil
+	}
+	tcpListener, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
 	if err != nil {
-		return nil, fmt.Errorf("generate key: %w", err)
+		return nil, err
 	}
-	template := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			CommonName: "127.0.0.1",
-		},
-		NotBefore:             time.Now().Add(-1 * time.Hour),
-		NotAfter:              time.Now().Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		BasicConstraintsValid: true,
-		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+	var serveListener net.Listener = tcpListener
+	if tlsEnabled {
+		tlsConfig, err := EnsureTLSConfig()
+		if err != nil {
+			tcpListener.Close()
+			return nil, fmt.Errorf("webdav tls: %w", err)
+		}
+		serveListener = tls.NewListener(tcpListener, tlsConfig)
 	}
-	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		return nil, fmt.Errorf("create certificate: %w", err)
+	state := &listenerState{
+		listener:  serveListener,
+		port:      tcpListener.Addr().(*net.TCPAddr).Port,
+		server:    &http.Server{Handler: http.HandlerFunc(m.handle)},
+		serveDone: make(chan struct{}),
 	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{{
-			Certificate: [][]byte{certDER},
-			PrivateKey:  key,
-		}},
-		MinVersion: tls.VersionTLS12,
-	}, nil
+	*statePtr = state
+	done := state.serveDone
+	go func() {
+		defer close(done)
+		_ = state.server.Serve(serveListener)
+	}()
+	return state, nil
+}
+
+func (m *Manager) closeListenerLocked(state *listenerState) error {
+	if state == nil || state.server == nil {
+		return nil
+	}
+	err := state.server.Close()
+	if state.serveDone != nil {
+		<-state.serveDone
+	}
+	return err
+}
+
+func (m *Manager) countSessionsBySchemeLocked() (httpCount, httpsCount int) {
+	for _, s := range m.sessions {
+		if s.session.TLS {
+			httpsCount++
+		} else {
+			httpCount++
+		}
+	}
+	return
+}
+
+func (m *Manager) stopIfIdleLocked() {
+	httpCount, httpsCount := m.countSessionsBySchemeLocked()
+	if httpCount == 0 && m.httpState != nil {
+		_ = m.closeListenerLocked(m.httpState)
+		m.httpState = nil
+	}
+	if httpsCount == 0 && m.httpsState != nil {
+		_ = m.closeListenerLocked(m.httpsState)
+		m.httpsState = nil
+	}
 }
 
 
@@ -602,29 +606,6 @@ func webdavURLScheme(tlsEnabled bool) string {
 	return "http://"
 }
 
-func listenerPort(listener net.Listener) int {
-	if listener == nil {
-		return 0
-	}
-	address, ok := listener.Addr().(*net.TCPAddr)
-	if !ok {
-		return 0
-	}
-	return address.Port
-}
-
-func (m *Manager) stopIfIdleLocked() {
-	if len(m.sessions) != 0 || m.server == nil {
-		return
-	}
-	_ = m.server.Close()
-	if m.serveDone != nil {
-		<-m.serveDone
-	}
-	m.server = nil
-	m.listener = nil
-	m.serveDone = nil
-}
 
 func (m *Manager) newValueLocked(size int) (string, error) {
 	bytes := make([]byte, size)

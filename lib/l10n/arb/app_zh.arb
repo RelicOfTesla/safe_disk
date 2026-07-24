@@ -1289,11 +1289,11 @@
     }
   },
   "antiScreenshot": "防截屏",
-  "antiScreenshotHint": "阻止系统截屏工具捕获 Safe Disk 窗口内容。可能导致截图为黑屏。系统版本较低时降级为仅防录屏。需 Windows 10 2004+ 或 macOS 以完全防止截图。",
+  "antiScreenshotHint": "开启后，截图工具和录屏软件将无法捕获本应用窗口内容。截图区域会显示为黑色。",
   "antiScreenshotEnvVarHint": "如防截屏导致应用无法使用，可通过环境变量 SAFE_DISK_NO_ANTI_SCREENSHOT=1 启动以强制关闭。",
   "antiScreenshotInfoTitle": "开启防截屏？",
   "@antiScreenshotInfoTitle": {},
-  "antiScreenshotInfoDescription": "防截屏可阻止系统工具（PrintScreen、截图工具等）捕获 Safe Disk 窗口内容。截图将显示为黑色。旧版 Windows 下降级为仅防录屏。macOS 和 Windows 10 2004+ 完全支持。",
+  "antiScreenshotInfoDescription": "防截屏可阻止系统截图工具（PrintScreen、截图工具等）和录屏软件捕获 Safe Disk 窗口内容。截图区域将显示为黑色。多数 Windows 10 及以上系统完全支持，旧版系统可能仅能防止录屏。",
   "@antiScreenshotInfoDescription": {},
   "antiScreenshotInfoEnable": "开启",
   "@antiScreenshotInfoEnable": {},
