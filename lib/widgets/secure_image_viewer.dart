@@ -221,18 +221,24 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
   }
 
   void _zoomIn() {
-    final matrix = _transformController.value;
-    final scale = matrix.getMaxScaleOnAxis();
-    final newScale = (scale * 1.2).clamp(0.1, 10.0);
-    _transformController.value = Matrix4.identity()
-      ..scaleByDouble(newScale, newScale, newScale, 1);
+    _applyZoomFactor(1.2);
   }
 
   void _zoomOut() {
+    _applyZoomFactor(1.0 / 1.2);
+  }
+
+  /// Apply a zoom factor while preserving the current focal point.
+  void _applyZoomFactor(double factor) {
     final matrix = _transformController.value;
-    final scale = matrix.getMaxScaleOnAxis();
-    final newScale = (scale / 1.2).clamp(0.1, 10.0);
+    final oldScale = matrix.getMaxScaleOnAxis();
+    if (oldScale <= 0) return;
+    final newScale = (oldScale * factor).clamp(0.1, 10.0);
+    final effectiveFactor = newScale / oldScale;
+    final translation = matrix.getTranslation();
     _transformController.value = Matrix4.identity()
+      ..translateByDouble(translation.x * effectiveFactor,
+          translation.y * effectiveFactor, 0, 1)
       ..scaleByDouble(newScale, newScale, newScale, 1);
   }
 
