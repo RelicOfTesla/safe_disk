@@ -72,12 +72,20 @@ func EnsureTLSConfig() (*tls.Config, error) {
 	leafKeyPath := filepath.Join(dir, tlsLeafKeyFile)
 	leafCertPath := filepath.Join(dir, tlsLeafCertFile)
 
-	if os.Getenv("SAFE_DISK_WEBDAV_TLS_REGENERATE") != "1" {
-		if config, ok := loadLeafTLSFromDisk(leafKeyPath, leafCertPath); ok {
+	forceRegen := os.Getenv("SAFE_DISK_WEBDAV_TLS_REGENERATE") == "1"
+
+	// Always ensure the CA exists before loading the leaf cert.
+	// Without this, upgrades from pre-CA versions retain a self-signed
+	// leaf cert with no CA chain, so browsers see no certificate chain.
+	if !forceRegen {
+		caKey, caCert, caOK := loadCAFromDisk(caKeyPath, caCertPath)
+		if config, leafOK := loadLeafTLSFromDisk(leafKeyPath, leafCertPath); leafOK && caOK {
 			tlsConfig = config
-			loadCACertFromDisk(caCertPath)
+			tlsCA = caCert
+			tlsCAKey = caKey
 			return config, nil
 		}
+		// CA missing or leaf invalid -- fall through to full regeneration.
 	}
 
 	caCert, caKey, err := ensureCA(caKeyPath, caCertPath)
@@ -134,24 +142,6 @@ func loadCAFromDisk(keyPath, certPath string) (*rsa.PrivateKey, *x509.Certificat
 	return rsaKey, cert, true
 }
 
-func loadCACertFromDisk(certPath string) {
-	if tlsCA != nil {
-		return
-	}
-	data, err := os.ReadFile(certPath)
-	if err != nil {
-		return
-	}
-	block, _ := pem.Decode(data)
-	if block == nil {
-		return
-	}
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return
-	}
-	tlsCA = cert
-}
 
 func generateAndSaveCA(keyPath, certPath string) (*x509.Certificate, *rsa.PrivateKey, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 4096)
