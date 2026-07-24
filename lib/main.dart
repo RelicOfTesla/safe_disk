@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:no_screenshot/no_screenshot.dart';
 import 'l10n/app_locale.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'pages/home_page.dart';
@@ -19,14 +22,36 @@ import 'widgets/native_library_startup_error.dart';
 import 'windows/secure_notepad_window.dart';
 import 'windows/secure_image_window.dart';
 
+Future<void> _applyAntiScreenshot(SettingsService settings) async {
+  try {
+    final enabled = await settings.getAntiScreenshot();
+    if (!enabled) {
+      await NoScreenshot.instance.screenshotOn();
+      return;
+    }
+    // On Linux, require explicit opt-in
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      final linuxEnabled = await settings.getAntiScreenshotOnLinux();
+      if (!linuxEnabled) {
+        await NoScreenshot.instance.screenshotOn();
+        return;
+      }
+    }
+    await NoScreenshot.instance.screenshotOff();
+  } catch (_) {
+    // Best-effort; screenshot prevention may not be available on all platforms.
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final settings = SettingsService();
+  await _applyAntiScreenshot(settings);
   final contentWindow = await _currentContentWindow();
   if (contentWindow != null) {
     final arguments = contentWindow.arguments;
     final lockEndpoint = ContentWindowLockEndpoint(token: arguments.token);
     await _setContentWindowLockHandler(contentWindow.controller, lockEndpoint);
-    final settings = SettingsService();
     final localePreference =
         arguments.localePreference ?? await settings.getLocale();
     final locale = appLocaleFromPreference(localePreference);

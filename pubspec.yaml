@@ -46,9 +46,11 @@ dependencies:
   # File selector for export/import
   file_selector: ^1.0.3
   desktop_drop: ^0.7.1
+  screen_protector: ^1.2.0
   desktop_multi_window:
     path: third_party/desktop_multi_window
   charset_converter: ^2.4.0
+  no_screenshot: ^1.2.0
 
 dev_dependencies:
   flutter_test:

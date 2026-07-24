@@ -24,6 +24,8 @@ class SettingsService {
   static const String _keyDetailedErrorReports = 'detailed_error_reports';
   static const String _keyOpenOnDoubleClick = 'open_on_double_click';
   static const String _keyWebDavEnabled = 'webdav_enabled';
+  static const String _keyAntiScreenshot = 'anti_screenshot';
+  static const String _keyAntiScreenshotOnLinux = 'anti_screenshot_on_linux';
 
   // Default values
   static const int defaultKeyStrengthMs = 1000; // 1 second
@@ -39,6 +41,9 @@ class SettingsService {
   static const bool defaultDetailedErrorReports = false;
   static const bool defaultOpenOnDoubleClick = false;
   static const bool defaultWebDavEnabled = true;
+  // Anti-screenshot defaults: enabled on Windows, off on Linux/macOS (less reliable)
+  static const bool defaultAntiScreenshot = true;
+  static const bool defaultAntiScreenshotOnLinux = true;
 
   static const List<int> notepadAutoSaveOptions = [0, 15, 30, 60, 300];
 
@@ -289,6 +294,29 @@ class SettingsService {
     await prefs.setBool(_keyWebDavEnabled, enabled);
   }
 
+  /// Get anti-screenshot preference (all platforms)
+  Future<bool> getAntiScreenshot() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAntiScreenshot) ?? defaultAntiScreenshot;
+  }
+
+  Future<void> setAntiScreenshot(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAntiScreenshot, enabled);
+  }
+
+  /// Get anti-screenshot preference for Linux specifically
+  Future<bool> getAntiScreenshotOnLinux() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAntiScreenshotOnLinux) ??
+        defaultAntiScreenshotOnLinux;
+  }
+
+  Future<void> setAntiScreenshotOnLinux(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAntiScreenshotOnLinux, enabled);
+  }
+
   // ==================== Reset to Defaults ====================
 
   /// Reset all settings to defaults
@@ -306,5 +334,7 @@ class SettingsService {
     await setDetailedErrorReports(defaultDetailedErrorReports);
     await setOpenOnDoubleClick(defaultOpenOnDoubleClick);
     await setWebDavEnabled(defaultWebDavEnabled);
+    await setAntiScreenshot(defaultAntiScreenshot);
+    await setAntiScreenshotOnLinux(defaultAntiScreenshotOnLinux);
   }
 }

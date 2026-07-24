@@ -42,6 +42,8 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _detailedErrorReports = SettingsService.defaultDetailedErrorReports;
   bool _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
   bool _webDavEnabled = SettingsService.defaultWebDavEnabled;
+  bool _antiScreenshot = SettingsService.defaultAntiScreenshot;
+  bool _antiScreenshotOnLinux = SettingsService.defaultAntiScreenshotOnLinux;
   _SettingsSnapshot? _saved;
   bool _isLoading = true;
   bool _allowPop = false;
@@ -61,6 +63,8 @@ class _SettingsPageState extends State<SettingsPage> {
         detailedErrorReports: _detailedErrorReports,
         openOnDoubleClick: _openOnDoubleClick,
         webDavEnabled: _webDavEnabled,
+        antiScreenshot: _antiScreenshot,
+        antiScreenshotOnLinux: _antiScreenshotOnLinux,
       );
 
   @override
@@ -88,6 +92,9 @@ class _SettingsPageState extends State<SettingsPage> {
         detailedErrorReports: await _settingsService.getDetailedErrorReports(),
         openOnDoubleClick: await _settingsService.getOpenOnDoubleClick(),
         webDavEnabled: await _settingsService.getWebDavEnabled(),
+        antiScreenshot: await _settingsService.getAntiScreenshot(),
+        antiScreenshotOnLinux:
+            await _settingsService.getAntiScreenshotOnLinux(),
       );
       if (!mounted) return;
       setState(() {
@@ -104,6 +111,8 @@ class _SettingsPageState extends State<SettingsPage> {
         _detailedErrorReports = snapshot.detailedErrorReports;
         _openOnDoubleClick = snapshot.openOnDoubleClick;
         _webDavEnabled = snapshot.webDavEnabled;
+        _antiScreenshot = snapshot.antiScreenshot;
+        _antiScreenshotOnLinux = snapshot.antiScreenshotOnLinux;
         _saved = snapshot;
         _isLoading = false;
       });
@@ -137,6 +146,8 @@ class _SettingsPageState extends State<SettingsPage> {
       await _settingsService.setDetailedErrorReports(_detailedErrorReports);
       await _settingsService.setOpenOnDoubleClick(_openOnDoubleClick);
       await _settingsService.setWebDavEnabled(_webDavEnabled);
+      await _settingsService.setAntiScreenshot(_antiScreenshot);
+      await _settingsService.setAntiScreenshotOnLinux(_antiScreenshotOnLinux);
       await widget.onWebDavEnabledChanged?.call(_webDavEnabled);
       ErrorReportingService.configure(
         detailedErrorsEnabled: _detailedErrorReports,
@@ -233,6 +244,8 @@ class _SettingsPageState extends State<SettingsPage> {
       _detailedErrorReports = SettingsService.defaultDetailedErrorReports;
       _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
       _webDavEnabled = SettingsService.defaultWebDavEnabled;
+      _antiScreenshot = SettingsService.defaultAntiScreenshot;
+      _antiScreenshotOnLinux = SettingsService.defaultAntiScreenshotOnLinux;
     });
     widget.onThemeModeChanged?.call(ThemeMode.system);
     widget.onLocaleChanged?.call(null);
@@ -493,6 +506,25 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _webDavEnabled,
             onChanged: (value) => setState(() => _webDavEnabled = value),
           ),
+          const Divider(),
+          SwitchListTile(
+            key: const Key('anti-screenshot'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(strings.antiScreenshot),
+            subtitle: Text(strings.antiScreenshotHint),
+            value: _antiScreenshot,
+            onChanged: (value) => setState(() => _antiScreenshot = value),
+          ),
+          if (_antiScreenshot)
+            SwitchListTile(
+              key: const Key('anti-screenshot-linux'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(strings.antiScreenshotOnLinux),
+              subtitle: Text(strings.antiScreenshotOnLinuxHint),
+              value: _antiScreenshotOnLinux,
+              onChanged: (value) =>
+                  setState(() => _antiScreenshotOnLinux = value),
+            ),
         ],
       );
 
@@ -631,6 +663,8 @@ class _SettingsSnapshot {
     required this.detailedErrorReports,
     required this.openOnDoubleClick,
     required this.webDavEnabled,
+    required this.antiScreenshot,
+    required this.antiScreenshotOnLinux,
   });
 
   final String themeMode;
@@ -645,6 +679,8 @@ class _SettingsSnapshot {
   final bool detailedErrorReports;
   final bool openOnDoubleClick;
   final bool webDavEnabled;
+  final bool antiScreenshot;
+  final bool antiScreenshotOnLinux;
 
   @override
   bool operator ==(Object other) =>
@@ -660,7 +696,9 @@ class _SettingsSnapshot {
       notepadDefaultMonitorClipboard == other.notepadDefaultMonitorClipboard &&
       detailedErrorReports == other.detailedErrorReports &&
       openOnDoubleClick == other.openOnDoubleClick &&
-      webDavEnabled == other.webDavEnabled;
+      webDavEnabled == other.webDavEnabled &&
+      antiScreenshot == other.antiScreenshot &&
+      antiScreenshotOnLinux == other.antiScreenshotOnLinux;
 
   @override
   int get hashCode => Object.hash(
@@ -676,5 +714,7 @@ class _SettingsSnapshot {
         detailedErrorReports,
         openOnDoubleClick,
         webDavEnabled,
+        antiScreenshot,
+        antiScreenshotOnLinux,
       );
 }

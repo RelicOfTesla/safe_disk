@@ -746,6 +746,30 @@ abstract class AppLocalizations {
   /// **'关闭后禁止创建新的共享，并撤销当前已打开 root 的 WebDAV 访问。'**
   String get webDavGlobalSwitchHint;
 
+  /// No description provided for @antiScreenshot.
+  ///
+  /// In zh, this message translates to:
+  /// **'防截屏'**
+  String get antiScreenshot;
+
+  /// No description provided for @antiScreenshotHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'阻止系统截屏工具捕获 Safe Disk 窗口内容。重启后生效。'**
+  String get antiScreenshotHint;
+
+  /// No description provided for @antiScreenshotOnLinux.
+  ///
+  /// In zh, this message translates to:
+  /// **'Linux 下也启用防截屏'**
+  String get antiScreenshotOnLinux;
+
+  /// No description provided for @antiScreenshotOnLinuxHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'Linux 下防截屏兼容性较差，可能引起窗口渲染异常。仅在确认需要时开启。'**
+  String get antiScreenshotOnLinuxHint;
+
   /// No description provided for @webDavDisabledMessage.
   ///
   /// In zh, this message translates to:
