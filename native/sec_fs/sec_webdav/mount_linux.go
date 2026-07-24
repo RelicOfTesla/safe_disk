@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 	"strings"
 )
@@ -43,12 +42,6 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 		_ = os.RemoveAll(tempDir)
 	}
 
-	currentUser, err := user.Current()
-	if err != nil {
-		cleanupWorkspace()
-		return nil, fmt.Errorf("%w: resolve current user for dav_user", ErrMountFailed)
-	}
-
 	configPath := filepath.Join(tempDir, "davfs2.conf")
 	secretsPath := filepath.Join(tempDir, "secrets")
 
@@ -56,7 +49,6 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 	config += "ask_auth 0\n"
 	config += "use_locks 0\n"
 	config += "if_match_bug 1\n"
-	config += "dav_user " + currentUser.Username + "\n"
 
 	secrets := strings.TrimRight(session.URL, "/") + " " + session.Username + " " + session.Password + "\n"
 
@@ -105,14 +97,15 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 // enough privileges to use a custom config. Prefers pkexec (PolicyKit) for
 // better desktop integration over sudo.
 func selectMountPrivilegeCmd(url, mountPoint, configPath string) []string {
+	opts := "conf=" + configPath + ",ro"
 	if _, err := exec.LookPath("pkexec"); err == nil {
-		return []string{"pkexec", "mount.davfs", url, mountPoint, "-o", "conf=" + configPath + ",ro"}
+		return []string{"pkexec", "mount.davfs", url, mountPoint, "-o", opts}
 	}
 	if _, err := exec.LookPath("sudo"); err == nil {
-		return []string{"sudo", "mount.davfs", url, mountPoint, "-o", "conf=" + configPath + ",ro"}
+		return []string{"sudo", "mount.davfs", url, mountPoint, "-o", opts}
 	}
 	// Fallback: regular mount (setuid mount.davfs may ignore -o conf).
-	return []string{"mount", "-t", "davfs", url, mountPoint, "-o", "conf=" + configPath + ",ro"}
+	return []string{"mount", "-t", "davfs", url, mountPoint, "-o", opts}
 }
 
 // disconnectMount unmounts a davfs2 filesystem. If a normal unmount fails,
