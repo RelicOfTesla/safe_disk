@@ -22,6 +22,7 @@ type AuthMode string
 const (
 	AuthModeBearer AuthMode = "bearer"
 	AuthModeDigest AuthMode = "digest"
+	AuthModeBasic  AuthMode = "basic"
 )
 
 type CredentialVisibility string
@@ -44,6 +45,7 @@ type OpenOptions struct {
 	AuthMode             AuthMode             `json:"auth_mode"`
 	CredentialVisibility CredentialVisibility `json:"credential_visibility"`
 	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
+	TLS                  bool                 `json:"tls,omitempty"`
 	Port                 int                  `json:"port,omitempty"`
 }
 
@@ -68,7 +70,7 @@ func normalizeOpenOptions(options OpenOptions) (OpenOptions, error) {
 	if options.AuthMode == "" {
 		options.AuthMode = AuthModeBearer
 	}
-	if options.AuthMode != AuthModeBearer && options.AuthMode != AuthModeDigest {
+	if options.AuthMode != AuthModeBearer && options.AuthMode != AuthModeDigest && options.AuthMode != AuthModeBasic {
 		return OpenOptions{}, fmt.Errorf("unsupported webdav auth mode: %q", options.AuthMode)
 	}
 	if options.CredentialVisibility == "" {
@@ -94,6 +96,8 @@ func normalizeOpenOptions(options OpenOptions) (OpenOptions, error) {
 type authState struct {
 	mode     AuthMode
 	token    string
+	basicUsername string
+	basicPassword string
 	username string
 	password string
 	realm    string
@@ -141,6 +145,22 @@ func (m *Manager) newAuthLocked(mode AuthMode) (authState, error) {
 				maxNC:    make(map[string]uint32),
 			},
 		}, nil
+	case AuthModeBasic:
+		username, err := m.newValueLocked(12)
+		if err != nil {
+			return authState{}, err
+		}
+		password, err := m.newValueLocked(32)
+		if err != nil {
+			return authState{}, err
+		}
+		return authState{
+			mode:          AuthModeBasic,
+			basicUsername: username,
+			basicPassword: password,
+			username:      username,
+			password:      password,
+		}, nil
 	default:
 		return authState{}, fmt.Errorf("unsupported webdav auth mode: %q", mode)
 	}
@@ -174,6 +194,17 @@ func authFromPersistent(record PersistentSession) (authState, error) {
 				maxNC:    make(map[string]uint32),
 			},
 		}, nil
+	case AuthModeBasic:
+		if record.BasicAuthUsername == "" || record.BasicAuthPassword == "" {
+			return authState{}, ErrPersistentRecordInvalid
+		}
+		return authState{
+			mode:          AuthModeBasic,
+			basicUsername: record.BasicAuthUsername,
+			basicPassword: record.BasicAuthPassword,
+			username:      record.BasicAuthUsername,
+			password:      record.BasicAuthPassword,
+		}, nil
 	default:
 		return authState{}, ErrPersistentRecordInvalid
 	}
@@ -192,6 +223,11 @@ func (m *Manager) authenticateLocked(active *activeSession, request *http.Reques
 		}
 		ok, stale := active.auth.digest.verify(request)
 		return m.digestChallengeLocked(active.auth.digest, stale), ok
+	case AuthModeBasic:
+		if basicAuthorized(request, active.auth.basicUsername, active.auth.basicPassword) {
+			return "", true
+		}
+		return `Basic realm="safe-disk"`, false
 	default:
 		return "", false
 	}
@@ -213,6 +249,38 @@ func bearerAuthorized(r *http.Request, token string) bool {
 	value := r.Header.Get("Authorization")
 	expected := "Bearer " + token
 	return len(value) == len(expected) && subtle.ConstantTimeCompare([]byte(value), []byte(expected)) == 1
+}
+
+// basicAuthorized validates HTTP Basic Authentication credentials using
+// constant-time comparison on the decoded username and password.
+//
+// The client sends: Authorization: Basic base64(username + ":" + password)
+func basicAuthorized(r *http.Request, username, password string) bool {
+	value := r.Header.Get("Authorization")
+	const prefix = "Basic "
+	if !strings.HasPrefix(value, prefix) {
+		return false
+	}
+	encoded := strings.TrimSpace(strings.TrimPrefix(value, prefix))
+	if encoded == "" {
+		return false
+	}
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return false
+	}
+colon := strings.IndexByte(string(decoded), ':')
+	if colon < 0 {
+		return false
+	}
+	givenUser := string(decoded[:colon])
+	givenPass := string(decoded[colon+1:])
+	// Constant-time comparison to prevent timing attacks.
+	userEqual := subtle.ConstantTimeCompare(
+		[]byte(givenUser), []byte(username)) == 1
+	passEqual := subtle.ConstantTimeCompare(
+		[]byte(givenPass), []byte(password)) == 1
+	return userEqual && passEqual
 }
 
 const (

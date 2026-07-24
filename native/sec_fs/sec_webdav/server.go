@@ -5,6 +5,12 @@ package sec_webdav
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"math/big"
+	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -55,6 +61,7 @@ type Session struct {
 	CredentialVisibility CredentialVisibility `json:"credential_visibility"`
 	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
 	Port                 int                  `json:"port"`
+	TLS                  bool                 `json:"tls"`
 }
 
 // PersistentSession is stored inside an already encrypted root. It never
@@ -69,11 +76,14 @@ type PersistentSession struct {
 	Password             string               `json:"password,omitempty"`
 	Realm                string               `json:"realm,omitempty"`
 	DigestKey            string               `json:"digest_key,omitempty"`
+	BasicAuthUsername    string               `json:"basic_auth_username,omitempty"`
+	BasicAuthPassword    string               `json:"basic_auth_password,omitempty"`
 	DisplayName          string               `json:"display_name"`
 	ExposedPath          string               `json:"exposed_path"`
 	CredentialVisibility CredentialVisibility `json:"credential_visibility"`
 	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
 	Port                 int                  `json:"port"`
+	TLS                  bool                 `json:"tls"`
 }
 
 type PersistentStore interface {
@@ -107,6 +117,7 @@ type SessionStatus struct {
 	CredentialVisibility CredentialVisibility `json:"credential_visibility"`
 	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
 	Port                 int                  `json:"port"`
+	TLS                  bool                 `json:"tls"`
 }
 
 type Manager struct {
@@ -117,6 +128,7 @@ type Manager struct {
 	serveDone       chan struct{}
 	sessions        map[string]activeSession
 	persistentStore PersistentStore
+	useTLS          bool
 }
 
 func NewManager() *Manager {
@@ -161,6 +173,10 @@ func (m *Manager) OpenWithOptions(rootKey, displayName, exposedPath string, prov
 	if options.SessionLifetime == SessionLifetimePersistent && m.persistentStore == nil {
 		return Session{}, ErrPersistentStoreUnavailable
 	}
+	// Once any session requests TLS, all sessions use TLS (shared loopback listener).
+	if options.TLS {
+		m.useTLS = true
+	}
 	if err := m.ensureServerLocked(options.Port); err != nil {
 		return Session{}, err
 	}
@@ -180,13 +196,14 @@ func (m *Manager) OpenWithOptions(rootKey, displayName, exposedPath string, prov
 		Username:             auth.username,
 		Password:             auth.password,
 		Realm:                auth.realm,
-		URL:                  "http://" + m.listener.Addr().String() + "/webdav/" + id + "/",
+		URL:                  webdavURLScheme(m.useTLS) + m.listener.Addr().String() + "/webdav/" + id + "/",
 		DisplayName:          displayName,
 		ExposedPath:          cleanPath,
 		ReadOnly:             true,
 		CredentialVisibility: options.CredentialVisibility,
 		SessionLifetime:      options.SessionLifetime,
 		Port:                 listenerPort(m.listener),
+		TLS:                  options.TLS,
 	}
 	active := m.newActiveSession(session, auth, provider)
 	if options.SessionLifetime == SessionLifetimePersistent {
@@ -227,9 +244,14 @@ func persistentRecordFromActive(active activeSession) PersistentSession {
 		CredentialVisibility: active.session.CredentialVisibility,
 		SessionLifetime:      active.session.SessionLifetime,
 		Port:                 active.session.Port,
+		TLS:                  active.session.TLS,
 	}
 	if active.auth.digest != nil {
 		record.DigestKey = hex.EncodeToString(active.auth.digest.key)
+	}
+	if active.auth.mode == AuthModeBasic {
+		record.BasicAuthUsername = active.auth.basicUsername
+		record.BasicAuthPassword = active.auth.basicPassword
 	}
 	return record
 }
@@ -311,14 +333,18 @@ func (m *Manager) restorePersistent(rootKey string, provider ResourceProvider, r
 	if err := m.ensureServerLocked(record.Port); err != nil {
 		return err
 	}
+	if record.TLS {
+		m.useTLS = true
+	}
 	session := Session{
 		ID: record.ID, RootKey: rootKey, Token: record.Token,
 		AuthMode: record.AuthMode, Username: record.Username,
 		Password: record.Password, Realm: record.Realm,
-		URL:         "http://" + m.listener.Addr().String() + "/webdav/" + record.ID + "/",
+		URL:         webdavURLScheme(m.useTLS) + m.listener.Addr().String() + "/webdav/" + record.ID + "/",
 		DisplayName: record.DisplayName, ExposedPath: record.ExposedPath,
 		ReadOnly: true, CredentialVisibility: record.CredentialVisibility,
 		SessionLifetime: SessionLifetimePersistent, Port: record.Port,
+		TLS: record.TLS,
 	}
 	m.sessions[record.ID] = m.newActiveSession(session, auth, provider)
 	return nil
@@ -512,16 +538,68 @@ func (m *Manager) ensureServerLocked(port int) error {
 	if err != nil {
 		return err
 	}
+	var serveListener net.Listener = listener
+	if m.useTLS {
+		tlsConfig, err := generateSelfSignedTLSConfig()
+		if err != nil {
+			listener.Close()
+			return fmt.Errorf("webdav tls: %w", err)
+		}
+		serveListener = tls.NewListener(listener, tlsConfig)
+	}
 	server := &http.Server{Handler: http.HandlerFunc(m.handle)}
-	m.listener = listener
+	m.listener = serveListener
 	m.server = server
 	m.serveDone = make(chan struct{})
 	serveDone := m.serveDone
 	go func() {
 		defer close(serveDone)
-		_ = server.Serve(listener)
+		_ = server.Serve(serveListener)
 	}()
 	return nil
+}
+
+// generateSelfSignedTLSConfig creates a TLS config with a self-signed
+// certificate for 127.0.0.1. The certificate is ephemeral and generated
+// anew each time the server starts. Clients must accept the self-signed
+// certificate warning.
+func generateSelfSignedTLSConfig() (*tls.Config, error) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, fmt.Errorf("generate key: %w", err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "127.0.0.1",
+		},
+		NotBefore:             time.Now().Add(-1 * time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		return nil, fmt.Errorf("create certificate: %w", err)
+	}
+	return &tls.Config{
+		Certificates: []tls.Certificate{{
+			Certificate: [][]byte{certDER},
+			PrivateKey:  key,
+		}},
+		MinVersion: tls.VersionTLS12,
+	}, nil
+}
+
+
+// webdavURLScheme returns "https://" when TLS is enabled, "http://" otherwise.
+func webdavURLScheme(tlsEnabled bool) string {
+	if tlsEnabled {
+		return "https://"
+	}
+	return "http://"
 }
 
 func listenerPort(listener net.Listener) int {
@@ -643,6 +721,7 @@ func statusFromActive(active activeSession) SessionStatus {
 		CredentialVisibility: active.session.CredentialVisibility,
 		SessionLifetime:      active.session.SessionLifetime,
 		Port:                 active.session.Port,
+		TLS:                  active.session.TLS,
 	}
 }
 
