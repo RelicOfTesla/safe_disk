@@ -98,14 +98,19 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 // better desktop integration over sudo.
 func selectMountPrivilegeCmd(url, mountPoint, configPath string) []string {
 	opts := "conf=" + configPath + ",ro"
+
+	// 1. PolicyKit (desktop-friendly privilege escalation).
 	if _, err := exec.LookPath("pkexec"); err == nil {
 		return []string{"pkexec", "mount.davfs", url, mountPoint, "-o", opts}
 	}
+
+	// 2. sudo fallback.
 	if _, err := exec.LookPath("sudo"); err == nil {
 		return []string{"sudo", "mount.davfs", url, mountPoint, "-o", opts}
 	}
-	// Fallback: regular mount (setuid mount.davfs may ignore -o conf).
-	return []string{"mount", "-t", "davfs", url, mountPoint, "-o", opts}
+
+	// 3. Direct: mount.davfs is setuid; works if user has FUSE perms.
+	return []string{"mount.davfs", url, mountPoint, "-o", opts}
 }
 
 // disconnectMount unmounts a davfs2 filesystem. If a normal unmount fails,
