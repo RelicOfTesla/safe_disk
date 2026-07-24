@@ -33,21 +33,41 @@
   "loadingImage": "Loading image",
   "imageLoadFailed": "Image failed to load",
   "imageEncodedSizeLimit": "Encoded image data exceeds the {limit} limit.",
-  "@imageEncodedSizeLimit": {"placeholders": {"limit": {"type": "String"}}},
+  "@imageEncodedSizeLimit": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
   "imageContentEmpty": "The image content is empty.",
   "imageDimensionsInvalid": "The image dimensions are invalid.",
   "imageDecodedPixelLimit": "Decoded image dimensions exceed the {limit} limit.",
-  "@imageDecodedPixelLimit": {"placeholders": {"limit": {"type": "String"}}},
+  "@imageDecodedPixelLimit": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
   "imageEncryptedContentInvalid": "The encrypted image data could not be read. It may be invalid.",
   "noDisplayableImage": "No displayable image. Choose another image or try again.",
   "viewingImage": "Viewing: {fileName}",
   "@viewingImage": {
     "placeholders": {
-      "fileName": {"type": "String"}
+      "fileName": {
+        "type": "String"
+      }
     }
   },
   "animatedImageFrames": "Animated ({count} frames)",
-  "@animatedImageFrames": {"placeholders": {"count": {"type": "int"}}},
+  "@animatedImageFrames": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "zoomInShortcut": "Zoom in (+)",
   "zoomOutShortcut": "Zoom out (-)",
   "resetImageViewShortcut": "Reset view (N)",
@@ -62,7 +82,13 @@
   "exposeToThirdParty": "Expose to third-party tool",
   "webDavExposureConfirmTitle": "Expose content to a third-party tool?",
   "webDavExposureConfirmDescription": "{name} will be exposed through a loopback, read-only WebDAV session. Third-party tools may cache or export plaintext, so expose only what is necessary.",
-  "@webDavExposureConfirmDescription": {"placeholders": {"name": {"type": "String"}}},
+  "@webDavExposureConfirmDescription": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "webDavExposeReadOnly": "Create read-only access",
   "webDavOptionsTitle": "Configure WebDAV access",
   "webDavOptionsDescription": "Choose authentication, credential display, and session lifetime. You can mount or revoke the session from the access list.",
@@ -93,9 +119,21 @@
   "webDavUrl": "WebDAV URL",
   "webDavToken": "Access token",
   "webDavLastAccessed": "Last accessed: {time}",
-  "@webDavLastAccessed": {"placeholders": {"time": {"type": "String"}}},
+  "@webDavLastAccessed": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "webDavActiveRequests": "Active requests: {count}",
-  "@webDavActiveRequests": {"placeholders": {"count": {"type": "int"}}},
+  "@webDavActiveRequests": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "webDavUrlCopied": "WebDAV URL copied",
   "webDavTokenCopied": "Access token copied",
   "webDavUsername": "Username",
@@ -111,7 +149,13 @@
   "webDavUnmount": "Unmount",
   "webDavCancelMount": "Cancel mount operation",
   "webDavMountedAt": "Mounted at: {path}",
-  "@webDavMountedAt": {"placeholders": {"path": {"type": "String"}}},
+  "@webDavMountedAt": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "webDavMountPath": "System mount path",
   "webDavMountPathCopied": "System mount path copied",
   "webDavUnmounted": "Unmounted",
@@ -206,17 +250,47 @@
   "lockWhenHiddenHint": "Only lock directories without open file windows, unsaved changes, or active saves. Other directories are not forced closed.",
   "messageListSeparator": "; ",
   "autoLockSummaryLocked": "{count} directories were locked automatically",
-  "@autoLockSummaryLocked": {"placeholders": {"count": {"type": "int"}}},
+  "@autoLockSummaryLocked": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "autoLockSummarySkipped": "{count} directories have open file windows or pending saves and were left open",
-  "@autoLockSummarySkipped": {"placeholders": {"count": {"type": "int"}}},
+  "@autoLockSummarySkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "autoLockSummaryFailed": "{count} directories could not be locked",
-  "@autoLockSummaryFailed": {"placeholders": {"count": {"type": "int"}}},
+  "@autoLockSummaryFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "rootActiveWritesTitle": "Saving content",
   "rootActiveWritesDescription": "{count} file save operations are still running. Wait for them to finish before ending the session.",
-  "@rootActiveWritesDescription": {"placeholders": {"count": {"type": "int"}}},
+  "@rootActiveWritesDescription": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "rootUnsavedContentTitle": "Unsaved content",
   "rootUnsavedContentDescription": "Handle these open file windows before ending the session:\n\n{documents}",
-  "@rootUnsavedContentDescription": {"placeholders": {"documents": {"type": "String"}}},
+  "@rootUnsavedContentDescription": {
+    "placeholders": {
+      "documents": {
+        "type": "String"
+      }
+    }
+  },
   "acknowledge": "OK",
   "rootDirectoryDeleted": "Encrypted directory permanently deleted",
   "rootHistoryRemoved": "Directory history removed. Files on disk were kept.",
@@ -255,7 +329,13 @@
   "notepadReadOnly": "Read-only",
   "notepadEditing": "Editing",
   "notepadCharacterCount": "{count} characters",
-  "@notepadCharacterCount": {"placeholders": {"count": {"type": "int"}}},
+  "@notepadCharacterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "notepadDraftSaveFailed": "Could not save recovery draft",
   "notepadDraftCleanupFailed": "The original file was saved, but the old draft could not be removed.",
   "notepadDraftReadFailed": "Could not check the recovery draft.",
@@ -270,7 +350,16 @@
   "notepadClearClipboard": "Clear system clipboard",
   "notepadFindHint": "Find (\\n means newline)",
   "notepadFindPosition": "{current}/{total}",
-  "@notepadFindPosition": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "@notepadFindPosition": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "notepadFindPrevious": "Find previous",
   "notepadFindNext": "Find next",
   "notepadReplace": "Replace",
@@ -278,7 +367,13 @@
   "notepadNoMatches": "No matches found",
   "notepadSelectMatchFirst": "Select a match first",
   "notepadReplacedCount": "Replaced {count} matches",
-  "@notepadReplacedCount": {"placeholders": {"count": {"type": "int"}}},
+  "@notepadReplacedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "welcomeGuideWelcomeTitle": "Welcome to Safe Disk",
   "welcomeGuideWelcomeContent": "Safe Disk helps you encrypt and manage private files.\n\nYou need the correct password to access content in an encrypted directory.",
   "welcomeGuideEncryptedDirectoryTitle": "Encrypted directories",
@@ -297,26 +392,89 @@
   "appVersionDescription": "Version 1.0.0\nEncrypted file manager",
   "durationNever": "Never",
   "durationSeconds": "{count, plural, one{1 second} other{{count} seconds}}",
-  "@durationSeconds": {"placeholders": {"count": {"type": "int"}}},
+  "@durationSeconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationMinutes": "{count, plural, one{1 minute} other{{count} minutes}}",
-  "@durationMinutes": {"placeholders": {"count": {"type": "int"}}},
+  "@durationMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationHours": "{count, plural, one{1 hour} other{{count} hours}}",
-  "@durationHours": {"placeholders": {"count": {"type": "int"}}},
+  "@durationHours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationDays": "{count, plural, one{1 day} other{{count} days}}",
-  "@durationDays": {"placeholders": {"count": {"type": "int"}}},
+  "@durationDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "progressMinutesSeconds": "{minutes} min {seconds} sec",
-  "@progressMinutesSeconds": {"placeholders": {"minutes": {"type": "int"}, "seconds": {"type": "int"}}},
+  "@progressMinutesSeconds": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "progressEstimatedRemaining": "Estimated remaining: {duration}",
-  "@progressEstimatedRemaining": {"placeholders": {"duration": {"type": "String"}}},
+  "@progressEstimatedRemaining": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
   "progressProcessed": "Processed: {current} / {total}",
-  "@progressProcessed": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "@progressProcessed": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "progressCurrentFile": "Current: {name}",
-  "@progressCurrentFile": {"placeholders": {"name": {"type": "String"}}},
+  "@progressCurrentFile": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "rerunUnfinishedTransfers": "Run unfinished imports and exports again",
   "preparing": "Preparing...",
   "operationNotCancellableYet": "This operation cannot be cancelled yet.",
   "rerunningUnfinishedProgress": "Running again: {current} of {total}...",
-  "@rerunningUnfinishedProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "@rerunningUnfinishedProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "unfinishedTransfersRerunCompleted": "Unfinished imports and exports were run again.",
   "unfinishedTransfersRerunCancelled": "Run again cancelled. The unfinished operation was kept.",
   "preparingImport": "Preparing import...",
@@ -327,31 +485,94 @@
   "exporting": "Exporting...",
   "deleting": "Deleting...",
   "directoryImportCompleted": "Imported {count} files.",
-  "@directoryImportCompleted": {"placeholders": {"count": {"type": "int"}}},
+  "@directoryImportCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "transferCancelledWithUnfinishedState": "The operation was cancelled. You can clean up the unfinished import or export state the next time you open this directory.",
   "directoryExportCompleted": "Exported {count} files.",
-  "@directoryExportCompleted": {"placeholders": {"count": {"type": "int"}}},
+  "@directoryExportCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchExport": "Batch export",
   "batchExportCompleted": "Export completed: {success} succeeded, {failed} failed.",
-  "@batchExportCompleted": {"placeholders": {"success": {"type": "int"}, "failed": {"type": "int"}}},
+  "@batchExportCompleted": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
   "batchExportCompletedAll": "Export completed: {count} files succeeded.",
-  "@batchExportCompletedAll": {"placeholders": {"count": {"type": "int"}}},
+  "@batchExportCompletedAll": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchExportCancelled": "Export cancelled: {success} succeeded, {failed} failed.",
-  "@batchExportCancelled": {"placeholders": {"success": {"type": "int"}, "failed": {"type": "int"}}},
+  "@batchExportCancelled": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
   "batchDelete": "Batch delete",
   "batchDeleteCancelled": "Batch deletion cancelled: {success} succeeded; {remaining} items remain selected.",
-  "@batchDeleteCancelled": {"placeholders": {"success": {"type": "int"}, "remaining": {"type": "int"}}},
+  "@batchDeleteCancelled": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "remaining": {
+        "type": "int"
+      }
+    }
+  },
   "batchDeleteCompleted": "Deleted {count} files.",
-  "@batchDeleteCompleted": {"placeholders": {"count": {"type": "int"}}},
+  "@batchDeleteCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "unfinishedTransfersDetected": "Unfinished imports or exports found",
   "unfinishedTransfersDetectedDescription": "{count} unfinished import or export operations were found.\n\nThese operations cannot be resumed. You can clean up the unfinished operation and run the full import or export again, or skip it for now.",
-  "@unfinishedTransfersDetectedDescription": {"placeholders": {"count": {"type": "int"}}},
+  "@unfinishedTransfersDetectedDescription": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "skipForNow": "Skip for now",
   "cleanState": "Clean unfinished operation",
   "rerunAll": "Run again",
   "confirmBatchDeletion": "Confirm batch deletion",
   "confirmBatchDeletionDescription": "Delete {count} selected items? This cannot be undone. Items are deleted one at a time; items already deleted are not restored if a later deletion fails.",
-  "@confirmBatchDeletionDescription": {"placeholders": {"count": {"type": "int"}}},
+  "@confirmBatchDeletionDescription": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "disabled": "Off",
   "nativeComponentUnavailable": "Security component unavailable",
   "nativeBindingFailureDescription": "The security component version does not match this app, so encryption cannot start.",
@@ -359,13 +580,37 @@
   "nativeBindingFailureSuggestion": "Reinstall the matching version of Safe Disk, then try again.",
   "nativeLoadingFailureSuggestion": "Reinstall the app. If the problem continues, check whether security software quarantined application files.",
   "initializationStage": "Initialization stage: {stage}",
-  "@initializationStage": {"placeholders": {"stage": {"type": "String"}}},
+  "@initializationStage": {
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
+  },
   "underlyingError": "Underlying error: {error}",
-  "@underlyingError": {"placeholders": {"error": {"type": "String"}}},
+  "@underlyingError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "errorDiagnosticType": "Error type: {type}",
-  "@errorDiagnosticType": {"placeholders": {"type": {"type": "String"}}},
+  "@errorDiagnosticType": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
   "errorDiagnosticOperation": "Operation: {operation}",
-  "@errorDiagnosticOperation": {"placeholders": {"operation": {"type": "String"}}},
+  "@errorDiagnosticOperation": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      }
+    }
+  },
   "errorDiagnosticRedacted": "[redacted]",
   "errorDiagnosticPathRedacted": "[path redacted]",
   "errorDiagnosticTruncated": "[details truncated]",
@@ -375,7 +620,13 @@
   "welcomeProductTagline": "Encrypted file manager",
   "welcomeOpenDirectoryHint": "Open or create an encrypted directory from the sidebar.",
   "selectedItems": "{count} selected",
-  "@selectedItems": {"placeholders": {"count": {"type": "int"}}},
+  "@selectedItems": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "exitSelectionMode": "Exit selection mode",
   "copySelected": "Copy selected",
   "cutSelected": "Cut selected",
@@ -390,16 +641,52 @@
   "clipboardPastePending": "Paste pending",
   "moveSourceDeleteFailed": "The target was copied, but the source entry could not be deleted. Both entries were kept; verify the target, then remove the source manually.",
   "clipboardMultipleEntries": "{name} and {count} items",
-  "@clipboardMultipleEntries": {"placeholders": {"name": {"type": "String"}, "count": {"type": "int"}}},
+  "@clipboardMultipleEntries": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "clipboardStatusWide": "{operation} · {entries} → {target}",
-  "@clipboardStatusWide": {"placeholders": {"operation": {"type": "String"}, "entries": {"type": "String"}, "target": {"type": "String"}}},
+  "@clipboardStatusWide": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      },
+      "entries": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
   "clipboardStatusNarrow": "{operation} · {entries}",
-  "@clipboardStatusNarrow": {"placeholders": {"operation": {"type": "String"}, "entries": {"type": "String"}}},
+  "@clipboardStatusNarrow": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      },
+      "entries": {
+        "type": "String"
+      }
+    }
+  },
   "moveToCurrentDirectory": "Move to current directory",
   "pasteToCurrentDirectory": "Paste to current directory",
   "clearFileClipboard": "Clear file clipboard",
   "openedDirectoriesCount": "{count} directories open",
-  "@openedDirectoriesCount": {"placeholders": {"count": {"type": "int"}}},
+  "@openedDirectoriesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "unpinSidebar": "Unpin sidebar",
   "pinSidebar": "Pin sidebar",
   "openOrCreateEncryptedDirectory": "Open or create encrypted directory",
@@ -423,57 +710,174 @@
   "allFiles": "All files",
   "encryptedDirectoryCreated": "Encrypted directory created",
   "encryptedRootFound": "The current path is inside an encrypted directory: {path}",
-  "@encryptedRootFound": {"placeholders": {"path": {"type": "String"}}},
+  "@encryptedRootFound": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "passwordVerified": "Password verified",
   "unfinishedStatesCleaned": "Cleaned {count} unfinished import/export states",
-  "@unfinishedStatesCleaned": {"placeholders": {"count": {"type": "int"}}},
+  "@unfinishedStatesCleaned": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "notepadFileTooLarge": "The file exceeds {limit} and cannot be opened in Secure Notepad.",
-  "@notepadFileTooLarge": {"placeholders": {"limit": {"type": "String"}}},
+  "@notepadFileTooLarge": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
   "contentFileSizeUnknown": "The file size cannot be determined, so it cannot be opened safely.",
   "nativeContentWindowUnavailable": "Separate file windows are unavailable on this platform. Opened in the main window instead.",
   "batchMove": "Batch move",
   "batchPaste": "Batch paste",
   "movedToDestination": "Moved: {name}",
-  "@movedToDestination": {"placeholders": {"name": {"type": "String"}}},
+  "@movedToDestination": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "pastedToDestination": "Pasted: {name}",
-  "@pastedToDestination": {"placeholders": {"name": {"type": "String"}}},
+  "@pastedToDestination": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "batchPasteCancelled": "Batch paste cancelled: {success} succeeded; {remaining} items can be retried.",
-  "@batchPasteCancelled": {"placeholders": {"success": {"type": "int"}, "remaining": {"type": "int"}}},
+  "@batchPasteCancelled": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "remaining": {
+        "type": "int"
+      }
+    }
+  },
   "movedFiles": "Moved {count} files",
-  "@movedFiles": {"placeholders": {"count": {"type": "int"}}},
+  "@movedFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "pastedFiles": "Pasted {count} files",
-  "@pastedFiles": {"placeholders": {"count": {"type": "int"}}},
+  "@pastedFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noEncryptedClipboardEntries": "There are no encrypted entries to paste in the file clipboard",
   "cannotPasteDirectoryIntoItself": "A directory cannot be pasted into itself or one of its subdirectories",
   "directoryCreated": "Directory created: {name}",
-  "@directoryCreated": {"placeholders": {"name": {"type": "String"}}},
+  "@directoryCreated": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "fileCreated": "File created: {name}",
-  "@fileCreated": {"placeholders": {"name": {"type": "String"}}},
+  "@fileCreated": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "renamedTo": "Renamed to: {name}",
-  "@renamedTo": {"placeholders": {"name": {"type": "String"}}},
+  "@renamedTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "confirmDeleteFile": "Confirm file deletion",
   "confirmDeleteFileDescription": "Delete \"{name}\"? This cannot be undone.",
-  "@confirmDeleteFileDescription": {"placeholders": {"name": {"type": "String"}}},
+  "@confirmDeleteFileDescription": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "delete": "Delete",
   "fileDeleted": "File deleted",
   "fileImportCompleted": "File imported: {name}",
-  "@fileImportCompleted": {"placeholders": {"name": {"type": "String"}}},
+  "@fileImportCompleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "fileExportCompleted": "File exported: {path}",
-  "@fileExportCompleted": {"placeholders": {"path": {"type": "String"}}},
+  "@fileExportCompleted": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "confirmPlaintextExport": "Confirm plaintext export",
   "confirmPlaintextExportDescription": "\"{name}\" will be written unencrypted to the selected location. The exported copy will no longer be protected by Safe Disk. Continue?",
-  "@confirmPlaintextExportDescription": {"placeholders": {"name": {"type": "String"}}},
+  "@confirmPlaintextExportDescription": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "continueExport": "Continue export",
   "copiedNameToSystemClipboard": "Plaintext name copied to the system clipboard",
   "copiedPathToSystemClipboard": "Plaintext logical path copied to the system clipboard",
   "copiedForPaste": "Copied \"{name}\". Select a destination directory to paste.",
-  "@copiedForPaste": {"placeholders": {"name": {"type": "String"}}},
+  "@copiedForPaste": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "cutForMove": "Cut \"{name}\". Select a destination directory to move it.",
-  "@cutForMove": {"placeholders": {"name": {"type": "String"}}},
+  "@cutForMove": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "copiedManyForPaste": "Copied {count} files. Select a destination directory to paste.",
-  "@copiedManyForPaste": {"placeholders": {"count": {"type": "int"}}},
+  "@copiedManyForPaste": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "cutManyForMove": "Cut {count} files. Select a destination directory to move them.",
-  "@cutManyForMove": {"placeholders": {"count": {"type": "int"}}},
+  "@cutManyForMove": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "unlockDirectoryPrompt": "Enter the password to unlock:",
   "password": "Password",
   "passwordHint": "Password hint",
@@ -490,7 +894,13 @@
   "passwordHintUpdated": "Password hint updated.",
   "unlock": "Unlock",
   "directoryLabel": "Directory: {name}",
-  "@directoryLabel": {"placeholders": {"name": {"type": "String"}}},
+  "@directoryLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "passwordChangeDescription": "After changing the password, reopen the directory with the new password. Existing content does not need to be re-encrypted.",
   "currentPassword": "Current password",
   "newPassword": "New password",
@@ -500,7 +910,13 @@
   "rootDirectoryActions": "Directory actions",
   "endSessionOnly": "End session only",
   "endSessionDescription": "Lock \"{name}\" and keep its sidebar history and disk directory.",
-  "@endSessionDescription": {"placeholders": {"name": {"type": "String"}}},
+  "@endSessionDescription": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "directoryAlreadyLocked": "This directory is already locked.",
   "endSessionAndRemoveHistory": "End session and remove history",
   "removeHistoryDescription": "Remove only from the sidebar; keep the local disk directory unchanged.",
@@ -509,7 +925,13 @@
   "permanentlyDeleteLocalDirectory": "Permanently delete local directory",
   "willPermanentlyDelete": "Will permanently delete:",
   "enterDirectoryNameToConfirm": "Enter the directory name \"{name}\" to confirm:",
-  "@enterDirectoryNameToConfirm": {"placeholders": {"name": {"type": "String"}}},
+  "@enterDirectoryNameToConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "permanentlyDeleteDirectory": "Permanently delete directory",
   "unknown": "Unknown",
   "rootDirectoryProperties": "Encrypted directory properties",
@@ -524,7 +946,13 @@
   "passwordDerivation": "Password derivation",
   "passwordVerification": "Password verification",
   "versionValue": "Version {version}",
-  "@versionValue": {"placeholders": {"version": {"type": "int"}}},
+  "@versionValue": {
+    "placeholders": {
+      "version": {
+        "type": "int"
+      }
+    }
+  },
   "unavailableOrLegacy": "Unavailable or legacy format",
   "passwordChange": "Change password",
   "passwordChangeDirectly": "Can change directly",
@@ -554,7 +982,13 @@
   "kdfProfileStrong": "Strong",
   "kdfProfileMaximum": "Maximum",
   "durationMilliseconds": "{count} ms",
-  "@durationMilliseconds": {"placeholders": {"count": {"type": "int"}}},
+  "@durationMilliseconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noEncryption": "No encryption",
   "unencryptedNamesWarning": "Warning: with No encryption, file and directory names are not encrypted.",
   "selectDirectory": "Select directory",
@@ -570,20 +1004,59 @@
   "removeOnly": "Remove only",
   "deleteDiskDirectory": "Delete disk directory",
   "propertyLabel": "{label}:",
-  "@propertyLabel": {"placeholders": {"label": {"type": "String"}}},
+  "@propertyLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "copyPropertyValue": "Copy {label}",
-  "@copyPropertyValue": {"placeholders": {"label": {"type": "String"}}},
+  "@copyPropertyValue": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "propertyValueCopied": "Property value copied",
   "filterCurrentDirectoryHint": "Filter files and folders in the current directory...",
   "filterLoadedItemsHint": "Only loaded entries are filtered. Load more to expand the scope.",
   "navigateUp": "Go up",
   "directoryIncompleteSummary": "{count} loaded ({folders} folders, {files} files)",
-  "@directoryIncompleteSummary": {"placeholders": {"count": {"type": "int"}, "folders": {"type": "int"}, "files": {"type": "int"}}},
+  "@directoryIncompleteSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "folders": {
+        "type": "int"
+      },
+      "files": {
+        "type": "int"
+      }
+    }
+  },
   "directorySummary": "{folders} folders, {files} files",
-  "@directorySummary": {"placeholders": {"folders": {"type": "int"}, "files": {"type": "int"}}},
+  "@directorySummary": {
+    "placeholders": {
+      "folders": {
+        "type": "int"
+      },
+      "files": {
+        "type": "int"
+      }
+    }
+  },
   "sortUnavailableUntilFullyLoaded": "Sorting is unavailable until the directory finishes loading",
   "sortTooltip": "Sort: {order}",
-  "@sortTooltip": {"placeholders": {"order": {"type": "String"}}},
+  "@sortTooltip": {
+    "placeholders": {
+      "order": {
+        "type": "String"
+      }
+    }
+  },
   "sortNameAscending": "Name: A to Z",
   "sortNameDescending": "Name: Z to A",
   "sortModifiedNewest": "Modified: newest first",
@@ -598,19 +1071,46 @@
   "gridView": "Grid view",
   "directoryReadFailedRetry": "Could not read directory. Refresh and try again.",
   "noMatchInLoadedEntries": "No loaded entries match \"{query}\"",
-  "@noMatchInLoadedEntries": {"placeholders": {"query": {"type": "String"}}},
+  "@noMatchInLoadedEntries": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
   "noMatchInCurrentDirectory": "No entries in this directory match \"{query}\"",
-  "@noMatchInCurrentDirectory": {"placeholders": {"query": {"type": "String"}}},
+  "@noMatchInCurrentDirectory": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
   "unloadedEntriesMayMatch": "More entries have not loaded yet. Load more, then filter again.",
   "currentDirectoryEmpty": "This directory is empty",
   "loadMoreEntries": "Load more entries",
   "loadMoreFailedRetry": "Could not load more entries. Refresh and try again.",
   "scrollToLoadMore": "Keep scrolling to load more entries",
   "directoryItemCount": "{count} items",
-  "@directoryItemCount": {"placeholders": {"count": {"type": "int"}}},
+  "@directoryItemCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "file": "File",
   "fileSystemEntrySemantics": "{name}, {type}",
-  "@fileSystemEntrySemantics": {"placeholders": {"name": {"type": "String"}, "type": {"type": "String"}}},
+  "@fileSystemEntrySemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "type": {
+        "type": "String"
+      }
+    }
+  },
   "openDirectory": "Open directory",
   "viewImage": "View image",
   "editWithSecureNotepad": "Edit with Secure Notepad",
@@ -643,7 +1143,13 @@
   "modifiedTime": "Modified",
   "logicalPath": "Logical path",
   "fileTypeWithExtension": "{extension} file",
-  "@fileTypeWithExtension": {"placeholders": {"extension": {"type": "String"}}},
+  "@fileTypeWithExtension": {
+    "placeholders": {
+      "extension": {
+        "type": "String"
+      }
+    }
+  },
   "newFile": "New file",
   "newDirectory": "New directory",
   "newFileDefaultName": "New file.txt",
@@ -654,7 +1160,13 @@
   "readingDirectories": "Reading directories...",
   "loadMoreDirectories": "Load more directories",
   "retryDirectoryTreeRead": "{message}. Refresh and try again.",
-  "@retryDirectoryTreeRead": {"placeholders": {"message": {"type": "String"}}},
+  "@retryDirectoryTreeRead": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
   "importOperation": "import",
   "exportOperation": "export",
   "batchExportOperation": "batch export",
@@ -666,37 +1178,146 @@
   "conflictDirectoryReplaceDetail": "Merge and replace keeps content unique to the destination directory and replaces files with the same name.",
   "conflictFileReplaceDetail": "Replace overwrites the existing file with the new content.",
   "conflictDescription": "\"{name}\" already exists and cannot be directly {operation}.\n\n{detail}",
-  "@conflictDescription": {"placeholders": {"name": {"type": "String"}, "operation": {"type": "String"}, "detail": {"type": "String"}}},
+  "@conflictDescription": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "operation": {
+        "type": "String"
+      },
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
   "keepBoth": "Keep both",
   "keepBothForAll": "Keep both for all",
   "mergeAndReplace": "Merge and replace",
   "replace": "Replace",
-  "replaceForAll": "Replace all"
-  ,"batchOperationCancelled": "{operation} cancelled",
-  "@batchOperationCancelled": {"placeholders": {"operation": {"type": "String"}}},
+  "replaceForAll": "Replace all",
+  "batchOperationCancelled": "{operation} cancelled",
+  "@batchOperationCancelled": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      }
+    }
+  },
   "batchOperationPartiallyCompleted": "{operation} partially completed",
-  "@batchOperationPartiallyCompleted": {"placeholders": {"operation": {"type": "String"}}},
+  "@batchOperationPartiallyCompleted": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      }
+    }
+  },
   "batchOperationCompleted": "{operation} completed",
-  "@batchOperationCompleted": {"placeholders": {"operation": {"type": "String"}}},
+  "@batchOperationCompleted": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      }
+    }
+  },
   "batchTotal": "Total: {count}",
-  "@batchTotal": {"placeholders": {"count": {"type": "int"}}},
+  "@batchTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchSucceeded": "Succeeded: {count}",
-  "@batchSucceeded": {"placeholders": {"count": {"type": "int"}}},
+  "@batchSucceeded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchSkipped": "Skipped: {count}",
-  "@batchSkipped": {"placeholders": {"count": {"type": "int"}}},
+  "@batchSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchFailed": "Failed: {count}",
-  "@batchFailed": {"placeholders": {"count": {"type": "int"}}},
+  "@batchFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchUnprocessed": "Unprocessed: {count}",
-  "@batchUnprocessed": {"placeholders": {"count": {"type": "int"}}},
+  "@batchUnprocessed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchClipboardRemaining": "Remaining in clipboard: {count}",
-  "@batchClipboardRemaining": {"placeholders": {"count": {"type": "int"}}},
+  "@batchClipboardRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "failureDetails": "Failure details",
   "batchFailureItem": "\"{name}\": {reason}",
-  "@batchFailureItem": {"placeholders": {"name": {"type": "String"}, "reason": {"type": "String"}}},
+  "@batchFailureItem": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "additionalFailures": "{count} more failures",
-  "@additionalFailures": {"placeholders": {"count": {"type": "int"}}},
+  "@additionalFailures": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "antiScreenshot": "Anti-screenshot",
-  "antiScreenshotHint": "Prevent system screenshot tools from capturing Safe Disk window content. Not supported on Linux/X11; effective on Windows/macOS only.",
-  "antiScreenshotOnLinux": "Enable anti-screenshot on Linux",
-  "antiScreenshotOnLinuxHint": "Screenshot prevention is unavailable on X11. This toggle has no effect and is reserved for future compositor support."
+  "antiScreenshotHint": "Prevent system screenshot tools from capturing Safe Disk window content. May cause black screen in screenshots. Requires Windows 10 2004+ or macOS.",
+  "antiScreenshotEnvVarHint": "If anti-screenshot makes the app unusable, launch with environment variable SAFE_DISK_NO_ANTI_SCREENSHOT=1 to force-disable it.",
+  "antiScreenshotInfoTitle": "Enable Anti-Screenshot?",
+  "@antiScreenshotInfoTitle": {},
+  "antiScreenshotInfoDescription": "Anti-screenshot prevents system tools (PrintScreen, Snipping Tool, etc.) from capturing Safe Disk window content. Screenshots will appear black. On older Windows versions the protection degrades to recording-only. macOS and Windows 10 2004+ are fully supported.",
+  "@antiScreenshotInfoDescription": {},
+  "antiScreenshotInfoEnable": "Enable",
+  "@antiScreenshotInfoEnable": {},
+  "antiScreenshotCountdownTitle": "Anti-Screenshot Enabled",
+  "@antiScreenshotCountdownTitle": {},
+  "antiScreenshotCountdownHint": "The setting has been applied. If the screen becomes unusable, do nothing — it will auto-revert after {countdown}s.\n\nClick \"Confirm & Save\" to keep anti-screenshot enabled.",
+  "@antiScreenshotCountdownHint": {
+    "placeholders": {
+      "countdown": {
+        "type": "int"
+      }
+    }
+  },
+  "antiScreenshotCountdownConfirm": "Confirm & Save",
+  "@antiScreenshotCountdownConfirm": {},
+  "webDavAuthBasic": "Basic (username and password, loopback only)",
+  "@webDavAuthBasic": {},
+  "webDavBasicRiskWarning": "Basic authentication transmits credentials in a form that other local processes can observe. Use only on trusted systems.",
+  "@webDavBasicRiskWarning": {},
+  "webDavBasicCredentialsDescription": "Provide the URL, username, and password to the selected trusted tool. Basic authentication transmits credentials in a reversible form — use only on trusted machines.",
+  "@webDavBasicCredentialsDescription": {},
+  "webDavTLS": "Enable HTTPS/TLS",
+  "@webDavTLS": {},
+  "webDavTLSDescription": "Use HTTPS with a self-signed certificate for loopback connections. Required by some system tools (e.g., Windows WebClient) but adds no additional network security on loopback. Clients must accept the self-signed certificate warning.",
+  "@webDavTLSDescription": {},
+  "webDavAuthModeBasic": "Authentication: Basic"
 }

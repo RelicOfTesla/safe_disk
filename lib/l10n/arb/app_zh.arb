@@ -33,21 +33,41 @@
   "loadingImage": "正在加载图片",
   "imageLoadFailed": "图片加载失败",
   "imageEncodedSizeLimit": "图片编码数据超过 {limit} 上限",
-  "@imageEncodedSizeLimit": {"placeholders": {"limit": {"type": "String"}}},
+  "@imageEncodedSizeLimit": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
   "imageContentEmpty": "图片内容为空",
   "imageDimensionsInvalid": "图片尺寸无效",
   "imageDecodedPixelLimit": "图片解码尺寸超过 {limit} 上限",
-  "@imageDecodedPixelLimit": {"placeholders": {"limit": {"type": "String"}}},
+  "@imageDecodedPixelLimit": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
   "imageEncryptedContentInvalid": "无法读取加密图片数据，内容可能无效。",
   "noDisplayableImage": "没有可显示的图片。请选择其他图片或重试。",
   "viewingImage": "正在查看：{fileName}",
   "@viewingImage": {
     "placeholders": {
-      "fileName": {"type": "String"}
+      "fileName": {
+        "type": "String"
+      }
     }
   },
   "animatedImageFrames": "动画（{count} 帧）",
-  "@animatedImageFrames": {"placeholders": {"count": {"type": "int"}}},
+  "@animatedImageFrames": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "zoomInShortcut": "放大（+）",
   "zoomOutShortcut": "缩小（-）",
   "resetImageViewShortcut": "重置视图（N）",
@@ -62,7 +82,13 @@
   "exposeToThirdParty": "向第三方工具暴露",
   "webDavExposureConfirmTitle": "向第三方工具暴露内容？",
   "webDavExposureConfirmDescription": "{name} 将通过仅本机可访问的只读 WebDAV 暴露给第三方工具。第三方工具可能缓存或导出明文，请只暴露必要内容。",
-  "@webDavExposureConfirmDescription": {"placeholders": {"name": {"type": "String"}}},
+  "@webDavExposureConfirmDescription": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "webDavExposeReadOnly": "创建只读访问",
   "webDavOptionsTitle": "配置 WebDAV 访问",
   "webDavOptionsDescription": "选择鉴权、凭据显示和会话保留方式。创建后可在访问列表中挂载或撤销。",
@@ -93,9 +119,21 @@
   "webDavUrl": "WebDAV 地址",
   "webDavToken": "访问令牌",
   "webDavLastAccessed": "最近访问：{time}",
-  "@webDavLastAccessed": {"placeholders": {"time": {"type": "String"}}},
+  "@webDavLastAccessed": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "webDavActiveRequests": "当前请求：{count}",
-  "@webDavActiveRequests": {"placeholders": {"count": {"type": "int"}}},
+  "@webDavActiveRequests": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "webDavUrlCopied": "已复制 WebDAV 地址",
   "webDavTokenCopied": "已复制访问令牌",
   "webDavUsername": "用户名",
@@ -111,7 +149,13 @@
   "webDavUnmount": "卸载",
   "webDavCancelMount": "取消挂载操作",
   "webDavMountedAt": "已挂载：{path}",
-  "@webDavMountedAt": {"placeholders": {"path": {"type": "String"}}},
+  "@webDavMountedAt": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "webDavMountPath": "系统挂载路径",
   "webDavMountPathCopied": "已复制系统挂载路径",
   "webDavUnmounted": "已卸载",
@@ -206,17 +250,47 @@
   "lockWhenHiddenHint": "仅锁定没有打开的文件窗口、未保存修改或正在进行的保存的目录；其他目录不会被强制关闭",
   "messageListSeparator": "；",
   "autoLockSummaryLocked": "已自动锁定 {count} 个目录",
-  "@autoLockSummaryLocked": {"placeholders": {"count": {"type": "int"}}},
+  "@autoLockSummaryLocked": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "autoLockSummarySkipped": "{count} 个目录含打开的文件窗口或未完成保存，未强制关闭",
-  "@autoLockSummarySkipped": {"placeholders": {"count": {"type": "int"}}},
+  "@autoLockSummarySkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "autoLockSummaryFailed": "{count} 个目录锁定失败",
-  "@autoLockSummaryFailed": {"placeholders": {"count": {"type": "int"}}},
+  "@autoLockSummaryFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "rootActiveWritesTitle": "正在保存内容",
   "rootActiveWritesDescription": "当前有 {count} 个文件保存操作尚未完成，请等待保存结束后再关闭会话。",
-  "@rootActiveWritesDescription": {"placeholders": {"count": {"type": "int"}}},
+  "@rootActiveWritesDescription": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "rootUnsavedContentTitle": "存在未保存内容",
   "rootUnsavedContentDescription": "请先处理以下打开的文件窗口，再结束会话：\n\n{documents}",
-  "@rootUnsavedContentDescription": {"placeholders": {"documents": {"type": "String"}}},
+  "@rootUnsavedContentDescription": {
+    "placeholders": {
+      "documents": {
+        "type": "String"
+      }
+    }
+  },
   "acknowledge": "知道了",
   "rootDirectoryDeleted": "本地加密目录已永久删除",
   "rootHistoryRemoved": "目录历史已移除，本地磁盘内容保持不变",
@@ -255,7 +329,13 @@
   "notepadReadOnly": "只读",
   "notepadEditing": "编辑",
   "notepadCharacterCount": "{count} 字符",
-  "@notepadCharacterCount": {"placeholders": {"count": {"type": "int"}}},
+  "@notepadCharacterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "notepadDraftSaveFailed": "无法保存恢复草稿",
   "notepadDraftCleanupFailed": "原文件已保存，但无法清理旧草稿",
   "notepadDraftReadFailed": "无法检查恢复草稿",
@@ -270,7 +350,16 @@
   "notepadClearClipboard": "快速清空系统剪贴板",
   "notepadFindHint": "查找（\\n 表示换行）",
   "notepadFindPosition": "{current}/{total}",
-  "@notepadFindPosition": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "@notepadFindPosition": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "notepadFindPrevious": "查找上一个",
   "notepadFindNext": "查找下一个",
   "notepadReplace": "替换",
@@ -278,7 +367,13 @@
   "notepadNoMatches": "未找到匹配项",
   "notepadSelectMatchFirst": "请先选择匹配项",
   "notepadReplacedCount": "已替换 {count} 处",
-  "@notepadReplacedCount": {"placeholders": {"count": {"type": "int"}}},
+  "@notepadReplacedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "welcomeGuideWelcomeTitle": "欢迎使用 Safe Disk",
   "welcomeGuideWelcomeContent": "Safe Disk 帮助您加密并管理私密文件。\n\n输入正确密码后，才能访问加密目录中的内容。",
   "welcomeGuideEncryptedDirectoryTitle": "加密目录",
@@ -297,26 +392,89 @@
   "appVersionDescription": "版本 1.0.0\n加密文件管理器",
   "durationNever": "永不过期",
   "durationSeconds": "{count} 秒",
-  "@durationSeconds": {"placeholders": {"count": {"type": "int"}}},
+  "@durationSeconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationMinutes": "{count} 分钟",
-  "@durationMinutes": {"placeholders": {"count": {"type": "int"}}},
+  "@durationMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationHours": "{count} 小时",
-  "@durationHours": {"placeholders": {"count": {"type": "int"}}},
+  "@durationHours": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "durationDays": "{count} 天",
-  "@durationDays": {"placeholders": {"count": {"type": "int"}}},
+  "@durationDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "progressMinutesSeconds": "{minutes} 分 {seconds} 秒",
-  "@progressMinutesSeconds": {"placeholders": {"minutes": {"type": "int"}, "seconds": {"type": "int"}}},
+  "@progressMinutesSeconds": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
   "progressEstimatedRemaining": "预计剩余：{duration}",
-  "@progressEstimatedRemaining": {"placeholders": {"duration": {"type": "String"}}},
+  "@progressEstimatedRemaining": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
   "progressProcessed": "已处理：{current} / {total}",
-  "@progressProcessed": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "@progressProcessed": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "progressCurrentFile": "当前：{name}",
-  "@progressCurrentFile": {"placeholders": {"name": {"type": "String"}}},
+  "@progressCurrentFile": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "rerunUnfinishedTransfers": "重新执行未完成的导入/导出",
   "preparing": "正在准备…",
   "operationNotCancellableYet": "当前操作尚未可取消。",
   "rerunningUnfinishedProgress": "正在重新执行 {current}/{total}…",
-  "@rerunningUnfinishedProgress": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "@rerunningUnfinishedProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "unfinishedTransfersRerunCompleted": "未完成导入/导出已重新执行。",
   "unfinishedTransfersRerunCancelled": "重新执行已取消，未完成操作已保留。",
   "preparingImport": "正在准备导入…",
@@ -327,31 +485,94 @@
   "exporting": "正在导出…",
   "deleting": "正在删除…",
   "directoryImportCompleted": "目录导入完成：{count} 个文件",
-  "@directoryImportCompleted": {"placeholders": {"count": {"type": "int"}}},
+  "@directoryImportCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "transferCancelledWithUnfinishedState": "操作已取消；下次打开目录时可以清理未完成的导入/导出状态。",
   "directoryExportCompleted": "导出完成：{count} 个文件",
-  "@directoryExportCompleted": {"placeholders": {"count": {"type": "int"}}},
+  "@directoryExportCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchExport": "批量导出",
   "batchExportCompleted": "导出完成：成功 {success} 个，失败 {failed} 个",
-  "@batchExportCompleted": {"placeholders": {"success": {"type": "int"}, "failed": {"type": "int"}}},
+  "@batchExportCompleted": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
   "batchExportCompletedAll": "导出完成：成功 {count} 个文件",
-  "@batchExportCompletedAll": {"placeholders": {"count": {"type": "int"}}},
+  "@batchExportCompletedAll": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchExportCancelled": "导出已取消：成功 {success} 个，失败 {failed} 个",
-  "@batchExportCancelled": {"placeholders": {"success": {"type": "int"}, "failed": {"type": "int"}}},
+  "@batchExportCancelled": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
   "batchDelete": "批量删除",
   "batchDeleteCancelled": "批量删除已取消：成功 {success} 个，剩余 {remaining} 个仍保持选择",
-  "@batchDeleteCancelled": {"placeholders": {"success": {"type": "int"}, "remaining": {"type": "int"}}},
+  "@batchDeleteCancelled": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "remaining": {
+        "type": "int"
+      }
+    }
+  },
   "batchDeleteCompleted": "已删除 {count} 个文件",
-  "@batchDeleteCompleted": {"placeholders": {"count": {"type": "int"}}},
+  "@batchDeleteCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "unfinishedTransfersDetected": "发现未完成的导入/导出",
   "unfinishedTransfersDetectedDescription": "检测到 {count} 个未完成的导入/导出操作。\n\n这些操作无法继续。你可以先清理未完成操作，再重新执行完整的导入或导出，也可以暂时跳过。",
-  "@unfinishedTransfersDetectedDescription": {"placeholders": {"count": {"type": "int"}}},
+  "@unfinishedTransfersDetectedDescription": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "skipForNow": "暂时跳过",
   "cleanState": "清理未完成操作",
   "rerunAll": "重新执行",
   "confirmBatchDeletion": "确认批量删除",
   "confirmBatchDeletionDescription": "确定删除所选 {count} 项吗？此操作无法撤销。删除会逐项执行，发生失败时已删除的项目不会恢复。",
-  "@confirmBatchDeletionDescription": {"placeholders": {"count": {"type": "int"}}},
+  "@confirmBatchDeletionDescription": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "disabled": "关闭",
   "nativeComponentUnavailable": "安全组件不可用",
   "nativeBindingFailureDescription": "安全组件版本与应用不匹配，无法启动加密功能。",
@@ -359,13 +580,37 @@
   "nativeBindingFailureSuggestion": "请重新安装同一版本的 Safe Disk 应用后重试。",
   "nativeLoadingFailureSuggestion": "请重新安装应用；若问题持续，请检查安全软件是否隔离了应用文件。",
   "initializationStage": "初始化阶段：{stage}",
-  "@initializationStage": {"placeholders": {"stage": {"type": "String"}}},
+  "@initializationStage": {
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
+  },
   "underlyingError": "底层错误：{error}",
-  "@underlyingError": {"placeholders": {"error": {"type": "String"}}},
+  "@underlyingError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "errorDiagnosticType": "错误类型：{type}",
-  "@errorDiagnosticType": {"placeholders": {"type": {"type": "String"}}},
+  "@errorDiagnosticType": {
+    "placeholders": {
+      "type": {
+        "type": "String"
+      }
+    }
+  },
   "errorDiagnosticOperation": "操作阶段：{operation}",
-  "@errorDiagnosticOperation": {"placeholders": {"operation": {"type": "String"}}},
+  "@errorDiagnosticOperation": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      }
+    }
+  },
   "errorDiagnosticRedacted": "[已隐藏]",
   "errorDiagnosticPathRedacted": "[路径已隐藏]",
   "errorDiagnosticTruncated": "[详细信息已截断]",
@@ -375,7 +620,13 @@
   "welcomeProductTagline": "加密文件管理器",
   "welcomeOpenDirectoryHint": "请从侧边栏打开或创建加密目录",
   "selectedItems": "已选择 {count} 项",
-  "@selectedItems": {"placeholders": {"count": {"type": "int"}}},
+  "@selectedItems": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "exitSelectionMode": "退出选择模式",
   "copySelected": "复制所选项",
   "cutSelected": "剪切所选项",
@@ -390,16 +641,52 @@
   "clipboardPastePending": "待粘贴",
   "moveSourceDeleteFailed": "目标已复制，但无法删除源项。源项和目标均已保留，请确认内容后手动删除源项。",
   "clipboardMultipleEntries": "{name} 等 {count} 项",
-  "@clipboardMultipleEntries": {"placeholders": {"name": {"type": "String"}, "count": {"type": "int"}}},
+  "@clipboardMultipleEntries": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "clipboardStatusWide": "{operation} · {entries} → {target}",
-  "@clipboardStatusWide": {"placeholders": {"operation": {"type": "String"}, "entries": {"type": "String"}, "target": {"type": "String"}}},
+  "@clipboardStatusWide": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      },
+      "entries": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
   "clipboardStatusNarrow": "{operation} · {entries}",
-  "@clipboardStatusNarrow": {"placeholders": {"operation": {"type": "String"}, "entries": {"type": "String"}}},
+  "@clipboardStatusNarrow": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      },
+      "entries": {
+        "type": "String"
+      }
+    }
+  },
   "moveToCurrentDirectory": "移动到当前目录",
   "pasteToCurrentDirectory": "粘贴到当前目录",
   "clearFileClipboard": "清空文件剪贴板",
   "openedDirectoriesCount": "已打开 {count} 个目录",
-  "@openedDirectoriesCount": {"placeholders": {"count": {"type": "int"}}},
+  "@openedDirectoriesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "unpinSidebar": "取消固定侧边栏",
   "pinSidebar": "固定侧边栏",
   "openOrCreateEncryptedDirectory": "打开或创建加密目录",
@@ -423,57 +710,174 @@
   "allFiles": "所有文件",
   "encryptedDirectoryCreated": "加密目录创建成功",
   "encryptedRootFound": "当前路径位于加密目录中：{path}",
-  "@encryptedRootFound": {"placeholders": {"path": {"type": "String"}}},
+  "@encryptedRootFound": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "passwordVerified": "密码验证成功",
   "unfinishedStatesCleaned": "已清理 {count} 个未完成的导入/导出状态",
-  "@unfinishedStatesCleaned": {"placeholders": {"count": {"type": "int"}}},
+  "@unfinishedStatesCleaned": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "notepadFileTooLarge": "文件超过 {limit}，暂不支持用安全记事本打开。",
-  "@notepadFileTooLarge": {"placeholders": {"limit": {"type": "String"}}},
+  "@notepadFileTooLarge": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
   "contentFileSizeUnknown": "无法确认文件大小，出于安全原因无法打开。",
   "nativeContentWindowUnavailable": "当前平台不支持独立文件窗口，已在主窗口打开",
   "batchMove": "批量移动",
   "batchPaste": "批量粘贴",
   "movedToDestination": "已移动：{name}",
-  "@movedToDestination": {"placeholders": {"name": {"type": "String"}}},
+  "@movedToDestination": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "pastedToDestination": "已粘贴：{name}",
-  "@pastedToDestination": {"placeholders": {"name": {"type": "String"}}},
+  "@pastedToDestination": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "batchPasteCancelled": "批量粘贴已取消：成功 {success} 个，剩余 {remaining} 个可重试",
-  "@batchPasteCancelled": {"placeholders": {"success": {"type": "int"}, "remaining": {"type": "int"}}},
+  "@batchPasteCancelled": {
+    "placeholders": {
+      "success": {
+        "type": "int"
+      },
+      "remaining": {
+        "type": "int"
+      }
+    }
+  },
   "movedFiles": "已移动 {count} 个文件",
-  "@movedFiles": {"placeholders": {"count": {"type": "int"}}},
+  "@movedFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "pastedFiles": "已粘贴 {count} 个文件",
-  "@pastedFiles": {"placeholders": {"count": {"type": "int"}}},
+  "@pastedFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noEncryptedClipboardEntries": "剪贴板中没有可粘贴的加密条目",
   "cannotPasteDirectoryIntoItself": "目录不能粘贴到自身或其子目录",
   "directoryCreated": "目录已创建：{name}",
-  "@directoryCreated": {"placeholders": {"name": {"type": "String"}}},
+  "@directoryCreated": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "fileCreated": "文件已创建：{name}",
-  "@fileCreated": {"placeholders": {"name": {"type": "String"}}},
+  "@fileCreated": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "renamedTo": "已重命名为：{name}",
-  "@renamedTo": {"placeholders": {"name": {"type": "String"}}},
+  "@renamedTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "confirmDeleteFile": "确认删除文件",
   "confirmDeleteFileDescription": "确定要删除“{name}”吗？此操作无法撤销。",
-  "@confirmDeleteFileDescription": {"placeholders": {"name": {"type": "String"}}},
+  "@confirmDeleteFileDescription": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "delete": "删除",
   "fileDeleted": "文件已删除",
   "fileImportCompleted": "文件导入成功：{name}",
-  "@fileImportCompleted": {"placeholders": {"name": {"type": "String"}}},
+  "@fileImportCompleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "fileExportCompleted": "文件导出成功：{path}",
-  "@fileExportCompleted": {"placeholders": {"path": {"type": "String"}}},
+  "@fileExportCompleted": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
   "confirmPlaintextExport": "确认导出明文",
   "confirmPlaintextExportDescription": "“{name}”将以未加密形式写入你选择的位置。导出后的副本不再受 Safe Disk 保护，是否继续？",
-  "@confirmPlaintextExportDescription": {"placeholders": {"name": {"type": "String"}}},
+  "@confirmPlaintextExportDescription": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "continueExport": "继续导出",
   "copiedNameToSystemClipboard": "已将明文名称复制到系统剪贴板",
   "copiedPathToSystemClipboard": "已将明文逻辑路径复制到系统剪贴板",
   "copiedForPaste": "已复制“{name}”，请选择目标目录粘贴",
-  "@copiedForPaste": {"placeholders": {"name": {"type": "String"}}},
+  "@copiedForPaste": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "cutForMove": "已剪切“{name}”，请选择目标目录移动",
-  "@cutForMove": {"placeholders": {"name": {"type": "String"}}},
+  "@cutForMove": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "copiedManyForPaste": "已复制 {count} 个文件，请选择目标目录粘贴",
-  "@copiedManyForPaste": {"placeholders": {"count": {"type": "int"}}},
+  "@copiedManyForPaste": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "cutManyForMove": "已剪切 {count} 个文件，请选择目标目录移动",
-  "@cutManyForMove": {"placeholders": {"count": {"type": "int"}}},
+  "@cutManyForMove": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "unlockDirectoryPrompt": "请输入密码以解锁：",
   "password": "密码",
   "passwordHint": "密码提示",
@@ -490,7 +894,13 @@
   "passwordHintUpdated": "密码提示已更新",
   "unlock": "解锁",
   "directoryLabel": "目录：{name}",
-  "@directoryLabel": {"placeholders": {"name": {"type": "String"}}},
+  "@directoryLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "passwordChangeDescription": "修改后需要用新密码重新打开目录。已有内容无需重新加密。",
   "currentPassword": "当前密码",
   "newPassword": "新密码",
@@ -500,7 +910,13 @@
   "rootDirectoryActions": "目录操作",
   "endSessionOnly": "仅结束会话",
   "endSessionDescription": "锁定“{name}”，保留侧边栏历史和磁盘目录",
-  "@endSessionDescription": {"placeholders": {"name": {"type": "String"}}},
+  "@endSessionDescription": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "directoryAlreadyLocked": "当前目录已经锁定",
   "endSessionAndRemoveHistory": "结束会话并移除历史",
   "removeHistoryDescription": "只从侧边栏移除，本地磁盘目录保持不变",
@@ -509,7 +925,13 @@
   "permanentlyDeleteLocalDirectory": "永久删除本地目录",
   "willPermanentlyDelete": "将永久删除：",
   "enterDirectoryNameToConfirm": "请输入目录名“{name}”确认：",
-  "@enterDirectoryNameToConfirm": {"placeholders": {"name": {"type": "String"}}},
+  "@enterDirectoryNameToConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "permanentlyDeleteDirectory": "永久删除目录",
   "unknown": "未知",
   "rootDirectoryProperties": "加密目录属性",
@@ -524,7 +946,13 @@
   "passwordDerivation": "密码派生",
   "passwordVerification": "密码验证",
   "versionValue": "版本 {version}",
-  "@versionValue": {"placeholders": {"version": {"type": "int"}}},
+  "@versionValue": {
+    "placeholders": {
+      "version": {
+        "type": "int"
+      }
+    }
+  },
   "unavailableOrLegacy": "不可用或旧格式",
   "passwordChange": "修改密码",
   "passwordChangeDirectly": "可直接修改",
@@ -554,7 +982,13 @@
   "kdfProfileStrong": "增强",
   "kdfProfileMaximum": "最高",
   "durationMilliseconds": "{count} 毫秒",
-  "@durationMilliseconds": {"placeholders": {"count": {"type": "int"}}},
+  "@durationMilliseconds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "noEncryption": "不加密",
   "unencryptedNamesWarning": "注意：选择“不加密”后，文件名和目录名不会加密。",
   "selectDirectory": "选择目录",
@@ -570,20 +1004,59 @@
   "removeOnly": "仅移除",
   "deleteDiskDirectory": "删除磁盘目录",
   "propertyLabel": "{label}：",
-  "@propertyLabel": {"placeholders": {"label": {"type": "String"}}},
+  "@propertyLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "copyPropertyValue": "复制{label}",
-  "@copyPropertyValue": {"placeholders": {"label": {"type": "String"}}},
+  "@copyPropertyValue": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "propertyValueCopied": "已复制属性值",
   "filterCurrentDirectoryHint": "筛选当前目录的文件和文件夹…",
   "filterLoadedItemsHint": "仅筛选已加载条目；继续加载可扩大范围",
   "navigateUp": "返回上级目录",
   "directoryIncompleteSummary": "已加载 {count} 项（{folders} 个文件夹，{files} 个文件）",
-  "@directoryIncompleteSummary": {"placeholders": {"count": {"type": "int"}, "folders": {"type": "int"}, "files": {"type": "int"}}},
+  "@directoryIncompleteSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "folders": {
+        "type": "int"
+      },
+      "files": {
+        "type": "int"
+      }
+    }
+  },
   "directorySummary": "{folders} 个文件夹，{files} 个文件",
-  "@directorySummary": {"placeholders": {"folders": {"type": "int"}, "files": {"type": "int"}}},
+  "@directorySummary": {
+    "placeholders": {
+      "folders": {
+        "type": "int"
+      },
+      "files": {
+        "type": "int"
+      }
+    }
+  },
   "sortUnavailableUntilFullyLoaded": "目录尚未完整加载，暂不可排序",
   "sortTooltip": "排序：{order}",
-  "@sortTooltip": {"placeholders": {"order": {"type": "String"}}},
+  "@sortTooltip": {
+    "placeholders": {
+      "order": {
+        "type": "String"
+      }
+    }
+  },
   "sortNameAscending": "名称：A 到 Z",
   "sortNameDescending": "名称：Z 到 A",
   "sortModifiedNewest": "修改时间：最新优先",
@@ -598,19 +1071,46 @@
   "gridView": "网格视图",
   "directoryReadFailedRetry": "读取目录失败，刷新后重试",
   "noMatchInLoadedEntries": "已加载条目中没有匹配“{query}”的内容",
-  "@noMatchInLoadedEntries": {"placeholders": {"query": {"type": "String"}}},
+  "@noMatchInLoadedEntries": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
   "noMatchInCurrentDirectory": "当前目录没有匹配“{query}”的条目",
-  "@noMatchInCurrentDirectory": {"placeholders": {"query": {"type": "String"}}},
+  "@noMatchInCurrentDirectory": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
   "unloadedEntriesMayMatch": "仍有未加载条目，可继续加载后再筛选",
   "currentDirectoryEmpty": "当前目录为空",
   "loadMoreEntries": "加载更多条目",
   "loadMoreFailedRetry": "加载更多失败，刷新后重试",
   "scrollToLoadMore": "继续滚动以加载更多条目",
   "directoryItemCount": "{count} 个项目",
-  "@directoryItemCount": {"placeholders": {"count": {"type": "int"}}},
+  "@directoryItemCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "file": "文件",
   "fileSystemEntrySemantics": "{name}，{type}",
-  "@fileSystemEntrySemantics": {"placeholders": {"name": {"type": "String"}, "type": {"type": "String"}}},
+  "@fileSystemEntrySemantics": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "type": {
+        "type": "String"
+      }
+    }
+  },
   "openDirectory": "打开目录",
   "viewImage": "查看图片",
   "editWithSecureNotepad": "使用安全记事本编辑",
@@ -643,7 +1143,13 @@
   "modifiedTime": "修改时间",
   "logicalPath": "逻辑路径",
   "fileTypeWithExtension": "{extension} 文件",
-  "@fileTypeWithExtension": {"placeholders": {"extension": {"type": "String"}}},
+  "@fileTypeWithExtension": {
+    "placeholders": {
+      "extension": {
+        "type": "String"
+      }
+    }
+  },
   "newFile": "新建文件",
   "newDirectory": "新建目录",
   "newFileDefaultName": "新建文件.txt",
@@ -654,7 +1160,13 @@
   "readingDirectories": "正在读取…",
   "loadMoreDirectories": "读取更多目录",
   "retryDirectoryTreeRead": "{message}，刷新重试",
-  "@retryDirectoryTreeRead": {"placeholders": {"message": {"type": "String"}}},
+  "@retryDirectoryTreeRead": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
   "importOperation": "导入",
   "exportOperation": "导出",
   "batchExportOperation": "批量导出",
@@ -666,37 +1178,146 @@
   "conflictDirectoryReplaceDetail": "选择“合并并替换”会保留目标目录独有的内容，并替换其中的同名文件。",
   "conflictFileReplaceDetail": "选择“替换”会用新内容替换现有文件。",
   "conflictDescription": "“{name}”已存在，无法直接{operation}。\n\n{detail}",
-  "@conflictDescription": {"placeholders": {"name": {"type": "String"}, "operation": {"type": "String"}, "detail": {"type": "String"}}},
+  "@conflictDescription": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "operation": {
+        "type": "String"
+      },
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
   "keepBoth": "保留两者",
   "keepBothForAll": "全部保留两者",
   "mergeAndReplace": "合并并替换",
   "replace": "替换",
-  "replaceForAll": "全部替换"
-  ,"batchOperationCancelled": "{operation}已取消",
-  "@batchOperationCancelled": {"placeholders": {"operation": {"type": "String"}}},
+  "replaceForAll": "全部替换",
+  "batchOperationCancelled": "{operation}已取消",
+  "@batchOperationCancelled": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      }
+    }
+  },
   "batchOperationPartiallyCompleted": "{operation}部分完成",
-  "@batchOperationPartiallyCompleted": {"placeholders": {"operation": {"type": "String"}}},
+  "@batchOperationPartiallyCompleted": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      }
+    }
+  },
   "batchOperationCompleted": "{operation}完成",
-  "@batchOperationCompleted": {"placeholders": {"operation": {"type": "String"}}},
+  "@batchOperationCompleted": {
+    "placeholders": {
+      "operation": {
+        "type": "String"
+      }
+    }
+  },
   "batchTotal": "总数：{count}",
-  "@batchTotal": {"placeholders": {"count": {"type": "int"}}},
+  "@batchTotal": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchSucceeded": "成功：{count}",
-  "@batchSucceeded": {"placeholders": {"count": {"type": "int"}}},
+  "@batchSucceeded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchSkipped": "跳过：{count}",
-  "@batchSkipped": {"placeholders": {"count": {"type": "int"}}},
+  "@batchSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchFailed": "失败：{count}",
-  "@batchFailed": {"placeholders": {"count": {"type": "int"}}},
+  "@batchFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchUnprocessed": "未处理：{count}",
-  "@batchUnprocessed": {"placeholders": {"count": {"type": "int"}}},
+  "@batchUnprocessed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "batchClipboardRemaining": "剪贴板剩余：{count}",
-  "@batchClipboardRemaining": {"placeholders": {"count": {"type": "int"}}},
+  "@batchClipboardRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "failureDetails": "失败详情",
   "batchFailureItem": "“{name}”：{reason}",
-  "@batchFailureItem": {"placeholders": {"name": {"type": "String"}, "reason": {"type": "String"}}},
+  "@batchFailureItem": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
   "additionalFailures": "另有 {count} 项失败",
-  "@additionalFailures": {"placeholders": {"count": {"type": "int"}}},
+  "@additionalFailures": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "antiScreenshot": "防截屏",
-  "antiScreenshotHint": "阻止系统截屏工具捕获 Safe Disk 窗口内容。Linux/X11 下不支持此功能，仅 Windows/macOS 有效。",
-  "antiScreenshotOnLinux": "Linux 下也启用防截屏",
-  "antiScreenshotOnLinuxHint": "当前系统运行在 X11 上，截屏防护不可用。此开关无实际效果，仅为将来 Linux 组合器支持预留。"
+  "antiScreenshotHint": "阻止系统截屏工具捕获 Safe Disk 窗口内容。可能导致截图为黑屏。系统版本较低时降级为仅防录屏。需 Windows 10 2004+ 或 macOS 以完全防止截图。",
+  "antiScreenshotEnvVarHint": "如防截屏导致应用无法使用，可通过环境变量 SAFE_DISK_NO_ANTI_SCREENSHOT=1 启动以强制关闭。",
+  "antiScreenshotInfoTitle": "开启防截屏？",
+  "@antiScreenshotInfoTitle": {},
+  "antiScreenshotInfoDescription": "防截屏可阻止系统工具（PrintScreen、截图工具等）捕获 Safe Disk 窗口内容。截图将显示为黑色。旧版 Windows 下降级为仅防录屏。macOS 和 Windows 10 2004+ 完全支持。",
+  "@antiScreenshotInfoDescription": {},
+  "antiScreenshotInfoEnable": "开启",
+  "@antiScreenshotInfoEnable": {},
+  "antiScreenshotCountdownTitle": "防截屏已开启",
+  "@antiScreenshotCountdownTitle": {},
+  "antiScreenshotCountdownHint": "设置已生效。如果屏幕无法正常显示，请勿操作 — {countdown} 秒后将自动恢复。\n\n点击\"确认保存\"以保留防截屏设置。",
+  "@antiScreenshotCountdownHint": {
+    "placeholders": {
+      "countdown": {
+        "type": "int"
+      }
+    }
+  },
+  "antiScreenshotCountdownConfirm": "确认保存",
+  "@antiScreenshotCountdownConfirm": {},
+  "webDavAuthBasic": "Basic（用户名与密码，仅限 loopback）",
+  "@webDavAuthBasic": {},
+  "webDavBasicRiskWarning": "Basic 认证以可逆形式传输凭据，其他本机进程可能观察到。仅可在受信任的系统上使用。",
+  "@webDavBasicRiskWarning": {},
+  "webDavBasicCredentialsDescription": "向选定的受信任工具提供 URL、用户名和密码。Basic 认证以可逆形式传输凭据 —— 仅可在受信任的机器上使用。",
+  "@webDavBasicCredentialsDescription": {},
+  "webDavTLS": "启用 HTTPS/TLS",
+  "@webDavTLS": {},
+  "webDavTLSDescription": "使用自签名证书为 loopback 连接启用 HTTPS。部分系统工具（如 Windows 网络磁盘映射）要求 HTTPS，但 loopback 上不增加额外的网络安全性。客户端需接受自签名证书警告。",
+  "@webDavTLSDescription": {},
+  "webDavAuthModeBasic": "认证方式：Basic"
 }
