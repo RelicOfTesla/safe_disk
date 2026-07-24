@@ -6,6 +6,7 @@ import '../l10n/app_locale.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../utils/error_messages.dart';
 import '../widgets/copyable_snackbar.dart';
+import '../widgets/anti_screenshot_dialog.dart';
 
 enum _LeaveAction { cancel, discard, save }
 
@@ -43,7 +44,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
   bool _webDavEnabled = SettingsService.defaultWebDavEnabled;
   bool _antiScreenshot = SettingsService.defaultAntiScreenshot;
-  bool _antiScreenshotOnLinux = SettingsService.defaultAntiScreenshotOnLinux;
+  String _antiScreenshotHint = '';
   _SettingsSnapshot? _saved;
   bool _isLoading = true;
   bool _allowPop = false;
@@ -64,7 +65,6 @@ class _SettingsPageState extends State<SettingsPage> {
         openOnDoubleClick: _openOnDoubleClick,
         webDavEnabled: _webDavEnabled,
         antiScreenshot: _antiScreenshot,
-        antiScreenshotOnLinux: _antiScreenshotOnLinux,
       );
 
   @override
@@ -93,8 +93,6 @@ class _SettingsPageState extends State<SettingsPage> {
         openOnDoubleClick: await _settingsService.getOpenOnDoubleClick(),
         webDavEnabled: await _settingsService.getWebDavEnabled(),
         antiScreenshot: await _settingsService.getAntiScreenshot(),
-        antiScreenshotOnLinux:
-            await _settingsService.getAntiScreenshotOnLinux(),
       );
       if (!mounted) return;
       setState(() {
@@ -112,9 +110,9 @@ class _SettingsPageState extends State<SettingsPage> {
         _openOnDoubleClick = snapshot.openOnDoubleClick;
         _webDavEnabled = snapshot.webDavEnabled;
         _antiScreenshot = snapshot.antiScreenshot;
-        _antiScreenshotOnLinux = snapshot.antiScreenshotOnLinux;
         _saved = snapshot;
         _isLoading = false;
+        _loadAntiScreenshotCapability();
       });
     } catch (error) {
       if (!mounted) return;
@@ -126,6 +124,63 @@ class _SettingsPageState extends State<SettingsPage> {
         operation: 'settings-load',
       );
     }
+  }
+
+  Future<void> _loadAntiScreenshotCapability() async {
+    final cap = await _settingsService.getAntiScreenshotCapability();
+    if (!mounted) return;
+    setState(() {
+      _antiScreenshotHint =
+          cap.supported ? (cap.detail ?? '') : cap.reason ?? '';
+    });
+  }
+
+  Future<void> _onAntiScreenshotToggle(bool value) async {
+    if (value) {
+      final shouldEnable = await _runAntiScreenshotEnableFlow();
+      if (!mounted) return;
+      if (shouldEnable != true) {
+        setState(() => _antiScreenshot = false);
+        return;
+      }
+    }
+    setState(() => _antiScreenshot = value);
+  }
+
+  /// Two-step anti-screenshot enable flow:
+  ///   1. Info dialog with full explanation → user clicks "Enable" or "Cancel".
+  ///   2. Countdown dialog after the setting is applied → auto-revert on timeout.
+  Future<bool> _runAntiScreenshotEnableFlow() async {
+    final strings = AppLocalizations.of(context)!;
+
+    // Step 1: informational confirmation
+    final enable = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AntiScreenshotInfoDialog(strings: strings),
+    );
+    if (!mounted || enable != true) return false;
+
+    // Apply immediately so the countdown feels real
+    await _settingsService.setAntiScreenshot(true);
+    await _settingsService.applyAntiScreenshot();
+    if (!mounted) return false;
+
+    // Step 2: countdown to save
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AntiScreenshotCountdownDialog(strings: strings),
+    );
+    if (!mounted) return false;
+
+    if (confirmed != true) {
+      // Revert
+      await _settingsService.setAntiScreenshot(false);
+      await _settingsService.applyAntiScreenshot();
+      return false;
+    }
+    return true;
   }
 
   Future<bool> _saveSettings() async {
@@ -147,7 +202,6 @@ class _SettingsPageState extends State<SettingsPage> {
       await _settingsService.setOpenOnDoubleClick(_openOnDoubleClick);
       await _settingsService.setWebDavEnabled(_webDavEnabled);
       await _settingsService.setAntiScreenshot(_antiScreenshot);
-      await _settingsService.setAntiScreenshotOnLinux(_antiScreenshotOnLinux);
       await _settingsService.applyAntiScreenshot();
       await widget.onWebDavEnabledChanged?.call(_webDavEnabled);
       ErrorReportingService.configure(
@@ -246,7 +300,6 @@ class _SettingsPageState extends State<SettingsPage> {
       _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
       _webDavEnabled = SettingsService.defaultWebDavEnabled;
       _antiScreenshot = SettingsService.defaultAntiScreenshot;
-      _antiScreenshotOnLinux = SettingsService.defaultAntiScreenshotOnLinux;
     });
     widget.onThemeModeChanged?.call(ThemeMode.system);
     widget.onLocaleChanged?.call(null);
@@ -512,20 +565,21 @@ class _SettingsPageState extends State<SettingsPage> {
             key: const Key('anti-screenshot'),
             contentPadding: EdgeInsets.zero,
             title: Text(strings.antiScreenshot),
-            subtitle: Text(strings.antiScreenshotHint),
+            subtitle: Text(_antiScreenshotHint.isNotEmpty
+                ? _antiScreenshotHint
+                : strings.antiScreenshotHint),
             value: _antiScreenshot,
-            onChanged: (value) => setState(() => _antiScreenshot = value),
+            onChanged: (value) => _onAntiScreenshotToggle(value),
           ),
-          if (_antiScreenshot)
-            SwitchListTile(
-              key: const Key('anti-screenshot-linux'),
-              contentPadding: EdgeInsets.zero,
-              title: Text(strings.antiScreenshotOnLinux),
-              subtitle: Text(strings.antiScreenshotOnLinuxHint),
-              value: _antiScreenshotOnLinux,
-              onChanged: (value) =>
-                  setState(() => _antiScreenshotOnLinux = value),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              strings.antiScreenshotEnvVarHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
             ),
+          ),
         ],
       );
 
@@ -665,7 +719,6 @@ class _SettingsSnapshot {
     required this.openOnDoubleClick,
     required this.webDavEnabled,
     required this.antiScreenshot,
-    required this.antiScreenshotOnLinux,
   });
 
   final String themeMode;
@@ -681,7 +734,6 @@ class _SettingsSnapshot {
   final bool openOnDoubleClick;
   final bool webDavEnabled;
   final bool antiScreenshot;
-  final bool antiScreenshotOnLinux;
 
   @override
   bool operator ==(Object other) =>
@@ -698,8 +750,7 @@ class _SettingsSnapshot {
       detailedErrorReports == other.detailedErrorReports &&
       openOnDoubleClick == other.openOnDoubleClick &&
       webDavEnabled == other.webDavEnabled &&
-      antiScreenshot == other.antiScreenshot &&
-      antiScreenshotOnLinux == other.antiScreenshotOnLinux;
+      antiScreenshot == other.antiScreenshot;
 
   @override
   int get hashCode => Object.hash(
@@ -716,6 +767,5 @@ class _SettingsSnapshot {
         openOnDoubleClick,
         webDavEnabled,
         antiScreenshot,
-        antiScreenshotOnLinux,
       );
 }

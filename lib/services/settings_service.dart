@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'dart:io' show Platform, Process;
 import 'package:no_screenshot/no_screenshot.dart';
-import 'package:flutter/foundation.dart';
 
 /// Settings service for Safe Disk application
 ///
@@ -28,7 +28,8 @@ class SettingsService {
   static const String _keyOpenOnDoubleClick = 'open_on_double_click';
   static const String _keyWebDavEnabled = 'webdav_enabled';
   static const String _keyAntiScreenshot = 'anti_screenshot';
-  static const String _keyAntiScreenshotOnLinux = 'anti_screenshot_on_linux';
+  static const String _keyAntiScreenshotFirstConfirmed =
+      'anti_screenshot_first_confirmed';
 
   // Default values
   static const int defaultKeyStrengthMs = 1000; // 1 second
@@ -45,8 +46,7 @@ class SettingsService {
   static const bool defaultOpenOnDoubleClick = false;
   static const bool defaultWebDavEnabled = true;
   // Anti-screenshot defaults: enabled on Windows, off on Linux/macOS (less reliable)
-  static const bool defaultAntiScreenshot = true;
-  static const bool defaultAntiScreenshotOnLinux = false;
+  static const bool defaultAntiScreenshot = false;
 
   static const List<int> notepadAutoSaveOptions = [0, 15, 30, 60, 300];
 
@@ -308,37 +308,134 @@ class SettingsService {
     await prefs.setBool(_keyAntiScreenshot, enabled);
   }
 
-  /// Get anti-screenshot preference for Linux specifically
-  Future<bool> getAntiScreenshotOnLinux() async {
+  /// Whether the user has confirmed the first-launch anti-screenshot dialog.
+  Future<bool> getAntiScreenshotFirstConfirmed() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyAntiScreenshotOnLinux) ??
-        defaultAntiScreenshotOnLinux;
+    return prefs.getBool(_keyAntiScreenshotFirstConfirmed) ?? false;
   }
 
-  Future<void> setAntiScreenshotOnLinux(bool enabled) async {
+  Future<void> setAntiScreenshotFirstConfirmed(bool confirmed) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyAntiScreenshotOnLinux, enabled);
+    await prefs.setBool(_keyAntiScreenshotFirstConfirmed, confirmed);
   }
 
-  /// Apply current anti-screenshot settings immediately via NoScreenshot.
-  Future<void> applyAntiScreenshot() async {
+  /// Describes whether anti-screenshot is supported on the current platform.
+  Future<AntiScreenshotCapability> getAntiScreenshotCapability() async {
+    if (Platform.isLinux) {
+      return AntiScreenshotCapability.unsupported(
+        reason: 'Linux 桌面环境不提供防截屏 API（X11/Wayland 均不支持）。',
+      );
+    }
+    if (Platform.isMacOS) {
+      return AntiScreenshotCapability.supported(
+        detail: 'macOS 通过 NSWindow.sharingType 提供支持。',
+      );
+    }
+    if (Platform.isWindows) {
+      final build = await _getWindowsBuildNumber();
+      if (build == null) {
+        return AntiScreenshotCapability.unsupported(
+          reason: '无法检测 Windows 版本。',
+        );
+      }
+      if (build < 19041) {
+        return AntiScreenshotCapability.degraded(
+          detail:
+              'Windows Build $build，降级使用 WDA_MONITOR（仅阻止录屏软件，不阻止 PrintScreen 截图）。',
+        );
+      }
+      return AntiScreenshotCapability.supported(
+        detail: 'Windows Build $build，支持 WDA_EXCLUDEFROMCAPTURE。',
+      );
+    }
+    return AntiScreenshotCapability.unsupported(reason: '未知平台。');
+  }
+
+  /// Apply current anti-screenshot settings immediately.
+  ///
+  /// Returns a status result so the UI can show proper feedback.
+  /// Environment variable to force-disable anti-screenshot for recovery.
+  static const String _envForceDisable = 'SAFE_DISK_NO_ANTI_SCREENSHOT';
+
+  /// Apply current anti-screenshot settings immediately.
+  ///
+  /// Returns a status result so the UI can show proper feedback.
+  /// If the environment variable SAFE_DISK_NO_ANTI_SCREENSHOT is set,
+  /// anti-screenshot is silently skipped regardless of settings.
+  Future<AntiScreenshotApplyResult> applyAntiScreenshot() async {
     try {
+      // Allow emergency recovery: env var force-disables anti-screenshot
+      if (Platform.environment.containsKey(_envForceDisable)) {
+        await NoScreenshot.instance.screenshotOn();
+        return const AntiScreenshotApplyResult(
+          applied: false,
+          message: '已通过环境变量 SAFE_DISK_NO_ANTI_SCREENSHOT 强制关闭防截屏。',
+          capability: null,
+        );
+      }
+
       final enabled = await getAntiScreenshot();
       if (!enabled) {
         await NoScreenshot.instance.screenshotOn();
-        return;
+        return const AntiScreenshotApplyResult(
+          applied: false,
+          message: null,
+          capability: null,
+        );
       }
-      if (defaultTargetPlatform == TargetPlatform.linux) {
-        final linuxEnabled = await getAntiScreenshotOnLinux();
-        if (!linuxEnabled) {
-          await NoScreenshot.instance.screenshotOn();
-          return;
-        }
+
+      final cap = await getAntiScreenshotCapability();
+      if (!cap.supported) {
+        return AntiScreenshotApplyResult(
+          applied: false,
+          message: cap.reason,
+          capability: cap,
+        );
       }
-      await NoScreenshot.instance.screenshotOff();
-    } catch (_) {
-      // Best-effort; may not be available on all platforms.
+
+      final result = await NoScreenshot.instance.screenshotOff();
+      if (result == true) {
+        return AntiScreenshotApplyResult(
+          applied: true,
+          message: cap.detail,
+          capability: cap,
+        );
+      } else {
+        return AntiScreenshotApplyResult(
+          applied: false,
+          message: '防截屏未能生效，请检查系统环境。',
+          capability: cap,
+        );
+      }
+    } catch (e) {
+      return AntiScreenshotApplyResult(
+        applied: false,
+        message: '防截屏调用失败: $e',
+        capability: null,
+      );
     }
+  }
+
+  /// Internal: try to detect Windows build number via wmic or ver command.
+  Future<int?> _getWindowsBuildNumber() async {
+    try {
+      final result = await Process.run('wmic', ['os', 'get', 'BuildNumber']);
+      final output = result.stdout.toString();
+      final match = RegExp(r'(\d{4,})').firstMatch(output);
+      if (match != null) {
+        return int.tryParse(match.group(1)!);
+      }
+    } catch (_) {
+      try {
+        final result = await Process.run('cmd', ['/c', 'ver']);
+        final output = result.stdout.toString();
+        final match = RegExp(r'(\d+\.\d+\.(\d+))').firstMatch(output);
+        if (match != null) {
+          return int.tryParse(match.group(2)!);
+        }
+      } catch (_) {}
+    }
+    return null;
   }
 
   // ==================== Reset to Defaults ====================
@@ -359,6 +456,45 @@ class SettingsService {
     await setOpenOnDoubleClick(defaultOpenOnDoubleClick);
     await setWebDavEnabled(defaultWebDavEnabled);
     await setAntiScreenshot(defaultAntiScreenshot);
-    await setAntiScreenshotOnLinux(defaultAntiScreenshotOnLinux);
   }
+}
+
+/// Describes anti-screenshot capability for the current platform.
+class AntiScreenshotCapability {
+  final bool supported;
+  final String? reason; // Why it's unsupported
+  final String? detail; // Additional detail when supported
+
+  const AntiScreenshotCapability._({
+    required this.supported,
+    this.reason,
+    this.detail,
+  });
+
+  factory AntiScreenshotCapability.supported({String? detail}) =>
+      AntiScreenshotCapability._(supported: true, detail: detail);
+
+  factory AntiScreenshotCapability.unsupported({required String reason}) =>
+      AntiScreenshotCapability._(supported: false, reason: reason);
+
+  /// The feature works but with reduced capability (e.g. WDA_MONITOR only).
+  factory AntiScreenshotCapability.degraded({required String detail}) =>
+      AntiScreenshotCapability._(
+        supported: true,
+        detail: detail,
+        reason: detail,
+      );
+}
+
+/// Result of applying anti-screenshot settings.
+class AntiScreenshotApplyResult {
+  final bool applied;
+  final String? message;
+  final AntiScreenshotCapability? capability;
+
+  const AntiScreenshotApplyResult({
+    required this.applied,
+    this.message,
+    this.capability,
+  });
 }

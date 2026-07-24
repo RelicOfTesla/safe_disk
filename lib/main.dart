@@ -1,8 +1,6 @@
 import 'dart:async';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'l10n/app_locale.dart';
 import 'l10n/generated/app_localizations.dart';

@@ -38,6 +38,7 @@ import '../widgets/progress_dialog.dart';
 import '../widgets/home_shell.dart';
 import '../widgets/file_browser.dart';
 import '../widgets/file_item_actions.dart';
+import '../widgets/anti_screenshot_dialog.dart';
 import '../widgets/entry_conflict_dialog.dart';
 import '../widgets/directory_background_actions.dart';
 import '../widgets/root_directory_action_dialog.dart';
@@ -177,6 +178,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _loadOpenMode();
     _loadWebDavEnabled();
     _checkFirstTimeUser();
+    _checkFirstLaunchAntiScreenshot();
   }
 
   @override
@@ -409,6 +411,61 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   // ── Persistence ───────────────────────────────────────────────────
+
+  Future<void> _checkFirstLaunchAntiScreenshot() async {
+    try {
+      final enabled = await _settingsService.getAntiScreenshot();
+      if (!enabled) return;
+      final confirmed =
+          await _settingsService.getAntiScreenshotFirstConfirmed();
+      if (confirmed) return;
+
+      // First launch with anti-screenshot enabled — two-step flow
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final strings = AppLocalizations.of(context)!;
+
+        // Step 1: informational dialog
+        final enable = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AntiScreenshotInfoDialog(strings: strings),
+        );
+        if (!mounted || enable != true) {
+          await _settingsService.setAntiScreenshot(false);
+          await _settingsService.applyAntiScreenshot();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(strings.antiScreenshotHint)),
+            );
+          }
+          return;
+        }
+
+        // Step 2: countdown to confirm
+        final saved = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AntiScreenshotCountdownDialog(strings: strings),
+        );
+        if (saved == true) {
+          await _settingsService.setAntiScreenshotFirstConfirmed(true);
+        } else {
+          // User cancelled or timeout — disable anti-screenshot
+          await _settingsService.setAntiScreenshot(false);
+          await _settingsService.applyAntiScreenshot();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(strings.antiScreenshotHint)),
+            );
+          }
+        }
+      });
+    } catch (_) {
+      // Best-effort; non-critical.
+    }
+  }
 
   Future<void> _checkFirstTimeUser() async {
     final isFirstTime = await _persistenceService.isFirstTimeUser();
@@ -1783,6 +1840,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         authMode: options.authMode,
         credentialVisibility: options.credentialVisibility,
         sessionLifetime: options.sessionLifetime,
+        tls: options.tls,
       );
       if (!mounted ||
           !_isCurrentDirectorySession(directory.path, activeSessionID)) {
@@ -1994,7 +2052,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     for (final operationID in _webDavMountOperations.values.toList()) {
       try {
         _webDavService.cancelOperation(operationID);
-      } catch (_) {}
+      } catch (_) {
+        // Best-effort cleanup: cancel may fail if the operation has already
+        // completed or the underlying connection has been torn down.
+      }
     }
 
     for (final directory in List<EncryptedDirectory>.from(_openedDirs)) {
