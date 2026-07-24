@@ -694,5 +694,9 @@
   "batchFailureItem": "“{name}”：{reason}",
   "@batchFailureItem": {"placeholders": {"name": {"type": "String"}, "reason": {"type": "String"}}},
   "additionalFailures": "另有 {count} 项失败",
-  "@additionalFailures": {"placeholders": {"count": {"type": "int"}}}
+  "@additionalFailures": {"placeholders": {"count": {"type": "int"}}},
+  "antiScreenshot": "防截屏",
+  "antiScreenshotHint": "阻止系统截屏工具捕获 Safe Disk 窗口内容。重启后生效。",
+  "antiScreenshotOnLinux": "Linux 下也启用防截屏",
+  "antiScreenshotOnLinuxHint": "Linux 下防截屏兼容性较差，可能引起窗口渲染异常。仅在确认需要时开启。"
 }

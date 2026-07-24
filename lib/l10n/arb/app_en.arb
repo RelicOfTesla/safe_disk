@@ -694,5 +694,9 @@
   "batchFailureItem": "\"{name}\": {reason}",
   "@batchFailureItem": {"placeholders": {"name": {"type": "String"}, "reason": {"type": "String"}}},
   "additionalFailures": "{count} more failures",
-  "@additionalFailures": {"placeholders": {"count": {"type": "int"}}}
+  "@additionalFailures": {"placeholders": {"count": {"type": "int"}}},
+  "antiScreenshot": "Anti-screenshot",
+  "antiScreenshotHint": "Prevent system screenshot tools from capturing Safe Disk window content. Takes effect after restart.",
+  "antiScreenshotOnLinux": "Enable anti-screenshot on Linux",
+  "antiScreenshotOnLinuxHint": "Anti-screenshot on Linux has known compatibility issues and may cause rendering glitches. Enable only when needed."
 }

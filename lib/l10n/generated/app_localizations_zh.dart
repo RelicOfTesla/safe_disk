@@ -355,19 +355,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavGlobalSwitchHint => '关闭后禁止创建新的共享，并撤销当前已打开 root 的 WebDAV 访问。';
 
   @override
-  String get antiScreenshot => '防截屏';
-
-  @override
-  String get antiScreenshotHint => '阻止系统截屏工具捕获 Safe Disk 窗口内容。重启后生效。';
-
-  @override
-  String get antiScreenshotOnLinux => 'Linux 下也启用防截屏';
-
-  @override
-  String get antiScreenshotOnLinuxHint =>
-      'Linux 下防截屏兼容性较差，可能引起窗口渲染异常。仅在确认需要时开启。';
-
-  @override
   String get webDavDisabledMessage => 'WebDAV 共享已关闭，请在设置中重新开启。';
 
   @override
@@ -2028,4 +2015,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String additionalFailures(int count) {
     return '另有 $count 项失败';
   }
+
+  @override
+  String get antiScreenshot => '防截屏';
+
+  @override
+  String get antiScreenshotHint => '阻止系统截屏工具捕获 Safe Disk 窗口内容。重启后生效。';
+
+  @override
+  String get antiScreenshotOnLinux => 'Linux 下也启用防截屏';
+
+  @override
+  String get antiScreenshotOnLinuxHint =>
+      'Linux 下防截屏兼容性较差，可能引起窗口渲染异常。仅在确认需要时开启。';
 }

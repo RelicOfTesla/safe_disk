@@ -367,20 +367,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'When disabled, new shares are blocked and WebDAV access for open roots is revoked.';
 
   @override
-  String get antiScreenshot => 'Anti-screenshot';
-
-  @override
-  String get antiScreenshotHint =>
-      'Prevent system screenshot tools from capturing Safe Disk window contents. Requires restart to take effect.';
-
-  @override
-  String get antiScreenshotOnLinux => 'Enable anti-screenshot on Linux';
-
-  @override
-  String get antiScreenshotOnLinuxHint =>
-      'Anti-screenshot on Linux has weaker compatibility and may cause rendering issues. Enable only if needed.';
-
-  @override
   String get webDavDisabledMessage =>
       'WebDAV sharing is disabled. Re-enable it in Settings to create a share.';
 
@@ -2172,4 +2158,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String additionalFailures(int count) {
     return '$count more failures';
   }
+
+  @override
+  String get antiScreenshot => 'Anti-screenshot';
+
+  @override
+  String get antiScreenshotHint =>
+      'Prevent system screenshot tools from capturing Safe Disk window content. Takes effect after restart.';
+
+  @override
+  String get antiScreenshotOnLinux => 'Enable anti-screenshot on Linux';
+
+  @override
+  String get antiScreenshotOnLinuxHint =>
+      'Anti-screenshot on Linux has known compatibility issues and may cause rendering glitches. Enable only when needed.';
 }
