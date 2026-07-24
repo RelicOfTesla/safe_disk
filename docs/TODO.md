@@ -7,6 +7,16 @@
 > 本轮及跨模块验证证据见 [VERIFICATION_STATUS.md](VERIFICATION_STATUS.md)；本文件不记录验证流水。
 > 审计日期：2026-07-23。状态以当前代码、公开入口、当前系统验收和测试为准，不继承历史勾选。
 
+## 当前轮活跃修复（2026-07-25 WebDAV 互操作）
+| ID | 任务 | 类型 | 当前进度 | 验收条件 |
+|---|---|---|---|---|
+| WEB-17 | Windows Basic auth WebDAV 挂载失败 | Bug/Windows/互操作 | 100% | 用户 2026-07-25 实测确认正常。mount_windows.go (3665851) 接受 Digest/Basic，改用完整 URL 直传 net use。Basic 共享挂载成功，盘符出现在"此电脑"。 |
+
+| WEB-18 | Linux Digest davfs 挂载后目录为空（Invalid argument） | Bug/Linux/互操作 | 60% | mount_linux.go 改动已完成：支持 Basic+Digest 两种认证、增加 if_match_bug 配置、挂载后健康检查、懒卸载回退。需 Linux 实机验证：(1) 同用户 ls 测试（FUSE 禁止跨用户访问）；(2) davfs2 -o debug 诊断；(3) PROPFIND 兼容性对照。验收：davfs2 挂载后可正常读写目录。 |
+
+
+
+---
 
 ## 进度口径
 
@@ -58,8 +68,8 @@
 | UX-01 | 防截屏设置文案通用化 | Bug/UX文案 | 90% | 中英文防截屏文案已简化：去除 WDA_EXCLUDEFROMCAPTURE 等技术细节、Windows 版本号；实测 Win10 1607 PrintScreen 已黑屏，文案准确反映现状。仍需桌面测评确认新文案在各平台表述通顺。 |
 | WEB-12 | WebDAV TLS/HTTP listener 按会话独立选择 | Bug/Go | 90% | Go Manager 已重构为独立的 `httpState`/`httpsState` listener，每会话按 TLS 选项分配对应 scheme 的 listener；`ensureServerLocked` 按需创建，`stopIfIdleLocked` 分别释放。仍需三平台 TLS/非 TLS 混用实测。 |
 | WEB-13 | WebDAV 自签名证书持久化与导出 | Feature/Go+Dart | 72% | Go：TLS 密钥/证书持久化到数据目录，`EnsureTLSConfig()` 缓存复用，`ExportTLSCertPEM()`/FFI ABI 已实现。Dart：FFI binding 已定义，`native_lib.dart`/`webdav_service.dart`/UI 导出按钮待接入。文档说明各平台安装步骤待补。 |
-| WIN-01 | windowsWebDAVUNC 不支持 HTTPS scheme | Bug/Windows/互操作 | 10% | windowsWebDAVUNC() 硬拒绝 parsed.Scheme != "http"，导致所有 TLS 会话无法通过 Go mount 挂载。net use 本身支持 HTTPS loopback。方案：同时接受 http/https，UNC 路径构建逻辑不变。依赖 WEB-13 证书安装。 |
-| WIN-02 | Dart WebDAV TLS 快速路径丢失 TLS 参数 | Bug/Dart | 10% | `CryptoService.openWebDavSession` 快速路径（默认 bearer+once+ephemeral+port=0）未检查 `tls`，导致 TLS 被静默丢弃、URL 始终为 http。方案：条件增加 `&& !tls`。 |
+| WIN-01 | windowsWebDAVUNC 不支持 HTTPS scheme | Bug/Windows | 100%（已废弃） | 提交 3665851 已移除 windowsWebDAVUNC，改用完整 URL 直传 net use，同时支持 http/https。 |
+| WIN-02 | Dart WebDAV TLS 快速路径丢失 TLS 参数 | Bug/Dart | 100%（已修复） | 提交 7d2cb4d 已修复：快速路径条件加入 `&& !tls`，TLS 请求正确走 secWebDavOpenWithOptions。 |
 
 
 ## P0 正确性与数据安全
