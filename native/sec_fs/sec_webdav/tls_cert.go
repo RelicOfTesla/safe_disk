@@ -203,6 +203,13 @@ func loadLeafTLSFromDisk(keyPath, certPath string) (*tls.Config, bool) {
 	if err != nil {
 		return nil, false
 	}
+	// Include CA cert in the chain so clients (browsers, Windows WebClient)
+	// see the complete certificate chain during TLS handshake.
+	if caData, caErr := os.ReadFile(filepath.Join(filepath.Dir(certPath), tlsCACertFile)); caErr == nil {
+		if caBlock, _ := pem.Decode(caData); caBlock != nil && caBlock.Type == "CERTIFICATE" {
+			cert.Certificate = append(cert.Certificate, caBlock.Bytes)
+		}
+	}
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS12,
@@ -250,7 +257,7 @@ func generateAndSaveLeafCert(keyPath, certPath string, caCert *x509.Certificate,
 	}
 	return &tls.Config{
 		Certificates: []tls.Certificate{{
-			Certificate: [][]byte{certDER},
+			Certificate: [][]byte{certDER, caCert.Raw},
 			PrivateKey:  key,
 		}},
 		MinVersion: tls.VersionTLS12,

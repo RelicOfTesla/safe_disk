@@ -6,41 +6,44 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
-	"strconv"
-	"strings"
 
 	"golang.org/x/sys/windows"
 )
 
 func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession, error) {
-	if session.AuthMode != AuthModeDigest {
-		return nil, fmt.Errorf("%w: Windows WebDAV Redirector cannot use bearer sessions", ErrMountUnsupported)
+	switch session.AuthMode {
+	case AuthModeDigest, AuthModeBasic:
+		// supported
+	case AuthModeBearer:
+		return nil, fmt.Errorf("%w: Windows WebDAV Redirector does not support bearer tokens. Use Digest or Basic authentication.", ErrMountUnsupported)
+	default:
+		return nil, fmt.Errorf("%w: unsupported authentication mode for Windows mount", ErrMountUnsupported)
 	}
 	if session.Username == "" || session.Password == "" {
-		return nil, fmt.Errorf("%w: Digest credentials are unavailable", ErrMountFailed)
+		return nil, fmt.Errorf("%w: credentials are unavailable", ErrMountFailed)
 	}
 	drive, err := freeWindowsDrive()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrMountFailed, err)
 	}
-	uncPath, err := windowsWebDAVUNC(session.URL)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrMountFailed, err)
-	}
+
+	// Use the full URL directly instead of the WebClient UNC path.
+	// The WebClient redirector (\\host@port\DavWWWRoot) requires the
+	// WebClient service and specific registry settings. The full URL
+	// approach matches what the Explorer "Map Network Drive" wizard uses
+	// and is more reliable.
 	command := exec.CommandContext(
 		ctx,
 		"net.exe",
 		"use",
 		drive,
-		uncPath,
+		session.URL,
+		session.Password,
 		"/user:"+session.Username,
-		"*",
 		"/persistent:no",
 	)
-	command.Stdin = strings.NewReader(session.Password + "\r\n")
 	if output, err := command.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrMountFailed, sanitizeMountOutput(string(output)))
 	}
@@ -70,26 +73,6 @@ func freeWindowsDrive() (string, error) {
 		}
 	}
 	return "", errors.New("no free drive letter")
-}
-
-func windowsWebDAVUNC(rawURL string) (string, error) {
-	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "http" && parsed.Scheme != "https" || parsed.Hostname() == "" {
-		return "", errors.New("WebDAV URL must be an HTTP/HTTPS loopback URL")
-	}
-	if parsed.Hostname() != "127.0.0.1" && parsed.Hostname() != "localhost" {
-		return "", errors.New("WebDAV URL is not loopback")
-	}
-	port := parsed.Port()
-	if port == "" {
-		port = strconv.Itoa(80)
-	}
-	path := strings.Trim(parsed.EscapedPath(), "/")
-	path = strings.ReplaceAll(path, "/", "\\")
-	if path == "" {
-		return `\\` + parsed.Hostname() + "@" + port + `\DavWWWRoot`, nil
-	}
-	return `\\` + parsed.Hostname() + "@" + port + `\DavWWWRoot\` + path, nil
 }
 
 func disconnectWindowsDrive(ctx context.Context, drive string) error {
