@@ -314,7 +314,7 @@ func (m *Manager) importOne(ctx context.Context, opID string, src string, root s
 }
 
 func (m *Manager) importFileAtomic(ctx context.Context, src string, root sec_fs.ISecRoot, dest sec_fs.RelativeViewPath, overwrite bool) error {
-	srcFile, err := os.Open(src)
+	srcFile, err := openRegularFile(src)
 	if err != nil {
 		return err
 	}
@@ -411,7 +411,7 @@ func (m *Manager) exportFileAtomic(ctx context.Context, root sec_fs.ISecRoot, sr
 		}
 	}
 
-	tempFile, err := os.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, sec_fs.SecureFileMode)
+	tempFile, err := createRegularFile(temp, sec_fs.SecureFileMode)
 	if err != nil {
 		return err
 	}
