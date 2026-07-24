@@ -781,7 +781,7 @@ Future<void> showWebDavCredentialsDialog({
                   copiedMessage: strings.webDavPasswordCopied,
                 ),
                 const SizedBox(height: 8),
-                if (session.authMode != WebDavAuthMode.bearer)
+                if (session.authMode == WebDavAuthMode.digest && session.realm != null)
                   _CapabilityValue(
                     label: strings.webDavRealm,
                     value: session.realm!,
