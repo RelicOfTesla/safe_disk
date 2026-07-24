@@ -200,6 +200,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webDavAuthDigest => 'Digest（用户名和密码）';
+  @override
+  String get webDavAuthBasic => 'Basic（用户名与密码，仅限 loopback）';
+
+  @override
+  String get webDavBasicRiskWarning => 'Basic 认证以可逆形式传输凭据，其他本机进程可能观察到。仅可在受信任的系统上使用。';
+
+  @override
+  String get webDavBasicCredentialsDescription => '向选定的受信任工具提供 URL、用户名和密码。Basic 认证以可逆形式传输凭据 —— 仅可在受信任的机器上使用。';
+  @override
+  String get webDavTLS => '启用 HTTPS/TLS';
+  @override
+  String get webDavTLSDescription => '使用自签名证书为 loopback 连接启用 HTTPS。部分系统工具（如 Windows 网络磁盘映射）要求 HTTPS，但 loopback 上不增加额外的网络安全性。客户端需接受自签名证书警告。';
+
+  @override
+  String get webDavAuthModeBasic => '认证方式：Basic';
+
 
   @override
   String get webDavAuthContinue => '继续';

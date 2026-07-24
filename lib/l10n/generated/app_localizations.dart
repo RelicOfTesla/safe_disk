@@ -464,6 +464,22 @@ abstract class AppLocalizations {
   /// **'Digest（用户名和密码）'**
   String get webDavAuthDigest;
 
+  /// No description provided for @webDavAuthBasic.
+  String get webDavAuthBasic;
+
+  /// No description provided for @webDavBasicRiskWarning.
+  String get webDavBasicRiskWarning;
+
+  /// No description provided for @webDavBasicCredentialsDescription.
+  /// No description provided for @webDavTLS.
+  String get webDavTLS;
+  /// No description provided for @webDavTLSDescription.
+  String get webDavTLSDescription;
+  String get webDavBasicCredentialsDescription;
+
+  /// No description provided for @webDavAuthModeBasic.
+  String get webDavAuthModeBasic;
+
   /// No description provided for @webDavAuthContinue.
   ///
   /// In zh, this message translates to:

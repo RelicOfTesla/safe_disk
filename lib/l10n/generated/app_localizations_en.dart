@@ -210,6 +210,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webDavAuthDigest => 'Digest (username and password)';
+  @override
+  String get webDavAuthBasic => 'Basic (username and password, loopback only)';
+
+  @override
+  String get webDavBasicRiskWarning => 'Basic authentication transmits credentials in a form that other local processes can observe. Use only on trusted systems.';
+
+  @override
+  String get webDavBasicCredentialsDescription => 'Provide the URL, username, and password to the selected trusted tool. Basic authentication transmits credentials in a reversible form — use only on trusted machines.';
+  @override
+  String get webDavTLS => 'Enable HTTPS/TLS';
+  @override
+  String get webDavTLSDescription => 'Use HTTPS with a self-signed certificate for loopback connections. Required by some system tools (e.g., Windows WebClient) but adds no additional network security on loopback. Clients must accept the self-signed certificate warning.';
+
+  @override
+  String get webDavAuthModeBasic => 'Authentication: Basic';
+
 
   @override
   String get webDavAuthContinue => 'Continue';
