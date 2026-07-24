@@ -48,7 +48,7 @@
 | WEB-08 | WebDAV 总开关 | P1/安全设置 | 90% | 已接入设置持久化、主页入口控制、关闭时撤销当前 root 会话和解锁后清理恢复会话；中英文 UI、设置服务和设置页测试已完成。剩余真实平台验收：关闭开关时已有 Linux/Windows 系统挂载的实机回收提示。 |
 | WEB-09 | WebDAV 系统挂载请求取消 | P1/平台/并发 | 90% | 已增加 Go 异步操作存储、FFI 开始/轮询/取消 ABI、Dart 服务和会话页取消按钮；取消会中止平台命令并按真实状态刷新，Go 操作和 UI 回调已有测试。剩余真实平台验收：Linux davfs、Windows Redirector 的命令取消和临时凭据/挂载点回收。 |
 | WEB-10 | WebDAV Basic Auth 与 TLS 支持 | P1/互操作 | 10% | 需支持 Basic Auth 和 TLS 传输，以兼容 Windows 10 系统自带的网络磁盘映射（WebClient/WebDAV Redirector）。Go 需实现 Basic 认证处理器与 TLS 监听（自签名证书或用户提供的证书），设置页增加对应开关，并补充三方客户端认证兼容矩阵。 |
-| UI-96 | Grid 视图图标半宽问题 | Bug/UI | 10% | 网格模式下文件/目录卡片的圆角矩形边框只画出约一半宽度，图标区域被截断。需排查 `_FileGridCard` 布局约束或 padding，确保图标与边框完整渲染。 |
+| UI-96 | Grid 视图图标半宽问题 | Bug/UI | 90% | 已修复：`_FileGridCard` 中 `Card` 改用 `Positioned.fill` 包裹以填充网格 tile 全部空间，并添加 `margin: EdgeInsets.zero` 移除 Card 默认边距；dart analyze 通过。仍需桌面视觉验收。 |
 | UI-97 | 图片浏览器滚轮缩放位置漂移 | Bug/UI | 90% | 已修复：滚轮缩放改为保留当前 focal point，通过提取平移量等比缩放后重建矩阵；dart analyze 通过。仍需桌面实测验收。 | 图片浏览器使用鼠标滚轮缩放时，图片位置会发生漂移，与按钮缩放行为不一致。需修复滚轮缩放时的锚点计算，确保以鼠标位置或视口中心为基准缩放。 |
 
 

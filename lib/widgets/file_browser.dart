@@ -1145,55 +1145,58 @@ class _FileGridCard extends StatelessWidget {
             onLongPress: onLongPress,
             child: Stack(
               children: [
-                Card(
-                  key: ValueKey('file-grid-${item.path}'),
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : isContextHighlighted
-                          ? Theme.of(context).colorScheme.primaryContainer
-                          : null,
-                  elevation: isSelected || isContextHighlighted ? 4 : 1,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: isSelected || isContextHighlighted
-                          ? Theme.of(context).colorScheme.primary
-                          : isFocused
-                              ? Theme.of(context).colorScheme.secondary
-                              : Theme.of(context).colorScheme.outlineVariant,
-                      width: isSelected || isContextHighlighted || isFocused
-                          ? 2.5
-                          : 1,
+                Positioned.fill(
+                  child: Card(
+                    key: ValueKey('file-grid-${item.path}'),
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primaryContainer
+                        : isContextHighlighted
+                            ? Theme.of(context).colorScheme.primaryContainer
+                            : null,
+                    elevation: isSelected || isContextHighlighted ? 4 : 1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: isSelected || isContextHighlighted
+                            ? Theme.of(context).colorScheme.primary
+                            : isFocused
+                                ? Theme.of(context).colorScheme.secondary
+                                : Theme.of(context).colorScheme.outlineVariant,
+                        width: isSelected || isContextHighlighted || isFocused
+                            ? 2.5
+                            : 1,
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 56,
-                        height: 56,
-                        child: Center(
-                          child: Icon(
-                            item.isDirectory
-                                ? Icons.folder
-                                : _getFileIcon(item.extension),
-                            size: 48,
-                            color: item.isDirectory ? Colors.orange : null,
+                    margin: EdgeInsets.zero,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: Center(
+                            child: Icon(
+                              item.isDirectory
+                                  ? Icons.folder
+                                  : _getFileIcon(item.extension),
+                              size: 48,
+                              color: item.isDirectory ? Colors.orange : null,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          item.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            item.name,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 if (isSelectMode)
