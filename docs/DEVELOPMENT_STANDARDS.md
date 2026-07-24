@@ -17,6 +17,18 @@
 - 新增或修改可见文案时，同时更新 `app_zh.arb` 与 `app_en.arb`，保持键和占位符一致；关键用户流程必须有中文和英文 widget/Semantics 覆盖。
 - 每个本地化批次运行 `dart run tool/audit_i18n_strings.dart`。审计为零只证明源级迁移，不能代替桌面字号、截断、键盘和读屏验收。详细规则见 [I18N_DESIGN.md](design/I18N_DESIGN.md)。
 
+### 2.1 ARB 文件修改规范
+
+- **严禁手工编辑 `lib/l10n/generated/*.dart`**：该目录下的所有文件由 `flutter gen-l10n` 自动生成，任何手工修改将在下次生成时丢失，且导致 ARB 与 generated 不一致。
+- **严禁使用 `json.dump()` / `json.dumps()` 等工具重写 ARB 文件**：此类工具会将紧凑的单行内联格式展开为多行缩进格式，产生数百行无意义的 diff，掩盖实际变更。
+- **ARB 文件格式**：`@key` 元数据注解必须使用紧凑单行内联 JSON，即 `"@key": {"placeholders": {"param": {"type": "String"}}}`，一行写完。不得展开为多行。
+- **新增文案流程**：
+  1. 同时编辑 `lib/l10n/arb/app_zh.arb` 和 `lib/l10n/arb/app_en.arb`，保持键名一致
+  2. 确保 JSON 格式合法（最后一项后不加逗号，非最后一项后加逗号）
+  3. 运行 `flutter gen-l10n` 重新生成 generated 文件
+  4. 验证 `dart analyze` 通过
+- **推荐编辑方式**：使用编辑器直接编辑 ARB 文件，或使用 `sed` / `apply_patch` 精确追加新键值对。避免使用 Python `json` 模块重写整个文件。
+
 ## 3. 安全与错误边界
 
 - 不向子窗口、日志、可见错误或翻译占位符传递密码、密钥、明文内容、完整加密路径或 root session ID；子窗口只接收最小 capability token。
