@@ -209,7 +209,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webDavAuthBearer => 'Bearer (token)';
 
   @override
-  String get webDavAuthDigest => 'Digest (username and password)';
+  String get webDavAuthDigest => 'Digest (username and password, common on Linux)';
 
   @override
   String get webDavAuthContinue => 'Continue';
@@ -2192,7 +2192,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get antiScreenshotCountdownConfirm => 'Confirm & Save';
 
   @override
-  String get webDavAuthBasic => 'Basic (username and password, loopback only)';
+  String get webDavAuthBasic => 'Basic (username and password, common on Windows)';
 
   @override
   String get webDavBasicRiskWarning =>

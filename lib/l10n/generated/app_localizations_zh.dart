@@ -199,7 +199,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavAuthBearer => 'Bearer（令牌）';
 
   @override
-  String get webDavAuthDigest => 'Digest（用户名和密码）';
+  String get webDavAuthDigest => 'Digest（用户名和密码，Linux 常用）';
 
   @override
   String get webDavAuthContinue => '继续';
@@ -2048,7 +2048,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get antiScreenshotCountdownConfirm => '确认保存';
 
   @override
-  String get webDavAuthBasic => 'Basic（用户名与密码，仅限 loopback）';
+  String get webDavAuthBasic => 'Basic（用户名与密码，Windows 常用）';
 
   @override
   String get webDavBasicRiskWarning =>
