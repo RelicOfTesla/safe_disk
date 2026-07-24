@@ -335,12 +335,19 @@ func setLibPath() string {
 	return libPath
 }
 
-func runFlutter(args []string) {
-	fmt.Println(c(green, "[6/6] Running Flutter app..."))
+func runFlutter(args []string, release bool) {
+	mode := "debug"
+	if release {
+		mode = "release"
+	}
+	fmt.Println(c(green, fmt.Sprintf("[6/6] Running Flutter app (%s)...", mode)))
 	fmt.Println(c(blue, "========================================"))
 	fmt.Println()
 
 	cmd := []string{flutterCmd(), "run"}
+	if release {
+		cmd = append(cmd, "--release")
+	}
 	if len(args) == 0 {
 		cmd = append(cmd, "-d", platform)
 	} else {
@@ -491,10 +498,18 @@ func testFlutter() {
 	}
 }
 
-func buildFlutter() {
+func buildFlutter(release bool) {
+	mode := "debug"
+	if release {
+		mode = "release"
+	}
 	buildGoOnly()
-	fmt.Println(c(green, "Building Flutter app..."))
-	if err := run([]string{flutterCmd(), "build", platform}, flutterDir, nil, true); err != nil {
+	fmt.Println(c(green, fmt.Sprintf("Building Flutter app (%s)...", mode)))
+	buildCmd := []string{flutterCmd(), "build", platform}
+	if release {
+		buildCmd = append(buildCmd, "--release")
+	}
+	if err := run(buildCmd, flutterDir, nil, true); err != nil {
 		fmt.Println(c(red, fmt.Sprintf("Build failed: %v", err)))
 		os.Exit(1)
 	}
@@ -547,6 +562,7 @@ func main() {
 		doClean := fs.Bool("clean", false, "Run flutter clean first")
 		doPub := fs.Bool("pub", false, "Run flutter pub get")
 		doRebuild := fs.Bool("rebuild", false, "Shorthand for --clean --pub")
+		doRelease := fs.Bool("release", false, "Build in release mode")
 		fs.Parse(os.Args[2:])
 		flutterArgs := fs.Args()
 
@@ -582,13 +598,16 @@ func main() {
 		fmt.Println()
 
 		flutterGenL10n()
-		runFlutter(flutterArgs)
+		runFlutter(flutterArgs, *doRelease)
 
 	case "build-go":
 		buildGoOnly()
 
 	case "build-flutter":
-		buildFlutter()
+		fs := flag.NewFlagSet("build-flutter", flag.ExitOnError)
+		doRelease := fs.Bool("release", false, "Build in release mode")
+		fs.Parse(os.Args[2:])
+		buildFlutter(*doRelease)
 
 	case "build-cli":
 		fs := flag.NewFlagSet("build-cli", flag.ExitOnError)
