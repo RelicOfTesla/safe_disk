@@ -101,15 +101,15 @@ func transferV3ConvertRoot(rootPath string, password string, kind string, callba
 	return Success()
 }
 
-func TransferV3ImportFile_FFI(rootID int64, srcPath string, destPath string) string {
-	return transferV3ImportFileWithPolicy(context.Background(), rootID, srcPath, destPath, false, nil)
+func TransferV3ImportFile_FFI(rootID int64, srcPath string, destPath string, durability string) string {
+	return transferV3ImportFileWithPolicy(context.Background(), rootID, srcPath, destPath, false, durability, nil)
 }
 
-func transferV3ImportFile(ctx context.Context, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
-	return transferV3ImportFileWithPolicy(ctx, rootID, srcPath, destPath, false, callback)
+func transferV3ImportFile(ctx context.Context, rootID int64, srcPath string, destPath string, durability string, callback sec_transfer.V3ProgressCallback) string {
+	return transferV3ImportFileWithPolicy(ctx, rootID, srcPath, destPath, false, durability, callback)
 }
 
-func transferV3ImportFileWithPolicy(ctx context.Context, rootID int64, srcPath string, destPath string, overwrite bool, callback sec_transfer.V3ProgressCallback) string {
+func transferV3ImportFileWithPolicy(ctx context.Context, rootID int64, srcPath string, destPath string, overwrite bool, durability string, callback sec_transfer.V3ProgressCallback) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
@@ -120,21 +120,22 @@ func transferV3ImportFileWithPolicy(ctx context.Context, rootID int64, srcPath s
 		DestRoot:  entry.Root,
 		Dest:      sec_fs.RelativeViewPath(destPath),
 		Overwrite: overwrite,
+		Durability: parseDurability(durability),
 	}, callback); err != nil {
 		return errorResponse(err)
 	}
 	return Success()
 }
 
-func TransferV3ImportDirectory_FFI(rootID int64, srcPath string, destPath string) string {
-	return transferV3ImportDirectoryWithPolicy(context.Background(), rootID, srcPath, destPath, false, nil)
+func TransferV3ImportDirectory_FFI(rootID int64, srcPath string, destPath string, durability string) string {
+	return transferV3ImportDirectoryWithPolicy(context.Background(), rootID, srcPath, destPath, false, durability, nil)
 }
 
-func transferV3ImportDirectory(ctx context.Context, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
-	return transferV3ImportDirectoryWithPolicy(ctx, rootID, srcPath, destPath, false, callback)
+func transferV3ImportDirectory(ctx context.Context, rootID int64, srcPath string, destPath string, durability string, callback sec_transfer.V3ProgressCallback) string {
+	return transferV3ImportDirectoryWithPolicy(ctx, rootID, srcPath, destPath, false, durability, callback)
 }
 
-func transferV3ImportDirectoryWithPolicy(ctx context.Context, rootID int64, srcPath string, destPath string, overwrite bool, callback sec_transfer.V3ProgressCallback) string {
+func transferV3ImportDirectoryWithPolicy(ctx context.Context, rootID int64, srcPath string, destPath string, overwrite bool, durability string, callback sec_transfer.V3ProgressCallback) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
@@ -145,17 +146,18 @@ func transferV3ImportDirectoryWithPolicy(ctx context.Context, rootID int64, srcP
 		DestRoot:  entry.Root,
 		Dest:      sec_fs.RelativeViewPath(destPath),
 		Overwrite: overwrite,
+		Durability: parseDurability(durability),
 	}, callback); err != nil {
 		return errorResponse(err)
 	}
 	return Success()
 }
 
-func TransferV3ExportFile_FFI(rootID int64, srcPath string, destPath string) string {
-	return transferV3ExportFile(context.Background(), rootID, srcPath, destPath, nil)
+func TransferV3ExportFile_FFI(rootID int64, srcPath string, destPath string, durability string) string {
+	return transferV3ExportFile(context.Background(), rootID, srcPath, destPath, durability, nil)
 }
 
-func transferV3ExportFile(ctx context.Context, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+func transferV3ExportFile(ctx context.Context, rootID int64, srcPath string, destPath string, durability string, callback sec_transfer.V3ProgressCallback) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
@@ -172,11 +174,11 @@ func transferV3ExportFile(ctx context.Context, rootID int64, srcPath string, des
 	return Success()
 }
 
-func TransferV3ExportDirectory_FFI(rootID int64, srcPath string, destPath string) string {
-	return transferV3ExportDirectory(context.Background(), rootID, srcPath, destPath, nil)
+func TransferV3ExportDirectory_FFI(rootID int64, srcPath string, destPath string, durability string) string {
+	return transferV3ExportDirectory(context.Background(), rootID, srcPath, destPath, durability, nil)
 }
 
-func transferV3ExportDirectory(ctx context.Context, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+func transferV3ExportDirectory(ctx context.Context, rootID int64, srcPath string, destPath string, durability string, callback sec_transfer.V3ProgressCallback) string {
 	entry, ok := RootStore.Get(rootID)
 	if !ok {
 		return errorResponseStr("root not found")
@@ -193,28 +195,41 @@ func transferV3ExportDirectory(ctx context.Context, rootID int64, srcPath string
 	return Success()
 }
 
-func TransferV3ImportFileWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, overwrite bool, callback sec_transfer.V3ProgressCallback) string {
+func TransferV3ImportFileWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, overwrite bool, durability string, callback sec_transfer.V3ProgressCallback) string {
 	return runtimeOperations.run(operationID, func(ctx context.Context) string {
-		return transferV3ImportFileWithPolicy(ctx, rootID, srcPath, destPath, overwrite, callback)
+		return transferV3ImportFileWithPolicy(ctx, rootID, srcPath, destPath, overwrite, durability, callback)
 	})
 }
 
-func TransferV3ImportDirectoryWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, overwrite bool, callback sec_transfer.V3ProgressCallback) string {
+func TransferV3ImportDirectoryWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, overwrite bool, durability string, callback sec_transfer.V3ProgressCallback) string {
 	return runtimeOperations.run(operationID, func(ctx context.Context) string {
-		return transferV3ImportDirectoryWithPolicy(ctx, rootID, srcPath, destPath, overwrite, callback)
+		return transferV3ImportDirectoryWithPolicy(ctx, rootID, srcPath, destPath, overwrite, durability, callback)
 	})
 }
 
-func TransferV3ExportFileWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+func TransferV3ExportFileWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, durability string, callback sec_transfer.V3ProgressCallback) string {
 	return runtimeOperations.run(operationID, func(ctx context.Context) string {
-		return transferV3ExportFile(ctx, rootID, srcPath, destPath, callback)
+		return transferV3ExportFile(ctx, rootID, srcPath, destPath, durability, callback)
 	})
 }
 
-func TransferV3ExportDirectoryWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, callback sec_transfer.V3ProgressCallback) string {
+func TransferV3ExportDirectoryWithOperation_FFI(operationID string, rootID int64, srcPath string, destPath string, durability string, callback sec_transfer.V3ProgressCallback) string {
 	return runtimeOperations.run(operationID, func(ctx context.Context) string {
-		return transferV3ExportDirectory(ctx, rootID, srcPath, destPath, callback)
+		return transferV3ExportDirectory(ctx, rootID, srcPath, destPath, durability, callback)
 	})
+}
+
+
+// parseDurability parses a durability level string, defaulting to full.
+func parseDurability(d string) sec_transfer.DurabilityLevel {
+	switch d {
+	case "none":
+		return sec_transfer.DurabilityNone
+	case "data":
+		return sec_transfer.DurabilityData
+	default:
+		return sec_transfer.DurabilityFull
+	}
 }
 
 func TransferV3Cancel_FFI(operationID string) string {

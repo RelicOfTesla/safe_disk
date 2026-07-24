@@ -252,24 +252,32 @@ typedef SecTransferV3ConvertRootDart = Pointer<Utf8> Function(
     Pointer<Utf8> rootPath, Pointer<Utf8> password, Pointer<Utf8> kind);
 
 typedef SecTransferV3ImportFileC = Pointer<Utf8> Function(Int64 rootID,
-    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Int32 overwrite);
+    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Int32 overwrite,
+    Pointer<Utf8> durability);
 typedef SecTransferV3ImportFileDart = Pointer<Utf8> Function(
-    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath, int overwrite);
+    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath, int overwrite,
+    Pointer<Utf8> durability);
 
 typedef SecTransferV3ImportDirectoryC = Pointer<Utf8> Function(Int64 rootID,
-    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Int32 overwrite);
+    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Int32 overwrite,
+    Pointer<Utf8> durability);
 typedef SecTransferV3ImportDirectoryDart = Pointer<Utf8> Function(
-    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath, int overwrite);
+    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath, int overwrite,
+    Pointer<Utf8> durability);
 
 typedef SecTransferV3ExportFileC = Pointer<Utf8> Function(
-    Int64 rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath);
+    Int64 rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath,
+    Pointer<Utf8> durability);
 typedef SecTransferV3ExportFileDart = Pointer<Utf8> Function(
-    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath);
+    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath,
+    Pointer<Utf8> durability);
 
 typedef SecTransferV3ExportDirectoryC = Pointer<Utf8> Function(
-    Int64 rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath);
+    Int64 rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath,
+    Pointer<Utf8> durability);
 typedef SecTransferV3ExportDirectoryDart = Pointer<Utf8> Function(
-    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath);
+    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath,
+    Pointer<Utf8> durability);
 
 typedef NativeProgressCallbackC = Void Function(
     Pointer<Utf8> currentFile,
@@ -290,12 +298,14 @@ typedef SecTransferV3WithCallbackC = Pointer<Utf8> Function(
     Int64 rootID,
     Pointer<Utf8> srcPath,
     Pointer<Utf8> destPath,
+    Pointer<Utf8> durability,
     Pointer<NativeFunction<NativeProgressCallbackC>> callback);
 typedef SecTransferV3WithCallbackDart = Pointer<Utf8> Function(
     Pointer<Utf8> operationID,
     int rootID,
     Pointer<Utf8> srcPath,
     Pointer<Utf8> destPath,
+    Pointer<Utf8> durability,
     Pointer<NativeFunction<NativeProgressCallbackC>> callback);
 
 typedef SecTransferV3ImportWithCallbackC = Pointer<Utf8> Function(
@@ -304,6 +314,7 @@ typedef SecTransferV3ImportWithCallbackC = Pointer<Utf8> Function(
     Pointer<Utf8> srcPath,
     Pointer<Utf8> destPath,
     Int32 overwrite,
+    Pointer<Utf8> durability,
     Pointer<NativeFunction<NativeProgressCallbackC>> callback);
 typedef SecTransferV3ImportWithCallbackDart = Pointer<Utf8> Function(
     Pointer<Utf8> operationID,
@@ -311,6 +322,7 @@ typedef SecTransferV3ImportWithCallbackDart = Pointer<Utf8> Function(
     Pointer<Utf8> srcPath,
     Pointer<Utf8> destPath,
     int overwrite,
+    Pointer<Utf8> durability,
     Pointer<NativeFunction<NativeProgressCallbackC>> callback);
 
 typedef SecTransferV3CancelC = Pointer<Utf8> Function(

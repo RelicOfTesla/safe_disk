@@ -812,20 +812,24 @@ class NativeLib {
     String srcPath,
     String destPath, {
     bool overwrite = false,
+    String? durability,
   }) {
     final srcPathPtr = srcPath.toNativeUtf8();
     final destPathPtr = destPath.toNativeUtf8();
+    final durabilityPtr = (durability ?? 'full').toNativeUtf8();
     try {
       final resultPtr = _bindings.secTransferV3ImportFile(
         rootID,
         srcPathPtr,
         destPathPtr,
         overwrite ? 1 : 0,
+        durabilityPtr,
       );
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secTransferV3ImportFile');
     } finally {
+      calloc.free(durabilityPtr);
       calloc.free(srcPathPtr);
       calloc.free(destPathPtr);
     }
@@ -837,6 +841,7 @@ class NativeLib {
     String destPath,
     void Function(TransferProgressEvent progress) onProgress, {
     bool overwrite = false,
+    String? durability,
     TransferCancellationToken? cancellationToken,
   }) {
     return _runTransferInBackground(
@@ -846,6 +851,7 @@ class NativeLib {
       destPath: destPath,
       operation: 'secTransferV3ImportFileWithProgress',
       overwrite: overwrite,
+      durability: durability,
       onProgress: onProgress,
       cancellationToken: cancellationToken,
     );
@@ -856,20 +862,24 @@ class NativeLib {
     String srcPath,
     String destPath, {
     bool overwrite = false,
+    String? durability,
   }) {
     final srcPathPtr = srcPath.toNativeUtf8();
     final destPathPtr = destPath.toNativeUtf8();
+    final durabilityPtr = (durability ?? 'full').toNativeUtf8();
     try {
       final resultPtr = _bindings.secTransferV3ImportDirectory(
         rootID,
         srcPathPtr,
         destPathPtr,
         overwrite ? 1 : 0,
+        durabilityPtr,
       );
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secTransferV3ImportDirectory');
     } finally {
+      calloc.free(durabilityPtr);
       calloc.free(srcPathPtr);
       calloc.free(destPathPtr);
     }
@@ -881,6 +891,7 @@ class NativeLib {
     String destPath,
     void Function(TransferProgressEvent progress) onProgress, {
     bool overwrite = false,
+    String? durability,
     TransferCancellationToken? cancellationToken,
   }) {
     return _runTransferInBackground(
@@ -890,21 +901,24 @@ class NativeLib {
       destPath: destPath,
       operation: 'secTransferV3ImportDirectoryWithProgress',
       overwrite: overwrite,
+      durability: durability,
       onProgress: onProgress,
       cancellationToken: cancellationToken,
     );
   }
 
-  void secTransferV3ExportFile(int rootID, String srcPath, String destPath) {
+  void secTransferV3ExportFile(int rootID, String srcPath, String destPath, {String? durability}) {
     final srcPathPtr = srcPath.toNativeUtf8();
     final destPathPtr = destPath.toNativeUtf8();
+    final durabilityPtr = (durability ?? 'full').toNativeUtf8();
     try {
       final resultPtr =
-          _bindings.secTransferV3ExportFile(rootID, srcPathPtr, destPathPtr);
+          _bindings.secTransferV3ExportFile(rootID, srcPathPtr, destPathPtr, durabilityPtr);
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secTransferV3ExportFile');
     } finally {
+      calloc.free(durabilityPtr);
       calloc.free(srcPathPtr);
       calloc.free(destPathPtr);
     }
@@ -915,6 +929,7 @@ class NativeLib {
     String srcPath,
     String destPath,
     void Function(TransferProgressEvent progress) onProgress, {
+    String? durability,
     TransferCancellationToken? cancellationToken,
   }) {
     return _runTransferInBackground(
@@ -923,22 +938,25 @@ class NativeLib {
       srcPath: srcPath,
       destPath: destPath,
       operation: 'secTransferV3ExportFileWithProgress',
+      durability: durability,
       onProgress: onProgress,
       cancellationToken: cancellationToken,
     );
   }
 
   void secTransferV3ExportDirectory(
-      int rootID, String srcPath, String destPath) {
+      int rootID, String srcPath, String destPath, {String? durability}) {
     final srcPathPtr = srcPath.toNativeUtf8();
     final destPathPtr = destPath.toNativeUtf8();
+    final durabilityPtr = (durability ?? 'full').toNativeUtf8();
     try {
       final resultPtr = _bindings.secTransferV3ExportDirectory(
-          rootID, srcPathPtr, destPathPtr);
+          rootID, srcPathPtr, destPathPtr, durabilityPtr);
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secTransferV3ExportDirectory');
     } finally {
+      calloc.free(durabilityPtr);
       calloc.free(srcPathPtr);
       calloc.free(destPathPtr);
     }
@@ -949,6 +967,7 @@ class NativeLib {
     String srcPath,
     String destPath,
     void Function(TransferProgressEvent progress) onProgress, {
+    String? durability,
     TransferCancellationToken? cancellationToken,
   }) {
     return _runTransferInBackground(
@@ -957,6 +976,7 @@ class NativeLib {
       srcPath: srcPath,
       destPath: destPath,
       operation: 'secTransferV3ExportDirectoryWithProgress',
+      durability: durability,
       onProgress: onProgress,
       cancellationToken: cancellationToken,
     );
@@ -970,6 +990,7 @@ class NativeLib {
     required String operation,
     required void Function(TransferProgressEvent progress) onProgress,
     bool overwrite = false,
+    String? durability,
     TransferCancellationToken? cancellationToken,
   }) async {
     final messages = ReceivePort();
@@ -990,6 +1011,7 @@ class NativeLib {
           'operation': operation,
           'operationID': operationID,
           'overwrite': overwrite,
+          'durability': durability ?? 'full',
         },
         onExit: messages.sendPort,
         debugName: 'safe-disk-transfer-$kind',
@@ -1042,6 +1064,7 @@ class NativeLib {
     String srcPath,
     String destPath,
     String operationID,
+    String durability,
     SecTransferV3WithCallbackDart nativeFunction,
     String operation,
     void Function(TransferProgressEvent progress) onProgress,
@@ -1049,6 +1072,7 @@ class NativeLib {
     final srcPathPtr = srcPath.toNativeUtf8();
     final destPathPtr = destPath.toNativeUtf8();
     final operationIDPtr = operationID.toNativeUtf8();
+    final durabilityPtr = durability.toNativeUtf8();
     late final NativeCallable<NativeProgressCallbackC> callback;
     callback = NativeCallable<NativeProgressCallbackC>.isolateLocal(
       (
@@ -1071,12 +1095,13 @@ class NativeLib {
 
     try {
       final resultPtr = nativeFunction(operationIDPtr, rootID, srcPathPtr,
-          destPathPtr, callback.nativeFunction);
+          destPathPtr, durabilityPtr, callback.nativeFunction);
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, operation);
     } finally {
       callback.close();
+      calloc.free(durabilityPtr);
       calloc.free(operationIDPtr);
       calloc.free(srcPathPtr);
       calloc.free(destPathPtr);
@@ -1089,6 +1114,7 @@ class NativeLib {
     String destPath,
     String operationID,
     bool overwrite,
+    String durability,
     SecTransferV3ImportWithCallbackDart nativeFunction,
     String operation,
     void Function(TransferProgressEvent progress) onProgress,
@@ -1096,6 +1122,7 @@ class NativeLib {
     final srcPathPtr = srcPath.toNativeUtf8();
     final destPathPtr = destPath.toNativeUtf8();
     final operationIDPtr = operationID.toNativeUtf8();
+    final durabilityPtr = durability.toNativeUtf8();
     late final NativeCallable<NativeProgressCallbackC> callback;
     callback = NativeCallable<NativeProgressCallbackC>.isolateLocal(
       (
@@ -1123,12 +1150,14 @@ class NativeLib {
         srcPathPtr,
         destPathPtr,
         overwrite ? 1 : 0,
+        durabilityPtr,
         callback.nativeFunction,
       );
       final data = _parseJson(_ptrToString(resultPtr));
       _checkResult(data, operation);
     } finally {
       callback.close();
+      calloc.free(durabilityPtr);
       calloc.free(operationIDPtr);
       calloc.free(srcPathPtr);
       calloc.free(destPathPtr);
@@ -1165,6 +1194,7 @@ void _transferWorkerMain(Map<String, Object> request) {
   final operation = request['operation']! as String;
   final operationID = request['operationID']! as String;
   final overwrite = request['overwrite']! as bool;
+  final durability = request['durability'] as String? ?? 'full';
   final native = NativeLib.instance;
 
   void report(TransferProgressEvent progress) {
@@ -1183,6 +1213,7 @@ void _transferWorkerMain(Map<String, Object> request) {
             destPath,
             operationID,
             overwrite,
+            durability,
             native._bindings.secTransferV3ImportFileWithCallback,
             operation,
             report);
@@ -1193,6 +1224,7 @@ void _transferWorkerMain(Map<String, Object> request) {
             destPath,
             operationID,
             overwrite,
+            durability,
             native._bindings.secTransferV3ImportDirectoryWithCallback,
             operation,
             report);
@@ -1202,6 +1234,7 @@ void _transferWorkerMain(Map<String, Object> request) {
             srcPath,
             destPath,
             operationID,
+            durability,
             native._bindings.secTransferV3ExportFileWithCallback,
             operation,
             report);
@@ -1211,6 +1244,7 @@ void _transferWorkerMain(Map<String, Object> request) {
             srcPath,
             destPath,
             operationID,
+            durability,
             native._bindings.secTransferV3ExportDirectoryWithCallback,
             operation,
             report);

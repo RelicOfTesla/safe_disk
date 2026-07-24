@@ -32,7 +32,7 @@ func TestTransferV3FFIRoundTrip(t *testing.T) {
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
 	defer CloseRoot_FFI(rootID)
 
-	assertSuccess(t, TransferV3ImportDirectory_FFI(rootID, plain, ""))
+	assertSuccess(t, TransferV3ImportDirectory_FFI(rootID, plain, "", "full"))
 	directoryResponse := assertSuccess(t, ReadDir_FFI(rootID, ""))
 	directoryEntries := directoryResponse["data"].(map[string]interface{})["entries"].([]interface{})
 	if len(directoryEntries) != 1 {
@@ -42,7 +42,7 @@ func TestTransferV3FFIRoundTrip(t *testing.T) {
 	if modTime <= 0 || modTime > time.Now().Add(time.Minute).Unix() {
 		t.Fatalf("mod_time must use Unix seconds, got %d", modTime)
 	}
-	assertSuccess(t, TransferV3ExportDirectory_FFI(rootID, "", out))
+	assertSuccess(t, TransferV3ExportDirectory_FFI(rootID, "", out, "full"))
 	data, err := os.ReadFile(filepath.Join(out, "a.txt"))
 	if err != nil {
 		t.Fatal(err)
@@ -248,10 +248,10 @@ func TestTransferV3ImportFFIRequiresExplicitOverwrite(t *testing.T) {
 	defer CloseRoot_FFI(rootID)
 	assertSuccess(t, QuickWriteFile_FFI(rootID, "冲突.txt", []byte("old")))
 
-	if response := transferV3ImportFileWithPolicy(context.Background(), rootID, sourcePath, "冲突.txt", false, nil); jsonSuccess(response) {
+	if response := transferV3ImportFileWithPolicy(context.Background(), rootID, sourcePath, "冲突.txt", false, "full", nil); jsonSuccess(response) {
 		t.Fatalf("import unexpectedly replaced destination: %s", response)
 	}
-	assertSuccess(t, transferV3ImportFileWithPolicy(context.Background(), rootID, sourcePath, "冲突.txt", true, nil))
+	assertSuccess(t, transferV3ImportFileWithPolicy(context.Background(), rootID, sourcePath, "冲突.txt", true, "full", nil))
 }
 
 func TestTransferV3FFICleanRejectsPathTraversalOperationID(t *testing.T) {
@@ -284,7 +284,7 @@ func TestFFIRootAndTransferRejectPathTraversal(t *testing.T) {
 
 	for name, response := range map[string]string{
 		"quick write": QuickWriteFile_FFI(rootID, "../quick-escape.txt", []byte("escape")),
-		"transfer":    TransferV3ImportFile_FFI(rootID, sourcePath, "../transfer-escape.txt"),
+		"transfer":    TransferV3ImportFile_FFI(rootID, sourcePath, "../transfer-escape.txt", "full"),
 	} {
 		if jsonSuccess(response) {
 			t.Fatalf("%s path traversal unexpectedly succeeded: %s", name, response)
@@ -351,7 +351,7 @@ func TestTransferV3FFIProgressCallback(t *testing.T) {
 	defer CloseRoot_FFI(rootID)
 
 	var events []sec_transfer.ProgressEvent
-	assertSuccess(t, transferV3ImportDirectory(context.Background(), rootID, plain, "", func(event sec_transfer.ProgressEvent) {
+	assertSuccess(t, transferV3ImportDirectory(context.Background(), rootID, plain, "", "full", func(event sec_transfer.ProgressEvent) {
 		events = append(events, event)
 	}))
 	if len(events) == 0 {
@@ -393,6 +393,7 @@ func TestTransferV3FFICancelRuntimeOperation(t *testing.T) {
 			plain,
 			"",
 			false,
+			"full",
 			func(event sec_transfer.ProgressEvent) {
 				if !event.Complete {
 					once.Do(func() { close(started) })
@@ -456,6 +457,7 @@ func TestTransferV3FFICancelWhileWaitingForRootLock(t *testing.T) {
 		firstResult <- TransferV3ImportFileWithOperation_FFI(
 			"ffi-lock-holder", rootID, firstSource, "first.txt",
 			false,
+			"full",
 			func(event sec_transfer.ProgressEvent) {
 				if !event.Complete {
 					once.Do(func() { close(firstStarted) })
@@ -473,7 +475,7 @@ func TestTransferV3FFICancelWhileWaitingForRootLock(t *testing.T) {
 	secondResult := make(chan string, 1)
 	go func() {
 		secondResult <- TransferV3ImportFileWithOperation_FFI(
-			"ffi-lock-waiter", rootID, secondSource, "second.txt", false, nil,
+			"ffi-lock-waiter", rootID, secondSource, "second.txt", false, "full", nil,
 		)
 	}()
 	deadline := time.Now().Add(5 * time.Second)
@@ -539,14 +541,14 @@ func TestTransferV3FFIWithEncryptedNames(t *testing.T) {
 	rootID := int64(rootResp["data"].(map[string]interface{})["root_id"].(float64))
 	defer CloseRoot_FFI(rootID)
 
-	assertSuccess(t, TransferV3ImportDirectory_FFI(rootID, plain, ""))
+	assertSuccess(t, TransferV3ImportDirectory_FFI(rootID, plain, "", "full"))
 	if raw := QuickReadFile_FFI(rootID, "目录/文件.txt"); !jsonSuccess(raw) {
 		t.Fatalf("expected quick read through encrypted names to succeed: %s", raw)
 	}
 	if containsDiskName(t, rootPath, "目录") || containsDiskName(t, rootPath, "文件.txt") {
 		t.Fatal("plain directory or file name leaked to store path")
 	}
-	assertSuccess(t, TransferV3ExportDirectory_FFI(rootID, "", out))
+	assertSuccess(t, TransferV3ExportDirectory_FFI(rootID, "", out, "full"))
 	data, err := os.ReadFile(filepath.Join(out, "目录", "文件.txt"))
 	if err != nil {
 		t.Fatal(err)

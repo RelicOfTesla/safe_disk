@@ -300,26 +300,26 @@ func sec_clear_secure_memory(data unsafe.Pointer, size C.int) *C.char {
 // ==================== Transfer V3 Operations ====================
 
 //export sec_transfer_v3_import_file_with_callback
-func sec_transfer_v3_import_file_with_callback(operationID *C.char, rootID C.int64_t, srcPath *C.char, destPath *C.char, overwrite C.int, callback C.CProgressCallback) *C.char {
-	result := TransferV3ImportFileWithOperation_FFI(C.GoString(operationID), int64(rootID), C.GoString(srcPath), C.GoString(destPath), overwrite != 0, CProgressCallbackToGoV3(callback))
+func sec_transfer_v3_import_file_with_callback(operationID *C.char, rootID C.int64_t, srcPath *C.char, destPath *C.char, overwrite C.int, durability *C.char, callback C.CProgressCallback) *C.char {
+	result := TransferV3ImportFileWithOperation_FFI(C.GoString(operationID), int64(rootID), C.GoString(srcPath), C.GoString(destPath), overwrite != 0, C.GoString(durability), CProgressCallbackToGoV3(callback))
 	return C.CString(result)
 }
 
 //export sec_transfer_v3_import_directory_with_callback
-func sec_transfer_v3_import_directory_with_callback(operationID *C.char, rootID C.int64_t, srcPath *C.char, destPath *C.char, overwrite C.int, callback C.CProgressCallback) *C.char {
-	result := TransferV3ImportDirectoryWithOperation_FFI(C.GoString(operationID), int64(rootID), C.GoString(srcPath), C.GoString(destPath), overwrite != 0, CProgressCallbackToGoV3(callback))
+func sec_transfer_v3_import_directory_with_callback(operationID *C.char, rootID C.int64_t, srcPath *C.char, destPath *C.char, overwrite C.int, durability *C.char, callback C.CProgressCallback) *C.char {
+	result := TransferV3ImportDirectoryWithOperation_FFI(C.GoString(operationID), int64(rootID), C.GoString(srcPath), C.GoString(destPath), overwrite != 0, C.GoString(durability), CProgressCallbackToGoV3(callback))
 	return C.CString(result)
 }
 
 //export sec_transfer_v3_export_file_with_callback
-func sec_transfer_v3_export_file_with_callback(operationID *C.char, rootID C.int64_t, srcPath *C.char, destPath *C.char, callback C.CProgressCallback) *C.char {
-	result := TransferV3ExportFileWithOperation_FFI(C.GoString(operationID), int64(rootID), C.GoString(srcPath), C.GoString(destPath), CProgressCallbackToGoV3(callback))
+func sec_transfer_v3_export_file_with_callback(operationID *C.char, rootID C.int64_t, srcPath *C.char, destPath *C.char, durability *C.char, callback C.CProgressCallback) *C.char {
+	result := TransferV3ExportFileWithOperation_FFI(C.GoString(operationID), int64(rootID), C.GoString(srcPath), C.GoString(destPath), C.GoString(durability), CProgressCallbackToGoV3(callback))
 	return C.CString(result)
 }
 
 //export sec_transfer_v3_export_directory_with_callback
-func sec_transfer_v3_export_directory_with_callback(operationID *C.char, rootID C.int64_t, srcPath *C.char, destPath *C.char, callback C.CProgressCallback) *C.char {
-	result := TransferV3ExportDirectoryWithOperation_FFI(C.GoString(operationID), int64(rootID), C.GoString(srcPath), C.GoString(destPath), CProgressCallbackToGoV3(callback))
+func sec_transfer_v3_export_directory_with_callback(operationID *C.char, rootID C.int64_t, srcPath *C.char, destPath *C.char, durability *C.char, callback C.CProgressCallback) *C.char {
+	result := TransferV3ExportDirectoryWithOperation_FFI(C.GoString(operationID), int64(rootID), C.GoString(srcPath), C.GoString(destPath), C.GoString(durability), CProgressCallbackToGoV3(callback))
 	return C.CString(result)
 }
 
@@ -353,25 +353,25 @@ func sec_transfer_v3_convert_root(rootPath *C.char, password *C.char, kind *C.ch
 }
 
 //export sec_transfer_v3_import_file
-func sec_transfer_v3_import_file(rootID C.int64_t, srcPath *C.char, destPath *C.char, overwrite C.int) *C.char {
-	result := transferV3ImportFileWithPolicy(context.Background(), int64(rootID), C.GoString(srcPath), C.GoString(destPath), overwrite != 0, nil)
+func sec_transfer_v3_import_file(rootID C.int64_t, srcPath *C.char, destPath *C.char, overwrite C.int, durability *C.char) *C.char {
+	result := transferV3ImportFileWithPolicy(context.Background(), int64(rootID), C.GoString(srcPath), C.GoString(destPath), overwrite != 0, C.GoString(durability), nil)
 	return C.CString(result)
 }
 
 //export sec_transfer_v3_import_directory
-func sec_transfer_v3_import_directory(rootID C.int64_t, srcPath *C.char, destPath *C.char, overwrite C.int) *C.char {
-	result := transferV3ImportDirectoryWithPolicy(context.Background(), int64(rootID), C.GoString(srcPath), C.GoString(destPath), overwrite != 0, nil)
+func sec_transfer_v3_import_directory(rootID C.int64_t, srcPath *C.char, destPath *C.char, overwrite C.int, durability *C.char) *C.char {
+	result := transferV3ImportDirectoryWithPolicy(context.Background(), int64(rootID), C.GoString(srcPath), C.GoString(destPath), overwrite != 0, C.GoString(durability), nil)
 	return C.CString(result)
 }
 
 //export sec_transfer_v3_export_file
-func sec_transfer_v3_export_file(rootID C.int64_t, srcPath *C.char, destPath *C.char) *C.char {
-	result := TransferV3ExportFile_FFI(int64(rootID), C.GoString(srcPath), C.GoString(destPath))
+func sec_transfer_v3_export_file(rootID C.int64_t, srcPath *C.char, destPath *C.char, durability *C.char) *C.char {
+	result := TransferV3ExportFile_FFI(int64(rootID), C.GoString(srcPath), C.GoString(destPath), C.GoString(durability))
 	return C.CString(result)
 }
 
 //export sec_transfer_v3_export_directory
-func sec_transfer_v3_export_directory(rootID C.int64_t, srcPath *C.char, destPath *C.char) *C.char {
-	result := TransferV3ExportDirectory_FFI(int64(rootID), C.GoString(srcPath), C.GoString(destPath))
+func sec_transfer_v3_export_directory(rootID C.int64_t, srcPath *C.char, destPath *C.char, durability *C.char) *C.char {
+	result := TransferV3ExportDirectory_FFI(int64(rootID), C.GoString(srcPath), C.GoString(destPath), C.GoString(durability))
 	return C.CString(result)
 }
