@@ -168,6 +168,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       broker: _documentBroker,
       platform: widget.contentWindowPlatform,
     );
+    _contentWindowBridge.onActivity = (token) {
+      final sessionID = _documentBroker.rootSessionForToken(token);
+      if (sessionID != null) _idleTracker.touch(sessionID);
+    };
     _webDavService =
         widget.webDavService ?? WebDavService(cryptoService: _cryptoService);
     WidgetsBinding.instance.addObserver(this);

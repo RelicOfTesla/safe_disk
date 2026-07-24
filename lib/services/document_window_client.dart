@@ -129,6 +129,19 @@ class DocumentWindowClient {
     );
   }
 
+  /// Notifies the host that the user is active in this content window,
+  /// resetting the root idle timer to prevent unexpected auto-lock.
+  Future<void> touchActivity() async {
+    try {
+      await _channel.invokeMethod<void>(
+        'document.touchActivity',
+        {'token': token},
+      );
+    } catch (_) {
+      // Best-effort: a missing host must not crash the content window.
+    }
+  }
+
   Future<T> _request<T>(
     String operation,
     Future<T> Function() request,

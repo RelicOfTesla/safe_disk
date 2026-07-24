@@ -435,12 +435,14 @@ class SecureTextEditor extends StatefulWidget {
     required this.focusNode,
     required this.readOnly,
     required this.viewport,
+    this.onActivity,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool readOnly;
   final SecureTextEditorViewport viewport;
+  final VoidCallback? onActivity;
 
   @override
   State<SecureTextEditor> createState() => _SecureTextEditorState();
@@ -451,6 +453,7 @@ class _SecureTextEditorState extends State<SecureTextEditor> {
   final GlobalKey _highlightKey = GlobalKey();
   final ScrollController _scrollController = ScrollController();
   List<Rect> _selectionHighlightRects = const [];
+  DateTime _lastActivityTime = DateTime(2000);
 
   @override
   void initState() {
@@ -458,6 +461,7 @@ class _SecureTextEditorState extends State<SecureTextEditor> {
     widget.viewport._centerSelectionCallback = _centerSelection;
     widget.viewport._clearSelectionHighlightCallback = _clearSelectionHighlight;
     _scrollController.addListener(_refreshSelectionHighlight);
+    _scrollController.addListener(_onScrollActivity);
   }
 
   @override
@@ -477,6 +481,7 @@ class _SecureTextEditorState extends State<SecureTextEditor> {
     widget.viewport._centerSelectionCallback = null;
     widget.viewport._clearSelectionHighlightCallback = null;
     _scrollController.removeListener(_refreshSelectionHighlight);
+    _scrollController.removeListener(_onScrollActivity);
     _scrollController.dispose();
     super.dispose();
   }
@@ -639,6 +644,13 @@ class _SecureTextEditorState extends State<SecureTextEditor> {
         ),
       ),
     );
+  }
+
+  void _onScrollActivity() {
+    final now = DateTime.now();
+    if (now.difference(_lastActivityTime).inMilliseconds < 500) return;
+    _lastActivityTime = now;
+    widget.onActivity?.call();
   }
 }
 

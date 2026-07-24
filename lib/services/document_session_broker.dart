@@ -372,6 +372,11 @@ class DocumentSessionBroker {
 
   bool containsToken(String token) => _sessions.containsKey(token);
 
+  String? rootSessionForToken(String token) {
+    final session = _sessions[token];
+    return session?.rootSessionID;
+  }
+
   void _removeSession(String token) {
     final session = _sessions.remove(token);
     session?.baseContent.fillRange(0, session.baseContent.length, 0);

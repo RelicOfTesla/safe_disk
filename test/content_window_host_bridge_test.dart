@@ -516,6 +516,36 @@ void main() {
     );
     expect(DesktopMultiWindowPlatform.tryParseArguments('not-json'), isNull);
   });
+
+  test('touchActivity invokes the onActivity callback with the token', () async {
+    final crypto = _BridgeCryptoService('content');
+    final broker = DocumentSessionBroker(cryptoService: crypto);
+    final platform = _FakeContentWindowPlatform();
+    final bridge = ContentWindowHostBridge(
+      broker: broker,
+      platform: platform,
+    );
+    addTearDown(bridge.dispose);
+
+    final lease = broker.open(
+      rootSessionID: 'root-1',
+      path: '/note.txt',
+      displayName: 'note.txt',
+    );
+
+    // Start the bridge so the handler is registered
+    await bridge.start();
+
+    String? receivedToken;
+    bridge.onActivity = (token) {
+      receivedToken = token;
+    };
+
+    // Simulate a content window calling touchActivity
+    await platform.call('document.touchActivity', {'token': lease.token});
+
+    expect(receivedToken, lease.token);
+  });
 }
 
 class _FakeContentWindowPlatform implements ContentWindowPlatform {

@@ -134,4 +134,4 @@
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---|---|
-| SL-01 | 闲置锁定设计修复：只读记事本未自动关闭 | Bug/安全 | 10% | 闲置超时锁定激活时，所有通过该 root 会话打开的只读记事本（独立窗口）应随 root 锁定一并关闭。当前 `RootIdleTracker` 仅追踪 root session 活动，未关联记事本窗口生命周期。需设计：记事本窗口注册到所属 root session，闲置锁定时遍历关闭已注册的只读窗口，编辑中的窗口应提示保存草稿。验收条件：设置闲置超时 > 触发锁定 > 验证只读记事本窗口已关闭，编辑中窗口收到提示。 |
+| SL-01 | 闲置锁定设计修复：只读记事本未自动关闭 | Bug/安全 | 70% | 设计：ContentWindowHostBridge 接收 document.touchActivity 并用 onActivity 回调通知 HomePage；HomePage 通过 DocumentSessionBroker.rootSessionForToken 映射 token→rootSessionID 并 reset idle timer；SecureNotepad (native) 在用户键盘输入时发送 touchActivity；DocumentWindowClient 新增 touchActivity()。主路径已实现。剩余：in-process notepad 阻塞 auto-lock 另立任务；三平台桌面实测。内容窗口触摸覆盖（键盘已通过 TextController listener 实现，滚动已通过 ScrollController 500ms 节流实现）。验收条件：设置闲置超时，所有通过该 root 会话打开的只读记事本（独立窗口）应随 root 锁定一并关闭。当前 `RootIdleTracker` 仅追踪 root session 活动，未关联记事本窗口生命周期。需设计：记事本窗口注册到所属 root session，闲置锁定时遍历关闭已注册的只读窗口，编辑中的窗口应提示保存草稿。验收条件：设置闲置超时 > 触发锁定 > 验证只读记事本窗口已关闭，编辑中窗口收到提示。 |

@@ -204,6 +204,24 @@ void main() {
     expect(crypto.files['/note.txt'], 'first');
     expect(broker.containsToken(first.token), isFalse);
   });
+
+  test('rootSessionForToken maps token back to root session', () {
+    final crypto = _MemoryCryptoService({'/doc.txt': 'content'});
+    final broker = DocumentSessionBroker(
+      cryptoService: crypto,
+      secureRandom: Random(42),
+    );
+
+    final lease = broker.open(
+      rootSessionID: 'session-abc',
+      path: '/doc.txt',
+      displayName: 'doc.txt',
+    );
+
+    expect(broker.rootSessionForToken(lease.token), 'session-abc');
+    expect(broker.rootSessionForToken('nonexistent'), isNull);
+  });
+
 }
 
 class _MemoryCryptoService extends CryptoService {

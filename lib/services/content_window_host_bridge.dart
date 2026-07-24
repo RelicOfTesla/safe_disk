@@ -264,6 +264,8 @@ class ContentWindowHostBridge {
   final DocumentSessionBroker _broker;
   final ContentWindowPlatform _platform;
   final Duration lockPreparationTimeout;
+  void Function(String token)? onActivity;
+
   final Set<String> _nativeTokens = {};
   StreamSubscription<Set<String>>? _windowSubscription;
   bool _started = false;
@@ -492,6 +494,10 @@ class ContentWindowHostBridge {
         case 'document.closed':
           _nativeTokens.remove(token);
           _broker.close(token);
+          return null;
+        case 'document.touchActivity':
+          onActivity?.call(token);
+          
           return null;
         default:
           throw PlatformException(

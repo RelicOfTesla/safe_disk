@@ -35,6 +35,7 @@ class SecureNotepad extends StatefulWidget {
     this.documentLease,
     this.onDirtyChanged,
     this.onClosed,
+    this.onActivity,
     this.onControllerReady,
   });
 
@@ -51,6 +52,7 @@ class SecureNotepad extends StatefulWidget {
   final DocumentLease? documentLease;
   final ValueChanged<bool>? onDirtyChanged;
   final VoidCallback? onClosed;
+  final VoidCallback? onActivity;
   final ValueChanged<SecureNotepadController>? onControllerReady;
 
   @override
@@ -85,6 +87,7 @@ class _SecureNotepadState extends State<SecureNotepad>
       onDirtyChanged: widget.onDirtyChanged,
     )..addListener(_onControllerChanged);
     widget.onControllerReady?.call(_controller);
+    _controller.textController.addListener(_onEditorActivity);
     WidgetsBinding.instance.addObserver(this);
     _monitorClipboard = widget.initiallyMonitorClipboard;
     if (_monitorClipboard) _startClipboardTimer();
@@ -150,6 +153,7 @@ class _SecureNotepadState extends State<SecureNotepad>
     WidgetsBinding.instance.removeObserver(this);
     _clipboardTimer?.cancel();
     _findFocusNode.dispose();
+    _controller.textController.removeListener(_onEditorActivity);
     _controller
       ..removeListener(_onControllerChanged)
       ..dispose();
@@ -236,6 +240,10 @@ class _SecureNotepadState extends State<SecureNotepad>
         setState(() => _clipboardError = strings.notepadClipboardClearFailed);
       }
     }
+  }
+
+  void _onEditorActivity() {
+    widget.onActivity?.call();
   }
 
   void _onControllerChanged() {
@@ -473,6 +481,7 @@ class _SecureNotepadState extends State<SecureNotepad>
               focusNode: _controller.focusNode,
               readOnly: _controller.isReadOnly,
               viewport: _editorViewport,
+              onActivity: widget.onActivity,
             ),
           ),
           if (_monitorClipboard)
