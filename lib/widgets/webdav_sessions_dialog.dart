@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
@@ -52,6 +54,7 @@ class WebDavOpenOptions {
 /// policy choices in one place so opening a session is not a dialog chain.
 Future<WebDavOpenOptions?> chooseWebDavOpenOptions({
   required BuildContext context,
+  required WebDavService webdavService,
 }) async {
   final strings = AppLocalizations.of(context)!;
   var authMode = WebDavAuthMode.bearer;
@@ -139,6 +142,15 @@ Future<WebDavOpenOptions?> chooseWebDavOpenOptions({
                   },
                   contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
+                if (tls)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: () => _exportCaCert(context, webdavService),
+                      icon: const Icon(Icons.file_download_outlined, size: 18),
+                      label: Text(strings.webDavExportCert),
+                    ),
+                  ),
                 const Divider(),
                 Text(strings.webDavSessionLifetimeTitle,
                     style: Theme.of(context).textTheme.titleSmall),
@@ -860,3 +872,57 @@ class _CapabilityValueState extends State<_CapabilityValue> {
     );
   }
 }
+
+
+/// Exports the CA certificate PEM to the downloads directory and shows
+/// platform-specific import instructions.
+Future<void> _exportCaCert(BuildContext context, WebDavService webdavService) async {
+  final strings = AppLocalizations.of(context)!;
+  final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+  try {
+    final pem = webdavService.exportCACertPEM();
+
+    final downloadsDir = await getDownloadsDirectory();
+    if (downloadsDir == null) {
+      throw StateError('downloads-dir-unavailable');
+    }
+
+    final file = File('${downloadsDir.path}${Platform.pathSeparator}safe-disk-ca.crt');
+    await file.writeAsString(pem);
+    final filePath = file.path;
+
+    if (context.mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(strings.webDavCertSaved),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(strings.webDavCaCertNote),
+                const SizedBox(height: 12),
+                Text(filePath, style: Theme.of(ctx).textTheme.bodySmall),
+                const SizedBox(height: 16),
+                Text(strings.webDavExportCaCertInstructions),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(strings.close),
+            ),
+          ],
+        ),
+      );
+    }
+  } catch (e) {
+    scaffoldMessenger.showSnackBar(
+      SnackBar(content: Text(strings.webDavSaveCertError)),
+    );
+  }
+}
+

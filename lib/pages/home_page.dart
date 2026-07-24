@@ -1832,7 +1832,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       displayName: item.name,
     );
     if (!confirmed || !mounted) return;
-    final options = await chooseWebDavOpenOptions(context: context);
+    final options = await chooseWebDavOpenOptions(context: context, webdavService: _webDavService);
     if (options == null || !mounted) return;
     if (!_isCurrentDirectorySession(directory.path, activeSessionID)) return;
 
