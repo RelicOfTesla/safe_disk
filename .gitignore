@@ -128,3 +128,5 @@ docs/_archived/
 /windows/flutter/generated_*
 
 /docs/repro
+/scripts/audit_silent_catch.py
+/scripts/test_large_directory.py
