@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strings"
 )
@@ -41,10 +42,24 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 	cleanupWorkspace := func() {
 		_ = os.RemoveAll(tempDir)
 	}
+
+	currentUser, err := user.Current()
+	if err != nil {
+		cleanupWorkspace()
+		return nil, fmt.Errorf("%w: resolve current user for dav_user", ErrMountFailed)
+	}
+
 	configPath := filepath.Join(tempDir, "davfs2.conf")
 	secretsPath := filepath.Join(tempDir, "secrets")
-	config := "secrets " + secretsPath + "\nask_auth 0\nuse_locks 0\nif_match_bug 1\n"
+
+	config := "secrets " + secretsPath + "\n"
+	config += "ask_auth 0\n"
+	config += "use_locks 0\n"
+	config += "if_match_bug 1\n"
+	config += "dav_user " + currentUser.Username + "\n"
+
 	secrets := strings.TrimRight(session.URL, "/") + " " + session.Username + " " + session.Password + "\n"
+
 	if err := os.WriteFile(configPath, []byte(config), 0600); err != nil {
 		cleanupWorkspace()
 		return nil, fmt.Errorf("%w: write mount configuration", ErrMountFailed)
@@ -53,33 +68,25 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 		cleanupWorkspace()
 		return nil, fmt.Errorf("%w: write mount credentials", ErrMountFailed)
 	}
-	if err := os.Chmod(configPath, 0600); err != nil {
-		cleanupWorkspace()
-		return nil, fmt.Errorf("%w: protect mount configuration", ErrMountFailed)
-	}
-	if err := os.Chmod(secretsPath, 0600); err != nil {
-		cleanupWorkspace()
-		return nil, fmt.Errorf("%w: protect mount credentials", ErrMountFailed)
-	}
 
-	command := exec.CommandContext(ctx, "mount", "-t", "davfs", session.URL, tempDir, "-o", "conf="+configPath+",ro")
+	// Use pkexec/sudo mount.davfs directly instead of mount -t davfs.
+	// mount -t davfs calls setuid mount.davfs which ignores -o conf=... for
+	// security; the fallback ~/.davfs2/secrets has no credentials, causing
+	// "no entry found".  Calling mount.davfs directly via pkexec/sudo
+	// preserves the custom config and secrets.
+	mountCmd := selectMountPrivilegeCmd(session.URL, tempDir, configPath)
+	command := exec.CommandContext(ctx, mountCmd[0], mountCmd[1:]...)
 	if output, err := command.CombinedOutput(); err != nil {
 		cleanupWorkspace()
 		return nil, fmt.Errorf("%w: davfs mount: %s", ErrMountFailed, sanitizeMountOutput(string(output)))
 	}
 
-	// Post-mount health check: davfs2 can report success from mount(8) but
-	// the daemon may fail shortly afterwards, leaving an unusable mount point.
-	// Reading the directory confirms the FUSE daemon is responding.
-	if entries, readErr := os.ReadDir(tempDir); readErr != nil {
+	// Post-mount health check: the FUSE daemon may fail shortly after a
+	// seemingly successful mount, leaving an unusable directory.
+	if _, readErr := os.ReadDir(tempDir); readErr != nil {
 		_ = disconnectMount(context.Background(), tempDir)
 		cleanupWorkspace()
-		return nil, fmt.Errorf("%w: davfs mount succeeded but directory is unreadable (%v). Check that the WebDAV URL is reachable and authentication is correct", ErrMountFailed, readErr)
-	} else {
-		// An empty directory may be legitimate, but it also matches the
-		// symptom of a silently-failed daemon. We accept it and log the
-		// entry count only for diagnostics; the caller can decide.
-		_ = entries
+		return nil, fmt.Errorf("%w: davfs mount succeeded but directory is unreadable (%v)", ErrMountFailed, readErr)
 	}
 
 	return &MountedSession{
@@ -92,6 +99,20 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 			return nil
 		},
 	}, nil
+}
+
+// selectMountPrivilegeCmd returns the argument list to run mount.davfs with
+// enough privileges to use a custom config. Prefers pkexec (PolicyKit) for
+// better desktop integration over sudo.
+func selectMountPrivilegeCmd(url, mountPoint, configPath string) []string {
+	if _, err := exec.LookPath("pkexec"); err == nil {
+		return []string{"pkexec", "mount.davfs", url, mountPoint, "-o", "conf=" + configPath + ",ro"}
+	}
+	if _, err := exec.LookPath("sudo"); err == nil {
+		return []string{"sudo", "mount.davfs", url, mountPoint, "-o", "conf=" + configPath + ",ro"}
+	}
+	// Fallback: regular mount (setuid mount.davfs may ignore -o conf).
+	return []string{"mount", "-t", "davfs", url, mountPoint, "-o", "conf=" + configPath + ",ro"}
 }
 
 // disconnectMount unmounts a davfs2 filesystem. If a normal unmount fails,

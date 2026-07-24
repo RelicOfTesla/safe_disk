@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | WEB-17 | Windows Basic auth WebDAV 挂载失败 | Bug/Windows/互操作 | 100% | 用户 2026-07-25 实测确认正常。mount_windows.go (3665851) 接受 Digest/Basic，改用完整 URL 直传 net use。Basic 共享挂载成功，盘符出现在"此电脑"。 |
 
-| WEB-18 | Linux Digest davfs 挂载后目录为空（Invalid argument） | Bug/Linux/互操作 | 60% | mount_linux.go 改动已完成：支持 Basic+Digest 两种认证、增加 if_match_bug 配置、挂载后健康检查、懒卸载回退。需 Linux 实机验证：(1) 同用户 ls 测试（FUSE 禁止跨用户访问）；(2) davfs2 -o debug 诊断；(3) PROPFIND 兼容性对照。验收：davfs2 挂载后可正常读写目录。 |
+| WEB-18 | Linux Digest davfs 挂载后目录为空（Invalid argument） | Bug/Linux/互操作 | 85% | mount_linux.go 已改：改用 pkexec/sudo mount.davfs 直接调用（绕过 setuid mount.davfs 忽略 -o conf=... 问题），加 dav_user 降权到调用用户。go vet/build 通过。需 Linux 实机验证 davfs2 挂载后可正常读写目录。 |
 
 
 
