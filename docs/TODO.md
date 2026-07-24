@@ -63,11 +63,11 @@
 | UI-98 | 图片浏览器支持拖拽平移 | Feature/UI | 100% | 当前 InteractiveViewer 可通过手势平移，但需确认鼠标按住拖动平移的体验是否完整，以及是否与滑动导航存在手势冲突。 |
 | UI-99 | 0 字节空文档默认可编辑 | Bug/UX | 100% | 0 字节的空文件被当作只读处理，应默认允许编辑。需排查安全记事本的只读判断逻辑。 |
 | WEB-14 | WebDAV CA 证书体系（静态CA签发leaf） | Feature/Go | 90% | Go CA/leaf 证书生成、持久化、导出全部完成；`EnsureTLSConfig` 先确保 CA 再签发 leaf；`ExportCACertPEM`/`ExportTLSCertPEM` 均可用；Go TLS 测试通过。仍需三平台真实 WebDAV 客户端 CA 安装后验证。 |
-| WEB-15 | WebDAV CA 证书导出 Dart/UI 接入 | Feature/Dart+UI | 80% | FFI 层 `sec_webdav_export_ca_cert_pem`、Dart binding/native_lib/crypto_service/webdav_service 逐层接入完成；`exportCACertPEM()` 可用于 UI 调用。仍需 UI 导出按钮接入和各平台导入指南弹窗实现。 |
-| WEB-16 | WebDAV CA 证书下载与导入提示 | Feature/UI | 70% | l10n 中英文覆盖平台导入步骤（`webDavExportCaCertInstructions`、`webDavCaCertNote`）；证书字符串已改为 CA 导出。仍需 UI 导出后弹窗显示导入指南的完整实现。 |
+| WEB-15 | WebDAV CA 证书导出 Dart/UI 接入 | Feature/Dart+UI | 90% | FFI 层 `sec_webdav_export_ca_cert_pem`、Dart binding/native_lib/crypto_service/webdav_service 逐层接入完成；`exportCACertPEM()` 可用于 UI 调用；UI 导出按钮已在 WebDAV 共享配置对话框 TLS 选项中显示。仍需各平台导入指南弹窗实测验收。 |
+| WEB-16 | WebDAV CA 证书下载与导入提示 | Feature/UI | 90% | l10n 中英文覆盖平台导入步骤；CA 证书导出后弹窗显示文件路径、安全提示和各平台安装指南（Windows/Linux/macOS）。仍需三平台实测验收。 |
 | UX-01 | 防截屏设置文案通用化 | Bug/UX文案 | 90% | 中英文防截屏文案已简化：去除 WDA_EXCLUDEFROMCAPTURE 等技术细节、Windows 版本号；实测 Win10 1607 PrintScreen 已黑屏，文案准确反映现状。仍需桌面测评确认新文案在各平台表述通顺。 |
 | WEB-12 | WebDAV TLS/HTTP listener 按会话独立选择 | Bug/Go | 90% | Go Manager 已重构为独立的 `httpState`/`httpsState` listener，每会话按 TLS 选项分配对应 scheme 的 listener；`ensureServerLocked` 按需创建，`stopIfIdleLocked` 分别释放。仍需三平台 TLS/非 TLS 混用实测。 |
-| WEB-13 | WebDAV 自签名证书持久化与导出 | Feature/Go+Dart | 72% | Go：TLS 密钥/证书持久化到数据目录，`EnsureTLSConfig()` 缓存复用，`ExportTLSCertPEM()`/FFI ABI 已实现。Dart：FFI binding 已定义，`native_lib.dart`/`webdav_service.dart`/UI 导出按钮待接入。文档说明各平台安装步骤待补。 |
+| WEB-13 | WebDAV 自签名证书持久化与导出 | Feature/Go+Dart | 80% | Go：TLS 密钥/证书持久化到数据目录，`EnsureTLSConfig()` 缓存复用，`ExportTLSCertPEM()`/FFI ABI 已实现。Dart：FFI binding 已定义，`native_lib.dart` 已接；UI 层 TLS 证书导出按钮待接入。文档说明各平台安装步骤待补。 |
 | WIN-01 | windowsWebDAVUNC 不支持 HTTPS scheme | Bug/Windows | 100%（已废弃） | 提交 3665851 已移除 windowsWebDAVUNC，改用完整 URL 直传 net use，同时支持 http/https。 |
 | WIN-02 | Dart WebDAV TLS 快速路径丢失 TLS 参数 | Bug/Dart | 100%（已修复） | 提交 7d2cb4d 已修复：快速路径条件加入 `&& !tls`，TLS 请求正确走 secWebDavOpenWithOptions。 |
 
