@@ -67,7 +67,11 @@ Future<void> main() async {
       return;
     }
     final autoSaveSeconds = await settings.getNotepadAutoSaveSeconds();
-    final initiallyReadOnly = await settings.getNotepadDefaultReadOnly();
+    final isZeroByte = snapshot.content.isEmpty;
+    final initiallyReadOnly = isZeroByte
+        ? false
+        : await settings.getNotepadDefaultReadOnly() ||
+            shouldOpenFallbackTextReadOnly(arguments.title);
     final initiallyMonitorClipboard =
         await settings.getNotepadDefaultMonitorClipboard();
     runApp(SafeDiskNotepadWindow(
@@ -75,8 +79,7 @@ Future<void> main() async {
       client: client,
       cryptoService: cryptoService,
       autoSaveInterval: Duration(seconds: autoSaveSeconds),
-      initiallyReadOnly:
-          initiallyReadOnly || shouldOpenFallbackTextReadOnly(arguments.title),
+      initiallyReadOnly: initiallyReadOnly,
       initiallyMonitorClipboard: initiallyMonitorClipboard,
       themeMode: themeMode,
       locale: locale,

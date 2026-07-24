@@ -488,6 +488,17 @@ class _SecureImageViewerState extends State<SecureImageViewer> {
             onHorizontalDragEnd: (details) {
               // Swipe left/right to navigate.
               if (details.primaryVelocity == null) return;
+              // Only navigate when the image is at its natural fit (no zoom/pan).
+              // When zoomed or panned, dragging should pan the viewport instead.
+              final matrix = _transformController.value;
+              final scale = matrix.getMaxScaleOnAxis();
+              final translation = matrix.getTranslation();
+              const edge = 1.0;
+              if ((scale - 1.0).abs() > 0.01 ||
+                  translation.x.abs() > edge ||
+                  translation.y.abs() > edge) {
+                return;
+              }
 
               if (details.primaryVelocity! > 300) {
                 _previousImage();

@@ -1404,8 +1404,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _settingsService.getNotepadDefaultMonitorClipboard(),
     ]);
     final autoSaveSeconds = settings[0] as int;
-    final initiallyReadOnly =
-        settings[1] as bool || shouldOpenFallbackTextReadOnly(item.name);
+    final isZeroByte = item.size != null && item.size == 0;
+    final initiallyReadOnly = isZeroByte
+        ? false
+        : settings[1] as bool || shouldOpenFallbackTextReadOnly(item.name);
     final initiallyMonitorClipboard = settings[2] as bool;
     if (!mounted || _currentDir?.tempKeyID != directory!.tempKeyID) return;
     try {

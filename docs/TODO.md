@@ -50,6 +50,8 @@
 | WEB-10 | WebDAV Basic Auth 与 TLS 支持 | P1/互操作 | 10% | 需支持 Basic Auth 和 TLS 传输，以兼容 Windows 10 系统自带的网络磁盘映射（WebClient/WebDAV Redirector）。Go 需实现 Basic 认证处理器与 TLS 监听（自签名证书或用户提供的证书），设置页增加对应开关，并补充三方客户端认证兼容矩阵。 |
 | UI-96 | Grid 视图图标半宽问题 | Bug/UI | 90% | 已修复：`_FileGridCard` 中 `Card` 改用 `Positioned.fill` 包裹以填充网格 tile 全部空间，并添加 `margin: EdgeInsets.zero` 移除 Card 默认边距；dart analyze 通过。仍需桌面视觉验收。 |
 | UI-97 | 图片浏览器滚轮缩放位置漂移 | Bug/UI | 90% | 已修复：滚轮缩放改为保留当前 focal point，通过提取平移量等比缩放后重建矩阵；dart analyze 通过。仍需桌面实测验收。 | 图片浏览器使用鼠标滚轮缩放时，图片位置会发生漂移，与按钮缩放行为不一致。需修复滚轮缩放时的锚点计算，确保以鼠标位置或视口中心为基准缩放。 |
+| UI-98 | 图片浏览器支持拖拽平移 | Feature/UI | 100% | 当前 InteractiveViewer 可通过手势平移，但需确认鼠标按住拖动平移的体验是否完整，以及是否与滑动导航存在手势冲突。 |
+| UI-99 | 0 字节空文档默认可编辑 | Bug/UX | 100% | 0 字节的空文件被当作只读处理，应默认允许编辑。需排查安全记事本的只读判断逻辑。 |
 
 
 ## P0 正确性与数据安全
