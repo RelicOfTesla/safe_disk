@@ -1,6 +1,6 @@
 # 第三方工具 WebDAV 文件交接设计
 
-> 状态：已完成 Go 只读 loopback、Bearer/Digest（SHA-256）会话鉴权、`x/net/webdav` 协议适配、FFI/Dart/CLI 鉴权与挂载控制、凭据显示策略和持久会话的代码链路。Flutter 的共享配置已合并为单一配置框；Linux 已补 davfs 请求形状和标准 DAV 能力声明测试，但真实系统挂载仍未验收；Windows 已接入 Go WebDAV Redirector 适配但未做 Windows 实机验收。编辑模式、Basic 兼容模式、macOS 自动挂载和完整第三方互操作仍未完成。
+> 状态：已完成 Go 只读 loopback、Bearer/Digest（SHA-256）/Basic 会话鉴权、`x/net/webdav` 协议适配、TLS 自签名证书、FFI/Dart/CLI 鉴权与挂载控制、异步挂载/卸载（开始/轮询/取消）、凭据显示策略和持久会话的代码链路。Flutter 的共享配置已合并为单一配置框；Linux 已补 davfs 请求形状和标准 DAV 能力声明测试，但真实系统挂载仍未验收；Windows 已接入 Go WebDAV Redirector 适配但未做 Windows 实机验收。编辑模式、macOS 自动挂载和完整第三方互操作仍未完成。
 
 ## 1. 目标
 
@@ -62,12 +62,11 @@ WebDAV 服务只监听本机 loopback，并使用随机会话地址。密码、�
 | `auth_mode` | 状态 | 凭据与用途 |
 | --- | --- | --- |
 | `bearer` | 当前已实现 | 随机会话 token，通过 `Authorization: Bearer` 传递；适用于脚本和支持 Bearer 的客户端，不作为常见系统挂载的默认认证。 |
-| `digest` | 已实现，互操作待验收 | RFC 7616 `SHA-256` + `qop=auth`，使用每会话随机用户名、密码、realm 和 nonce；用于需要 Digest 的 WebDAV 客户端。 |
-| `basic` | 兼容性候选，当前未实现 | 仅为不支持 Digest 的常见系统工具评估；必须是显式高风险选项，使用独立随机密码，不能复用 root 密码，也不能静默从 Digest 降级。 |
+| `digest` | 已实现 | RFC 7616 `SHA-256` + `qop=auth`，使用每会话随机用户名、密码、realm 和 nonce；用于需要 Digest 的 WebDAV 客户端。系统挂载在 Linux、Windows 均使用此模式。 |
+| `basic` | 已实现 | 显式高风险选项，使用独立随机用户名密码，不能复用 root 密码；Go/Dart/CLI/UI 均已完成，含持久化恢复、风险提示和凭据描述。Basic 不会静默从 Digest 降级。 |
 
-不默认启用 Basic：本服务虽然只监听 loopback，但 Basic 会以可逆形式传递密码，其他本机进程仍可能
-观察请求。若互操作实测证明 Windows/macOS/Linux 常见系统工具确实需要 Basic，必须新增显式的
-兼容模式、风险确认、独立随机凭据和最小生命周期；不能静默从 Digest 降级。Digest `MD5`、
+Basic 已实现但使用约束不变：本服务虽然只监听 loopback，但 Basic 会以可逆形式传递密码，其他本机进程仍可能
+观察请求。Digest `MD5`、
 `MD5-sess` 或未定义的算法回退始终拒绝；root 密码、内容密钥和已有密码校验材料绝不能复用为任何
 WebDAV 凭据。
 
@@ -119,8 +118,7 @@ WebDAV 凭据。
 
 GUI 已显示鉴权方式、凭据显示方式和会话保留方式选择；CLI 以 `--auth=bearer|digest`、
 `--credential-visibility=once|persistent`、`--session-lifetime=ephemeral|persistent` 显式传给 Go，默认值保持临时、一次性和 `bearer`；
-未来兼容模式再增加 `basic`，不得复用现有 Digest ABI 的默认语义。真实客户端互操作完成前，
-不把任何认证方式标记为跨平台兼容。
+Basic 不得复用现有 Digest ABI 的默认语义。真实客户端互操作完成前，不把任何认证方式标记为跨平台兼容。
 
 ## 4. 协议引擎与安全适配层
 
@@ -274,11 +272,11 @@ Digest 共享这条路径，避免某种鉴权绕过范围检查或产生不同�
 
 ## 系统挂载取消
 
-系统挂载不再要求 Dart 同步等待系统命令。Go 暴露开始、轮询和取消操作入口，Dart 只保存不透明的操作 ID：
+系统挂载已支持异步操作，不再要求 Dart 同步等待系统命令。Go 暴露开始、轮询和取消操作入口，Dart 只保存不透明的操作 ID：
 
-1. `sec_webdav_mount_start` 或 `sec_webdav_unmount_start` 创建带 30 秒上限的 Go 操作；
-2. `sec_webdav_operation_poll` 返回 `running`、`completed`、`cancelled` 或 `failed`；
-3. `sec_webdav_operation_cancel` 取消 Go context，使 Linux `mount/umount` 和 Windows `net.exe` 的子进程收到取消信号；
+1. `sec_webdav_mount_start` 或 `sec_webdav_unmount_start` 创建带 30 秒上限的 Go 操作（已实现）；
+2. `sec_webdav_operation_poll` 返回 `running`、`completed`、`cancelled` 或 `failed`（已实现）；
+3. `sec_webdav_operation_cancel` 取消 Go context，使 Linux `mount/umount` 和 Windows `net.exe` 的子进程收到取消信号（已实现）；
 4. Linux 临时配置、凭据文件和挂载目录由平台挂载对象统一清理；Windows 盘符由 Go 统一回收；
 5. 取消与命令成功的竞态由 Go 以真实挂载状态为准，必要时执行补偿卸载，不向 UI 报告虚假的成功。
 
@@ -359,3 +357,29 @@ helper，不能另建弱化路径。
 - Linux、Windows、macOS 分别验证 Go WebDAV 访问、撤销和可选挂载的实际行为，并以各平台常用
   WebDAV 客户端验证 Digest `SHA-256` 互操作；当前 Linux/Windows 只有请求形状测试和 Windows
   交叉编译证据，未验证的平台不宣称支持自动挂载或 Digest 兼容。
+
+## 12. TLS 传输加密
+
+TLS 已实现为可选功能：Go 通过 `generateSelfSignedTLSConfig()` 生成 RSA 2048 + SHA-256 自签名证书，
+有效期 24 小时，绑定 127.0.0.1。所有会话共享同一个 TLS listener（一旦任一会话开启 TLS，后续会话均
+使用 TLS）。Dart 模型（`WebDavOpenedSession`/`WebDavSessionStatus`）、FFI ABI、UI 对话框和 CLI 均已
+接入 TLS 开关。自签名证书意味着客户端需接受证书警告；不支持上传用户证书。
+
+- 证书在每次服务器启动时重新生成，不持久化到磁盘。
+- 最低版本约束为 TLS 1.2。
+- TLS 与 Basic Auth 组合使用时，密码以 TLS 加密传输，但仍受 loopback 约束。
+- 客户端需配置 `--insecure` 或等效选项以接受自签名证书。
+
+## 13. Basic Auth 实现
+
+Basic Auth 已完整实现为 Go 原生认证模式，非兼容性补丁：
+
+- Go 层：`newAuthLocked(AuthModeBasic)` 生成独立随机用户名（12 字符 hex）和密码（32 字符 hex）；
+  `basicAuthorized()` 使用恒定时间比较验证凭据；`authenticateLocked` 返回 `Basic realm="safe-disk"` challenge；
+  持久化字段 `basic_auth_username`/`basic_auth_password` 支持跨重启恢复。
+- FFI 层：`OpenWithOptions` ABI 接受 `auth_mode=basic`，无需更改现有 `Open` 签名。
+- Dart 层：`WebDavAuthMode.basic` 枚举值、`fromNative` 工厂解析、`WebDavService.open` 透传。
+- UI 层：共享配置对话框提供 Basic 单选按钮、风险提示文案（`webDavAuthModeBasic`/`webDavAuthModeBasicDescription`）。
+- 39 项 Go 单元测试覆盖 Basic 解析、持久化、拒止边界（已通过）。
+
+约束：Basic 凭据不写入日志、错误消息或 session list；持久化恢复时严格校验字段完整性；不支持空密码。

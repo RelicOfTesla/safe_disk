@@ -34,7 +34,7 @@
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---:|---|
-| WEB-01 | WebDAV 第三方工具交接实现 | P1/第三方工具 | 82% | Go 已完成 loopback 只读会话、Bearer/Digest `SHA-256`、协议范围、访问监视、root 撤销、凭据策略和 root 内持久会话；FFI/Dart/CLI 已接选项、状态、恢复和挂载/卸载。仍缺编辑协议与冲突控制、常见系统工具认证兼容矩阵及必要的 Basic 兼容模式、Windows/macOS 挂载适配、Linux 实际挂载验收、真实第三方互操作和三平台攻击/异常生命周期测试；不宣称第三方工具交接整体完成。 |
+| WEB-01 | WebDAV 第三方工具交接实现 | P1/第三方工具 | 85% | Go 已完成 loopback 只读会话、Bearer/Digest SHA-256/Basic 全链路认证、TLS 自签名证书、异步挂载/卸载（开始/轮询/取消）、协议范围、访问监视、root 撤销、凭据策略和 root 内持久会话；FFI/Dart/CLI 已接选项/状态/恢复/挂载/卸载/TLS 开关；Go 测试覆盖 57 项（auth_test.go 非网络单元测试全通过）。仍缺编辑协议与冲突控制、常见系统工具认证兼容矩阵验证（rclone/davfs2/Win WebClient/macOS Finder）、Linux 实际挂载验收、真实第三方互操作和三平台攻击/异常生命周期测试；不宣称第三方工具交接整体完成。 |
 | WEB-02 | WebDAV 凭据显示策略 | P1/第三方工具/凭据 | 85% | Go `reveal`、FFI ABI、Dart/Flutter 选择与持久会话列表入口已实现；一次性策略不返回秘密，持久策略有风险提示且不进入 list/status。仍需 CLI 的独立 reveal 管理入口和三平台凭据泄露/日志审计。 |
 | WEB-03 | WebDAV 持久会话 | P1/第三方工具/持久化 | 75% | Go 已实现 root 内加密状态、稳定 root 关联、固定端口、ID/凭据恢复、root 重开 warning、显式撤销删除；FFI/Dart/CLI 已接配置，Go/FFI 有关闭重开和端口生命周期测试。仍需暂停/轮换、恢复失败 UI、跨进程管理、系统客户端重启恢复和三平台异常生命周期测试。 |
 | TR-01 | Transfer 操作锁不污染用户目录 | Bug/并发/数据安全 | 90% | stable lock 已迁至用户私有缓存 `safe_disk/transfer-locks/`，root 与其父目录不再写 `.safe_disk.transfer.*.lock`；Go 覆盖跨进程互斥、symlink alias、等待取消和真实 import 后无相邻残留。仍待 Windows `LockFileEx` 实机与缓存目录生命周期验收。 |
@@ -47,7 +47,7 @@
 | UI-94 | 删除目录列表中的“0 个项目” | P2/UI 文案 | 90% | 已实现：目录列表项没有子项时不渲染“0 个项目”，非零数量和文件大小显示不变；文件浏览器 20 项定向 widget 回归通过。仍需常规桌面视觉验收。 |
 | WEB-08 | WebDAV 总开关 | P1/安全设置 | 90% | 已接入设置持久化、主页入口控制、关闭时撤销当前 root 会话和解锁后清理恢复会话；中英文 UI、设置服务和设置页测试已完成。剩余真实平台验收：关闭开关时已有 Linux/Windows 系统挂载的实机回收提示。 |
 | WEB-09 | WebDAV 系统挂载请求取消 | P1/平台/并发 | 90% | 已增加 Go 异步操作存储、FFI 开始/轮询/取消 ABI、Dart 服务和会话页取消按钮；取消会中止平台命令并按真实状态刷新，Go 操作和 UI 回调已有测试。剩余真实平台验收：Linux davfs、Windows Redirector 的命令取消和临时凭据/挂载点回收。 |
-| WEB-10 | WebDAV Basic Auth 与 TLS 支持 | P1/互操作 | 10% | 需支持 Basic Auth 和 TLS 传输，以兼容 Windows 10 系统自带的网络磁盘映射（WebClient/WebDAV Redirector）。Go 需实现 Basic 认证处理器与 TLS 监听（自签名证书或用户提供的证书），设置页增加对应开关，并补充三方客户端认证兼容矩阵。 |
+| WEB-10 | WebDAV Basic Auth 与 TLS 支持 | P1/互操作 | 90% | Go 已实现 AuthModeBasic（独立随机凭据、恒定时间比较、持久化恢复）和 TLS 自签名证书（RSA 2048 + SHA-256，24h 有效期，TLS 1.2）；Dart 模型/UI/l10n 已接入 Basic Auth 选项、TLS 开关、凭据描述和风险提示；Go 单元测试 57 项全部通过（含 Basic 解析/持久化/拒止 9 项、TLS 证书生成 1 项、OpenOptions 全组合 20 项、Digest nonce 验证 7 项）。分阶段：WEB-10c TLS（80%→90%：含 Basic+TLS Dart 解析测试），WEB-10d 三方客户端认证兼容矩阵验证。 |
 | UI-96 | Grid 视图图标半宽问题 | Bug/UI | 90% | 已修复：`_FileGridCard` 中 `Card` 改用 `Positioned.fill` 包裹以填充网格 tile 全部空间，并添加 `margin: EdgeInsets.zero` 移除 Card 默认边距；dart analyze 通过。仍需桌面视觉验收。 |
 | UI-97 | 图片浏览器滚轮缩放位置漂移 | Bug/UI | 90% | 已修复：滚轮缩放改为保留当前 focal point，通过提取平移量等比缩放后重建矩阵；dart analyze 通过。仍需桌面实测验收。 | 图片浏览器使用鼠标滚轮缩放时，图片位置会发生漂移，与按钮缩放行为不一致。需修复滚轮缩放时的锚点计算，确保以鼠标位置或视口中心为基准缩放。 |
 | UI-98 | 图片浏览器支持拖拽平移 | Feature/UI | 100% | 当前 InteractiveViewer 可通过手势平移，但需确认鼠标按住拖动平移的体验是否完整，以及是否与滑动导航存在手势冲突。 |
@@ -104,3 +104,34 @@
 | API/开发者/贡献文档 | 30% | 已有设计与使用文档 | Go API reference、构建/测试/贡献流程及链接自动检查 |
 | 代码与测试硬编码复查（DEV-01，P3） | 10% | 已有本地化词法审计；尚未系统覆盖测试定位器、硬编码参数和可替换重复值 | 先以只读脚本提取候选及上下文，按“必须保留/应抽取/需人工判断”分类；优先处理 `find` 定位器、重复用户文案、路径、超时、大小限制和协议字符串；只生成安全预览补丁，逐项复核后再替换，不能机械全量改写。 |
 | 发布安全审计 | 10% | 有局部安全测试和设计说明 | 威胁模型冻结、依赖审计、模糊测试、发布构建复现、第三方评审 |
+
+## 当前轮活跃修复（2026-07-24）
+
+| ID | 任务 | 类型 | 当前进度 | 验收条件 |
+|---|---|---|---|---|
+| SC-01 | 防截屏选项合并 | P2/安全设置 | 90% | 已实现：移除 Linux 独立选项，合并为单一开关；Windows < 19041 降级使用 WDA_MONITOR（仅防录屏）并有明确文案说明；支持 `SAFE_DISK_NO_ANTI_SCREENSHOT=1` 环境变量强制关闭以恢复；设置页和主界面均使用共享 `AntiScreenshotCountdownDialog`。待三平台桌面实测验收。 |
+| SC-02 | 防截屏安全确认倒计时 | P2/安全设置 | 90% | 已实现：`AntiScreenshotCountdownDialog` 含 15 秒倒计时进度条，超时或取消自动恢复关闭；含风险说明文案。待三平台桌面实测验收。 |
+| SC-03 | 防截屏首次启动确认 | P2/安全设置 | 90% | 已实现：HomePage 启动时检测 `anti_screenshot_first_confirmed`，未确认则弹窗；确认结果持久化；取消/超时自动关闭防截屏。待三平台桌面实测验收。 |
+| SC-04 | Platform 能力检测 | P2/安全设置 | 90% | 已实现：`getAntiScreenshotCapability()` 通过 wmic/ver 检测 Windows build，Linux 直接返回不支持，macOS 标记为支持。检测结果驱动 `_antiScreenshotHint` 显示。待 Windows 实机 build 检测和 macOS 实测验收。 |
+| WEB-10a | WebDAV Basic Auth Go 实现 | P1/互操作 | 90% | AuthModeBasic、newAuthLocked、basicAuthorized()、normalizeOpenOptions、authFromPersistent、persistentRecordFromActive 均已实现；go vet/build 通过。仍需 Go 层面 Basic Auth 实际 HTTP 请求测试。 |
+| WEB-10b | WebDAV Basic Auth Dart 适配 | P1/互操作 | 90% | WebDavAuthMode 已含 basic 枚举值、wireName；fromNative 两个工厂已解析 basic 模式，credential 字段正确映射为 username+password 不含 token/realm；UI 对话框已含 Basic radio 选项、风险提示和凭据描述；l10n 已生成。仍需 Dart 层 Basic Auth 会话创建与列表定向测试。 |
+| WEB-11 | WebDAV Go 代码缺陷修复 | Bug/数据安全 | 100% | persistentRecordFromActive 死代码已修复（Basic 持久化字段正确写入）；authenticateLocked switch 已清理冗余结构；go vet/build 通过。 |
+| WEB-10c | WebDAV TLS 支持 | P1/互操作 | 90% | Go 自签名证书生成（RSA 2048 + SHA-256，24h 有效期）、TLS listener、`webdavURLScheme`、session/persistent 记录 TLS 字段均已完成；TLS 证书生成单元测试已通过。Dart 模型（WebDavOpenedSession/WebDavSessionStatus）、WebDavService.open、CryptoService.openWebDavSession、UI 对话框 TLS 开关、l10n 中英文均已接入。仍需：TLS 持久会话恢复实际验证、三平台桌面实测 TLS 握手与客户端兼容性。 |
+| WEB-10d | WebDAV 三方客户端认证兼容矩阵验证 | P2/互操作 | 0% | 按平台验证 rclone/davfs2/Windows WebClient/macOS Finder 的 Bearer/Digest/Basic 兼容性与已知限制。 |
+
+## 当前轮活跃修复（2026-07-24 WebDAV）
+
+| ID | 任务 | 类型 | 当前进度 | 验收条件 |
+|---|---|---|---|---|
+| WEB-11a | 修复 persistentRecordFromActive 死代码 | Bug/Go | 100% | Basic Auth 持久化字段正确写入记录；go vet/build 通过。 |
+| WEB-11b | 修复 authenticateLocked 冗余代码 | Bug/Go | 100% | switch 结构清晰，无冗余 return。 |
+| WEB-11c | 检查 authFromPersistent 括号一致性 | Bug/Go | 100% | go vet/build 通过，括号配对正确。 |
+| WEB-10b-1 | WebDavAuthMode 增加 basic 枚举值 | Feature/Dart | 100% | 枚举已增加，wireName=basic，fromNative 已支持。 |
+| WEB-10b-2 | UI 共享配置对话框增加 Basic Auth 选项 | Feature/Dart | 100% | chooseWebDavOpenOptions 已含 Basic radio，含风险提示和凭据描述；l10n 已生成。 |
+| WEB-10b-3 | WebDAV Basic Auth 功能性回归测试 | Test/Go+Dart | 95% | Go 层 57 项单元测试全部通过（含 9 项 Basic Auth、20 项 OpenOptions 全组合、7 项 Digest nonce 验证、1 项 TLS 证书、4 项持久化恢复、12 项路径/URL 验证、4 项 Bearer）。Dart 层 29 项模型解析测试（含 credential visibility/lifetime/Basic/Digest 拒止/全选项组合）已编写并通过 dart analyze。仍有沙箱网络限制导致 HTTP server 集成测试无法运行。 |
+
+## 当前轮活跃修复（2026-07-24 安全锁定）
+
+| ID | 任务 | 类型 | 当前进度 | 验收条件 |
+|---|---|---|---|---|
+| SL-01 | 闲置锁定设计修复：只读记事本未自动关闭 | Bug/安全 | 10% | 闲置超时锁定激活时，所有通过该 root 会话打开的只读记事本（独立窗口）应随 root 锁定一并关闭。当前 `RootIdleTracker` 仅追踪 root session 活动，未关联记事本窗口生命周期。需设计：记事本窗口注册到所属 root session，闲置锁定时遍历关闭已注册的只读窗口，编辑中的窗口应提示保存草稿。验收条件：设置闲置超时 > 触发锁定 > 验证只读记事本窗口已关闭，编辑中窗口收到提示。 |
