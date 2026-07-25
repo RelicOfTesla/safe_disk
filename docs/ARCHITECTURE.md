@@ -134,11 +134,11 @@ native/
     │       └── none/
     ├── sec_transfer/        # 安全传输
     │   ├── interface.go     # ITransferManager 接口
-    │   └── v2/              # V2 实现（原子化 + 断电恢复）
-    │       ├── atomic_file.go
+    │   └── v3/              # V3 实现（marker 制 + 原子提交）
+    │       ├── operation.go
     │       ├── manager.go
-    │       ├── task.go
-    │       └── task_persist.go
+    │       ├── convert.go
+    │       └── marker.go
     └── sec_utils/           # 工具
         ├── path_utils.go    # 路径工具
         └── path_comm.go     # 路径通用函数
@@ -169,30 +169,16 @@ native/
 
 ```go
 nameCtx, err := nameRegistry.NewContext(config, config.WithPrefix("name"))
-dataCtx, err := dataRegistry.NewContext(config, config.WithPrefix("data"))
-keyDeriver, err := hkdfRegistry.LoadKey(config, config.WithPrefix("key"))
-```
+## 安全传输（TransferService V3）
 
----
-
-## 安全传输（TransferService V2）
-
-### 原子化文件替换流程
+### 原子化操作流程
 
 ```
-Step 1: 扫描所有文件，保存进度 → _progress_task_<task_id>.json
-Step 2: 加密/解密文件到 .tmp
-Step 3: 备份原始文件：rename(原始 → .bak)
-Step 4: 替换：rename(.tmp → 原始)
-Step 5: 保存进度（更新 JSON）← 先更新进度
-Step 6: 删除备份：remove(.bak) ← 后删除临时文件
+扫描 → 复制到临时 work → 原子 commit（rename） → 校验 → 清理
 ```
 
-### 断电恢复
-
-启动时检查 `_pending_task_list.json` 和 `_progress_task_<task_id>.json`：
-- 若进度文件存在且任务未标记完成，根据进度继续或回滚
-- 回滚：将 .bak 恢复为原始文件，删除未完成的 .tmp
+操作不持久化逐文件进度，仅在根目录下保留轻量 operation marker。
+中断后重开 root 自动检测 marker，提示全量重跑或清理。
 
 ### 路径类型安全
 
@@ -201,6 +187,8 @@ TransferService 内禁止裸 `string` 路径，强制使用四种类型：
 - `RelativeViewPath` — 加密视图内的相对路径
 - `SafeDiskPath` — 安全磁盘内部路径
 - `StoragePath` — 存储层路径
+
+详细设计见 [TRANSFER_DESIGN.md](TRANSFER_DESIGN.md)。
 
 ---
 
@@ -231,8 +219,11 @@ CLI 直接链接 Go 库，无需 FFI 开销。命令：
 - `list` — 列出加密目录内容
 - `export` — 导出解密
 - `import` — 导入加密
+- `create` — 创建加密目录（支持 `--in-place` 原地加密）
+- `info` — 查看加密目录信息
+- `webdav serve` — 启动 WebDAV 只读共享
 
-> `create`、`info`、`passwd` 当前不能当作已完成命令处理。
+> `passwd` 暂不支持（密码修改属于 UI 操作）。`info` 仅提供只读查看。
 
 ---
 

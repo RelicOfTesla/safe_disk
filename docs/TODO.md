@@ -5,12 +5,11 @@
 > 当前 Linux 已验收、仅待 Windows/macOS 等其它系统复验的条目已移至 [跨平台验收清单](PLATFORM_ACCEPTANCE.md)，不再稀释主线实现进度。
 > 已完成并有自动化实际功能测试证明的任务见 [completed/TASKS_COMPLETED.md](completed/TASKS_COMPLETED.md)。
 > 本轮及跨模块验证证据见 [VERIFICATION_STATUS.md](VERIFICATION_STATUS.md)；本文件不记录验证流水。
-> 审计日期：2026-07-23。状态以当前代码、公开入口、当前系统验收和测试为准，不继承历史勾选。
+> 审计日期：2026-07-25。状态以当前代码、公开入口、当前系统验收和测试为准，不继承历史勾选。
 
-## 当前轮活跃修复（2026-07-25 WebDAV 互操作）
+## 当前轮 WebDAV 互操作修复
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---|---|
-| WEB-17 | Windows Basic auth WebDAV 挂载失败 | Bug/Windows/互操作 | 100% | 用户 2026-07-25 实测确认正常。mount_windows.go (3665851) 接受 Digest/Basic，改用完整 URL 直传 net use。Basic 共享挂载成功，盘符出现在"此电脑"。 |
 | WEB-19 | macOS WebDAV 系统挂载 | Feature/macOS | 70% | mount_darwin.go: 基于 mount_webdav + 临时 keychain 凭据实现 Digest/Basic 认证挂载；keychain 条目会话粒度（-A 免提示）卸载时清理；支持 -S 抑制 Finder 侧边栏；健康检查带重试退避；umount 失败时 fallback diskutil force unmount；含 extractURLHost 单元测试。go cross-compile 通过。需 macOS 实机验证 mount_webdav keychain 鉴权流程、Finder 可见性、卸载清理和异常恢复。 |
 
 | WEB-18 | Linux Digest davfs 挂载后目录为空（Invalid argument） | Bug/Linux/互操作 | 90% | mount_linux.go: 改用 pkexec/sudo mount.davfs；添加 dir_refresh=0 (禁止 FUSE readdir 时实时刷新 PROPFIND，避免 EINVAL)、table_size=4096；健康检查增加重试退避（5 次 x 100ms 步进）。go vet/build/test 通过。需 Linux 实机验证 davfs2 挂载后可正常 ls/读写目录。若仍失败，请挂载时加 davfs2 debug 参数抓 HTTP 交互日志。 |
@@ -41,7 +40,7 @@
 
 - 仅待其它系统验证的已实现功能必须迁入 [跨平台验收清单](PLATFORM_ACCEPTANCE.md)，不能继续以高完成度混入主线实现任务。
 
-## 当前轮活跃修复（2026-07-18）
+## 当前轮 UI 与安全修复
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---:|---|
@@ -53,7 +52,6 @@
 | WEB-05 | 修复 davfs 系统挂载目录枚举 | P1/互操作 | 25% | 已确认只读包装器继续准确声明 `DAV: 1`，并补 `davfs2` 风格 `OPTIONS`、`PROPFIND Depth: 1`、XML 请求和中文/空格文件名 URL 编码测试；没有用不支持的锁能力伪装兼容。当前环境无挂载权限，尚未完成真实 `mount.davfs` 挂载、`ls` 和 rclone 对照验收；不能宣称问题已修复。 |
 | WEB-06 | Windows WebDAV 系统挂载 | P1/Windows | 50% | Go 已接入 Windows WebDAV Redirector：校验 loopback Digest、分配空闲盘符、通过 `net.exe use` 的 stdin 输入密码、检查盘符、卸载和失败清理；Windows 交叉编译通过。仍需 Windows WebClient 服务、Digest 实机兼容、盘符访问/复制和异常退出验收；Bearer 明确拒绝。 |
 | WEB-07 | 复制已挂载系统目录路径 | P2/UI | 70% | WebDAV 会话显示系统挂载路径时已提供独立复制按钮、可选择文本和控件内复制反馈，并有 widget 测试；不把挂载目录误当作安全 root 内部文件剪贴板。仍需 Linux/Windows/macOS 系统剪贴板和实际文件管理器验收。 |
-| DEV-02 | 审计 l10n 生成文件来源 | P2/工程规范 | 100% | 已完成，见 [L10N_GENERATED_AUDIT.md](L10N_GENERATED_AUDIT.md)：当前三个文件可由 ARB 重现；历史仅发现 `e95bcea` 曾直接编辑 generated，已被后续 ARB 修改覆盖。 |
 | UI-92 | Linux 属性弹窗首次打开卡顿 | Bug/Linux UI | 30% | 已完成烟雾基线、标准 `showDialog` 对照、软件渲染对照，以及真实 `lib/main.dart` 主界面冷启动：侧边栏锁定 `ff` root 右键“属性”在 profile/debug 中均未复现数秒卡顿，debug 点击菜单项到命令返回约 114ms。不能宣称已修复；仍需在用户能复现的同一构建/窗口管理器/桌面会话下采集证据，并与重命名/WebDAV/导出对照，禁止以延迟弹窗或无依据预热掩盖问题。 |
 | UI-94 | 删除目录列表中的“0 个项目” | P2/UI 文案 | 90% | 已实现：目录列表项没有子项时不渲染“0 个项目”，非零数量和文件大小显示不变；文件浏览器 20 项定向 widget 回归通过。仍需常规桌面视觉验收。 |
 | WEB-08 | WebDAV 总开关 | P1/安全设置 | 90% | 已接入设置持久化、主页入口控制、关闭时撤销当前 root 会话和解锁后清理恢复会话；中英文 UI、设置服务和设置页测试已完成。剩余真实平台验收：关闭开关时已有 Linux/Windows 系统挂载的实机回收提示。 |
@@ -61,16 +59,12 @@
 | WEB-10 | WebDAV Basic Auth 与 TLS 支持 | P1/互操作 | 90% | Go 已实现 AuthModeBasic（独立随机凭据、恒定时间比较、持久化恢复）和 TLS 自签名证书（RSA 2048 + SHA-256，24h 有效期，TLS 1.2）；Dart 模型/UI/l10n 已接入 Basic Auth 选项、TLS 开关、凭据描述和风险提示；Go 单元测试 57 项全部通过（含 Basic 解析/持久化/拒止 9 项、TLS 证书生成 1 项、OpenOptions 全组合 20 项、Digest nonce 验证 7 项）。分阶段：WEB-10c TLS（80%→90%：含 Basic+TLS Dart 解析测试），WEB-10d 三方客户端认证兼容矩阵验证。 |
 | UI-96 | Grid 视图图标半宽问题 | Bug/UI | 90% | 已修复：`_FileGridCard` 中 `Card` 改用 `Positioned.fill` 包裹以填充网格 tile 全部空间，并添加 `margin: EdgeInsets.zero` 移除 Card 默认边距；dart analyze 通过。仍需桌面视觉验收。 |
 | UI-97 | 图片浏览器滚轮缩放位置漂移 | Bug/UI | 90% | 已修复：滚轮缩放改为保留当前 focal point，通过提取平移量等比缩放后重建矩阵；dart analyze 通过。仍需桌面实测验收。 | 图片浏览器使用鼠标滚轮缩放时，图片位置会发生漂移，与按钮缩放行为不一致。需修复滚轮缩放时的锚点计算，确保以鼠标位置或视口中心为基准缩放。 |
-| UI-98 | 图片浏览器支持拖拽平移 | Feature/UI | 100% | 当前 InteractiveViewer 可通过手势平移，但需确认鼠标按住拖动平移的体验是否完整，以及是否与滑动导航存在手势冲突。 |
-| UI-99 | 0 字节空文档默认可编辑 | Bug/UX | 100% | 0 字节的空文件被当作只读处理，应默认允许编辑。需排查安全记事本的只读判断逻辑。 |
 | WEB-14 | WebDAV CA 证书体系（静态CA签发leaf） | Feature/Go | 90% | Go CA/leaf 证书生成、持久化、导出全部完成；`EnsureTLSConfig` 先确保 CA 再签发 leaf；`ExportCACertPEM`/`ExportTLSCertPEM` 均可用；Go TLS 测试通过。仍需三平台真实 WebDAV 客户端 CA 安装后验证。 |
 | WEB-15 | WebDAV CA 证书导出 Dart/UI 接入 | Feature/Dart+UI | 90% | FFI 层 `sec_webdav_export_ca_cert_pem`、Dart binding/native_lib/crypto_service/webdav_service 逐层接入完成；`exportCACertPEM()` 可用于 UI 调用；UI 导出按钮已在 WebDAV 共享配置对话框 TLS 选项中显示。仍需各平台导入指南弹窗实测验收。 |
 | WEB-16 | WebDAV CA 证书下载与导入提示 | Feature/UI | 90% | l10n 中英文覆盖平台导入步骤；CA 证书导出后弹窗显示文件路径、安全提示和各平台安装指南（Windows/Linux/macOS）。仍需三平台实测验收。 |
 | UX-01 | 防截屏设置文案通用化 | Bug/UX文案 | 90% | 中英文防截屏文案已简化：去除 WDA_EXCLUDEFROMCAPTURE 等技术细节、Windows 版本号；实测 Win10 1607 PrintScreen 已黑屏，文案准确反映现状。仍需桌面测评确认新文案在各平台表述通顺。 |
 | WEB-12 | WebDAV TLS/HTTP listener 按会话独立选择 | Bug/Go | 90% | Go Manager 已重构为独立的 `httpState`/`httpsState` listener，每会话按 TLS 选项分配对应 scheme 的 listener；`ensureServerLocked` 按需创建，`stopIfIdleLocked` 分别释放。仍需三平台 TLS/非 TLS 混用实测。 |
 | WEB-13 | WebDAV 自签名证书持久化与导出 | Feature/Go+Dart | 80% | Go：TLS 密钥/证书持久化到数据目录，`EnsureTLSConfig()` 缓存复用，`ExportTLSCertPEM()`/FFI ABI 已实现。Dart：FFI binding 已定义，`native_lib.dart` 已接；UI 层 TLS 证书导出按钮待接入。文档说明各平台安装步骤待补。 |
-| WIN-01 | windowsWebDAVUNC 不支持 HTTPS scheme | Bug/Windows | 100%（已废弃） | 提交 3665851 已移除 windowsWebDAVUNC，改用完整 URL 直传 net use，同时支持 http/https。 |
-| WIN-02 | Dart WebDAV TLS 快速路径丢失 TLS 参数 | Bug/Dart | 100%（已修复） | 提交 7d2cb4d 已修复：快速路径条件加入 `&& !tls`，TLS 请求正确走 secWebDavOpenWithOptions。 |
 
 
 ## P0 正确性与数据安全
@@ -124,7 +118,7 @@
 | 代码与测试硬编码复查（DEV-01，P3） | 10% | 已有本地化词法审计；尚未系统覆盖测试定位器、硬编码参数和可替换重复值 | 先以只读脚本提取候选及上下文，按“必须保留/应抽取/需人工判断”分类；优先处理 `find` 定位器、重复用户文案、路径、超时、大小限制和协议字符串；只生成安全预览补丁，逐项复核后再替换，不能机械全量改写。 |
 | 发布安全审计 | 10% | 有局部安全测试和设计说明 | 威胁模型冻结、依赖审计、模糊测试、发布构建复现、第三方评审 |
 
-## 当前轮活跃修复（2026-07-24）
+## 当前轮防截屏修复
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---|---|
@@ -134,11 +128,10 @@
 | SC-04 | Platform 能力检测 | P2/安全设置 | 90% | 已实现：`getAntiScreenshotCapability()` 通过 wmic/ver 检测 Windows build，Linux 直接返回不支持，macOS 标记为支持。检测结果驱动 `_antiScreenshotHint` 显示。待 Windows 实机 build 检测和 macOS 实测验收。 |
 | WEB-10a | WebDAV Basic Auth Go 实现 | P1/互操作 | 90% | AuthModeBasic、newAuthLocked、basicAuthorized()、normalizeOpenOptions、authFromPersistent、persistentRecordFromActive 均已实现；go vet/build 通过。仍需 Go 层面 Basic Auth 实际 HTTP 请求测试。 |
 | WEB-10b | WebDAV Basic Auth Dart 适配 | P1/互操作 | 90% | WebDavAuthMode 已含 basic 枚举值、wireName；fromNative 两个工厂已解析 basic 模式，credential 字段正确映射为 username+password 不含 token/realm；UI 对话框已含 Basic radio 选项、风险提示和凭据描述；l10n 已生成。仍需 Dart 层 Basic Auth 会话创建与列表定向测试。 |
-| WEB-11 | WebDAV Go 代码缺陷修复 | Bug/数据安全 | 100% | persistentRecordFromActive 死代码已修复（Basic 持久化字段正确写入）；authenticateLocked switch 已清理冗余结构；go vet/build 通过。 |
 | WEB-10c | WebDAV TLS 支持 | P1/互操作 | 90% | Go 自签名证书生成（RSA 2048 + SHA-256，24h 有效期）、TLS listener、`webdavURLScheme`、session/persistent 记录 TLS 字段均已完成；TLS 证书生成单元测试已通过。Dart 模型（WebDavOpenedSession/WebDavSessionStatus）、WebDavService.open、CryptoService.openWebDavSession、UI 对话框 TLS 开关、l10n 中英文均已接入。仍需：TLS 持久会话恢复实际验证、三平台桌面实测 TLS 握手与客户端兼容性。 |
 | WEB-10d | WebDAV 三方客户端认证兼容矩阵验证 | P2/互操作 | 0% | 按平台验证 rclone/davfs2/Windows WebClient/macOS Finder 的 Bearer/Digest/Basic 兼容性与已知限制。 |
 
-## 当前轮活跃修复（2026-07-24 安全锁定）
+## 当前轮安全锁定修复
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---|---|

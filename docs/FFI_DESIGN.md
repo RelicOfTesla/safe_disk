@@ -2,7 +2,7 @@
 
 > 本文档描述 Flutter 与 Go 后端之间的 FFI 边界设计。当前实现进度以实际代码为准；批量导入/导出、未完成状态 marker 和 convert 恢复原理见 [TRANSFER_DESIGN.md](TRANSFER_DESIGN.md)。
 
-最后更新：2026-06-20
+最后更新：2026-07-25
 
 ## 目标
 

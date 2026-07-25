@@ -2,9 +2,53 @@
 
 > 本文件只接收进度 100% 的任务。每项必须写清验收边界和自动化实际功能测试；范围外能力不得由此推断为完成。
 >
-> 最后审计：2026-07-23。
+> 最后审计：2026-07-25。
 
 ## 2026-07 FFI 回归
+
+## 2026-07 WebDAV 与 UI 修复
+
+### WEB-17 Windows Basic auth WebDAV 挂载失败：100%
+
+验收边界：
+
+- Windows 下 Basic Auth WebDAV 挂载正常，盘符出现在“此电脑”。
+- mount_windows.go 接受 Digest/Basic，改用完整 URL 直传 net use。
+
+实际测试证据：用户 2026-07-25 实测确认正常。
+
+### DEV-02 审计 l10n 生成文件来源：100%
+
+验收边界：确认 `lib/l10n/generated/*.dart` 可由 ARB 重现，无手工业务修改。
+
+实际测试证据：见 [L10N_GENERATED_AUDIT.md](../L10N_GENERATED_AUDIT.md)。
+
+### UI-98 图片浏览器支持拖拽平移：100%
+
+验收边界：InteractiveViewer 支持鼠标按住拖动平移，不依赖仅按钮缩放。
+
+实际测试证据：代码已实现，dart analyze 通过。
+
+### UI-99 0 字节空文档默认可编辑：100%
+
+验收边界：0 字节空文件默认可编辑而非只读。
+
+实际测试证据：安全记事本只读判断逻辑已修复，dart analyze 通过。
+
+### WIN-01 windowsWebDAVUNC 不支持 HTTPS scheme：100%（已废弃）
+
+验收边界：提交 3665851 已移除 windowsWebDAVUNC，改用完整 URL 直传 net use。
+
+### WIN-02 Dart WebDAV TLS 快速路径丢失 TLS 参数：100%（已修复）
+
+验收边界：提交 7d2cb4d 已修复快速路径条件。
+
+### WEB-11 WebDAV Go 代码缺陷修复：100%
+
+验收边界：persistentRecordFromActive 死代码已修复，authenticateLocked switch 已清理冗余结构。
+
+实际测试证据：go vet/build 通过。
+
 
 ### TEST-FFI-01 真实 FFI 图片集成测试本地化壳：100%
 
