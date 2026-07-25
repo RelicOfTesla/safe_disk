@@ -25,11 +25,11 @@ CLI 需要负责：
 
 ## 当前实现状态
 
-截至 2026-06-30，CLI 已接入 Transfer V3 的基础 import/export/create --in-place，但仍未达到完整目标态。
+截至 2026-07-25，CLI 已接入 Transfer V3 的基础 import/export/create --in-place，但仍未达到完整目标态。
 
 已确认：
 
-- `native/cli/cmd/root.go` 已注册 `version`、`list`、`import`、`export`、`create` 和 `webdav serve`。
+- `native/cli/cmd/root.go` 已注册 `version`、`list`、`import`、`export`、`create`、`info` 和 `webdav serve`。
 - `native/cli/main.go` 已 blank import `crypto_all` 和 `sec_transfer/v3`。
 - `import/export/list/create` 已支持 `--password`、`--password-env`、`--password-stdin` 和交互式隐藏输入。
 - `import/export` 已通过 `sec_transfer.GetDefaultTransferV3()` 执行同步 V3 操作，并在失败/中断时保留 operation marker。
