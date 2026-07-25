@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter/services.dart';
 import '../l10n/generated/app_localizations.dart';
 
 /// Password verification prompt for unlocking an encrypted directory.
@@ -128,6 +129,11 @@ class _PasswordPromptState extends State<PasswordPrompt> {
               autocorrect: false,
               enableSuggestions: false,
               enableIMEPersonalizedLearning: false,
+              // Restrict to ASCII printable to prevent IME composition window
+              // from opening (ibus/fcitx can cause UI freeze on Linux).
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[ -~]')),
+              ],
               keyboardType: TextInputType.visiblePassword,
               enableInteractiveSelection: true,
               enabled: !_isVerifying,
