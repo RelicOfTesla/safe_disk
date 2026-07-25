@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/generated/app_localizations.dart';
+import 'ime_safe_password_field.dart';
 
 class RootPasswordChangeRequest {
   const RootPasswordChangeRequest({
@@ -82,35 +83,22 @@ class _RootPasswordChangeDialogState extends State<_RootPasswordChangeDialog> {
             const SizedBox(height: 12),
             Text(strings.passwordChangeDescription),
             const SizedBox(height: 16),
-            TextField(
-              key: const Key('root-password-current'),
+            ImeSafePasswordField(
+              textFieldKey: const Key('root-password-current'),
               controller: _oldPasswordController,
-              obscureText: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              keyboardType: TextInputType.visiblePassword,
-              decoration: InputDecoration(labelText: strings.currentPassword),
+              labelText: strings.currentPassword,
               onSubmitted: (_) => _submit(),
             ),
-            TextField(
-              key: const Key('root-password-new'),
+            ImeSafePasswordField(
+              textFieldKey: const Key('root-password-new'),
               controller: _newPasswordController,
-              obscureText: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              keyboardType: TextInputType.visiblePassword,
-              decoration: InputDecoration(labelText: strings.newPassword),
+              labelText: strings.newPassword,
               onSubmitted: (_) => _submit(),
             ),
-            TextField(
-              key: const Key('root-password-confirm'),
+            ImeSafePasswordField(
+              textFieldKey: const Key('root-password-confirm'),
               controller: _confirmPasswordController,
-              obscureText: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              keyboardType: TextInputType.visiblePassword,
-              decoration:
-                  InputDecoration(labelText: strings.confirmNewPassword),
+              labelText: strings.confirmNewPassword,
               onSubmitted: (_) => _submit(),
             ),
             if (_validationMessage != null) ...[

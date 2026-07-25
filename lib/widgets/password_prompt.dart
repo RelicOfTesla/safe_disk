@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter/services.dart';
 import '../l10n/generated/app_localizations.dart';
-import 'package:flutter_ime/flutter_ime.dart';
+import 'ime_safe_password_field.dart';
 
 /// Password verification prompt for unlocking an encrypted directory.
 ///
@@ -40,15 +39,6 @@ class _PasswordPromptState extends State<PasswordPrompt> {
   @override
   void initState() {
     super.initState();
-    // Disable IME on focus to prevent CJK composition window freeze
-    // (Windows: detaches IME context; other platforms: no-op).
-    _focusNode.addListener(() {
-      if (_focusNode.hasFocus) {
-        disableIME();
-      } else {
-        enableIME();
-      }
-    });
     // Auto-focus after first build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
@@ -57,8 +47,6 @@ class _PasswordPromptState extends State<PasswordPrompt> {
 
   @override
   void dispose() {
-    // Restore IME before disposing.
-    enableIME();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -133,21 +121,10 @@ class _PasswordPromptState extends State<PasswordPrompt> {
               ],
             ],
             const SizedBox(height: 24),
-            TextField(
+            ImeSafePasswordField(
               controller: _controller,
               focusNode: _focusNode,
               autofocus: true,
-              obscureText: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              enableIMEPersonalizedLearning: false,
-              // Restrict to ASCII printable to prevent IME composition window
-              // from opening (ibus/fcitx can cause UI freeze on Linux).
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[ -~]')),
-              ],
-              keyboardType: TextInputType.visiblePassword,
-              enableInteractiveSelection: true,
               enabled: !_isVerifying,
               decoration: InputDecoration(
                 labelText: strings.password,

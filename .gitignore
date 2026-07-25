@@ -130,3 +130,4 @@ docs/_archived/
 /docs/repro
 /scripts/audit_silent_catch.py
 /scripts/test_large_directory.py
+/native/safe-disk

@@ -6,6 +6,7 @@ import '../l10n/generated/app_localizations.dart';
 import '../utils/error_messages.dart';
 import '../models/create_root_options.dart';
 import '../widgets/copyable_snackbar.dart';
+import '../widgets/ime_safe_password_field.dart';
 
 /// Welcome guide dialog for first-time users
 class WelcomeGuideDialog extends StatefulWidget {
@@ -184,8 +185,6 @@ class _CreateEncryptedDirectoryDialogState
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   final _passwordHintController = TextEditingController();
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
   bool _showAdvanced = false;
   String _dataFactory = 'AES-CTR';
   String _nameFactory = 'AES-256-GCM';
@@ -222,46 +221,16 @@ class _CreateEncryptedDirectoryDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
+              ImeSafePasswordField(
                 controller: _passwordController,
-                obscureText: _obscurePassword,
-                autocorrect: false,
-                enableSuggestions: false,
-                keyboardType: TextInputType.visiblePassword,
-                decoration: InputDecoration(
-                  labelText: strings.password,
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword
-                        ? Icons.visibility
-                        : Icons.visibility_off),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                    tooltip: _obscurePassword
-                        ? strings.showPassword
-                        : strings.hidePassword,
-                  ),
-                ),
+                labelText: strings.password,
+                showObscureToggle: true,
               ),
               const SizedBox(height: 16),
-              TextField(
+              ImeSafePasswordField(
                 controller: _confirmController,
-                obscureText: _obscureConfirm,
-                autocorrect: false,
-                enableSuggestions: false,
-                keyboardType: TextInputType.visiblePassword,
-                decoration: InputDecoration(
-                  labelText: strings.confirmPassword,
-                  suffixIcon: IconButton(
-                    icon: Icon(_obscureConfirm
-                        ? Icons.visibility
-                        : Icons.visibility_off),
-                    onPressed: () =>
-                        setState(() => _obscureConfirm = !_obscureConfirm),
-                    tooltip: _obscureConfirm
-                        ? strings.showPassword
-                        : strings.hidePassword,
-                  ),
-                ),
+                labelText: strings.confirmPassword,
+                showObscureToggle: true,
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,

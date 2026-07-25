@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../l10n/generated/app_localizations.dart';
+import 'ime_safe_password_field.dart';
 
 class RootPasswordHintRequest {
   const RootPasswordHintRequest({
@@ -104,14 +105,10 @@ class _RootPasswordHintDialogState extends State<_RootPasswordHintDialog> {
               decoration: InputDecoration(labelText: strings.passwordHint),
             ),
             const SizedBox(height: 12),
-            TextField(
-              key: const Key('root-password-hint-current-password'),
+            ImeSafePasswordField(
+              textFieldKey: const Key('root-password-hint-current-password'),
               controller: _passwordController,
-              obscureText: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              keyboardType: TextInputType.visiblePassword,
-              decoration: InputDecoration(labelText: strings.currentPassword),
+              labelText: strings.currentPassword,
               onSubmitted: (_) => _submit(),
             ),
             if (_validationMessage != null) ...[
