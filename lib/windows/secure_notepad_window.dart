@@ -66,7 +66,7 @@ class SafeDiskNotepadWindow extends StatelessWidget {
         onDirtyChanged: (dirty) => _ignoreChannelError(client.setDirty(dirty)),
         onControllerReady: onControllerReady,
         onClosed: onClosed,
-          onActivity: () => _ignoreChannelError(client.touchActivity()),
+        onActivity: () => _ignoreChannelError(client.touchActivity()),
       ),
     );
   }

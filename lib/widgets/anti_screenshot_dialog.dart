@@ -26,8 +26,8 @@ class AntiScreenshotInfoDialog extends StatelessWidget {
             Text(
               s.antiScreenshotEnvVarHint,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
+                    color: cs.onSurfaceVariant,
+                  ),
             ),
           ],
         ),
@@ -112,8 +112,8 @@ class _AntiScreenshotCountdownDialogState
           Text(
             '${_remaining}s',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
+                  color: cs.onSurfaceVariant,
+                ),
           ),
         ],
       ),

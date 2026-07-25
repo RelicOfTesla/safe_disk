@@ -517,7 +517,8 @@ void main() {
     expect(DesktopMultiWindowPlatform.tryParseArguments('not-json'), isNull);
   });
 
-  test('touchActivity invokes the onActivity callback with the token', () async {
+  test('touchActivity invokes the onActivity callback with the token',
+      () async {
     final crypto = _BridgeCryptoService('content');
     final broker = DocumentSessionBroker(cryptoService: crypto);
     final platform = _FakeContentWindowPlatform();

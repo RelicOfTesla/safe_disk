@@ -16,21 +16,22 @@ class EncodingDetector {
   /// Korean (EUC-KR), Western/Central European (windows-1250/1252),
   /// Cyrillic (windows-1251), Arabic (windows-1256).
   static const _candidates = [
-    'gb18030',       // GBK superset — most common legacy Chinese
-    'big5',          // Traditional Chinese
-    'shift_jis',     // Japanese
-    'euc-jp',        // Japanese (Unix)
-    'euc-kr',        // Korean
-    'windows-1252',  // Western European
-    'windows-1250',  // Central European
-    'windows-1251',  // Cyrillic
-    'windows-1256',  // Arabic
+    'gb18030', // GBK superset — most common legacy Chinese
+    'big5', // Traditional Chinese
+    'shift_jis', // Japanese
+    'euc-jp', // Japanese (Unix)
+    'euc-kr', // Korean
+    'windows-1252', // Western European
+    'windows-1250', // Central European
+    'windows-1251', // Cyrillic
+    'windows-1256', // Arabic
   ];
 
   /// Decode [bytes] using the best-guess encoding.
   ///
   /// Returns the decoded string and the name of the encoding used.
-  static Future<({String text, String encoding})> decode(Uint8List bytes) async {
+  static Future<({String text, String encoding})> decode(
+      Uint8List bytes) async {
     if (bytes.isEmpty) {
       return (text: '', encoding: 'utf-8');
     }

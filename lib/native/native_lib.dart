@@ -338,10 +338,11 @@ class NativeLib {
     _checkResult(result, "secWebDavExportCertPEM");
     return Map<String, dynamic>.from(result["data"] as Map);
   }
- 
+
   /// Exports the CA certificate PEM for WebDAV HTTPS system trust store installation.
   Map<String, dynamic> secWebDavExportCACertPEM() {
-    final result = _parseJson(_ptrToString(_bindings.secWebDavExportCACertPEM()));
+    final result =
+        _parseJson(_ptrToString(_bindings.secWebDavExportCACertPEM()));
     _checkResult(result, "secWebDavExportCACertPEM");
     return Map<String, dynamic>.from(result["data"] as Map);
   }
@@ -924,13 +925,14 @@ class NativeLib {
     );
   }
 
-  void secTransferV3ExportFile(int rootID, String srcPath, String destPath, {String? durability}) {
+  void secTransferV3ExportFile(int rootID, String srcPath, String destPath,
+      {String? durability}) {
     final srcPathPtr = srcPath.toNativeUtf8();
     final destPathPtr = destPath.toNativeUtf8();
     final durabilityPtr = (durability ?? 'full').toNativeUtf8();
     try {
-      final resultPtr =
-          _bindings.secTransferV3ExportFile(rootID, srcPathPtr, destPathPtr, durabilityPtr);
+      final resultPtr = _bindings.secTransferV3ExportFile(
+          rootID, srcPathPtr, destPathPtr, durabilityPtr);
       final result = _ptrToString(resultPtr);
       final data = _parseJson(result);
       _checkResult(data, 'secTransferV3ExportFile');
@@ -961,8 +963,8 @@ class NativeLib {
     );
   }
 
-  void secTransferV3ExportDirectory(
-      int rootID, String srcPath, String destPath, {String? durability}) {
+  void secTransferV3ExportDirectory(int rootID, String srcPath, String destPath,
+      {String? durability}) {
     final srcPathPtr = srcPath.toNativeUtf8();
     final destPathPtr = destPath.toNativeUtf8();
     final durabilityPtr = (durability ?? 'full').toNativeUtf8();

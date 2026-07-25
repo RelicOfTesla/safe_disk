@@ -796,8 +796,10 @@ Future<void> showWebDavCredentialsDialog({
               Text(
                 switch (session.authMode) {
                   WebDavAuthMode.bearer => strings.webDavCredentialsDescription,
-                  WebDavAuthMode.digest => strings.webDavDigestCredentialsDescription,
-                  WebDavAuthMode.basic => strings.webDavBasicCredentialsDescription,
+                  WebDavAuthMode.digest =>
+                    strings.webDavDigestCredentialsDescription,
+                  WebDavAuthMode.basic =>
+                    strings.webDavBasicCredentialsDescription,
                 },
               ),
               if (session.credentialVisibility ==
@@ -834,7 +836,8 @@ Future<void> showWebDavCredentialsDialog({
                   copiedMessage: strings.webDavPasswordCopied,
                 ),
                 const SizedBox(height: 8),
-                if (session.authMode == WebDavAuthMode.digest && session.realm != null)
+                if (session.authMode == WebDavAuthMode.digest &&
+                    session.realm != null)
                   _CapabilityValue(
                     label: strings.webDavRealm,
                     value: session.realm!,
@@ -914,10 +917,10 @@ class _CapabilityValueState extends State<_CapabilityValue> {
   }
 }
 
-
 /// Exports the CA certificate PEM to the downloads directory and shows
 /// platform-specific import instructions.
-Future<void> _exportCaCert(BuildContext context, WebDavService webdavService) async {
+Future<void> _exportCaCert(
+    BuildContext context, WebDavService webdavService) async {
   final strings = AppLocalizations.of(context)!;
   final scaffoldMessenger = ScaffoldMessenger.of(context);
 
@@ -929,7 +932,8 @@ Future<void> _exportCaCert(BuildContext context, WebDavService webdavService) as
       throw StateError('downloads-dir-unavailable');
     }
 
-    final file = File('${downloadsDir.path}${Platform.pathSeparator}safe-disk-ca.crt');
+    final file =
+        File('${downloadsDir.path}${Platform.pathSeparator}safe-disk-ca.crt');
     await file.writeAsString(pem);
     final filePath = file.path;
 
@@ -966,4 +970,3 @@ Future<void> _exportCaCert(BuildContext context, WebDavService webdavService) as
     );
   }
 }
-

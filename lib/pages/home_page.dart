@@ -83,8 +83,10 @@ class HomePage extends StatefulWidget {
   final ValueChanged<ThemeMode>? onThemeModeChanged;
   final ValueChanged<Locale?>? onLocaleChanged;
   final Future<String?> Function()? selectDirectory;
-  final Future<XFile?> Function(List<XTypeGroup> acceptedTypeGroups)? selectFile;
-  final Future<FileSaveLocation?> Function(String suggestedName)? selectSaveLocation;
+  final Future<XFile?> Function(List<XTypeGroup> acceptedTypeGroups)?
+      selectFile;
+  final Future<FileSaveLocation?> Function(String suggestedName)?
+      selectSaveLocation;
   final ContentWindowPlatform? contentWindowPlatform;
   final Future<bool> Function(String path)? exportTargetExists;
   final Future<void> Function(String path)? deleteRootDirectory;
@@ -146,15 +148,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? _keyboardSelectionAnchorPath;
   int _gridColumnCount = 1;
   final FocusNode _shortcutFocusNode = FocusNode(debugLabel: 'home-shortcuts');
-  final GlobalKey<FileBrowserState> _fileBrowserKey = GlobalKey<FileBrowserState>();
+  final GlobalKey<FileBrowserState> _fileBrowserKey =
+      GlobalKey<FileBrowserState>();
 
   @override
   void initState() {
     super.initState();
     _cryptoService = widget.cryptoService ?? CryptoService();
     _directoryService = widget.directoryService ?? DirectoryService();
-    _fileService = widget.fileService ?? FileService(cryptoService: _cryptoService);
-    _persistenceService = widget.persistenceService ?? DirectoryPersistenceService();
+    _fileService =
+        widget.fileService ?? FileService(cryptoService: _cryptoService);
+    _persistenceService =
+        widget.persistenceService ?? DirectoryPersistenceService();
     _settingsService = widget.settingsService ?? SettingsService();
     _secureClipboard = SecureClipboardService();
     _secureEntryMover = SecureEntryMoveService(_cryptoService);
@@ -172,7 +177,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final sessionID = _documentBroker.rootSessionForToken(token);
       if (sessionID != null) _idleTracker.touch(sessionID);
     };
-    _webDavService = widget.webDavService ?? WebDavService(cryptoService: _cryptoService);
+    _webDavService =
+        widget.webDavService ?? WebDavService(cryptoService: _cryptoService);
     WidgetsBinding.instance.addObserver(this);
     _loadPersistedDirectories();
     _loadDrawerPinnedState();
@@ -193,8 +199,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _shortcutFocusNode.dispose();
     _contentWindowBridge.dispose();
     _saveOpenedDirectories();
-    final sessionIDs =
-        _openedDirs.map((directory) => directory.tempKeyID).whereType<String>().toSet();
+    final sessionIDs = _openedDirs
+        .map((directory) => directory.tempKeyID)
+        .whereType<String>()
+        .toSet();
     for (final sessionID in sessionIDs) {
       _closeSession(sessionID);
     }
@@ -251,7 +259,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.hidden || state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
       unawaited(_lockEligibleRoots(requireBackgroundPreference: true));
       return;
     }
@@ -284,7 +293,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     Set<String>? sessionIDs,
     bool requireBackgroundPreference = false,
   }) async {
-    if ((requireBackgroundPreference && !_autoLockOnBackground) || _isAutoLocking) {
+    if ((requireBackgroundPreference && !_autoLockOnBackground) ||
+        _isAutoLocking) {
       return;
     }
     _isAutoLocking = true;
@@ -302,8 +312,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final decision = _rootCloseCoordinator.inspect(sessionID);
 
             // Only block when there are active writes or dirty documents.
-            if (decision.disposition == RootCloseDisposition.blockedByActiveWrites ||
-                decision.disposition == RootCloseDisposition.blockedByUnsavedDocuments) {
+            if (decision.disposition ==
+                    RootCloseDisposition.blockedByActiveWrites ||
+                decision.disposition ==
+                    RootCloseDisposition.blockedByUnsavedDocuments) {
               skippedCount++;
               return;
             }
@@ -315,7 +327,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               await _dismissInProcessNotepad();
             }
 
-            final nativeWindowCount = _contentWindowBridge.nativeWindowCountForRoot(sessionID);
+            final nativeWindowCount =
+                _contentWindowBridge.nativeWindowCountForRoot(sessionID);
             if (nativeWindowCount != 0 &&
                 !await _contentWindowBridge.prepareAndCloseRootWindows(
                   sessionID,
@@ -324,7 +337,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               return;
             }
 
-            await _disposeCurrentDirectoryPageSession(directory.path, sessionID);
+            await _disposeCurrentDirectoryPageSession(
+                directory.path, sessionID);
             if (!_isCurrentDirectorySession(directory.path, sessionID)) return;
             if (!_closeSession(sessionID)) {
               failedCount++;
@@ -381,7 +395,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final current = _currentDir;
     return (current?.path == path && current?.tempKeyID == sessionID) ||
         _openedDirs.any(
-          (directory) => directory.path == path && directory.tempKeyID == sessionID,
+          (directory) =>
+              directory.path == path && directory.tempKeyID == sessionID,
         );
   }
 
@@ -430,7 +445,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       final enabled = await _settingsService.getAntiScreenshot();
       if (!enabled) return;
-      final confirmed = await _settingsService.getAntiScreenshotFirstConfirmed();
+      final confirmed =
+          await _settingsService.getAntiScreenshotFirstConfirmed();
       if (confirmed) return;
 
       // First launch with anti-screenshot enabled — two-step flow
@@ -534,7 +550,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _renameDirectoryAlias(EncryptedDirectory directory) async {
     if (directory.displayAlias == null &&
-        _openedDirs.any((item) => item.path == directory.path && item.displayAlias != null)) {
+        _openedDirs.any((item) =>
+            item.path == directory.path && item.displayAlias != null)) {
       await _applyDirectoryAlias(directory.path, null);
       return;
     }
@@ -626,7 +643,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final directory = Directory(selectedPath);
     bool isNonEmpty;
     try {
-      isNonEmpty = await directory.exists() && !await directory.list(followLinks: false).isEmpty;
+      isNonEmpty = await directory.exists() &&
+          !await directory.list(followLinks: false).isEmpty;
     } catch (error) {
       if (mounted) {
         ErrorHelper.showError(
@@ -685,7 +703,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             tempKeyID: rootID.toString(),
           );
           _currentPath = selectedPath;
-          final existingIndex = _openedDirs.indexWhere((d) => d.path == selectedPath);
+          final existingIndex =
+              _openedDirs.indexWhere((d) => d.path == selectedPath);
           if (existingIndex >= 0) _openedDirs.removeAt(existingIndex);
           _openedDirs.insert(0, _currentDir!);
         });
@@ -718,7 +737,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final root = _cryptoService.findCryptionRoot(path);
       if (root.isEmpty) {
         if (mounted) {
-          ErrorHelper.showError(context, errorType: ErrorType.notEncryptedDirectory);
+          ErrorHelper.showError(context,
+              errorType: ErrorType.notEncryptedDirectory);
         }
         return;
       }
@@ -862,7 +882,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // The unfinished-state prompt is asynchronous and the sidebar stays
     // usable. Never attach this root to a directory selected after unlock
     // started; close the unowned native session instead.
-    if (!transferStateAvailable || !mounted || !identical(_currentDir, openingDirectory)) {
+    if (!transferStateAvailable ||
+        !mounted ||
+        !identical(_currentDir, openingDirectory)) {
       _closeSession(rootID.toString());
       return false;
     }
@@ -923,7 +945,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(strings.unfinishedTransfersDetected),
-        content: Text(strings.unfinishedTransfersDetectedDescription(markers.length)),
+        content: Text(
+            strings.unfinishedTransfersDetectedDescription(markers.length)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, _UnfinishedAction.skip),
@@ -1004,7 +1027,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         currentToken = DirectoryTransferCancellationToken();
         progressController.update(
           current: 0,
-          status: strings.rerunningUnfinishedProgress(index + 1, markers.length),
+          status:
+              strings.rerunningUnfinishedProgress(index + 1, markers.length),
         );
         await _directoryService.rerunUnfinishedOperation(
           rootID,
@@ -1024,14 +1048,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
       if (mounted && !progressController.isCancelled) {
         progressController.close(context);
-        ErrorHelper.showSuccess(context, strings.unfinishedTransfersRerunCompleted);
+        ErrorHelper.showSuccess(
+            context, strings.unfinishedTransfersRerunCompleted);
       }
     } catch (e) {
       if (mounted && !progressController.isCancelled) {
         progressController.close(context);
       }
       if (mounted && currentToken?.isCancelled == true) {
-        ErrorHelper.showInfo(context, strings.unfinishedTransfersRerunCancelled);
+        ErrorHelper.showInfo(
+            context, strings.unfinishedTransfersRerunCancelled);
       } else if (mounted) {
         ErrorHelper.showError(
           context,
@@ -1093,8 +1119,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (sessionID != null && !_isCurrentDirectorySession(dir.path, sessionID)) {
       return;
     }
-    final closeDecision = sessionID == null ? null : _rootCloseCoordinator.inspect(sessionID);
-    if (closeDecision?.disposition == RootCloseDisposition.blockedByActiveWrites) {
+    final closeDecision =
+        sessionID == null ? null : _rootCloseCoordinator.inspect(sessionID);
+    if (closeDecision?.disposition ==
+        RootCloseDisposition.blockedByActiveWrites) {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -1114,7 +1142,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
       return;
     }
-    if (closeDecision?.disposition == RootCloseDisposition.blockedByUnsavedDocuments) {
+    if (closeDecision?.disposition ==
+        RootCloseDisposition.blockedByUnsavedDocuments) {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -1178,8 +1207,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
     if (action == RootDirectoryAction.deleteDirectory) {
       try {
-        final delete =
-            widget.deleteRootDirectory ?? (path) => Directory(path).delete(recursive: true);
+        final delete = widget.deleteRootDirectory ??
+            (path) => Directory(path).delete(recursive: true);
         await delete(dir.path);
       } catch (error) {
         if (mounted) {
@@ -1244,9 +1273,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final decision = _rootCloseCoordinator.inspect(sessionID);
     if (decision.disposition != RootCloseDisposition.closeImmediately) {
       final strings = AppLocalizations.of(context)!;
-      final message = decision.disposition == RootCloseDisposition.blockedByActiveWrites
-          ? strings.passwordChangeBlockedBySaving
-          : strings.passwordChangeBlockedByDocuments;
+      final message =
+          decision.disposition == RootCloseDisposition.blockedByActiveWrites
+              ? strings.passwordChangeBlockedBySaving
+              : strings.passwordChangeBlockedByDocuments;
       if (mounted) ErrorHelper.showInfo(context, message);
       return false;
     }
@@ -1347,7 +1377,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _manageRootPasswordHint(EncryptedDirectory directory) async {
     final strings = AppLocalizations.of(context)!;
-    if (!directory.isVerified || _cryptoService.rootIDForPath(directory.path) == null) {
+    if (!directory.isVerified ||
+        _cryptoService.rootIDForPath(directory.path) == null) {
       ErrorHelper.showError(
         context,
         errorType: ErrorType.directoryNotVerified,
@@ -1373,7 +1404,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final updatedConfig = _cryptoService.loadConfig(directory.path);
       if (mounted) {
         setState(() {
-          final index = _openedDirs.indexWhere((item) => item.path == directory.path);
+          final index =
+              _openedDirs.indexWhere((item) => item.path == directory.path);
           final latestDirectory = index >= 0 ? _openedDirs[index] : _currentDir;
           final updatedDirectory = latestDirectory?.copyWith(
             config: updatedConfig,
@@ -1382,7 +1414,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _openedDirs[index] = updatedDirectory;
           }
           if (_currentDir?.path == directory.path) {
-            _currentDir = updatedDirectory ?? _currentDir!.copyWith(config: updatedConfig);
+            _currentDir = updatedDirectory ??
+                _currentDir!.copyWith(config: updatedConfig);
           }
         });
         ErrorHelper.showSuccess(context, strings.passwordHintUpdated);
@@ -1407,15 +1440,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String? expectedSessionID,
   }) {
     setState(() {
-      final index = _openedDirs.indexWhere((item) => item.path == directory.path);
+      final index =
+          _openedDirs.indexWhere((item) => item.path == directory.path);
       final openedDirectory = index >= 0 ? _openedDirs[index] : null;
-      final openedMatches =
-          expectedSessionID == null || openedDirectory?.tempKeyID == expectedSessionID;
+      final openedMatches = expectedSessionID == null ||
+          openedDirectory?.tempKeyID == expectedSessionID;
       if (index >= 0 && openedMatches) {
         _openedDirs[index] = lockedDirectory;
       }
-      final currentMatches =
-          expectedSessionID == null || _currentDir?.tempKeyID == expectedSessionID;
+      final currentMatches = expectedSessionID == null ||
+          _currentDir?.tempKeyID == expectedSessionID;
       if (_currentDir?.path == directory.path && currentMatches) {
         _currentDir = lockedDirectory;
         _currentPath = lockedDirectory.path;
@@ -1468,8 +1502,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ]);
     final autoSaveSeconds = settings[0] as int;
     final isZeroByte = item.size != null && item.size == 0;
-    final initiallyReadOnly =
-        isZeroByte ? false : settings[1] as bool || shouldOpenFallbackTextReadOnly(item.name);
+    final initiallyReadOnly = isZeroByte
+        ? false
+        : settings[1] as bool || shouldOpenFallbackTextReadOnly(item.name);
     final initiallyMonitorClipboard = settings[2] as bool;
     if (!mounted || _currentDir?.tempKeyID != directory!.tempKeyID) return;
     try {
@@ -1517,7 +1552,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) {
         ErrorHelper.showInfo(
           context,
-          AppLocalizations.of(context)!.notepadFileTooLarge(kSecureNotepadContentLimitLabel),
+          AppLocalizations.of(context)!
+              .notepadFileTooLarge(kSecureNotepadContentLimitLabel),
         );
       }
     } catch (error) {
@@ -1572,7 +1608,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) {
         ErrorHelper.showInfo(
           context,
-          AppLocalizations.of(context)!.notepadFileTooLarge(kSecureNotepadContentLimitLabel),
+          AppLocalizations.of(context)!
+              .notepadFileTooLarge(kSecureNotepadContentLimitLabel),
         );
       }
     } catch (error) {
@@ -1691,7 +1728,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     await showRootDirectoryProperties(
       context: context,
       directory: directory,
-      onManagePasswordHint: directory.isVerified ? () => _manageRootPasswordHint(directory) : null,
+      onManagePasswordHint: directory.isVerified
+          ? () => _manageRootPasswordHint(directory)
+          : null,
     );
   }
 
@@ -1727,7 +1766,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _showKeyboardContextMenu() {
-    final target = _selectedFiles.length == 1 ? _selectedFiles.single : _keyboardTarget;
+    final target =
+        _selectedFiles.length == 1 ? _selectedFiles.single : _keyboardTarget;
     final position = _keyboardContextMenuPosition();
     if (target != null && _items.any((item) => item.path == target.path)) {
       unawaited(_showFileContextMenu(target, position));
@@ -1834,7 +1874,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       displayName: item.name,
     );
     if (!confirmed || !mounted) return;
-    final options = await chooseWebDavOpenOptions(context: context, webdavService: _webDavService);
+    final options = await chooseWebDavOpenOptions(
+        context: context, webdavService: _webDavService);
     if (options == null || !mounted) return;
     if (!_isCurrentDirectorySession(directory.path, activeSessionID)) return;
 
@@ -1849,7 +1890,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         tls: options.tls,
         writePolicy: options.writePolicy,
       );
-      if (!mounted || !_isCurrentDirectorySession(directory.path, activeSessionID)) {
+      if (!mounted ||
+          !_isCurrentDirectorySession(directory.path, activeSessionID)) {
         _webDavService.close(session.id);
         return;
       }
@@ -2073,7 +2115,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       await _revokeWebDavSessionsForRoot(rootID, sessions: sessions);
       final remaining = await _listWebDavSessions(rootID, reportErrors: false);
       if (mounted) {
-        setState(() => _webDavSessionCounts[rootID] = remaining?.length ?? sessions.length);
+        setState(() => _webDavSessionCounts[rootID] =
+            remaining?.length ?? sessions.length);
       }
     }
   }
@@ -2135,7 +2178,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     var destinationName = sourceName;
     var overwrite = false;
-    if (_items.any((item) => item.name.toLowerCase() == sourceName.toLowerCase())) {
+    if (_items
+        .any((item) => item.name.toLowerCase() == sourceName.toLowerCase())) {
       final existing = _items.firstWhere(
         (item) => item.name.toLowerCase() == sourceName.toLowerCase(),
       );
@@ -2163,9 +2207,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() => _isLoading = true);
 
       final rootID = int.parse(_currentDir!.tempKeyID!);
-      final currentRelative = _cryptoService.relativePathForRoot(rootID, _currentPath!);
-      final destination =
-          currentRelative.isEmpty ? destinationName : '$currentRelative/$destinationName';
+      final currentRelative =
+          _cryptoService.relativePathForRoot(rootID, _currentPath!);
+      final destination = currentRelative.isEmpty
+          ? destinationName
+          : '$currentRelative/$destinationName';
       await _directoryService.importFile(
         rootID,
         sourcePath,
@@ -2196,8 +2242,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _importDirectory() async {
     if (!_validateSession()) return;
 
-    final sourcePath =
-        widget.selectDirectory != null ? await widget.selectDirectory!() : await getDirectoryPath();
+    final sourcePath = widget.selectDirectory != null
+        ? await widget.selectDirectory!()
+        : await getDirectoryPath();
     if (sourcePath == null || !mounted) return;
     await _importDirectoryPath(sourcePath);
   }
@@ -2242,7 +2289,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           copyLabel: AppLocalizations.of(context)!.copySuffix,
         );
         final separator = destPath.lastIndexOf('/');
-        destPath = separator < 0 ? newName : '${destPath.substring(0, separator + 1)}$newName';
+        destPath = separator < 0
+            ? newName
+            : '${destPath.substring(0, separator + 1)}$newName';
       } else {
         overwrite = true;
       }
@@ -2378,8 +2427,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final strings = AppLocalizations.of(context)!;
     if (!await _confirmPlaintextExport(item)) return;
 
-    final String? exportDir =
-        widget.selectDirectory != null ? await widget.selectDirectory!() : await getDirectoryPath();
+    final String? exportDir = widget.selectDirectory != null
+        ? await widget.selectDirectory!()
+        : await getDirectoryPath();
     if (exportDir == null) return;
     if (!mounted) return;
 
@@ -2442,14 +2492,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             context,
             strings.transferCancelledWithUnfinishedState,
           );
-        } else if (progress.isComplete && !progress.isFailed && !progress.isCancelled) {
-          ErrorHelper.showSuccess(
-              context, strings.directoryExportCompleted(progress.processedFiles));
+        } else if (progress.isComplete &&
+            !progress.isFailed &&
+            !progress.isCancelled) {
+          ErrorHelper.showSuccess(context,
+              strings.directoryExportCompleted(progress.processedFiles));
         } else if (progress.isFailed) {
           ErrorHelper.showError(
             context,
             errorType: ErrorType.exportDirectoryFailed,
-            originalError: progress.error ?? 'directory-export-failed-without-error',
+            originalError:
+                progress.error ?? 'directory-export-failed-without-error',
           );
         }
       }
@@ -2476,8 +2529,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!_validateSession()) return;
     final strings = AppLocalizations.of(context)!;
 
-    final String? exportDir =
-        widget.selectDirectory != null ? await widget.selectDirectory!() : await getDirectoryPath();
+    final String? exportDir = widget.selectDirectory != null
+        ? await widget.selectDirectory!()
+        : await getDirectoryPath();
     if (exportDir == null) return;
     if (!mounted) return;
 
@@ -2549,7 +2603,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             : strings.batchExportCompletedAll(successCount);
         ErrorHelper.showSuccess(context, message);
       } else if (mounted && progressController.isCancelled) {
-        ErrorHelper.showInfo(context, strings.batchExportCancelled(successCount, failCount));
+        ErrorHelper.showInfo(
+            context, strings.batchExportCancelled(successCount, failCount));
       }
     } catch (e) {
       if (mounted && !progressController.isCancelled) {
@@ -2717,7 +2772,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         operation: 'batch-delete',
       );
     } else {
-      ErrorHelper.showSuccess(context, strings.batchDeleteCompleted(succeeded.length));
+      ErrorHelper.showSuccess(
+          context, strings.batchDeleteCompleted(succeeded.length));
     }
   }
 
@@ -2829,7 +2885,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     bool vertical = false,
   }) {
     if (_items.isEmpty) return;
-    final movement = vertical && _viewMode == ViewMode.grid ? delta * _gridColumnCount : delta;
+    final movement = vertical && _viewMode == ViewMode.grid
+        ? delta * _gridColumnCount
+        : delta;
     final currentIndex = _keyboardTarget == null
         ? -1
         : _items.indexWhere((item) => item.path == _keyboardTarget!.path);
@@ -2843,9 +2901,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
       final anchorPath = _keyboardSelectionAnchorPath ?? target.path;
       final anchorIndex = _items.indexWhere((item) => item.path == anchorPath);
-      final start =
-          anchorIndex < 0 ? nextIndex : (anchorIndex < nextIndex ? anchorIndex : nextIndex);
-      final end = anchorIndex < 0 ? nextIndex : (anchorIndex < nextIndex ? nextIndex : anchorIndex);
+      final start = anchorIndex < 0
+          ? nextIndex
+          : (anchorIndex < nextIndex ? anchorIndex : nextIndex);
+      final end = anchorIndex < 0
+          ? nextIndex
+          : (anchorIndex < nextIndex ? nextIndex : anchorIndex);
       _selectedFiles
         ..clear()
         ..addAll(_items.sublist(start, end + 1));
@@ -2868,10 +2929,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
       final anchorPath = _keyboardSelectionAnchorPath ?? target.path;
       final anchorIndex = _items.indexWhere((item) => item.path == anchorPath);
-      final start =
-          anchorIndex < 0 ? nextIndex : (anchorIndex < nextIndex ? anchorIndex : nextIndex);
-      final finish =
-          anchorIndex < 0 ? nextIndex : (anchorIndex < nextIndex ? nextIndex : anchorIndex);
+      final start = anchorIndex < 0
+          ? nextIndex
+          : (anchorIndex < nextIndex ? anchorIndex : nextIndex);
+      final finish = anchorIndex < 0
+          ? nextIndex
+          : (anchorIndex < nextIndex ? nextIndex : anchorIndex);
       _selectedFiles
         ..clear()
         ..addAll(_items.sublist(start, finish + 1));
@@ -3007,7 +3070,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           }
         }
         if (matching != null) {
-          final destinationPath = _joinLogicalPath(destinationDirectory, destinationName);
+          final destinationPath =
+              _joinLogicalPath(destinationDirectory, destinationName);
           var sameEntry = false;
           if (entry.sourceSessionID == _currentDir!.tempKeyID) {
             final rootID = int.parse(entry.sourceSessionID);
@@ -3018,7 +3082,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 _cryptoService.relativePathForRoot(rootID, destinationPath);
           }
           if (!mounted) return;
-          final allowReplace = !sameEntry && matching.isDirectory == entry.isDirectory;
+          final allowReplace =
+              !sameEntry && matching.isDirectory == entry.isDirectory;
           var resolution = conflictSession.automaticResolution(
             allowReplace: allowReplace,
           );
@@ -3051,7 +3116,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
         try {
           if (mounted) setState(() => _isLoading = true);
-          final destinationPath = _joinLogicalPath(destinationDirectory, destinationName);
+          final destinationPath =
+              _joinLogicalPath(destinationDirectory, destinationName);
           if (entry.isMove) {
             await _secureEntryMover.move(
               entry: entry,
@@ -3094,7 +3160,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (entries.length > 1) {
         await showBatchOperationResultDialog(
           context: context,
-          operation: entries.first.isMove ? strings.batchMove : strings.batchPaste,
+          operation:
+              entries.first.isMove ? strings.batchMove : strings.batchPaste,
           result: BatchOperationResult(
             total: entries.length,
             succeeded: successCount,
@@ -3124,7 +3191,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (entries.first.isMove) {
           await showBatchOperationResultDialog(
             context: context,
-            operation: entries.first.isMove ? strings.batchMove : strings.batchPaste,
+            operation:
+                entries.first.isMove ? strings.batchMove : strings.batchPaste,
             result: BatchOperationResult(
               total: 1,
               succeeded: 0,
@@ -3194,7 +3262,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _renameItem(FileSystemNode item) async {
     if (!_validateSession()) return;
-    final newName = await showRenameFileItemDialog(context: context, item: item);
+    final newName =
+        await showRenameFileItemDialog(context: context, item: item);
     if (newName == null || newName == item.name || !mounted) return;
 
     final parentPath = File(item.path).parent.path;
@@ -3237,7 +3306,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 AppLocalizations.of(dialogContext)!.confirmDeleteFile,
               ),
               content: Text(
-                AppLocalizations.of(dialogContext)!.confirmDeleteFileDescription(item.name),
+                AppLocalizations.of(dialogContext)!
+                    .confirmDeleteFileDescription(item.name),
               ),
               actions: [
                 TextButton(
@@ -3339,8 +3409,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         const SingleActivator(LogicalKeyboardKey.f5): () {
           _refreshCurrentDirectory();
         },
-        const SingleActivator(LogicalKeyboardKey.keyR, control: true): _refreshCurrentDirectory,
-        const SingleActivator(LogicalKeyboardKey.keyR, meta: true): _refreshCurrentDirectory,
+        const SingleActivator(LogicalKeyboardKey.keyR, control: true):
+            _refreshCurrentDirectory,
+        const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
+            _refreshCurrentDirectory,
         const SingleActivator(LogicalKeyboardKey.keyF, control: true): () {
           _touchCurrentRoot();
           _fileBrowserKey.currentState?.focusFilter();
@@ -3377,18 +3449,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _touchCurrentRoot();
           _copyKeyboardTarget(move: true);
         },
-        const SingleActivator(LogicalKeyboardKey.keyA, control: true): _selectAllItems,
-        const SingleActivator(LogicalKeyboardKey.keyA, meta: true): _selectAllItems,
+        const SingleActivator(LogicalKeyboardKey.keyA, control: true):
+            _selectAllItems,
+        const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
+            _selectAllItems,
         const SingleActivator(LogicalKeyboardKey.escape): _cancelSelection,
         const SingleActivator(LogicalKeyboardKey.f2): () {
-          final target = _selectedFiles.length == 1 ? _selectedFiles.single : _keyboardTarget;
-          if (target != null && _items.any((item) => item.path == target.path)) {
+          final target = _selectedFiles.length == 1
+              ? _selectedFiles.single
+              : _keyboardTarget;
+          if (target != null &&
+              _items.any((item) => item.path == target.path)) {
             _touchCurrentRoot();
             unawaited(_renameItem(target));
           }
         },
-        const SingleActivator(LogicalKeyboardKey.contextMenu): _showKeyboardContextMenu,
-        const SingleActivator(LogicalKeyboardKey.f10, shift: true): _showKeyboardContextMenu,
+        const SingleActivator(LogicalKeyboardKey.contextMenu):
+            _showKeyboardContextMenu,
+        const SingleActivator(LogicalKeyboardKey.f10, shift: true):
+            _showKeyboardContextMenu,
         const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
             _moveKeyboardTarget(-1, extendSelection: false, vertical: true),
         const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
@@ -3438,7 +3517,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             canPaste: _secureClipboard.hasEntry,
             clipboardEntry: _secureClipboard.entry,
             clipboardEntryCount: _secureClipboard.entryCount,
-            hasMore: _pageSession != null && !_pageSession!.done && !_pageSession!.hasError,
+            hasMore: _pageSession != null &&
+                !_pageSession!.done &&
+                !_pageSession!.hasError,
             isLoadingMore: _isLoadingMore,
             loadMoreError: _pageSession?.error,
             onLoadMore: _loadMoreCurrentPath,
@@ -3461,9 +3542,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onUnlock: _verifyPassword,
             onImportFile: _importFile,
             onImportDirectory: _importDirectory,
-            webDavSessionCount:
-                _webDavSessionCounts[int.tryParse(_currentDir?.tempKeyID ?? '')] ?? 0,
-            onShowWebDavSessions: _webDavEnabled ? () => unawaited(_showWebDavSessions()) : null,
+            webDavSessionCount: _webDavSessionCounts[
+                    int.tryParse(_currentDir?.tempKeyID ?? '')] ??
+                0,
+            onShowWebDavSessions:
+                _webDavEnabled ? () => unawaited(_showWebDavSessions()) : null,
             onExternalDrop: (candidates) {
               unawaited(_importDroppedCandidates(candidates));
             },

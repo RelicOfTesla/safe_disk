@@ -19,7 +19,6 @@ import 'widgets/native_library_startup_error.dart';
 import 'windows/secure_notepad_window.dart';
 import 'windows/secure_image_window.dart';
 
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final settings = SettingsService();

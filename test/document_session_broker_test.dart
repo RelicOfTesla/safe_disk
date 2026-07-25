@@ -221,7 +221,6 @@ void main() {
     expect(broker.rootSessionForToken(lease.token), 'session-abc');
     expect(broker.rootSessionForToken('nonexistent'), isNull);
   });
-
 }
 
 class _MemoryCryptoService extends CryptoService {

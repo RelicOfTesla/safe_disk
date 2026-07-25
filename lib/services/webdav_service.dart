@@ -148,12 +148,14 @@ class WebDavOpenedSession {
       token: authMode == WebDavAuthMode.bearer
           ? requiredCredential('token')
           : null,
-      username: authMode == WebDavAuthMode.digest || authMode == WebDavAuthMode.basic
-          ? requiredCredential('username')
-          : null,
-      password: authMode == WebDavAuthMode.digest || authMode == WebDavAuthMode.basic
-          ? requiredCredential('password')
-          : null,
+      username:
+          authMode == WebDavAuthMode.digest || authMode == WebDavAuthMode.basic
+              ? requiredCredential('username')
+              : null,
+      password:
+          authMode == WebDavAuthMode.digest || authMode == WebDavAuthMode.basic
+              ? requiredCredential('password')
+              : null,
       realm: authMode == WebDavAuthMode.digest
           ? requiredCredential('realm')
           : null,
@@ -309,6 +311,7 @@ class WebDavService {
   void close(String sessionID) {
     _cryptoService.closeWebDavSession(sessionID);
   }
+
   /// Exports the self-signed TLS certificate PEM for HTTPS WebDAV clients.
   /// Clients must install this certificate in their trust store to connect without warnings.
   String exportCertPEM() {
@@ -318,16 +321,16 @@ class WebDavService {
     }
     return data["cert_pem"] as String;
   }
- 
+
   /// Exports the CA certificate PEM for system trust store installation.
   String exportCACertPEM() {
     final data = _cryptoService.exportWebDavCACertPEM();
-    if (data["ca_cert_pem"] is! String || (data["ca_cert_pem"] as String).isEmpty) {
+    if (data["ca_cert_pem"] is! String ||
+        (data["ca_cert_pem"] as String).isEmpty) {
       throw StateError("webdav-ca-cert-pem-unavailable");
     }
     return data["ca_cert_pem"] as String;
   }
-
 
   WebDavOpenedSession reveal(String sessionID, {required int rootID}) {
     final data = _cryptoService.revealWebDavSession(sessionID);

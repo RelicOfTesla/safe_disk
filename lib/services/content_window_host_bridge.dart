@@ -497,7 +497,7 @@ class ContentWindowHostBridge {
           return null;
         case 'document.touchActivity':
           onActivity?.call(token);
-          
+
           return null;
         default:
           throw PlatformException(

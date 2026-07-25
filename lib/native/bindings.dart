@@ -98,7 +98,7 @@ typedef SecWebDavOperationCancelDart = Pointer<Utf8> Function(
 // sec_webdav_export_cert_pem: () -> JSON string
 typedef SecWebDavExportCertPEMC = Pointer<Utf8> Function();
 typedef SecWebDavExportCertPEMDart = Pointer<Utf8> Function();
- 
+
 // sec_webdav_export_ca_cert_pem: () -> JSON string
 typedef SecWebDavExportCACertPEMC = Pointer<Utf8> Function();
 typedef SecWebDavExportCACertPEMDart = Pointer<Utf8> Function();
@@ -259,33 +259,41 @@ typedef SecTransferV3ConvertRootC = Pointer<Utf8> Function(
 typedef SecTransferV3ConvertRootDart = Pointer<Utf8> Function(
     Pointer<Utf8> rootPath, Pointer<Utf8> password, Pointer<Utf8> kind);
 
-typedef SecTransferV3ImportFileC = Pointer<Utf8> Function(Int64 rootID,
-    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Int32 overwrite,
+typedef SecTransferV3ImportFileC = Pointer<Utf8> Function(
+    Int64 rootID,
+    Pointer<Utf8> srcPath,
+    Pointer<Utf8> destPath,
+    Int32 overwrite,
     Pointer<Utf8> durability);
 typedef SecTransferV3ImportFileDart = Pointer<Utf8> Function(
-    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath, int overwrite,
+    int rootID,
+    Pointer<Utf8> srcPath,
+    Pointer<Utf8> destPath,
+    int overwrite,
     Pointer<Utf8> durability);
 
-typedef SecTransferV3ImportDirectoryC = Pointer<Utf8> Function(Int64 rootID,
-    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Int32 overwrite,
+typedef SecTransferV3ImportDirectoryC = Pointer<Utf8> Function(
+    Int64 rootID,
+    Pointer<Utf8> srcPath,
+    Pointer<Utf8> destPath,
+    Int32 overwrite,
     Pointer<Utf8> durability);
 typedef SecTransferV3ImportDirectoryDart = Pointer<Utf8> Function(
-    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath, int overwrite,
+    int rootID,
+    Pointer<Utf8> srcPath,
+    Pointer<Utf8> destPath,
+    int overwrite,
     Pointer<Utf8> durability);
 
-typedef SecTransferV3ExportFileC = Pointer<Utf8> Function(
-    Int64 rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath,
-    Pointer<Utf8> durability);
-typedef SecTransferV3ExportFileDart = Pointer<Utf8> Function(
-    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath,
-    Pointer<Utf8> durability);
+typedef SecTransferV3ExportFileC = Pointer<Utf8> Function(Int64 rootID,
+    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Pointer<Utf8> durability);
+typedef SecTransferV3ExportFileDart = Pointer<Utf8> Function(int rootID,
+    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Pointer<Utf8> durability);
 
-typedef SecTransferV3ExportDirectoryC = Pointer<Utf8> Function(
-    Int64 rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath,
-    Pointer<Utf8> durability);
-typedef SecTransferV3ExportDirectoryDart = Pointer<Utf8> Function(
-    int rootID, Pointer<Utf8> srcPath, Pointer<Utf8> destPath,
-    Pointer<Utf8> durability);
+typedef SecTransferV3ExportDirectoryC = Pointer<Utf8> Function(Int64 rootID,
+    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Pointer<Utf8> durability);
+typedef SecTransferV3ExportDirectoryDart = Pointer<Utf8> Function(int rootID,
+    Pointer<Utf8> srcPath, Pointer<Utf8> destPath, Pointer<Utf8> durability);
 
 typedef NativeProgressCallbackC = Void Function(
     Pointer<Utf8> currentFile,
@@ -479,8 +487,9 @@ class NativeBindings {
             'sec_webdav_operation_poll');
     secWebDavOperationCancel = _lib!.lookupFunction<SecWebDavOperationCancelC,
         SecWebDavOperationCancelDart>('sec_webdav_operation_cancel');
-    secWebDavExportCertPEM = _lib!.lookupFunction<SecWebDavExportCertPEMC,
-        SecWebDavExportCertPEMDart>('sec_webdav_export_cert_pem');
+    secWebDavExportCertPEM = _lib!
+        .lookupFunction<SecWebDavExportCertPEMC, SecWebDavExportCertPEMDart>(
+            'sec_webdav_export_cert_pem');
     secCreateRootConfig = _lib!
         .lookupFunction<SecCreateRootConfigC, SecCreateRootConfigDart>(
             'sec_create_root_config');
