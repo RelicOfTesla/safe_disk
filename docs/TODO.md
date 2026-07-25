@@ -135,4 +135,13 @@
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---|---|
-| SL-01 | 闲置锁定设计修复：只读记事本未自动关闭 | Bug/安全 | 70% | 设计：ContentWindowHostBridge 接收 document.touchActivity 并用 onActivity 回调通知 HomePage；HomePage 通过 DocumentSessionBroker.rootSessionForToken 映射 token→rootSessionID 并 reset idle timer；SecureNotepad (native) 在用户键盘输入时发送 touchActivity；DocumentWindowClient 新增 touchActivity()。主路径已实现。剩余：in-process notepad 阻塞 auto-lock 另立任务；三平台桌面实测。内容窗口触摸覆盖（键盘已通过 TextController listener 实现，滚动已通过 ScrollController 500ms 节流实现）。验收条件：设置闲置超时，所有通过该 root 会话打开的只读记事本（独立窗口）应随 root 锁定一并关闭。当前 `RootIdleTracker` 仅追踪 root session 活动，未关联记事本窗口生命周期。需设计：记事本窗口注册到所属 root session，闲置锁定时遍历关闭已注册的只读窗口，编辑中的窗口应提示保存草稿。验收条件：设置闲置超时 > 触发锁定 > 验证只读记事本窗口已关闭，编辑中窗口收到提示。 |
+| SL-01 | 闲置锁定设计修复：只读记事本未自动关闭 | Bug/安全 | 85% | 设计：ContentWindowHostBridge 接收 document.touchActivity 并用 onActivity 回调通知 HomePage；HomePage 通过 DocumentSessionBroker.rootSessionForToken 映射 token→rootSessionID 并 reset idle timer；SecureNotepad (native) 在用户键盘输入时发送 touchActivity；DocumentWindowClient 新增 touchActivity()。_dismissInProcessNotepad 修复：现已正确调用 Navigator.of(context).pop() 关闭进程内记事本。onActivity 回调已接入进程内记事本以重置 TTL。剩余：三平台桌面实测。验收条件：设置闲置超时，所有通过该 root 会话打开的只读记事本（独立窗口）应随 root 锁定一并关闭。 |
+
+## 当前轮自动锁定修复（补充拆分）
+
+| ID | 任务 | 类型 | 当前进度 | 验收条件 |
+|---|---|---|---|---|
+| SL-01a | 进程内记事本阻断自动锁定修复 | Bug/安全 | 100% | 原 `decision.windowCount != nativeWindowCount` 检查已移除，现使用 disposition 判定（仅 blockedBy* 跳过）。_dismissInProcessNotepad 已修复，锁定前正确弹出进程内记事本路由。验收：闲置超时 + 只读进程内记事本 → root 锁定、记事本路由已弹出。 |
+| SL-01b | 进程内记事本活跃时重置 TTL | 功能 | 100% | onActivity 回调已接入进程内 SecureNotepad（传递 _touchCurrentRoot），输入活动时 reset idle timer。验收：编辑进程内记事本 → TTL 重置不触发锁定。 |
+| SL-01c | `_lockEligibleRoots` 错误处理审计 | 质量 | 100% | 已区分 StateError（跳过）/FormatException（失败）/通用异常（失败+debugPrint 日志）。 |
+| SL-01d | 原生只读记事本 prepareForLock 幂等性确认 | 验证 | 100% | 确认 `_hasChanges`=false 时立即返回 true（SecureNotepadController.prepareForLock line 285），不触发草稿写入循环。 |
