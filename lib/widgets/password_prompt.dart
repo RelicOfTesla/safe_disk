@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
 import '../l10n/generated/app_localizations.dart';
+import 'package:flutter_ime/flutter_ime.dart';
 
 /// Password verification prompt for unlocking an encrypted directory.
 ///
@@ -39,6 +40,15 @@ class _PasswordPromptState extends State<PasswordPrompt> {
   @override
   void initState() {
     super.initState();
+    // Disable IME on focus to prevent CJK composition window freeze
+    // (Windows: detaches IME context; other platforms: no-op).
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        disableIME();
+      } else {
+        enableIME();
+      }
+    });
     // Auto-focus after first build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
@@ -47,6 +57,8 @@ class _PasswordPromptState extends State<PasswordPrompt> {
 
   @override
   void dispose() {
+    // Restore IME before disposing.
+    enableIME();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();

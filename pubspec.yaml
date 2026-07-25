@@ -49,6 +49,7 @@ dependencies:
   charset_converter: ^2.4.0
   no_screenshot: ^1.2.0
   desktop_multi_window: ^0.3.0
+  flutter_ime: ^3.0.0
 
 dependency_overrides:
   #fix lubuntu close window crash

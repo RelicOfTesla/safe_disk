@@ -81,7 +81,7 @@
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---|---|
-| SL-02 | 自动锁定后打开 root 输入密码时 UI 卡死 | Bug | 60% | 诊断：auto-lock sync FFI 阻塞 event loop。修复：_replaceWithLockedDirectory 提前+Duration.zero 让出渲染帧；_verifyPassword 守卫 30s 超时；debugPrint 追踪；补充 in-process 图片浏览器自动锁定关闭（之前缺 _inProcessImageViewerSessionID 追踪）。待用户实测。 |
+| SL-02 | 密码框 IME 输入法导致 UI 卡死 | Bug | 60% | 诊断：auto-lock sync FFI 阻塞 event loop。修复：_replaceWithLockedDirectory 提前+Duration.zero 让出渲染帧；_verifyPassword 守卫 30s 超时；debugPrint 追踪；补充 in-process 图片浏览器自动锁定关闭（之前缺 _inProcessImageViewerSessionID 追踪）。待用户实测。 |
 | WEB-22 | WebDAV Dart 层 WritePolicy 集成测试 | Test | 0% | Dart 层 Basic Auth 会话创建与列表、writePolicy 字段解析定向 widget 测试。 |
 | WEB-23 | WebDAV 设置页 WritePolicy 选项控件 | Feature/UI | 90% | 在 WebDAV 共享配置弹窗中增加 WritePolicy Radio 按钮组（只读/静默编辑/审核修改），使用已就绪的 l10n key。仅 UI 接入；reviewCreate 的完整后台审核机制由 WEB-21 单独跟踪。 |
 | WEB-24 | WebDAV Go 写入集成测试 | Test | 0% | 补充 filesystem.go 中 Mkdir/Create/RemoveAll/Rename 的 Go 测试（CRUD + 冲突 + 父目录不存在 + WritePolicy 权限）。 |
@@ -165,3 +165,10 @@
 | SL-01b | 进程内记事本活跃时重置 TTL | 功能 | 100% | onActivity 回调已接入进程内 SecureNotepad（传递 _touchCurrentRoot），输入活动时 reset idle timer。验收：编辑进程内记事本 → TTL 重置不触发锁定。 |
 | SL-01c | `_lockEligibleRoots` 错误处理审计 | 质量 | 100% | 已区分 StateError（跳过）/FormatException（失败）/通用异常（失败+debugPrint 日志）。 |
 | SL-01d | 原生只读记事本 prepareForLock 幂等性确认 | 验证 | 100% | 确认 `_hasChanges`=false 时立即返回 true（SecureNotepadController.prepareForLock line 285），不触发草稿写入循环。 |
+
+## 当前轮 重构与代码质量
+
+| ID | 任务 | 类型 | 当前进度 | 验收条件 |
+|---|---|---|---|---|
+| REF-01 | HomePage 无损拆解 | P2/重构 | 10% | 当前 `lib/pages/home_page.dart` 3650 行、~80 方法，涵盖 12 个职责域。拆解目标：核心协调保持于 HomePage，按职责分拆为 mixin/委托 widget，每部分 ≤ 500 行。拆分策略见 [HOMEPAGE_DECOMPOSITION_DESIGN.md](design/HOMEPAGE_DECOMPOSITION_DESIGN.md)。拆解分阶段：Phase 1 提取 Sidebar/Drawer → `HomeSidebar` widget；Phase 2 提取 Auto-Lock → `HomePageAutoLockMixin`；Phase 3 提取 WebDAV → `HomePageWebDavMixin`；Phase 4 提取文件操作（import/export/clipboard/CRUD）→ `HomePageFileOpsMixin`；Phase 5 提取上下文菜单 → `HomePageContextMenuMixin`；Phase 6 提取目录生命周期 → `HomePageDirectoryMixin`。每阶段完成后 `dart analyze` 零告警、widget 测试通过才进入下一阶段。 |
+| SL-02 | 密码框 IME 输入法导致 UI 卡死 | Bug/Windows IME | 90% | 接入 `flutter_ime` 包（`disableIME()`/`enableIME()`），包内已自含 Windows `ImmAssociateContext` 调用。结合已有 `FilteringTextInputFormatter` + `enableIMEPersonalizedLearning: false` 三层防护。待 Windows 实机打开中文输入法输入密码验证。 |
