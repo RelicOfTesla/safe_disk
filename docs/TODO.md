@@ -81,7 +81,7 @@
 
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---|---|
-| SL-02 | 自动锁定后打开 root 输入密码时 UI 卡死 | Bug | 30% | 已添加 _verifyPassword 自动锁定等待守卫（防止解锁与自动锁定竞争）；修复 _dismissInProcessNotepad 使用错误 Navigator（rootNavigator→默认）。待用户实测确认是否修复。若仍出现，需在复现环境下添加诊断日志定位。 |
+| SL-02 | 自动锁定后打开 root 输入密码时 UI 卡死 | Bug | 60% | 诊断：auto-lock sync FFI 阻塞 event loop。修复：_replaceWithLockedDirectory 提前+Duration.zero 让出渲染帧；_verifyPassword 守卫 30s 超时；debugPrint 追踪；补充 in-process 图片浏览器自动锁定关闭（之前缺 _inProcessImageViewerSessionID 追踪）。待用户实测。 |
 | WEB-22 | WebDAV Dart 层 WritePolicy 集成测试 | Test | 0% | Dart 层 Basic Auth 会话创建与列表、writePolicy 字段解析定向 widget 测试。 |
 | WEB-23 | WebDAV 设置页 WritePolicy 选项控件 | Feature/UI | 90% | 在 WebDAV 共享配置弹窗中增加 WritePolicy Radio 按钮组（只读/静默编辑/审核修改），使用已就绪的 l10n key。仅 UI 接入；reviewCreate 的完整后台审核机制由 WEB-21 单独跟踪。 |
 | WEB-24 | WebDAV Go 写入集成测试 | Test | 0% | 补充 filesystem.go 中 Mkdir/Create/RemoveAll/Rename 的 Go 测试（CRUD + 冲突 + 父目录不存在 + WritePolicy 权限）。 |

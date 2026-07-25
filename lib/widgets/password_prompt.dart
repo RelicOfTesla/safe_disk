@@ -127,6 +127,7 @@ class _PasswordPromptState extends State<PasswordPrompt> {
               obscureText: true,
               autocorrect: false,
               enableSuggestions: false,
+              enableIMEPersonalizedLearning: false,
               keyboardType: TextInputType.visiblePassword,
               enableInteractiveSelection: true,
               enabled: !_isVerifying,

@@ -141,6 +141,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Used by auto-lock to dismiss clean in-process editors before closing the root.
   String? _inProcessNotepadSessionID;
 
+  /// Tracks the root session ID of the currently visible in-process image viewer, if any.
+  /// Used by auto-lock to dismiss the viewer before closing the root.
+  String? _inProcessImageViewerSessionID;
+
   // File selection for batch operations
   bool _isSelectMode = false;
   final Set<FileSystemNode> _selectedFiles = {};
@@ -320,12 +324,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               return;
             }
 
-            // Dismiss in-process notepad belonging to this root before closing.
-            // The notepad is clean (disposition confirms no dirty windows), so
-            // popping the route is safe -- no unsaved data will be lost.
             if (_inProcessNotepadSessionID == sessionID) {
               await _dismissInProcessNotepad();
             }
+
+            if (_inProcessImageViewerSessionID == sessionID) {
+              await _dismissInProcessImageViewer();
+            }
+
+            // Mark the directory locked *before* the synchronous FFI calls
+            // below so the UI can render the PasswordPrompt immediately.
+            // The _isAutoLocking guard in _verifyPassword blocks password
+            // submission until cleanup finishes.
+            if (mounted) {
+              _replaceWithLockedDirectory(
+                directory,
+                EncryptedDirectory(
+                  path: directory.path,
+                  config: directory.config,
+                  isVerified: false,
+                  displayAlias: directory.displayAlias,
+                ),
+                expectedSessionID: sessionID,
+              );
+            }
+
+            // Yield to the event loop so the frame with the PasswordPrompt
+            // can be rendered before we block on native FFI calls.
+            await Future<void>.delayed(Duration.zero);
 
             final nativeWindowCount =
                 _contentWindowBridge.nativeWindowCountForRoot(sessionID);
@@ -347,18 +373,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _secureClipboard.removeSession(sessionID);
             _rootCloseCoordinator.releaseRoot(sessionID);
             _idleTracker.remove(sessionID);
-            if (mounted) {
-              _replaceWithLockedDirectory(
-                directory,
-                EncryptedDirectory(
-                  path: directory.path,
-                  config: directory.config,
-                  isVerified: false,
-                  displayAlias: directory.displayAlias,
-                ),
-                expectedSessionID: sessionID,
-              );
-            }
             lockedCount++;
           });
         } on StateError catch (_) {
@@ -368,7 +382,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           failedCount++;
         } catch (error) {
           failedCount++;
-          debugPrint('auto-lock root close failed ($sessionID): $error');
         }
       }
     } finally {
@@ -404,6 +417,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Used by auto-lock before closing a root session.
   Future<void> _dismissInProcessNotepad() async {
     if (_inProcessNotepadSessionID == null) return;
+    Navigator.of(context).pop();
+  }
+
+  /// Used by auto-lock before closing a root session.
+  Future<void> _dismissInProcessImageViewer() async {
+    if (_inProcessImageViewerSessionID == null) return;
     Navigator.of(context).pop();
   }
 
@@ -857,7 +876,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // Guard: wait for any in-flight auto-lock to complete before allowing
     // unlock, otherwise the auto-lock may close the session we are about
     // to open, or the state update races with the PasswordPrompt rebuild.
+    const maxGuardMs = 30000;
+    final guardStart = DateTime.now();
+    if (_isAutoLocking) {}
     while (_isAutoLocking && mounted) {
+      if (DateTime.now().difference(guardStart).inMilliseconds > maxGuardMs) {
+        break;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
 
@@ -1486,7 +1511,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
 
     if (isSupportedImageFormat(item.extension)) {
-      _openImageViewer(item);
+      unawaited(_openImageViewer(item));
     } else {
       _openNotepad(item);
     }
@@ -1624,25 +1649,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  void _openImageViewer(FileSystemNode item) {
+  Future<void> _openImageViewer(FileSystemNode item) async {
     if (item.isDirectory) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SecureImageViewer(
-          tempKeyID: _currentDir!.tempKeyID!,
-          file: EncryptedFile(
-            name: item.name,
-            encryptedPath: item.path,
-            originalSize: item.size,
-            modifiedTime: DateTime.now(),
+    final sessionID = _currentDir?.tempKeyID;
+    if (sessionID == null) return;
+    _inProcessImageViewerSessionID = sessionID;
+    try {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SecureImageViewer(
+            tempKeyID: _currentDir!.tempKeyID!,
+            file: EncryptedFile(
+              name: item.name,
+              encryptedPath: item.path,
+              originalSize: item.size,
+              modifiedTime: DateTime.now(),
+            ),
+            cryptoService: _cryptoService,
+            directoryPath: _currentPath,
+            fileService: _fileService,
           ),
-          cryptoService: _cryptoService,
-          directoryPath: _currentPath,
-          fileService: _fileService,
         ),
-      ),
-    );
+      );
+    } finally {
+      _inProcessImageViewerSessionID = null;
+    }
   }
 
   Future<void> _openImageViewerInNewWindow(FileSystemNode item) async {
@@ -1673,7 +1705,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         context,
         AppLocalizations.of(context)!.nativeContentWindowUnavailable,
       );
-      _openImageViewer(item);
+      await _openImageViewer(item);
     } on DocumentContentSizeUnknown catch (_) {
       if (lease != null) _documentBroker.close(lease.token);
       if (mounted) {
@@ -2145,7 +2177,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     required bool reportErrors,
   }) async {
     try {
-      return _webDavService.list(rootID: rootID);
+      final result = _webDavService.list(rootID: rootID);
+      return result;
     } catch (error) {
       if (reportErrors && mounted) {
         ErrorHelper.showError(
@@ -3499,7 +3532,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         onPointerDown: (_) => _touchCurrentRoot(),
         child: Focus(
           focusNode: _shortcutFocusNode,
-          autofocus: true,
+          autofocus: false, // TEMP: test focus conflict
           child: HomeShell(
             scaffoldKey: _scaffoldKey,
             openedDirectories: _openedDirs,
