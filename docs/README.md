@@ -40,7 +40,7 @@
 | [CLI_DESIGN.md](CLI_DESIGN.md) | CLI 命令与底层 sec 配合设计 | 当前有效 |
 | [FFI_DESIGN.md](FFI_DESIGN.md) | Flutter 与 Go 的 FFI 边界设计 | 当前有效 |
 | [design/MULTI_WINDOW_DESIGN.md](design/MULTI_WINDOW_DESIGN.md) | Flutter 内容多窗口、root lease 与保存冲突设计 | 设计完成，功能未实现 |
-| [design/FILE_BROWSER_DESIGN.md](design/FILE_BROWSER_DESIGN.md) | list/grid 内容视图、tree 目录导航与当前目录筛选设计 | 当前有效 |
+| [design/FILE_BROWSER_DESIGN.md](design/FILE_BROWSER_DESIGN.md) | list/grid 内容视图、tree 目录导航、当前目录筛选与导航模型设计 | 当前有效 |
 | [design/ERROR_REPORTING_DESIGN.md](design/ERROR_REPORTING_DESIGN.md) | 错误分层、详细报告开关、脱敏与 Windows FFI bundle 诊断 | 当前有效，Win10 实机验收未完成 |
 | [reference/error_handling.md](reference/error_handling.md) | Go 错误处理机制 | 参考文档，需补中文化 |
 
@@ -61,11 +61,10 @@
 | [completed/REFACTOR_COMPLETED.md](completed/REFACTOR_COMPLETED.md) | 已完成重构 | 100% 重构及验收边界 |
 | [archive/CRYPTO_PACKAGE_REFACTOR_ANALYSIS.md](archive/CRYPTO_PACKAGE_REFACTOR_ANALYSIS.md) | crypto 包重构分析 | 历史分析 |
 | [design/STREAM_V3_DESIGN.md](design/STREAM_V3_DESIGN.md) | Stream V3 格式设计 | 设计文档 |
-| [design/STREAM_V3_ROADMAP.md](design/STREAM_V3_ROADMAP.md) | Stream V3 实施路线 | 已按实际代码重审为百分比 |
-| [design/FFI_INCREMENTAL_ENCRYPTION.md](design/FFI_INCREMENTAL_ENCRYPTION.md) | 增量加密 FFI 历史设计 | 历史归档；当前没有活跃 API |
+| [archive/FFI_INCREMENTAL_ENCRYPTION.md](archive/FFI_INCREMENTAL_ENCRYPTION.md) | 增量加密 FFI 历史设计（已归档） | 历史归档；当前没有活跃 API |
 | [design/WALKER_RESOURCE_DESIGN.md](design/WALKER_RESOURCE_DESIGN.md) | secure walker 工作集与错误传播 | 实施中 |
 | [design/DIRECTORY_PAGINATION_DESIGN.md](design/DIRECTORY_PAGINATION_DESIGN.md) | 大目录 cursor 与 UI 增量加载 | 设计中 |
-| [design/AUTO_LOCK_DESIGN.md](design/AUTO_LOCK_DESIGN.md) | 应用生命周期下的 root 自动锁定与密钥清理 | 第一阶段已实现，桌面验收未完成 |
+| [design/AUTO_LOCK_DESIGN.md](design/AUTO_LOCK_DESIGN.md) | 应用生命周期下的 root 自动锁定、密钥清理与内容窗口收敛协议 | 第一阶段已实现，桌面验收未完成 |
 
 ## 历史报告
 

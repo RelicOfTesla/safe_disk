@@ -135,9 +135,11 @@ Total: 2 items
 **支持平台**:
 - ✅ Windows 10/11
 - ✅ Linux (Ubuntu 20.04+, Debian 11+)
+- 🔸 macOS（测试中，部分功能可用）
 
 **不支持**:
-- ❌ macOS（暂不支持）
+- ❌ 移动端（Android/iOS）
+- ❌ Web 端
 - ❌ 移动端（Android/iOS）
 
 ---
@@ -201,4 +203,4 @@ safe-disk import -p <password> -s /path/to/plain/dir -d /backup/encrypted/dir
 1. 查看本文档 FAQ
 2. 查看项目文档: `docs/` 目录
 3. 提交 Issue: GitHub Issues
-4. 加入社区讨论: Discord/Telegram
+4. 查看项目 GitHub Issues

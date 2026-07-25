@@ -284,7 +284,7 @@ Transfer 是 FFI 当前最重要的未闭环能力。
 
 ## 增量加密接口
 
-`docs/design/FFI_INCREMENTAL_ENCRYPTION.md` 当前为历史设计归档，不是当前活跃实现证明。
+`docs/archive/FFI_INCREMENTAL_ENCRYPTION.md` 当前为历史设计归档，不是当前活跃实现证明。
 
 当前情况：
 

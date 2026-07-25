@@ -163,7 +163,7 @@
 
 实际证据：
 
-- [NAVIGATION_PREVIEW_SCOPE_DESIGN.md](../design/NAVIGATION_PREVIEW_SCOPE_DESIGN.md) 已记录当前导航模型、暂不实现原因和未来重新立项条件。
+- [FILE_BROWSER_DESIGN.md](../design/FILE_BROWSER_DESIGN.md)（导航模型章节） 已记录当前导航模型、暂不实现原因和未来重新立项条件。
 
 ### DOC-I18N-01 多语言架构与迁移框架：100%
 
