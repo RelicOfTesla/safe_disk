@@ -389,7 +389,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Used by auto-lock before closing a root session.
   Future<void> _dismissInProcessNotepad() async {
     if (_inProcessNotepadSessionID == null) return;
-    Navigator.of(context, rootNavigator: true).pop();
+    Navigator.of(context).pop();
   }
 
   Future<T> _runRootCloseOperation<T>(
@@ -833,6 +833,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final openingDirectory = _currentDir;
     if (openingDirectory == null) return false;
     final openingPath = openingDirectory.path;
+
+    // Guard: wait for any in-flight auto-lock to complete before allowing
+    // unlock, otherwise the auto-lock may close the session we are about
+    // to open, or the state update races with the PasswordPrompt rebuild.
+    while (_isAutoLocking && mounted) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
 
     late final int rootID;
     try {
