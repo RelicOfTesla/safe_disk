@@ -1,6 +1,9 @@
 package sec_webdav
 
 import (
+	"bytes"
+	"sort"
+	"time"
 	"context"
 	"encoding/json"
 	"errors"
@@ -290,7 +293,7 @@ func TestThirdPartyHandlerPreservesReadOnlyContract(t *testing.T) {
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("options status = %d", response.StatusCode)
 	}
-	if response.Header.Get("DAV") != "1" || response.Header.Get("Allow") != methodAllow {
+	if response.Header.Get("DAV") != "1" || response.Header.Get("Allow") != methodAllowReadOnly {
 		t.Fatalf("options headers = DAV %q Allow %q", response.Header.Get("DAV"), response.Header.Get("Allow"))
 	}
 
@@ -383,7 +386,7 @@ func TestSecureFileSystemDirectoryAdapterUsesProviderEntries(t *testing.T) {
 	provider := mapProvider{files: fstest.MapFS{
 		"docs/readme.txt": &fstest.MapFile{Data: []byte("hello")},
 	}}
-	fileSystem := newSecureFileSystem(provider, "docs")
+	fileSystem := newSecureFileSystem(provider, "docs", WritePolicyReadOnly)
 	file, err := fileSystem.OpenFile(context.Background(), "/", os.O_RDONLY, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -633,4 +636,214 @@ func (p mapProvider) Open(path string) (io.ReadCloser, fs.FileInfo, error) {
 		return nil, nil, err
 	}
 	return file, info, nil
+}
+
+func (p mapProvider) Mkdir(path string) error {
+	return errors.New("mapProvider Mkdir not implemented in test")
+}
+
+func (p mapProvider) Create(path string) (io.WriteCloser, error) {
+	return nil, errors.New("mapProvider Create not implemented in test")
+}
+
+func (p mapProvider) RemoveAll(path string) error {
+	return errors.New("mapProvider RemoveAll not implemented in test")
+}
+
+func (p mapProvider) Rename(oldPath, newPath string) error {
+	return errors.New("mapProvider Rename not implemented in test")
+}
+
+// ── Write-operation test provider ──────────────────────────────────
+
+// rwMapProvider supports read/write for testing WebDAV write operations.
+type rwMapProvider struct {
+	files map[string][]byte
+	dirs  map[string]bool
+}
+
+func newRWMapProvider() *rwMapProvider {
+	return &rwMapProvider{
+		files: map[string][]byte{},
+		dirs:  map[string]bool{".": true},
+	}
+}
+
+func (p *rwMapProvider) Stat(path string) (fs.FileInfo, error) {
+	content, ok := p.files[path]
+	if ok {
+		return &rwFileInfo{name: path, size: int64(len(content)), isDir: false}, nil
+	}
+	if p.dirs[path] {
+		return &rwFileInfo{name: path, size: 0, isDir: true}, nil
+	}
+	return nil, os.ErrNotExist
+}
+
+func (p *rwMapProvider) ReadDir(path string) ([]fs.DirEntry, error) {
+	if !p.dirs[path] {
+		return nil, os.ErrInvalid
+	}
+	prefix := path
+	if prefix != "." {
+		prefix += "/"
+	} else {
+		prefix = ""
+	}
+	var entries []fs.DirEntry
+	seen := map[string]bool{}
+	for name := range p.files {
+		if strings.HasPrefix(name, prefix) {
+			suffix := name[len(prefix):]
+			if strings.Contains(suffix, "/") {
+				continue
+			}
+			if seen[suffix] {
+				continue
+			}
+			seen[suffix] = true
+			entries = append(entries, &rwDirEntry{name: suffix, isDir: false})
+		}
+	}
+	for name := range p.dirs {
+		if name == path {
+			continue
+		}
+		if strings.HasPrefix(name, prefix) {
+			suffix := name[len(prefix):]
+			if strings.Contains(suffix, "/") {
+				continue
+			}
+			if seen[suffix] {
+				continue
+			}
+			seen[suffix] = true
+			entries = append(entries, &rwDirEntry{name: suffix, isDir: true})
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+	return entries, nil
+}
+
+func (p *rwMapProvider) Open(path string) (io.ReadCloser, fs.FileInfo, error) {
+	content, ok := p.files[path]
+	if !ok {
+		return nil, nil, os.ErrNotExist
+	}
+	return io.NopCloser(bytes.NewReader(content)), &rwFileInfo{name: path, size: int64(len(content)), isDir: false}, nil
+}
+
+func (p *rwMapProvider) Mkdir(path string) error {
+	if _, ok := p.files[path]; ok {
+		return os.ErrExist
+	}
+	p.dirs[path] = true
+	return nil
+}
+
+func (p *rwMapProvider) Create(path string) (io.WriteCloser, error) {
+	if p.dirs[path] {
+		return nil, os.ErrExist
+	}
+	buf := &bytes.Buffer{}
+	p.files[path] = nil
+	return &writeCloser{buf: buf, onClose: func() { p.files[path] = buf.Bytes() }}, nil
+}
+
+func (p *rwMapProvider) RemoveAll(path string) error {
+	delete(p.files, path)
+	delete(p.dirs, path)
+	for name := range p.files {
+		if strings.HasPrefix(name, path+"/") {
+			delete(p.files, name)
+		}
+	}
+	for name := range p.dirs {
+		if strings.HasPrefix(name, path+"/") {
+			delete(p.dirs, name)
+		}
+	}
+	return nil
+}
+
+func (p *rwMapProvider) Rename(oldPath, newPath string) error {
+	if content, ok := p.files[oldPath]; ok {
+		p.files[newPath] = content
+		delete(p.files, oldPath)
+		return nil
+	}
+	if p.dirs[oldPath] {
+		p.dirs[newPath] = true
+		delete(p.dirs, oldPath)
+		return nil
+	}
+	return os.ErrNotExist
+}
+
+type rwFileInfo struct {
+	name  string
+	size  int64
+	isDir bool
+}
+
+func (f *rwFileInfo) Name() string       { return f.name }
+func (f *rwFileInfo) Size() int64        { return f.size }
+func (f *rwFileInfo) Mode() os.FileMode  { return 0o644 }
+func (f *rwFileInfo) ModTime() time.Time { return time.Time{} }
+func (f *rwFileInfo) IsDir() bool        { return f.isDir }
+func (f *rwFileInfo) Sys() interface{}   { return nil }
+
+type rwDirEntry struct {
+	name  string
+	isDir bool
+}
+
+func (e *rwDirEntry) Name() string              { return e.name }
+func (e *rwDirEntry) IsDir() bool               { return e.isDir }
+func (e *rwDirEntry) Type() os.FileMode         { return 0 }
+func (e *rwDirEntry) Info() (fs.FileInfo, error) { return nil, nil }
+
+type writeCloser struct {
+	buf     *bytes.Buffer
+	onClose func()
+}
+
+func (w *writeCloser) Write(p []byte) (int, error) { return w.buf.Write(p) }
+func (w *writeCloser) Close() error                 { w.onClose(); return nil }
+
+// ── Write operation tests ──────────────────────────────────────────
+
+func TestWritePolicyReadOnlyRejectsMkdir(t *testing.T) {
+	provider := newRWMapProvider()
+	fs := newSecureFileSystem(provider, "", WritePolicyReadOnly)
+	if err := fs.Mkdir(context.Background(), "/newdir", 0); err != errWebDAVReadOnly {
+		t.Fatalf("Mkdir error = %v, want %v", err, errWebDAVReadOnly)
+	}
+}
+
+func TestWritePolicyReadOnlyRejectsCreate(t *testing.T) {
+	provider := newRWMapProvider()
+	fs := newSecureFileSystem(provider, "", WritePolicyReadOnly)
+	_, err := fs.OpenFile(context.Background(), "/newfile", os.O_RDWR|os.O_CREATE, 0)
+	if err != errWebDAVReadOnly {
+		t.Fatalf("OpenFile(CREATE) error = %v, want %v", err, errWebDAVReadOnly)
+	}
+}
+
+func TestWritePolicyReadOnlyRejectsRemoveAll(t *testing.T) {
+	provider := newRWMapProvider()
+	_ = provider.Mkdir("existing")
+	fs := newSecureFileSystem(provider, "", WritePolicyReadOnly)
+	if err := fs.RemoveAll(context.Background(), "/existing"); err != errWebDAVReadOnly {
+		t.Fatalf("RemoveAll error = %v, want %v", err, errWebDAVReadOnly)
+	}
+}
+
+func TestWritePolicyReadOnlyRejectsRename(t *testing.T) {
+	provider := newRWMapProvider()
+	_ = provider.Mkdir("old")
+	fs := newSecureFileSystem(provider, "", WritePolicyReadOnly)
+	if err := fs.Rename(context.Background(), "/old", "/new"); err != errWebDAVReadOnly {
+		t.Fatalf("Rename error = %v, want %v", err, errWebDAVReadOnly)
+	}
 }

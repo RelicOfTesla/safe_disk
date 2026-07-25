@@ -42,12 +42,14 @@ class WebDavOpenOptions {
     required this.credentialVisibility,
     required this.sessionLifetime,
     required this.tls,
+    required this.writePolicy,
   });
 
   final WebDavAuthMode authMode;
   final WebDavCredentialVisibility credentialVisibility;
   final WebDavSessionLifetime sessionLifetime;
   final bool tls;
+  final WebDavWritePolicy writePolicy;
 }
 
 /// Keeps the security confirmation separate, but collects the three session
@@ -60,6 +62,7 @@ Future<WebDavOpenOptions?> chooseWebDavOpenOptions({
   var authMode = WebDavAuthMode.bearer;
   var credentialVisibility = WebDavCredentialVisibility.once;
   var sessionLifetime = WebDavSessionLifetime.ephemeral;
+  var writePolicy = WebDavWritePolicy.readOnly;
   var tls = false;
   return showDialog<WebDavOpenOptions>(
     context: context,
@@ -179,6 +182,43 @@ Future<WebDavOpenOptions?> chooseWebDavOpenOptions({
                     strings.webDavPersistentSessionWarning,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                const Divider(),
+                Text(strings.webDavWritePolicyTitle,
+                    style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 4),
+                Text(strings.webDavWritePolicyDescription),
+                RadioGroup<WebDavWritePolicy>(
+                  groupValue: writePolicy,
+                  onChanged: (value) {
+                    if (value != null) setState(() => writePolicy = value);
+                  },
+                  child: Column(
+                    children: [
+                      RadioListTile<WebDavWritePolicy>(
+                        value: WebDavWritePolicy.readOnly,
+                        title: Text(strings.webDavWritePolicyReadOnly),
+                      ),
+                      RadioListTile<WebDavWritePolicy>(
+                        value: WebDavWritePolicy.silent,
+                        title: Text(strings.webDavWritePolicySilent),
+                      ),
+                      RadioListTile<WebDavWritePolicy>(
+                        value: WebDavWritePolicy.reviewCreate,
+                        title: Text(strings.webDavWritePolicyReviewCreate),
+                      ),
+                    ],
+                  ),
+                ),
+                if (writePolicy == WebDavWritePolicy.silent)
+                  Text(
+                    strings.webDavWritePolicySilentWarning,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                if (writePolicy == WebDavWritePolicy.reviewCreate)
+                  Text(
+                    strings.webDavWritePolicyReviewCreateWarning,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
               ],
             ),
           ),
@@ -196,6 +236,7 @@ Future<WebDavOpenOptions?> chooseWebDavOpenOptions({
                 credentialVisibility: credentialVisibility,
                 sessionLifetime: sessionLifetime,
                 tls: tls,
+                writePolicy: writePolicy,
               ),
             ),
             child: Text(strings.webDavAuthContinue),

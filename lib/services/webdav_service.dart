@@ -28,6 +28,24 @@ enum WebDavSessionLifetime {
   final String wireName;
 }
 
+/// Controls whether WebDAV clients can write through the shared session.
+enum WebDavWritePolicy {
+  /// All write operations are rejected.
+  readOnly('readOnly'),
+
+  /// Create/mkdir pass through silently; modify/delete are queued for UI review.
+  /// Currently treat modify/delete the same as [silent] until review queue is
+  /// implemented in the Go layer.
+  reviewCreate('reviewCreate'),
+
+  /// All writes pass through without any review.
+  silent('silent');
+
+  const WebDavWritePolicy(this.wireName);
+
+  final String wireName;
+}
+
 /// The capability material returned exactly once when a session is opened.
 class WebDavOpenedSession {
   const WebDavOpenedSession({
@@ -41,6 +59,8 @@ class WebDavOpenedSession {
     required this.sessionLifetime,
     required this.port,
     required this.tls,
+    required this.readOnly,
+    required this.writePolicy,
     this.token,
     this.username,
     this.password,
@@ -57,6 +77,8 @@ class WebDavOpenedSession {
   final WebDavSessionLifetime sessionLifetime;
   final int port;
   final bool tls;
+  final bool readOnly;
+  final WebDavWritePolicy writePolicy;
   final String? token;
   final String? username;
   final String? password;
@@ -74,9 +96,13 @@ class WebDavOpenedSession {
       return value;
     }
 
-    if (data['read_only'] != true) {
-      throw StateError('webdav-non-read-only-session');
-    }
+    final readOnly = data['read_only'] == true;
+    final writePolicyStr = data['write_policy'] as String?;
+    final writePolicy = switch (writePolicyStr) {
+      'silent' => WebDavWritePolicy.silent,
+      'reviewCreate' => WebDavWritePolicy.reviewCreate,
+      _ => WebDavWritePolicy.readOnly,
+    };
     final authMode = switch (data['auth_mode'] as String? ?? 'bearer') {
       'bearer' => WebDavAuthMode.bearer,
       'digest' => WebDavAuthMode.digest,
@@ -112,6 +138,8 @@ class WebDavOpenedSession {
       displayName: requiredString('display_name'),
       exposedPath: requiredString('exposed_path'),
       url: requiredString('url'),
+      readOnly: readOnly,
+      writePolicy: writePolicy,
       authMode: authMode,
       credentialVisibility: credentialVisibility,
       sessionLifetime: sessionLifetime,
@@ -142,6 +170,7 @@ class WebDavSessionStatus {
     required this.exposedPath,
     required this.url,
     required this.readOnly,
+    required this.writePolicy,
     required this.authMode,
     required this.credentialVisibility,
     required this.sessionLifetime,
@@ -159,6 +188,7 @@ class WebDavSessionStatus {
   final String exposedPath;
   final String url;
   final bool readOnly;
+  final WebDavWritePolicy writePolicy;
   final WebDavAuthMode authMode;
   final WebDavCredentialVisibility credentialVisibility;
   final WebDavSessionLifetime sessionLifetime;
@@ -182,9 +212,13 @@ class WebDavSessionStatus {
     }
 
     final timestamp = data['last_accessed_at'];
-    if (data['read_only'] != true) {
-      throw StateError('webdav-non-read-only-status');
-    }
+    final readOnly = data['read_only'] == true;
+    final writePolicyStr = data['write_policy'] as String?;
+    final writePolicy = switch (writePolicyStr) {
+      'silent' => WebDavWritePolicy.silent,
+      'reviewCreate' => WebDavWritePolicy.reviewCreate,
+      _ => WebDavWritePolicy.readOnly,
+    };
     final authMode = switch (data['auth_mode'] as String? ?? 'bearer') {
       'bearer' => WebDavAuthMode.bearer,
       'digest' => WebDavAuthMode.digest,
@@ -212,7 +246,8 @@ class WebDavSessionStatus {
       displayName: requiredString('display_name'),
       exposedPath: requiredString('exposed_path'),
       url: requiredString('url'),
-      readOnly: true,
+      readOnly: readOnly,
+      writePolicy: writePolicy,
       authMode: authMode,
       credentialVisibility: credentialVisibility,
       sessionLifetime: sessionLifetime,
@@ -244,6 +279,7 @@ class WebDavService {
     WebDavSessionLifetime sessionLifetime = WebDavSessionLifetime.ephemeral,
     int port = 0,
     bool tls = false,
+    WebDavWritePolicy writePolicy = WebDavWritePolicy.readOnly,
   }) {
     final exposedPath = _cryptoService.relativePathForRoot(rootID, logicalPath);
     final data = _cryptoService.openWebDavSession(
@@ -255,6 +291,7 @@ class WebDavService {
       sessionLifetime: sessionLifetime.wireName,
       port: port,
       tls: tls,
+      writePolicy: writePolicy.wireName,
     );
     return WebDavOpenedSession.fromNative(rootID: rootID, data: data);
   }

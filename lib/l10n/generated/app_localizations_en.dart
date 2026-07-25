@@ -2244,4 +2244,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webDavCaCertNote => 'This certificate is for local trust only.';
+
+  @override
+  String get webDavWritePolicyTitle => 'Write permission';
+
+  @override
+  String get webDavWritePolicyDescription =>
+      'Control whether third-party tools can create, modify, or delete files through this WebDAV session. Read-only is the safest default.';
+
+  @override
+  String get webDavWritePolicyReadOnly => 'Read-only (recommended)';
+
+  @override
+  String get webDavWritePolicySilent => 'Read and write (silent)';
+
+  @override
+  String get webDavWritePolicySilentWarning =>
+      'Third-party tools will be able to create, modify, and delete files without confirmation. Use only with trusted tools.';
+
+  @override
+  String get webDavWritePolicyReviewCreate =>
+      'Review modifications (create silently)';
+
+  @override
+  String get webDavWritePolicyReviewCreateWarning =>
+      'Creating new files and directories is allowed without review. Modifying or deleting existing files requires approval. Review queue coming in a future update.';
+
+  @override
+  String get webDavSilent => 'Permission: read and write';
 }

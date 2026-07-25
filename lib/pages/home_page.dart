@@ -1840,6 +1840,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         credentialVisibility: options.credentialVisibility,
         sessionLifetime: options.sessionLifetime,
         tls: options.tls,
+        writePolicy: options.writePolicy,
       );
       if (!mounted || !_isCurrentDirectorySession(directory.path, activeSessionID)) {
         _webDavService.close(session.id);

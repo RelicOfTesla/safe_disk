@@ -3847,6 +3847,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'此证书仅供本地信任使用。'**
   String get webDavCaCertNote;
+
+  /// No description provided for @webDavWritePolicyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'写入权限'**
+  String get webDavWritePolicyTitle;
+
+  /// No description provided for @webDavWritePolicyDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制第三方工具能否通过此 WebDAV 会话创建、修改或删除文件。只读是最安全的默认选项。'**
+  String get webDavWritePolicyDescription;
+
+  /// No description provided for @webDavWritePolicyReadOnly.
+  ///
+  /// In zh, this message translates to:
+  /// **'只读（推荐）'**
+  String get webDavWritePolicyReadOnly;
+
+  /// No description provided for @webDavWritePolicySilent.
+  ///
+  /// In zh, this message translates to:
+  /// **'读写（静默）'**
+  String get webDavWritePolicySilent;
+
+  /// No description provided for @webDavWritePolicySilentWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'第三方工具将能够不经确认地创建、修改和删除文件。仅在与受信任工具配合时使用。'**
+  String get webDavWritePolicySilentWarning;
+
+  /// No description provided for @webDavWritePolicyReviewCreate.
+  ///
+  /// In zh, this message translates to:
+  /// **'审核修改（创建免审）'**
+  String get webDavWritePolicyReviewCreate;
+
+  /// No description provided for @webDavWritePolicyReviewCreateWarning.
+  ///
+  /// In zh, this message translates to:
+  /// **'创建新文件和目录无需审核。修改或删除已有文件需要审批。审核队列将在后续版本中实现。'**
+  String get webDavWritePolicyReviewCreateWarning;
+
+  /// No description provided for @webDavSilent.
+  ///
+  /// In zh, this message translates to:
+  /// **'权限：读写'**
+  String get webDavSilent;
 }
 
 class _AppLocalizationsDelegate

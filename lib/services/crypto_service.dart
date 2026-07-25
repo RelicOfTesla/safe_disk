@@ -62,11 +62,12 @@ class CryptoService {
     String sessionLifetime = 'ephemeral',
     int port = 0,
     bool tls = false,
+    String writePolicy = 'readOnly',
   }) {
     if (authMode == 'bearer' &&
         credentialVisibility == 'once' &&
         sessionLifetime == 'ephemeral' &&
-        port == 0 && !tls) {
+        port == 0 && !tls && writePolicy == 'readOnly') {
       return _native.secWebDavOpen(rootID, exposedPath, displayName);
     }
     return _native.secWebDavOpenWithOptions(
@@ -78,6 +79,7 @@ class CryptoService {
       sessionLifetime,
       port,
       tls,
+      writePolicy,
     );
   }
 

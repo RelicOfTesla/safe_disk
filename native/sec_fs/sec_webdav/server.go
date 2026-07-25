@@ -32,7 +32,8 @@ var (
 	ErrPersistentPortConflict     = errors.New("webdav persistent port conflicts with the active server")
 )
 
-const methodAllow = "OPTIONS, GET, HEAD, PROPFIND"
+const methodAllowReadOnly = "OPTIONS, GET, HEAD, PROPFIND"
+const methodAllowReadWrite = "OPTIONS, GET, HEAD, PROPFIND, PUT, DELETE, MKCOL, MOVE, COPY"
 
 // ResourceProvider is deliberately smaller than sec_fs.ISecRoot. The FFI
 // layer adapts an already-open secure root to this interface.
@@ -40,6 +41,12 @@ type ResourceProvider interface {
 	Stat(path string) (fs.FileInfo, error)
 	ReadDir(path string) ([]fs.DirEntry, error)
 	Open(path string) (io.ReadCloser, fs.FileInfo, error)
+
+	// Write methods for WebDAV PUT/DELETE/MKCOL/MOVE support.
+	Mkdir(path string) error
+	Create(path string) (io.WriteCloser, error)
+	RemoveAll(path string) error
+	Rename(oldPath, newPath string) error
 }
 
 type Session struct {
@@ -53,7 +60,8 @@ type Session struct {
 	URL                  string               `json:"url"`
 	DisplayName          string               `json:"display_name"`
 	ExposedPath          string               `json:"exposed_path"`
-	ReadOnly             bool                 `json:"read_only"`
+	ReadOnly             bool                 `json:"read_only,omitempty"`
+	WritePolicy          WritePolicy          `json:"write_policy,omitempty"`
 	CredentialVisibility CredentialVisibility `json:"credential_visibility"`
 	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
 	Port                 int                  `json:"port"`
@@ -80,6 +88,8 @@ type PersistentSession struct {
 	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
 	Port                 int                  `json:"port"`
 	TLS                  bool                 `json:"tls"`
+	ReadOnly             bool                 `json:"read_only,omitempty"`
+	WritePolicy          WritePolicy          `json:"write_policy,omitempty"`
 }
 
 type PersistentStore interface {
@@ -104,7 +114,8 @@ type SessionStatus struct {
 	DisplayName          string               `json:"display_name"`
 	ExposedPath          string               `json:"exposed_path"`
 	URL                  string               `json:"url"`
-	ReadOnly             bool                 `json:"read_only"`
+	ReadOnly             bool                 `json:"read_only,omitempty"`
+	WritePolicy          WritePolicy          `json:"write_policy,omitempty"`
 	AuthMode             AuthMode             `json:"auth_mode"`
 	LastAccessedAt       *time.Time           `json:"last_accessed_at"`
 	ActiveRequests       int                  `json:"active_requests"`
@@ -201,7 +212,7 @@ func (m *Manager) OpenWithOptions(rootKey, displayName, exposedPath string, prov
 		URL:                  webdavURLScheme(options.TLS) + state.listener.Addr().String() + "/webdav/" + id + "/",
 		DisplayName:          displayName,
 		ExposedPath:          cleanPath,
-		ReadOnly:             true,
+		ReadOnly:             options.WritePolicy == WritePolicyReadOnly,
 		CredentialVisibility: options.CredentialVisibility,
 		SessionLifetime:      options.SessionLifetime,
 		Port:                 state.port,
@@ -225,7 +236,7 @@ func (m *Manager) newActiveSession(session Session, auth authState, provider Res
 		provider: provider,
 		handler: &webdav.Handler{
 			Prefix:     "/webdav/" + session.ID,
-			FileSystem: newSecureFileSystem(provider, session.ExposedPath),
+			FileSystem: newSecureFileSystem(provider, session.ExposedPath, session.WritePolicy),
 			LockSystem: webdav.NewMemLS(),
 		},
 	}
@@ -342,7 +353,7 @@ func (m *Manager) restorePersistent(rootKey string, provider ResourceProvider, r
 		Password: record.Password, Realm: record.Realm,
 		URL:         webdavURLScheme(record.TLS) + state.listener.Addr().String() + "/webdav/" + record.ID + "/",
 		DisplayName: record.DisplayName, ExposedPath: record.ExposedPath,
-		ReadOnly: true, CredentialVisibility: record.CredentialVisibility,
+		ReadOnly: record.ReadOnly, WritePolicy: record.WritePolicy, CredentialVisibility: record.CredentialVisibility,
 		SessionLifetime: SessionLifetimePersistent, Port: record.Port,
 		TLS: record.TLS,
 	}
@@ -641,13 +652,29 @@ func (m *Manager) handle(w http.ResponseWriter, r *http.Request) {
 		// The wrapper rejects LOCK and all content-changing methods, so it must
 		// advertise class 1 rather than claiming x/net/webdav's class-2 locks.
 		w.Header().Set("DAV", "1")
-		w.Header().Set("Allow", methodAllow)
+		allowOpts := methodAllowReadOnly
+		if active.session.WritePolicy != WritePolicyReadOnly {
+			allowOpts = methodAllowReadWrite
+		}
+		w.Header().Set("Allow", allowOpts)
 		w.Header().Set("MS-Author-Via", "DAV")
 		w.WriteHeader(http.StatusOK)
-	case http.MethodGet, http.MethodHead, "PROPFIND":
+	case http.MethodGet, http.MethodHead, "PROPFIND",
+		"PROPPATCH", "COPY", "LOCK", "UNLOCK":
+		active.handler.ServeHTTP(w, r)
+	case "PUT", http.MethodDelete, "MKCOL", "MOVE":
+		if active.session.WritePolicy == WritePolicyReadOnly {
+			w.Header().Set("Allow", methodAllowReadOnly)
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
 		active.handler.ServeHTTP(w, r)
 	default:
-		w.Header().Set("Allow", methodAllow)
+		allowDef := methodAllowReadOnly
+		if active.session.WritePolicy != WritePolicyReadOnly {
+			allowDef = methodAllowReadWrite
+		}
+		w.Header().Set("Allow", allowDef)
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 	}
 }

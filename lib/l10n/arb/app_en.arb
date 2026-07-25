@@ -1334,5 +1334,14 @@
   "webDavExportCaCertInstructions": "To trust WebDAV connections without warnings, install the exported CA certificate:\n\nWindows: Open certlm.msc → Trusted Root Certification Authorities → Import\nLinux: sudo cp ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates\nmacOS: sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt\n\nNote: This CA certificate is for local use only. ",
   "@webDavExportCaCertInstructions": {},
   "webDavCaCertNote": "This certificate is for local trust only.",
-  "@webDavCaCertNote": {}
+  "webDavCaCertNote": "This certificate is for local trust only.",
+  "@webDavCaCertNote": {},
+  "webDavWritePolicyTitle": "Write permission",
+  "webDavWritePolicyDescription": "Control whether third-party tools can create, modify, or delete files through this WebDAV session. Read-only is the safest default.",
+  "webDavWritePolicyReadOnly": "Read-only (recommended)",
+  "webDavWritePolicySilent": "Read and write (silent)",
+  "webDavWritePolicySilentWarning": "Third-party tools will be able to create, modify, and delete files without confirmation. Use only with trusted tools.",
+  "webDavWritePolicyReviewCreate": "Review modifications (create silently)",
+  "webDavWritePolicyReviewCreateWarning": "Creating new files and directories is allowed without review. Modifying or deleting existing files requires approval. Review queue coming in a future update.",
+  "webDavSilent": "Permission: read and write"
 }

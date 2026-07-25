@@ -17,6 +17,19 @@ import (
 	"time"
 )
 
+// WritePolicy controls whether a WebDAV session allows write operations.
+type WritePolicy string
+
+const (
+	// WritePolicyReadOnly: all write operations are rejected.
+	WritePolicyReadOnly WritePolicy = "readOnly"
+	// WritePolicyReviewCreate: create/mkdir pass through silently; modify/delete require UI review.
+	WritePolicyReviewCreate WritePolicy = "reviewCreate"
+	// WritePolicySilent: all writes pass through.
+	WritePolicySilent WritePolicy = "silent"
+)
+
+
 type AuthMode string
 
 const (
@@ -47,6 +60,7 @@ type OpenOptions struct {
 	SessionLifetime      SessionLifetime      `json:"session_lifetime"`
 	TLS                  bool                 `json:"tls,omitempty"`
 	Port                 int                  `json:"port,omitempty"`
+	WritePolicy          WritePolicy          `json:"write_policy,omitempty"`
 }
 
 func ParseOpenOptions(optionsJSON string) (OpenOptions, error) {
@@ -89,6 +103,10 @@ func normalizeOpenOptions(options OpenOptions) (OpenOptions, error) {
 	}
 	if options.Port < 0 || options.Port > 65535 {
 		return OpenOptions{}, fmt.Errorf("invalid webdav port: %d", options.Port)
+	}
+
+	if options.WritePolicy == "" || options.WritePolicy == WritePolicyReadOnly {
+		options.WritePolicy = WritePolicyReadOnly
 	}
 	return options, nil
 }

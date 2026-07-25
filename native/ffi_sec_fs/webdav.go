@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -99,6 +100,36 @@ func (p rootResourceProvider) Open(path string) (io.ReadCloser, fs.FileInfo, err
 		return nil, nil, err
 	}
 	return file, info, nil
+}
+
+func (p rootResourceProvider) Mkdir(path string) error {
+	return p.root.MkdirAll(sec_fs.RelativeViewPath(path))
+}
+
+func (p rootResourceProvider) Create(path string) (io.WriteCloser, error) {
+	file, err := p.root.OpenFile(
+		sec_fs.RelativeViewPath(path),
+		os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+func (p rootResourceProvider) RemoveAll(path string) error {
+	info, err := p.root.Stat(sec_fs.RelativeViewPath(path))
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return p.root.DeleteDirectoryTree(sec_fs.RelativeViewPath(path))
+	}
+	return p.root.DeleteFile(sec_fs.RelativeViewPath(path))
+}
+
+func (p rootResourceProvider) Rename(oldPath, newPath string) error {
+	return p.root.Rename(sec_fs.RelativeViewPath(oldPath), sec_fs.RelativeViewPath(newPath))
 }
 
 func rootKey(rootPath string) string {

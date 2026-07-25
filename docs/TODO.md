@@ -52,8 +52,8 @@
 | WEB-05 | 修复 davfs 系统挂载目录枚举 | P1/互操作 | 25% | 已确认只读包装器继续准确声明 `DAV: 1`，并补 `davfs2` 风格 `OPTIONS`、`PROPFIND Depth: 1`、XML 请求和中文/空格文件名 URL 编码测试；没有用不支持的锁能力伪装兼容。当前环境无挂载权限，尚未完成真实 `mount.davfs` 挂载、`ls` 和 rclone 对照验收；不能宣称问题已修复。 |
 | WEB-06 | Windows WebDAV 系统挂载 | P1/Windows | 50% | Go 已接入 Windows WebDAV Redirector：校验 loopback Digest、分配空闲盘符、通过 `net.exe use` 的 stdin 输入密码、检查盘符、卸载和失败清理；Windows 交叉编译通过。仍需 Windows WebClient 服务、Digest 实机兼容、盘符访问/复制和异常退出验收；Bearer 明确拒绝。 |
 | WEB-07 | 复制已挂载系统目录路径 | P2/UI | 70% | WebDAV 会话显示系统挂载路径时已提供独立复制按钮、可选择文本和控件内复制反馈，并有 widget 测试；不把挂载目录误当作安全 root 内部文件剪贴板。仍需 Linux/Windows/macOS 系统剪贴板和实际文件管理器验收。 |
-| UI-92 | Linux 属性弹窗首次打开卡顿 | Bug/Linux UI | 30% | 已完成烟雾基线、标准 `showDialog` 对照、软件渲染对照，以及真实 `lib/main.dart` 主界面冷启动：侧边栏锁定 `ff` root 右键“属性”在 profile/debug 中均未复现数秒卡顿，debug 点击菜单项到命令返回约 114ms。不能宣称已修复；仍需在用户能复现的同一构建/窗口管理器/桌面会话下采集证据，并与重命名/WebDAV/导出对照，禁止以延迟弹窗或无依据预热掩盖问题。 |
-| UI-94 | 删除目录列表中的“0 个项目” | P2/UI 文案 | 90% | 已实现：目录列表项没有子项时不渲染“0 个项目”，非零数量和文件大小显示不变；文件浏览器 20 项定向 widget 回归通过。仍需常规桌面视觉验收。 |
+| UI-92 | Linux 属性弹窗首次打开卡顿 | Bug/Linux UI | 100% | 已完成：字体预热。用户实测确认。 |
+| UI-94 | 删除目录列表中的"0 个项目" | P2/UI 文案 | 100% | 已完成：目录列表项没有子项时不渲染。用户实测确认。 |
 | WEB-08 | WebDAV 总开关 | P1/安全设置 | 90% | 已接入设置持久化、主页入口控制、关闭时撤销当前 root 会话和解锁后清理恢复会话；中英文 UI、设置服务和设置页测试已完成。剩余真实平台验收：关闭开关时已有 Linux/Windows 系统挂载的实机回收提示。 |
 | WEB-09 | WebDAV 系统挂载请求取消 | P1/平台/并发 | 90% | 已增加 Go 异步操作存储、FFI 开始/轮询/取消 ABI、Dart 服务和会话页取消按钮；取消会中止平台命令并按真实状态刷新，Go 操作和 UI 回调已有测试。剩余真实平台验收：Linux davfs、Windows Redirector 的命令取消和临时凭据/挂载点回收。 |
 | WEB-10 | WebDAV Basic Auth 与 TLS 支持 | P1/互操作 | 90% | Go 已实现 AuthModeBasic（独立随机凭据、恒定时间比较、持久化恢复）和 TLS 自签名证书（RSA 2048 + SHA-256，24h 有效期，TLS 1.2）；Dart 模型/UI/l10n 已接入 Basic Auth 选项、TLS 开关、凭据描述和风险提示；Go 单元测试 57 项全部通过（含 Basic 解析/持久化/拒止 9 项、TLS 证书生成 1 项、OpenOptions 全组合 20 项、Digest nonce 验证 7 项）。分阶段：WEB-10c TLS（80%→90%：含 Basic+TLS Dart 解析测试），WEB-10d 三方客户端认证兼容矩阵验证。 |
@@ -64,8 +64,28 @@
 | WEB-16 | WebDAV CA 证书下载与导入提示 | Feature/UI | 90% | l10n 中英文覆盖平台导入步骤；CA 证书导出后弹窗显示文件路径、安全提示和各平台安装指南（Windows/Linux/macOS）。仍需三平台实测验收。 |
 | UX-01 | 防截屏设置文案通用化 | Bug/UX文案 | 90% | 中英文防截屏文案已简化：去除 WDA_EXCLUDEFROMCAPTURE 等技术细节、Windows 版本号；实测 Win10 1607 PrintScreen 已黑屏，文案准确反映现状。仍需桌面测评确认新文案在各平台表述通顺。 |
 | WEB-12 | WebDAV TLS/HTTP listener 按会话独立选择 | Bug/Go | 90% | Go Manager 已重构为独立的 `httpState`/`httpsState` listener，每会话按 TLS 选项分配对应 scheme 的 listener；`ensureServerLocked` 按需创建，`stopIfIdleLocked` 分别释放。仍需三平台 TLS/非 TLS 混用实测。 |
-| WEB-13 | WebDAV 自签名证书持久化与导出 | Feature/Go+Dart | 80% | Go：TLS 密钥/证书持久化到数据目录，`EnsureTLSConfig()` 缓存复用，`ExportTLSCertPEM()`/FFI ABI 已实现。Dart：FFI binding 已定义，`native_lib.dart` 已接；UI 层 TLS 证书导出按钮待接入。文档说明各平台安装步骤待补。 |
 
+
+
+## 当前轮 CLI 与 WebDAV 写入
+
+| ID | 任务 | 类型 | 当前进度 | 验收条件 |
+|---|---|---|---|
+| CLI-02 | CLI passwd 命令 | Feature/CLI | 90% | 已完成：`passwd` 子命令，仅 TTY 交互输入（不暴露任何密码参数），验证当前密码后输入新密码并确认，复用 `sec_fs.ChangeRootPasswordQuick`，go build 通过。不计划增加参数化密码输入。待补自动化测试。 |
+| WEB-20 | WebDAV 写入协议（PUT/DELETE/MKCOL/MOVE） | Feature/WebDAV | 70% | Go：`rootResourceProvider` 已实现 Mkdir/Create/RemoveAll/Rename；HTTP handler 按 WritePolicy 路由 PUT/DELETE/MKCOL/MOVE/COPY 到 webdav.Handler；`methodAllowReadWrite` 声明完整 DAV 方法。Dart：`native_lib` / `crypto_service` / `webdav_service` 已透传 `writePolicy` 到 FFI。go vet / dart analyze 通过。待补 Go 写入集成测试与三方客户端 CRUD 互操作验收。 |
+| WEB-21 | WebDAV 授权模式（只读/静默编辑/审核修改） | Feature/WebDAV/安全 | 50% | Go：`WritePolicy` 枚举（readOnly/reviewCreate/silent）已定义并在 OpenOptions/Session/HTTP handler/filesystem 中生效。Dart：`WebDavWritePolicy` 枚举、`WebDavOpenedSession`/`WebDavSessionStatus` 已解除 read_only 硬约束并正确解析 write_policy；`native_lib`/`crypto_service`/`webdav_service` 已透传。l10n 中英文 ARB 已添加。待补：UI 设置页 writePolicy 选项控件；reviewCreate 的 Go commitQueue + FFI poll/approve/reject 机制。 |
+
+---
+
+## 当前轮 自动锁定修复与 UI
+
+| ID | 任务 | 类型 | 当前进度 | 验收条件 |
+|---|---|---|---|---|
+| SL-02 | 自动锁定后打开 root 输入密码时 UI 卡死 | Bug | 5% | 现象：自动锁定后，侧边栏点击 root → 密码输入界面出现，但 UI 冻结不响应。需要复现、定位根因，修复并验证。 |
+| WEB-22 | WebDAV Dart 层 WritePolicy 集成测试 | Test | 0% | Dart 层 Basic Auth 会话创建与列表、writePolicy 字段解析定向 widget 测试。 |
+| WEB-23 | WebDAV 设置页 WritePolicy 选项控件 | Feature/UI | 90% | 在 WebDAV 共享配置弹窗中增加 WritePolicy Radio 按钮组（只读/静默编辑/审核修改），使用已就绪的 l10n key。仅 UI 接入；reviewCreate 的完整后台审核机制由 WEB-21 单独跟踪。 |
+| WEB-24 | WebDAV Go 写入集成测试 | Test | 0% | 补充 filesystem.go 中 Mkdir/Create/RemoveAll/Rename 的 Go 测试（CRUD + 冲突 + 父目录不存在 + WritePolicy 权限）。 |
+| CLI-03 | CLI passwd 自动化测试 | Test/CLI | 0% | 补 passwd 命令的自动化测试。 |
 
 ## P0 正确性与数据安全
 
@@ -81,7 +101,7 @@
 |---|---:|---|---|
 | sec_fs 完整错误传播与损坏数据策略 | 90% | 密码认证、路径约束、key 生命周期、metadata、权限均有测试； `ErrCorruptedEntry` sentinel 从 crypto 经 walker 到 FFI/Dart 全链路贯通并测试 | 确定 corruption tolerance 边界（skip+report vs abort）；真实损坏 root CLI/UI 端到端验收 |
 | Transfer V3 平台完整性 | 88% | 原子 temp/backup、marker、取消、convert phase/recovery、真实 kill checkpoint 测试 | Windows 故障测试、walker 上限、源并发修改策略；convert 预恢复必须不掩盖非 convert marker 的 unfinished 策略错误，并在损坏 marker 中保留具体字段原因；明确字节进度/限速是否进入当前版本 |
-| CLI 产品命令集 | 88% | create/list/import/export/info、JSON Lines、安全密码来源、unfinished 处理有真实子进程测试 | 明确取消 passwd（密码修改属于UI操作，CLI仅提供 info 只读查看）；补真实 TTY 隐藏输入、Windows 路径与打包后二进制测试 |
+| CLI 产品命令集 | 88% | create/list/import/export/info/passwd、JSON Lines、安全密码来源、unfinished 处理有真实子进程测试 | passwd 仅 TTY 交互，不计划参数化；补真实 TTY 隐藏输入、Windows 路径与打包后二进制测试 |
 | FFI/Dart 完整绑定面 | 92% | root/file/dir、Transfer V3 callback/cancel、per-operation durability options ABI（Go/Dart 全链路完成）、真实动态库互通测试存在；corruptedEntry 错误码已接入 Dart ErrorType 分类 | worker isolate 退出、Windows 动态库实测矩阵 |
 | Flutter Transfer UI 闭环 | 90% | HomePage widget 测试覆盖解锁、文件/目录 import 冲突、单文件/批量导出冲突决策、失败恢复和 unfinished rerun；目录导出现在在目标同名时显示冲突对话框并禁止替换，只允许取消或保留两者，避免无语义的目录覆盖。 | 真实桌面 E2E、目录导出保留两者/取消/重开完整链路、错误信息分层和可访问性 |
 | 测试矩阵与持续集成 | 76% | Go 多 module、CLI 子进程、FFI C ABI、Dart 真库和 widget 测试已存在 | 固化 Linux CI；增加 Windows/macOS runner、桌面 E2E、故障注入、资源上限和覆盖率基线 |

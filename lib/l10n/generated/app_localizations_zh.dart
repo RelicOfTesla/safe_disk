@@ -577,8 +577,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorDataCorruptedTitle => '检测到数据损坏';
 
   @override
-  String get errorDataCorruptedDescription =>
-      '一个或多个加密条目可能已损坏或被篡改，其余条目可能仍然正常。';
+  String get errorDataCorruptedDescription => '一个或多个加密条目可能已损坏或被篡改，其余条目可能仍然正常。';
 
   @override
   String get errorDataCorruptedSuggestion =>
@@ -2098,4 +2097,31 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get webDavCaCertNote => '此证书仅供本地信任使用。';
+
+  @override
+  String get webDavWritePolicyTitle => '写入权限';
+
+  @override
+  String get webDavWritePolicyDescription =>
+      '控制第三方工具能否通过此 WebDAV 会话创建、修改或删除文件。只读是最安全的默认选项。';
+
+  @override
+  String get webDavWritePolicyReadOnly => '只读（推荐）';
+
+  @override
+  String get webDavWritePolicySilent => '读写（静默）';
+
+  @override
+  String get webDavWritePolicySilentWarning =>
+      '第三方工具将能够不经确认地创建、修改和删除文件。仅在与受信任工具配合时使用。';
+
+  @override
+  String get webDavWritePolicyReviewCreate => '审核修改（创建免审）';
+
+  @override
+  String get webDavWritePolicyReviewCreateWarning =>
+      '创建新文件和目录无需审核。修改或删除已有文件需要审批。审核队列将在后续版本中实现。';
+
+  @override
+  String get webDavSilent => '权限：读写';
 }

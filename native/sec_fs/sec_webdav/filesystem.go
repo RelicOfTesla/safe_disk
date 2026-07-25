@@ -11,15 +11,15 @@ import (
 
 var errWebDAVReadOnly = errors.New("webdav session is read-only")
 
-// secureFileSystem adapts a selected secure subtree to x/net/webdav without
-// exposing the native storage path or allowing the handler to write through it.
+// secureFileSystem adapts a selected secure subtree to x/net/webdav.
 type secureFileSystem struct {
-	provider ResourceProvider
-	base     string
+	provider    ResourceProvider
+	base        string
+	writePolicy WritePolicy
 }
 
-func newSecureFileSystem(provider ResourceProvider, base string) *secureFileSystem {
-	return &secureFileSystem{provider: provider, base: base}
+func newSecureFileSystem(provider ResourceProvider, base string, writePolicy WritePolicy) *secureFileSystem {
+	return &secureFileSystem{provider: provider, base: base, writePolicy: writePolicy}
 }
 
 func (f *secureFileSystem) resolve(name string) (string, error) {
@@ -30,18 +30,38 @@ func (f *secureFileSystem) resolve(name string) (string, error) {
 	return joinSecurePath(f.base, relative), nil
 }
 
-func (f *secureFileSystem) Mkdir(context.Context, string, os.FileMode) error {
-	return errWebDAVReadOnly
+func (f *secureFileSystem) Mkdir(_ context.Context, name string, _ os.FileMode) error {
+	if f.writePolicy == WritePolicyReadOnly {
+		return errWebDAVReadOnly
+	}
+	resolved, err := f.resolve(name)
+	if err != nil {
+		return err
+	}
+	return f.provider.Mkdir(resolved)
 }
 
 func (f *secureFileSystem) OpenFile(_ context.Context, name string, flag int, _ os.FileMode) (webdav.File, error) {
-	if flag != os.O_RDONLY {
+	isWrite := flag&(os.O_WRONLY|os.O_RDWR|os.O_CREATE|os.O_TRUNC) != 0
+	if isWrite && f.writePolicy == WritePolicyReadOnly {
 		return nil, errWebDAVReadOnly
 	}
+
 	resolved, err := f.resolve(name)
 	if err != nil {
 		return nil, err
 	}
+
+	if isWrite {
+		w, err := f.provider.Create(resolved)
+		if err != nil {
+			return nil, err
+		}
+		return &secureWebDAVFile{
+			writer: w,
+		}, nil
+	}
+
 	info, err := f.provider.Stat(resolved)
 	if err != nil {
 		return nil, err
@@ -81,12 +101,30 @@ func (f *secureFileSystem) OpenFile(_ context.Context, name string, flag int, _ 
 	}, nil
 }
 
-func (f *secureFileSystem) RemoveAll(context.Context, string) error {
-	return errWebDAVReadOnly
+func (f *secureFileSystem) RemoveAll(_ context.Context, name string) error {
+	if f.writePolicy == WritePolicyReadOnly {
+		return errWebDAVReadOnly
+	}
+	resolved, err := f.resolve(name)
+	if err != nil {
+		return err
+	}
+	return f.provider.RemoveAll(resolved)
 }
 
-func (f *secureFileSystem) Rename(context.Context, string, string) error {
-	return errWebDAVReadOnly
+func (f *secureFileSystem) Rename(_ context.Context, oldName, newName string) error {
+	if f.writePolicy == WritePolicyReadOnly {
+		return errWebDAVReadOnly
+	}
+	oldResolved, err := f.resolve(oldName)
+	if err != nil {
+		return err
+	}
+	newResolved, err := f.resolve(newName)
+	if err != nil {
+		return err
+	}
+	return f.provider.Rename(oldResolved, newResolved)
 }
 
 func (f *secureFileSystem) Stat(_ context.Context, name string) (os.FileInfo, error) {
@@ -99,6 +137,7 @@ func (f *secureFileSystem) Stat(_ context.Context, name string) (os.FileInfo, er
 
 type secureWebDAVFile struct {
 	reader  io.ReadSeeker
+	writer  io.WriteCloser
 	closer  io.Closer
 	info    os.FileInfo
 	entries []os.FileInfo
@@ -106,6 +145,9 @@ type secureWebDAVFile struct {
 }
 
 func (f *secureWebDAVFile) Close() error {
+	if f.writer != nil {
+		return f.writer.Close()
+	}
 	if f.closer == nil {
 		return nil
 	}
@@ -149,6 +191,9 @@ func (f *secureWebDAVFile) Stat() (os.FileInfo, error) {
 	return f.info, nil
 }
 
-func (f *secureWebDAVFile) Write([]byte) (int, error) {
-	return 0, errWebDAVReadOnly
+func (f *secureWebDAVFile) Write(p []byte) (int, error) {
+	if f.writer == nil {
+		return 0, errWebDAVReadOnly
+	}
+	return f.writer.Write(p)
 }

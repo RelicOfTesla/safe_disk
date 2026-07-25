@@ -1334,5 +1334,14 @@
   "webDavExportCaCertInstructions": "要免警告地信任 WebDAV 连接，安装导出的 CA 证书：\n\nWindows：打开 certlm.msc → 受信任的根证书颁发机构 → 导入\nLinux：sudo cp ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates\nmacOS：sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt\n\n注意：此 CA 证书仅供本地使用。",
   "@webDavExportCaCertInstructions": {},
   "webDavCaCertNote": "此证书仅供本地信任使用。",
-  "@webDavCaCertNote": {}
+  "webDavCaCertNote": "此证书仅供本地信任使用。",
+  "@webDavCaCertNote": {},
+  "webDavWritePolicyTitle": "写入权限",
+  "webDavWritePolicyDescription": "控制第三方工具能否通过此 WebDAV 会话创建、修改或删除文件。只读是最安全的默认选项。",
+  "webDavWritePolicyReadOnly": "只读（推荐）",
+  "webDavWritePolicySilent": "读写（静默）",
+  "webDavWritePolicySilentWarning": "第三方工具将能够不经确认地创建、修改和删除文件。仅在与受信任工具配合时使用。",
+  "webDavWritePolicyReviewCreate": "审核修改（创建免审）",
+  "webDavWritePolicyReviewCreateWarning": "创建新文件和目录无需审核。修改或删除已有文件需要审批。审核队列将在后续版本中实现。",
+  "webDavSilent": "权限：读写"
 }
