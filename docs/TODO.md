@@ -11,8 +11,9 @@
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---|---|
 | WEB-17 | Windows Basic auth WebDAV 挂载失败 | Bug/Windows/互操作 | 100% | 用户 2026-07-25 实测确认正常。mount_windows.go (3665851) 接受 Digest/Basic，改用完整 URL 直传 net use。Basic 共享挂载成功，盘符出现在"此电脑"。 |
+| WEB-19 | macOS WebDAV 系统挂载 | Feature/macOS | 50% | mount_darwin.go: 基于 mount_webdav + 临时 keychain 凭据实现 Digest/Basic 认证挂载；keychain 条目会话粒度（-A 免提示）卸载时清理；支持 -S 抑制 Finder 侧边栏；健康检查带重试退避；umount 失败时 fallback diskutil force unmount；含 extractURLHost 单元测试。go cross-compile 通过。需 macOS 实机验证 mount_webdav keychain 鉴权流程、Finder 可见性、卸载清理和异常恢复。 |
 
-| WEB-18 | Linux Digest davfs 挂载后目录为空（Invalid argument） | Bug/Linux/互操作 | 85% | mount_linux.go 已改：改用 pkexec/sudo mount.davfs 直接调用（绕过 setuid mount.davfs 忽略 -o conf=... 问题），加 dav_user 降权到调用用户。go vet/build 通过。需 Linux 实机验证 davfs2 挂载后可正常读写目录。 |
+| WEB-18 | Linux Digest davfs 挂载后目录为空（Invalid argument） | Bug/Linux/互操作 | 90% | mount_linux.go: 改用 pkexec/sudo mount.davfs；添加 dir_refresh=0 (禁止 FUSE readdir 时实时刷新 PROPFIND，避免 EINVAL)、table_size=4096；健康检查增加重试退避（5 次 x 100ms 步进）。go vet/build/test 通过。需 Linux 实机验证 davfs2 挂载后可正常 ls/读写目录。若仍失败，请挂载时加 davfs2 debug 参数抓 HTTP 交互日志。 |
 
 
 

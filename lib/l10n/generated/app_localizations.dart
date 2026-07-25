@@ -461,7 +461,7 @@ abstract class AppLocalizations {
   /// No description provided for @webDavAuthDigest.
   ///
   /// In zh, this message translates to:
-  /// **'Digest（用户名和密码）'**
+  /// **'Digest（用户名和密码，Linux、macOS 常用）'**
   String get webDavAuthDigest;
 
   /// No description provided for @webDavAuthContinue.
@@ -3761,7 +3761,7 @@ abstract class AppLocalizations {
   /// No description provided for @webDavAuthBasic.
   ///
   /// In zh, this message translates to:
-  /// **'Basic（用户名与密码，仅限 loopback）'**
+  /// **'Basic（用户名与密码，Windows 常用）'**
   String get webDavAuthBasic;
 
   /// No description provided for @webDavBasicRiskWarning.

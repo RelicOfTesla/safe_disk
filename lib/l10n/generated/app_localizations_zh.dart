@@ -199,7 +199,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webDavAuthBearer => 'Bearer（令牌）';
 
   @override
-  String get webDavAuthDigest => 'Digest（用户名和密码，Linux 常用）';
+  String get webDavAuthDigest => 'Digest（用户名和密码，Linux、macOS 常用）';
 
   @override
   String get webDavAuthContinue => '继续';

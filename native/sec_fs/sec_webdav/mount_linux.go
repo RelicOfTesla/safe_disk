@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession, error) {
@@ -46,6 +47,8 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 	config += "ask_auth 0\n"
 	config += "use_locks 0\n"
 	config += "if_match_bug 1\n"
+	config += "dir_refresh 0\n"
+	config += "table_size 4096\n"
 
 	secrets := strings.TrimRight(session.URL, "/") + " " + session.Username + " " + session.Password + "\n"
 
@@ -54,7 +57,21 @@ func mountSessionPlatform(ctx context.Context, session Session) (*MountedSession
 		return nil, err
 	}
 
-	if _, readErr := os.ReadDir(tempDir); readErr != nil {
+	var readErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("%w: davfs mount interrupted", ErrMountFailed)
+			case <-time.After(time.Duration(attempt*100) * time.Millisecond):
+			}
+		}
+		_, readErr = os.ReadDir(tempDir)
+		if readErr == nil {
+			break
+		}
+	}
+	if readErr != nil {
 		_ = disconnectMount(context.Background(), tempDir)
 		cleanupWorkspace()
 		return nil, fmt.Errorf("%w: davfs mount succeeded but directory is unreadable (%v)", ErrMountFailed, readErr)
