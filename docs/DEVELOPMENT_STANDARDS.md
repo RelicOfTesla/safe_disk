@@ -63,6 +63,14 @@
 提交前逐项确认：
 
 1. **Dart 代码必须执行 `dart format`**（使用 `dart format lib/ test/` 或项目根目录直接 `dart format .`），Go 代码使用 `gofmt`。格式化无变更且静态分析无新增问题后方可提交。
+
+   **格式基线**：
+   - 纯格式变更（无逻辑变动）应单独一个 commit，标题如 `style: dart format all`。
+   - Linux 环境建议 `git config core.autocrlf input`，确保仓库存储 LF，工作树也保持 LF。
+   - 格式化前若文件含 CRLF 行尾，先执行 `dos2unix` 转为 LF，否则 `dart format` 输出可能与仓库 LF 版本不一致。
+   - `dart format` 输出 `0 changed` 视为格式基线与当前代码一致。
+   - 逻辑变更带来的级联换行重排（cascading format）是 `dart format` 的正常行为，不可避免。
+   - 禁止手工编辑 `lib/l10n/generated/` 下的生成文件；多语言文本仅通过 ARB 文件修改。
 2. 新增 UI 文案已进入 ARB；服务层没有新增翻译文本或未经脱敏的异常回显。
 3. 异步失败、取消、重复调用和资源释放路径已审查；没有把 mock 成功当作原子性或平台保证。
 4. 已运行定向测试；需要时已运行 `flutter analyze --no-pub`、真实 FFI 完整 Flutter 回归、`go test`/`go vet`。
