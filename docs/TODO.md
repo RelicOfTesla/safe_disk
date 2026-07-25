@@ -11,7 +11,7 @@
 | ID | 任务 | 类型 | 当前进度 | 验收条件 |
 |---|---|---|---|---|
 | WEB-17 | Windows Basic auth WebDAV 挂载失败 | Bug/Windows/互操作 | 100% | 用户 2026-07-25 实测确认正常。mount_windows.go (3665851) 接受 Digest/Basic，改用完整 URL 直传 net use。Basic 共享挂载成功，盘符出现在"此电脑"。 |
-| WEB-19 | macOS WebDAV 系统挂载 | Feature/macOS | 50% | mount_darwin.go: 基于 mount_webdav + 临时 keychain 凭据实现 Digest/Basic 认证挂载；keychain 条目会话粒度（-A 免提示）卸载时清理；支持 -S 抑制 Finder 侧边栏；健康检查带重试退避；umount 失败时 fallback diskutil force unmount；含 extractURLHost 单元测试。go cross-compile 通过。需 macOS 实机验证 mount_webdav keychain 鉴权流程、Finder 可见性、卸载清理和异常恢复。 |
+| WEB-19 | macOS WebDAV 系统挂载 | Feature/macOS | 70% | mount_darwin.go: 基于 mount_webdav + 临时 keychain 凭据实现 Digest/Basic 认证挂载；keychain 条目会话粒度（-A 免提示）卸载时清理；支持 -S 抑制 Finder 侧边栏；健康检查带重试退避；umount 失败时 fallback diskutil force unmount；含 extractURLHost 单元测试。go cross-compile 通过。需 macOS 实机验证 mount_webdav keychain 鉴权流程、Finder 可见性、卸载清理和异常恢复。 |
 
 | WEB-18 | Linux Digest davfs 挂载后目录为空（Invalid argument） | Bug/Linux/互操作 | 90% | mount_linux.go: 改用 pkexec/sudo mount.davfs；添加 dir_refresh=0 (禁止 FUSE readdir 时实时刷新 PROPFIND，避免 EINVAL)、table_size=4096；健康检查增加重试退避（5 次 x 100ms 步进）。go vet/build/test 通过。需 Linux 实机验证 davfs2 挂载后可正常 ls/读写目录。若仍失败，请挂载时加 davfs2 debug 参数抓 HTTP 交互日志。 |
 
@@ -137,17 +137,6 @@
 | WEB-11 | WebDAV Go 代码缺陷修复 | Bug/数据安全 | 100% | persistentRecordFromActive 死代码已修复（Basic 持久化字段正确写入）；authenticateLocked switch 已清理冗余结构；go vet/build 通过。 |
 | WEB-10c | WebDAV TLS 支持 | P1/互操作 | 90% | Go 自签名证书生成（RSA 2048 + SHA-256，24h 有效期）、TLS listener、`webdavURLScheme`、session/persistent 记录 TLS 字段均已完成；TLS 证书生成单元测试已通过。Dart 模型（WebDavOpenedSession/WebDavSessionStatus）、WebDavService.open、CryptoService.openWebDavSession、UI 对话框 TLS 开关、l10n 中英文均已接入。仍需：TLS 持久会话恢复实际验证、三平台桌面实测 TLS 握手与客户端兼容性。 |
 | WEB-10d | WebDAV 三方客户端认证兼容矩阵验证 | P2/互操作 | 0% | 按平台验证 rclone/davfs2/Windows WebClient/macOS Finder 的 Bearer/Digest/Basic 兼容性与已知限制。 |
-
-## 当前轮活跃修复（2026-07-24 WebDAV）
-
-| ID | 任务 | 类型 | 当前进度 | 验收条件 |
-|---|---|---|---|---|
-| WEB-11a | 修复 persistentRecordFromActive 死代码 | Bug/Go | 100% | Basic Auth 持久化字段正确写入记录；go vet/build 通过。 |
-| WEB-11b | 修复 authenticateLocked 冗余代码 | Bug/Go | 100% | switch 结构清晰，无冗余 return。 |
-| WEB-11c | 检查 authFromPersistent 括号一致性 | Bug/Go | 100% | go vet/build 通过，括号配对正确。 |
-| WEB-10b-1 | WebDavAuthMode 增加 basic 枚举值 | Feature/Dart | 100% | 枚举已增加，wireName=basic，fromNative 已支持。 |
-| WEB-10b-2 | UI 共享配置对话框增加 Basic Auth 选项 | Feature/Dart | 100% | chooseWebDavOpenOptions 已含 Basic radio，含风险提示和凭据描述；l10n 已生成。 |
-| WEB-10b-3 | WebDAV Basic Auth 功能性回归测试 | Test/Go+Dart | 95% | Go 层 57 项单元测试全部通过（含 9 项 Basic Auth、20 项 OpenOptions 全组合、7 项 Digest nonce 验证、1 项 TLS 证书、4 项持久化恢复、12 项路径/URL 验证、4 项 Bearer）。Dart 层 29 项模型解析测试（含 credential visibility/lifetime/Basic/Digest 拒止/全选项组合）已编写并通过 dart analyze。仍有沙箱网络限制导致 HTTP server 集成测试无法运行。 |
 
 ## 当前轮活跃修复（2026-07-24 安全锁定）
 

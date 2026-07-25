@@ -2,7 +2,7 @@
 
 > 本文件只列未达到 100% 的产品能力。已完成能力及其测试边界见 [completed/TASKS_COMPLETED.md](completed/TASKS_COMPLETED.md)。
 >
-> 进度遵循 [TODO.md](TODO.md)：缺自动化实际功能测试时最高 90%。最后审计：2026-07-14。
+> 进度遵循 [TODO.md](TODO.md)：缺自动化实际功能测试时最高 90%。最后审计：2026-07-25。
 
 ## 加密目录与文件系统
 
