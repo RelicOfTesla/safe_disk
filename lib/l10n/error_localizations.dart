@@ -143,6 +143,11 @@ extension ErrorLocalizations on AppLocalizations {
           errorPathEmptyDescription,
           null,
         ),
+      ErrorType.dataCorrupted => (
+          errorDataCorruptedTitle,
+          errorDataCorruptedDescription,
+          errorDataCorruptedSuggestion,
+        ),
       ErrorType.operationFailed => (
           errorOperationFailedTitle,
           errorOperationFailedDescription,

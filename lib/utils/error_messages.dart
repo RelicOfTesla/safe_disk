@@ -32,6 +32,7 @@ enum ErrorType {
   passwordEmpty,
   passwordMismatch,
   pathEmpty,
+  dataCorrupted,
   operationFailed,
 }
 

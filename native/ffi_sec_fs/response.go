@@ -15,6 +15,7 @@ const (
 	ErrorCodePathTraversal               = 1302
 	ErrorCodeNotDirectory                = 1303
 	ErrorCodeUnsupportedOperation        = 1304
+	ErrorCodeCorruptedEntry              = 1305
 	ErrorCodeWebDavMountUnsupported      = 1401
 	ErrorCodeWebDavMountFailed           = 1402
 	ErrorCodeWebDavCredentialsOneTime    = 1403

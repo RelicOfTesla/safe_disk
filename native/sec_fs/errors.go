@@ -67,6 +67,13 @@ var (
 	// ErrDecryptionFailed indicates that decryption operation failed.
 	ErrDecryptionFailed = errors.New("decryption failed")
 
+
+	// ErrCorruptedEntry indicates that a file or directory entry (name or metadata)
+	// has been corrupted and cannot be decrypted or parsed. Unlike generic
+	// decryption failures, this sentinel means the root itself is intact but
+	// individual entries are damaged — callers may choose to skip and report
+	// rather than abort the entire operation.
+	ErrCorruptedEntry = errors.New("corrupted entry: encrypted data is damaged or tampered")
 	// ErrKeyDerivationFailed indicates that key derivation failed.
 	ErrKeyDerivationFailed = errors.New("key derivation failed")
 

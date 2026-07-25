@@ -18,6 +18,7 @@ import '../services/directory_service.dart';
 import '../services/directory_persistence_service.dart';
 import '../services/settings_service.dart';
 import '../services/secure_clipboard_service.dart';
+import '../native/native_lib.dart';
 import '../services/secure_entry_move_service.dart';
 import '../services/document_session_broker.dart';
 import '../services/root_close_coordinator.dart';
@@ -778,9 +779,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return true;
     } catch (e) {
       if (mounted && generation == _pageGeneration) {
+        final errorType = (e is NativeOperationException &&
+                e.code == NativeErrorCode.corruptedEntry)
+            ? ErrorType.dataCorrupted
+            : ErrorType.loadDirectoryFailed;
         ErrorHelper.showError(
           context,
-          errorType: ErrorType.loadDirectoryFailed,
+          errorType: errorType,
           originalError: e.toString(),
         );
       }

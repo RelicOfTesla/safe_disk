@@ -574,6 +574,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get errorPathEmptyDescription => '请输入目录路径。';
 
   @override
+  String get errorDataCorruptedTitle => '检测到数据损坏';
+
+  @override
+  String get errorDataCorruptedDescription =>
+      '一个或多个加密条目可能已损坏或被篡改，其余条目可能仍然正常。';
+
+  @override
+  String get errorDataCorruptedSuggestion =>
+      '请检查安全根目录的数据完整性。如果仅少量条目受影响，建议从备份中恢复。';
+
+  @override
   String get errorOperationFailedTitle => '操作失败';
 
   @override

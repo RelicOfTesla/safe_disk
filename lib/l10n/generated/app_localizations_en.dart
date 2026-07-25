@@ -621,6 +621,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorPathEmptyDescription => 'Enter a directory path.';
 
   @override
+  String get errorDataCorruptedTitle => 'Data corruption detected';
+
+  @override
+  String get errorDataCorruptedDescription =>
+      'One or more encrypted entries appear to be damaged or tampered. Other entries may still be intact.';
+
+  @override
+  String get errorDataCorruptedSuggestion =>
+      'Verify the integrity of the secure root directory. If only a few entries are affected, consider restoring from a backup.';
+
+  @override
   String get errorOperationFailedTitle => 'Operation failed';
 
   @override

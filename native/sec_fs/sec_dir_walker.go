@@ -254,7 +254,8 @@ func (w *secDirWalker) processEntry(entry fs.DirEntry) (IDirEntry, bool, error) 
 		decryptedName, err := w.nameCryptor.DecryptName(name)
 		if err != nil {
 			return &secDirEntry{}, false, NewRelativeViewPathError(
-				"decrypt_entry_name", w.relativePath, err,
+				"decrypt_entry_name", w.relativePath,
+				fmt.Errorf("%w: %w", ErrCorruptedEntry, err),
 			)
 		}
 		name = decryptedName

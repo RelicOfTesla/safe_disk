@@ -1166,6 +1166,24 @@ abstract class AppLocalizations {
   /// **'请输入目录路径。'**
   String get errorPathEmptyDescription;
 
+  /// No description provided for @errorDataCorruptedTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'检测到数据损坏'**
+  String get errorDataCorruptedTitle;
+
+  /// No description provided for @errorDataCorruptedDescription.
+  ///
+  /// In zh, this message translates to:
+  /// **'一个或多个加密条目可能已损坏或被篡改，其余条目可能仍然正常。'**
+  String get errorDataCorruptedDescription;
+
+  /// No description provided for @errorDataCorruptedSuggestion.
+  ///
+  /// In zh, this message translates to:
+  /// **'请检查安全根目录的数据完整性。如果仅少量条目受影响，建议从备份中恢复。'**
+  String get errorDataCorruptedSuggestion;
+
   /// No description provided for @errorOperationFailedTitle.
   ///
   /// In zh, this message translates to:

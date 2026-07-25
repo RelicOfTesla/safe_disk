@@ -39,6 +39,7 @@ abstract final class NativeErrorCode {
   static const pathTraversal = 1302;
   static const notDirectory = 1303;
   static const unsupportedOperation = 1304;
+  static const corruptedEntry = 1305;
   static const webDavMountUnsupported = 1401;
   static const webDavMountFailed = 1402;
   static const webDavCredentialsOneTime = 1403;

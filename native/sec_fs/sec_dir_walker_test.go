@@ -634,6 +634,8 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 			}
 			if err != nil {
 				assert.NotErrorIs(t, err, io.EOF)
+				assert.ErrorIs(t, err, ErrCorruptedEntry,
+					"corrupted-entry sentinel must be detectable through walker error chain")
 				break
 			}
 		}
@@ -676,6 +678,8 @@ func TestSecDirWalker_WithEncryption(t *testing.T) {
 		}
 
 		assert.Error(t, walkErr, "Plain store names must not be silently skipped")
+		assert.ErrorIs(t, walkErr, ErrCorruptedEntry,
+			"plain entry in encrypted directory must expose corrupted-entry sentinel")
 		assert.False(t, foundNames["plain.txt"])
 	})
 

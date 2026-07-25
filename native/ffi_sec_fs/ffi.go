@@ -257,6 +257,8 @@ func errorResponse(err error) string {
 		return ErrorWithCode(err.Error(), ErrorCodeNotDirectory)
 	case errors.Is(err, sec_fs.ErrUnsupportedOperation):
 		return ErrorWithCode(err.Error(), ErrorCodeUnsupportedOperation)
+	case errors.Is(err, sec_fs.ErrCorruptedEntry):
+		return ErrorWithCode(err.Error(), ErrorCodeCorruptedEntry)
 	case errors.Is(err, sec_webdav.ErrMountUnsupported):
 		return ErrorWithCode(err.Error(), ErrorCodeWebDavMountUnsupported)
 	case errors.Is(err, sec_webdav.ErrMountFailed):
