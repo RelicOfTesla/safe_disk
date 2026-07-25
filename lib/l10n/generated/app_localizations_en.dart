@@ -2209,7 +2209,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webDavTLSDescription =>
-      'Use HTTPS with a self-signed certificate for loopback connections. Required by some system tools (e.g., Windows WebClient) but adds no additional network security on loopback. Clients must accept the self-signed certificate warning.';
+      'Use HTTPS with a self-signed certificate for connections. Required by some system tools but adds no additional network security. Clients must accept the self-signed certificate warning.';
 
   @override
   String get webDavAuthModeBasic => 'Authentication: Basic';
@@ -2229,9 +2229,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get webDavExportCaCertInstructions =>
-      'To trust WebDAV connections without warnings, install the exported CA certificate:\n\nWindows: Open certlm.msc → Trusted Root Certification Authorities → Import\nLinux: sudo cp ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates\nmacOS: sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt\n\nNote: This CA certificate is for local loopback use only. Do not install it on remote or shared systems.';
+      'To trust WebDAV connections without warnings, install the exported CA certificate:\n\nWindows: Open certlm.msc → Trusted Root Certification Authorities → Import\nLinux: sudo cp ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates\nmacOS: sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt\n\nNote: This CA certificate is for local use only. ';
 
   @override
-  String get webDavCaCertNote =>
-      'This certificate is for local loopback trust only. Do not distribute it to other systems.';
+  String get webDavCaCertNote => 'This certificate is for local trust only.';
 }

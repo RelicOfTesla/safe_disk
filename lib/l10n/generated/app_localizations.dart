@@ -3785,7 +3785,7 @@ abstract class AppLocalizations {
   /// No description provided for @webDavTLSDescription.
   ///
   /// In zh, this message translates to:
-  /// **'使用自签名证书为 loopback 连接启用 HTTPS。部分系统工具（如 Windows 网络磁盘映射）要求 HTTPS，但 loopback 上不增加额外的网络安全性。客户端需接受自签名证书警告。'**
+  /// **'使用自签名证书为连接启用 HTTPS。部分系统工具要求 HTTPS,客户端需接受自签名证书警告。'**
   String get webDavTLSDescription;
 
   /// No description provided for @webDavAuthModeBasic.
@@ -3821,13 +3821,13 @@ abstract class AppLocalizations {
   /// No description provided for @webDavExportCaCertInstructions.
   ///
   /// In zh, this message translates to:
-  /// **'要免警告地信任 WebDAV 连接，安装导出的 CA 证书：\n\nWindows：打开 certlm.msc → 受信任的根证书颁发机构 → 导入\nLinux：sudo cp ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates\nmacOS：sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt\n\n注意：此 CA 证书仅供本地 loopback 使用。请勿在远程或共享系统上安装。'**
+  /// **'要免警告地信任 WebDAV 连接，安装导出的 CA 证书：\n\nWindows：打开 certlm.msc → 受信任的根证书颁发机构 → 导入\nLinux：sudo cp ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates\nmacOS：sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt\n\n注意：此 CA 证书仅供本地使用。'**
   String get webDavExportCaCertInstructions;
 
   /// No description provided for @webDavCaCertNote.
   ///
   /// In zh, this message translates to:
-  /// **'此证书仅供本地 loopback 信任使用。请勿分发给其他系统。'**
+  /// **'此证书仅供本地信任使用。'**
   String get webDavCaCertNote;
 }
 

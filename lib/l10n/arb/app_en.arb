@@ -1317,7 +1317,7 @@
   "@webDavBasicCredentialsDescription": {},
   "webDavTLS": "Enable HTTPS/TLS",
   "@webDavTLS": {},
-  "webDavTLSDescription": "Use HTTPS with a self-signed certificate for loopback connections. Required by some system tools but adds no additional network security on loopback. Clients must accept the self-signed certificate warning.",
+  "webDavTLSDescription": "Use HTTPS with a self-signed certificate for connections. Required by some system tools but adds no additional network security. Clients must accept the self-signed certificate warning.",
   "@webDavTLSDescription": {},
   "webDavAuthModeBasic": "Authentication: Basic",
   "webDavExportCert": "Export CA Certificate",
@@ -1328,8 +1328,8 @@
   "@webDavCertSaved": {},
   "webDavSaveCertError": "Failed to save CA certificate",
   "@webDavSaveCertError": {},
-  "webDavExportCaCertInstructions": "To trust WebDAV connections without warnings, install the exported CA certificate:\n\nWindows: Open certlm.msc → Trusted Root Certification Authorities → Import\nLinux: sudo cp ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates\nmacOS: sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt\n\nNote: This CA certificate is for local loopback use only. Do not install it on remote or shared systems.",
+  "webDavExportCaCertInstructions": "To trust WebDAV connections without warnings, install the exported CA certificate:\n\nWindows: Open certlm.msc → Trusted Root Certification Authorities → Import\nLinux: sudo cp ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates\nmacOS: sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ca.crt\n\nNote: This CA certificate is for local use only. ",
   "@webDavExportCaCertInstructions": {},
-  "webDavCaCertNote": "This certificate is for local loopback trust only. Do not distribute it to other systems.",
+  "webDavCaCertNote": "This certificate is for local trust only.",
   "@webDavCaCertNote": {}
 }
