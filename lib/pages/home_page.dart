@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'home_page_import_export_mixin.dart';
 import 'home_page_webdav_mixin.dart';
+import 'home_page_create_root_workflow.dart';
+import 'home_page_shortcuts.dart';
+import 'home_page_startup_coordinator.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:file_selector/file_selector.dart';
@@ -15,7 +18,6 @@ import '../models/cryption_config.dart';
 import '../models/batch_operation_result.dart';
 import '../models/secure_image_policy.dart';
 import '../models/view_mode.dart';
-import '../models/create_root_options.dart';
 import '../models/text_file_policy.dart';
 import '../services/crypto_service.dart';
 import '../services/file_service.dart';
@@ -45,7 +47,6 @@ import '../widgets/progress_dialog.dart';
 import '../widgets/home_shell.dart';
 import '../widgets/file_browser.dart';
 import '../widgets/file_item_actions.dart';
-import '../widgets/anti_screenshot_dialog.dart';
 import '../widgets/entry_conflict_dialog.dart';
 import '../widgets/directory_background_actions.dart';
 import '../widgets/root_directory_action_dialog.dart';
@@ -125,6 +126,8 @@ class _HomePageState extends State<HomePage>
   late final RootIdleTracker _idleTracker;
   late final ContentWindowHostBridge _contentWindowBridge;
   late final WebDavService _webDavService;
+  late final HomePageStartupCoordinator _startupCoordinator;
+  late final HomePageCreateRootWorkflow _createRootWorkflow;
   final DragDropController _dragDropController = const DragDropController();
   // This is only a badge cache. Go remains authoritative for session state.
   final Map<int, int> _webDavSessionCounts = {};
@@ -292,6 +295,14 @@ class _HomePageState extends State<HomePage>
     };
     _webDavService =
         widget.webDavService ?? WebDavService(cryptoService: _cryptoService);
+    _startupCoordinator = HomePageStartupCoordinator(
+      settingsService: _settingsService,
+      persistenceService: _persistenceService,
+    );
+    _createRootWorkflow = HomePageCreateRootWorkflow(
+      cryptoService: _cryptoService,
+      settingsService: _settingsService,
+    );
     WidgetsBinding.instance.addObserver(this);
     loadPersistedDirectories();
     loadDrawerPinnedState();
@@ -299,8 +310,14 @@ class _HomePageState extends State<HomePage>
     loadSessionTTL();
     _loadOpenMode();
     loadWebDavEnabled();
-    _checkFirstTimeUser();
-    _checkFirstLaunchAntiScreenshot();
+    _startupCoordinator.checkFirstTimeUser(
+      context,
+      isMounted: () => mounted,
+    );
+    _startupCoordinator.checkFirstLaunchAntiScreenshot(
+      context,
+      isMounted: () => mounted,
+    );
   }
 
   @override
@@ -337,86 +354,6 @@ class _HomePageState extends State<HomePage>
 
   /// Used by auto-lock before closing a root session.
 
-  // ── Persistence ───────────────────────────────────────────────────
-
-  Future<void> _checkFirstLaunchAntiScreenshot() async {
-    try {
-      final enabled = await _settingsService.getAntiScreenshot();
-      if (!enabled) return;
-      final confirmed =
-          await _settingsService.getAntiScreenshotFirstConfirmed();
-      if (confirmed) return;
-
-      // First launch with anti-screenshot enabled — two-step flow
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        final strings = AppLocalizations.of(context)!;
-
-        // Step 1: informational dialog
-        final enable = await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AntiScreenshotInfoDialog(strings: strings),
-        );
-        if (!mounted || enable != true) {
-          await _settingsService.setAntiScreenshot(false);
-          await _settingsService.applyAntiScreenshot();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(strings.antiScreenshotHint)),
-            );
-          }
-          return;
-        }
-
-        // Step 2: countdown to confirm
-        final saved = await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AntiScreenshotCountdownDialog(strings: strings),
-        );
-        if (saved == true) {
-          await _settingsService.setAntiScreenshotFirstConfirmed(true);
-        } else {
-          // User cancelled or timeout — disable anti-screenshot
-          await _settingsService.setAntiScreenshot(false);
-          await _settingsService.applyAntiScreenshot();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(strings.antiScreenshotHint)),
-            );
-          }
-        }
-      });
-    } catch (_) {
-      // Best-effort; non-critical.
-    }
-  }
-
-  Future<void> _checkFirstTimeUser() async {
-    final isFirstTime = await _persistenceService.isFirstTimeUser();
-    if (isFirstTime && mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _showWelcomeGuide());
-    }
-  }
-
-  Future<void> _showWelcomeGuide() async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => WelcomeGuideDialog(
-        onComplete: (neverShowAgain) async {
-          if (neverShowAgain) {
-            await _persistenceService.setNeverShowWelcome(true);
-          } else {
-            await _persistenceService.markWelcomeShown();
-          }
-        },
-      ),
-    );
-  }
-
   // ── Directory open / create ───────────────────────────────────────
 
   Future<void> _openOrCreateEncryptedDirectory() async {
@@ -439,94 +376,34 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _createEncryptedDirectoryWithPath(String selectedPath) async {
-    final directory = Directory(selectedPath);
-    bool isNonEmpty;
-    try {
-      isNonEmpty = await directory.exists() &&
-          !await directory.list(followLinks: false).isEmpty;
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.createEncryptedDirectoryFailed,
-          originalError: error.toString(),
-          operation: 'validate-create-root-path',
-        );
-      }
-      return;
-    }
-    if (isNonEmpty) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.createEncryptedDirectoryRequiresEmpty,
-          originalError: 'The selected directory is not empty: $selectedPath',
-          operation: 'validate-create-root-path',
-        );
-      }
-      return;
-    }
-    final initialKeyStrengthMs = await _settingsService.getKeyStrengthMs();
-    if (!mounted) return;
-    final result = await showDialog<CreateRootRequest>(
-      context: context,
-      builder: (context) => CreateEncryptedDirectoryDialog(
-        initialKeyStrengthMs: initialKeyStrengthMs,
-      ),
+    final result = await _createRootWorkflow.run(
+      context,
+      selectedPath,
+      isMounted: () => mounted,
+      revokeWebDavSessions: (rootID) => _webDavEnabled
+          ? Future.value()
+          : revokeWebDavSessionsForRoot(rootID),
+      onLoadingChanged: (loading) {
+        if (mounted) setState(() => _isLoading = loading);
+      },
     );
-    if (result == null) return;
+    if (result == null || !mounted) return;
 
-    final password = result.password;
-
-    setState(() => _isLoading = true);
-
-    var operation = 'create-root-config';
-    try {
-      _cryptoService.createRootConfig(
-        selectedPath,
-        password,
-        result.optionsJSON,
-      );
-      operation = 'open-created-root';
-      final rootID = _cryptoService.openRoot(selectedPath, password, '');
-      if (!_webDavEnabled) await revokeWebDavSessionsForRoot(rootID);
-      operation = 'load-created-root-config';
-      final config = _cryptoService.loadConfig(selectedPath);
-
-      if (mounted) {
-        setState(() {
-          _currentDir = EncryptedDirectory(
-            path: selectedPath,
-            config: config,
-            isVerified: true,
-            tempKeyID: rootID.toString(),
-          );
-          _currentPath = selectedPath;
-          final existingIndex =
-              _openedDirs.indexWhere((d) => d.path == selectedPath);
-          if (existingIndex >= 0) _openedDirs.removeAt(existingIndex);
-          _openedDirs.insert(0, _currentDir!);
-        });
-        await saveOpenedDirectories();
-        await loadCurrentPath();
-        if (!mounted) return;
-        ErrorHelper.showSuccess(
-          context,
-          AppLocalizations.of(context)!.encryptedDirectoryCreated,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.createEncryptedDirectoryFailed,
-          originalError: e.toString(),
-          operation: operation,
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    setState(() {
+      _currentDir = result.directory;
+      _currentPath = selectedPath;
+      final existingIndex =
+          _openedDirs.indexWhere((d) => d.path == selectedPath);
+      if (existingIndex >= 0) _openedDirs.removeAt(existingIndex);
+      _openedDirs.insert(0, _currentDir!);
+    });
+    await saveOpenedDirectories();
+    await loadCurrentPath();
+    if (!mounted) return;
+    ErrorHelper.showSuccess(
+      context,
+      AppLocalizations.of(context)!.encryptedDirectoryCreated,
+    );
   }
 
   Future<void> _loadDirectory(String path) async {
@@ -1505,97 +1382,62 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.f5): () {
-          _refreshCurrentDirectory();
-        },
-        const SingleActivator(LogicalKeyboardKey.keyR, control: true):
-            _refreshCurrentDirectory,
-        const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
-            _refreshCurrentDirectory,
-        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () {
-          touchCurrentRoot();
-          _fileBrowserKey.currentState?.focusFilter();
-        },
-        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () {
-          touchCurrentRoot();
-          _fileBrowserKey.currentState?.focusFilter();
-        },
-        const SingleActivator(LogicalKeyboardKey.keyV, control: true): () {
-          if (_secureClipboard.hasEntry) {
-            touchCurrentRoot();
-            unawaited(pasteClipboard());
-          }
-        },
-        const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () {
-          if (_secureClipboard.hasEntry) {
-            touchCurrentRoot();
-            unawaited(pasteClipboard());
-          }
-        },
-        const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
-          touchCurrentRoot();
-          copyKeyboardTarget(move: false);
-        },
-        const SingleActivator(LogicalKeyboardKey.keyX, control: true): () {
-          touchCurrentRoot();
-          copyKeyboardTarget(move: true);
-        },
-        const SingleActivator(LogicalKeyboardKey.keyC, meta: true): () {
-          touchCurrentRoot();
-          copyKeyboardTarget(move: false);
-        },
-        const SingleActivator(LogicalKeyboardKey.keyX, meta: true): () {
-          touchCurrentRoot();
-          copyKeyboardTarget(move: true);
-        },
-        const SingleActivator(LogicalKeyboardKey.keyA, control: true):
-            selectAllItems,
-        const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
-            selectAllItems,
-        const SingleActivator(LogicalKeyboardKey.escape): cancelSelection,
-        const SingleActivator(LogicalKeyboardKey.f2): () {
-          final target = _selectedFiles.length == 1
-              ? _selectedFiles.single
-              : _keyboardTarget;
-          if (target != null &&
-              _items.any((item) => item.path == target.path)) {
-            touchCurrentRoot();
-            unawaited(renameItem(target));
-          }
-        },
-        const SingleActivator(LogicalKeyboardKey.contextMenu):
-            _showKeyboardContextMenu,
-        const SingleActivator(LogicalKeyboardKey.f10, shift: true):
-            _showKeyboardContextMenu,
-        const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-            moveKeyboardTarget(-1, extendSelection: false, vertical: true),
-        const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-            moveKeyboardTarget(1, extendSelection: false, vertical: true),
-        const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
-            moveKeyboardTarget(-1, extendSelection: false),
-        const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
-            moveKeyboardTarget(1, extendSelection: false),
-        const SingleActivator(LogicalKeyboardKey.arrowUp, shift: true): () =>
-            moveKeyboardTarget(-1, extendSelection: true, vertical: true),
-        const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true): () =>
-            moveKeyboardTarget(1, extendSelection: true, vertical: true),
-        const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): () =>
-            moveKeyboardTarget(-1, extendSelection: true),
-        const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): () =>
-            moveKeyboardTarget(1, extendSelection: true),
-        const SingleActivator(LogicalKeyboardKey.home): () =>
-            moveKeyboardTargetToEdge(end: false, extendSelection: false),
-        const SingleActivator(LogicalKeyboardKey.end): () =>
-            moveKeyboardTargetToEdge(end: true, extendSelection: false),
-        const SingleActivator(LogicalKeyboardKey.home, shift: true): () =>
-            moveKeyboardTargetToEdge(end: false, extendSelection: true),
-        const SingleActivator(LogicalKeyboardKey.end, shift: true): () =>
-            moveKeyboardTargetToEdge(end: true, extendSelection: true),
-        const SingleActivator(LogicalKeyboardKey.space, control: true):
-            toggleKeyboardTargetSelection,
+    final shortcutActions = HomePageShortcutActions(
+      refresh: _refreshCurrentDirectory,
+      focusFilter: () {
+        touchCurrentRoot();
+        _fileBrowserKey.currentState?.focusFilter();
       },
+      paste: () {
+        if (_secureClipboard.hasEntry) {
+          touchCurrentRoot();
+          unawaited(pasteClipboard());
+        }
+      },
+      copy: () {
+        touchCurrentRoot();
+        copyKeyboardTarget(move: false);
+      },
+      cut: () {
+        touchCurrentRoot();
+        copyKeyboardTarget(move: true);
+      },
+      selectAll: selectAllItems,
+      cancelSelection: cancelSelection,
+      rename: () {
+        final target = _selectedFiles.length == 1
+            ? _selectedFiles.single
+            : _keyboardTarget;
+        if (target != null &&
+            _items.any((item) => item.path == target.path)) {
+          touchCurrentRoot();
+          unawaited(renameItem(target));
+        }
+      },
+      showContextMenu: _showKeyboardContextMenu,
+      moveUp: () =>
+          moveKeyboardTarget(-1, extendSelection: false, vertical: true),
+      moveDown: () =>
+          moveKeyboardTarget(1, extendSelection: false, vertical: true),
+      moveLeft: () => moveKeyboardTarget(-1, extendSelection: false),
+      moveRight: () => moveKeyboardTarget(1, extendSelection: false),
+      extendUp: () =>
+          moveKeyboardTarget(-1, extendSelection: true, vertical: true),
+      extendDown: () =>
+          moveKeyboardTarget(1, extendSelection: true, vertical: true),
+      extendLeft: () => moveKeyboardTarget(-1, extendSelection: true),
+      extendRight: () => moveKeyboardTarget(1, extendSelection: true),
+      goHome: () =>
+          moveKeyboardTargetToEdge(end: false, extendSelection: false),
+      goEnd: () => moveKeyboardTargetToEdge(end: true, extendSelection: false),
+      extendHome: () =>
+          moveKeyboardTargetToEdge(end: false, extendSelection: true),
+      extendEnd: () =>
+          moveKeyboardTargetToEdge(end: true, extendSelection: true),
+      toggleSelection: toggleKeyboardTargetSelection,
+    );
+    return CallbackShortcuts(
+      bindings: shortcutActions.bindings,
       child: Listener(
         onPointerDown: (_) => touchCurrentRoot(),
         child: Focus(
