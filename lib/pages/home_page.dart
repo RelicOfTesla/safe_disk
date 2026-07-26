@@ -1,5 +1,9 @@
+import 'home_page_auto_lock_mixin.dart';
+import 'home_page_sidebar_mixin.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'home_page_import_export_mixin.dart';
+import 'home_page_webdav_mixin.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:file_selector/file_selector.dart';
@@ -46,7 +50,6 @@ import '../widgets/root_directory_action_dialog.dart';
 import '../widgets/root_directory_properties.dart';
 import '../widgets/root_password_change_dialog.dart';
 import '../widgets/root_password_hint_dialog.dart';
-import '../widgets/webdav_sessions_dialog.dart';
 import 'dialogs.dart';
 import 'settings_page.dart';
 
@@ -98,7 +101,13 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+class _HomePageState extends State<HomePage>
+    with
+        WidgetsBindingObserver,
+        HomePageSidebarMixin,
+        HomePageImportExportMixin,
+        HomePageWebDavMixin,
+        HomePageAutoLockMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final CryptoService _cryptoService;
   late final DirectoryService _directoryService;
@@ -126,24 +135,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int _pageGeneration = 0;
   bool _isLoadingMore = false;
   bool _isLoading = false;
-  bool _autoLockOnBackground = SettingsService.defaultAutoCloseSession;
-  bool _isAutoLocking = false;
-  final Map<String, Future<void>> _rootCloseTails = {};
-  Timer? _idleTimer;
-  String? _pendingAutoLockSummary;
-  String? _lastIdleAutoLockSummary;
   bool _drawerPinned = false;
   ViewMode _viewMode = ViewMode.list;
   bool _openOnDoubleClick = SettingsService.defaultOpenOnDoubleClick;
   bool _webDavEnabled = SettingsService.defaultWebDavEnabled;
-
-  /// Tracks the root session ID of the currently visible in-process notepad, if any.
-  /// Used by auto-lock to dismiss clean in-process editors before closing the root.
-  String? _inProcessNotepadSessionID;
-
-  /// Tracks the root session ID of the currently visible in-process image viewer, if any.
-  /// Used by auto-lock to dismiss the viewer before closing the root.
-  String? _inProcessImageViewerSessionID;
 
   // File selection for batch operations
   bool _isSelectMode = false;
@@ -155,6 +150,109 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final GlobalKey<FileBrowserState> _fileBrowserKey =
       GlobalKey<FileBrowserState>();
 
+  // -- HomePageSidebarMixin abstract getters --
+  @override
+  List<EncryptedDirectory> get openedDirs => _openedDirs;
+  @override
+  EncryptedDirectory? get currentDir => _currentDir;
+  @override
+  set currentDir(EncryptedDirectory? value) => _currentDir = value;
+  @override
+  bool get drawerPinned => _drawerPinned;
+  @override
+  set drawerPinned(bool value) => _drawerPinned = value;
+  @override
+  DirectoryPersistenceService get persistenceService => _persistenceService;
+  @override
+  CryptoService get cryptoService => _cryptoService;
+
+  // -- HomePageImportExportMixin abstract getters --
+  @override
+  DirectoryService get directoryService => _directoryService;
+  @override
+  FileService get fileService => _fileService;
+  @override
+  DragDropController get dragDropController => _dragDropController;
+
+  // -- HomePageWebDavMixin abstract getters --
+  @override
+  Map<int, int> get webDavSessionCounts => _webDavSessionCounts;
+  @override
+  Map<String, String> get webDavMountOperations => _webDavMountOperations;
+  @override
+  int get webDavOperationSequence => _webDavOperationSequence;
+  @override
+  set webDavOperationSequence(int value) => _webDavOperationSequence = value;
+  @override
+  bool get webDavEnabled => _webDavEnabled;
+  @override
+  set webDavEnabled(bool value) => _webDavEnabled = value;
+  @override
+  WebDavService get webDavService => _webDavService;
+  @override
+  SettingsService get settingsService => _settingsService;
+  @override
+  Future<String?> Function()? get selectDirectoryFn => widget.selectDirectory;
+  @override
+  Future<XFile?> Function(List<XTypeGroup>)? get selectFileFn =>
+      widget.selectFile;
+  @override
+  Future<FileSaveLocation?> Function(String)? get selectSaveLocationFn =>
+      widget.selectSaveLocation;
+  @override
+  Future<bool> Function(String)? get exportTargetExistsFn =>
+      widget.exportTargetExists;
+
+  // -- HomePageAutoLockMixin abstract getters --
+  @override
+  String? get currentPath => _currentPath;
+  @override
+  set currentPath(String? value) => _currentPath = value;
+  @override
+  RootCloseCoordinator get rootCloseCoordinator => _rootCloseCoordinator;
+  @override
+  ContentWindowHostBridge get contentWindowBridge => _contentWindowBridge;
+  @override
+  SecureClipboardService get secureClipboard => _secureClipboard;
+  @override
+  RootIdleTracker get idleTracker => _idleTracker;
+  @override
+  DirectoryPageSession? get pageSession => _pageSession;
+  @override
+  set pageSession(DirectoryPageSession? value) => _pageSession = value;
+  @override
+  int get pageGeneration => _pageGeneration;
+  @override
+  set pageGeneration(int value) => _pageGeneration = value;
+  @override
+  bool get isLoadingMore => _isLoadingMore;
+  @override
+  set isLoadingMore(bool value) => _isLoadingMore = value;
+  @override
+  bool get isLoading => _isLoading;
+  @override
+  set isLoading(bool value) => _isLoading = value;
+  @override
+  List<FileSystemNode> get items => _items;
+  @override
+  set items(List<FileSystemNode> value) => _items = value;
+  @override
+  Set<FileSystemNode> get selectedFiles => _selectedFiles;
+  @override
+  FileSystemNode? get keyboardTarget => _keyboardTarget;
+  @override
+  set keyboardTarget(FileSystemNode? value) => _keyboardTarget = value;
+  @override
+  String? get keyboardSelectionAnchorPath => _keyboardSelectionAnchorPath;
+  @override
+  set keyboardSelectionAnchorPath(String? value) =>
+      _keyboardSelectionAnchorPath = value;
+  @override
+  bool get isSelectMode => _isSelectMode;
+  @override
+  set isSelectMode(bool value) => _isSelectMode = value;
+  @override
+  Duration? get idleCheckInterval => widget.idleCheckInterval;
   @override
   void initState() {
     super.initState();
@@ -184,12 +282,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _webDavService =
         widget.webDavService ?? WebDavService(cryptoService: _cryptoService);
     WidgetsBinding.instance.addObserver(this);
-    _loadPersistedDirectories();
-    _loadDrawerPinnedState();
-    _loadAutoLockPreference();
-    _loadSessionTTL();
+    loadPersistedDirectories();
+    loadDrawerPinnedState();
+    loadAutoLockPreference();
+    loadSessionTTL();
     _loadOpenMode();
-    _loadWebDavEnabled();
+    loadWebDavEnabled();
     _checkFirstTimeUser();
     _checkFirstLaunchAntiScreenshot();
   }
@@ -197,45 +295,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _idleTimer?.cancel();
+    cancelIdleTimer();
     _idleTracker.clear();
     unawaited(_pageSession?.dispose() ?? Future.value());
     _shortcutFocusNode.dispose();
     _contentWindowBridge.dispose();
-    _saveOpenedDirectories();
+    saveOpenedDirectories();
     final sessionIDs = _openedDirs
         .map((directory) => directory.tempKeyID)
         .whereType<String>()
         .toSet();
     for (final sessionID in sessionIDs) {
-      _closeSession(sessionID);
+      closeSession(sessionID);
     }
     super.dispose();
-  }
-
-  Future<void> _loadAutoLockPreference() async {
-    final enabled = await _settingsService.getAutoCloseSession();
-    if (mounted) setState(() => _autoLockOnBackground = enabled);
-  }
-
-  Future<void> _loadSessionTTL() async {
-    final seconds = await _settingsService.getSessionTTL();
-    if (!mounted) return;
-    _idleTracker.updateTimeout(Duration(seconds: seconds));
-    _idleTimer?.cancel();
-    if (_idleTracker.isEnabled) {
-      // A TTL enabled after a root was opened starts from this setting change,
-      // rather than leaving that session without a deadline or locking it on
-      // an activity timestamp the user did not choose this TTL for.
-      for (final directory in _openedDirs) {
-        final sessionID = directory.tempKeyID;
-        if (sessionID != null) _idleTracker.touch(sessionID);
-      }
-      _idleTimer = Timer.periodic(
-        widget.idleCheckInterval ?? const Duration(seconds: 1),
-        (_) => unawaited(_lockExpiredRoots()),
-      );
-    }
   }
 
   Future<void> _loadOpenMode() async {
@@ -243,220 +316,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted) setState(() => _openOnDoubleClick = openOnDoubleClick);
   }
 
-  Future<void> _loadWebDavEnabled() async {
-    final enabled = await _settingsService.getWebDavEnabled();
-    if (mounted) setState(() => _webDavEnabled = enabled);
-  }
-
-  void _touchCurrentRoot() {
-    final sessionID = _currentDir?.tempKeyID;
-    if (sessionID != null) {
-      _idleTracker.touch(sessionID);
-      _lastIdleAutoLockSummary = null;
-    }
-  }
-
   void _refreshCurrentDirectory() {
-    _touchCurrentRoot();
-    unawaited(_loadCurrentPath());
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.hidden ||
-        state == AppLifecycleState.paused) {
-      unawaited(_lockEligibleRoots(requireBackgroundPreference: true));
-      return;
-    }
-    if (state == AppLifecycleState.resumed) {
-      _showPendingAutoLockSummary();
-    }
-  }
-
-  void _showPendingAutoLockSummary() {
-    final summary = _pendingAutoLockSummary;
-    if (summary == null || !mounted) return;
-    _pendingAutoLockSummary = null;
-    ErrorHelper.showInfo(context, summary);
-  }
-
-  Future<void> _lockExpiredRoots() async {
-    final expired = _idleTracker.expiredSessionIDs();
-    if (expired.isEmpty) {
-      _lastIdleAutoLockSummary = null;
-      return;
-    }
-    await _lockEligibleRoots(sessionIDs: expired);
-    final summary = _pendingAutoLockSummary;
-    if (summary == null || summary == _lastIdleAutoLockSummary) return;
-    _lastIdleAutoLockSummary = summary;
-    _showPendingAutoLockSummary();
-  }
-
-  Future<void> _lockEligibleRoots({
-    Set<String>? sessionIDs,
-    bool requireBackgroundPreference = false,
-  }) async {
-    if ((requireBackgroundPreference && !_autoLockOnBackground) ||
-        _isAutoLocking) {
-      return;
-    }
-    _isAutoLocking = true;
-    var lockedCount = 0;
-    var skippedCount = 0;
-    var failedCount = 0;
-    try {
-      for (final directory in List<EncryptedDirectory>.from(_openedDirs)) {
-        final sessionID = directory.tempKeyID;
-        if (sessionID == null) continue;
-        if (sessionIDs != null && !sessionIDs.contains(sessionID)) continue;
-        try {
-          await _runRootCloseOperation(sessionID, () async {
-            if (!_isCurrentDirectorySession(directory.path, sessionID)) return;
-            final decision = _rootCloseCoordinator.inspect(sessionID);
-
-            // Only block when there are active writes or dirty documents.
-            if (decision.disposition ==
-                    RootCloseDisposition.blockedByActiveWrites ||
-                decision.disposition ==
-                    RootCloseDisposition.blockedByUnsavedDocuments) {
-              skippedCount++;
-              return;
-            }
-
-            if (_inProcessNotepadSessionID == sessionID) {
-              await _dismissInProcessNotepad();
-            }
-
-            if (_inProcessImageViewerSessionID == sessionID) {
-              await _dismissInProcessImageViewer();
-            }
-
-            // Mark the directory locked *before* the synchronous FFI calls
-            // below so the UI can render the PasswordPrompt immediately.
-            // The _isAutoLocking guard in _verifyPassword blocks password
-            // submission until cleanup finishes.
-            if (mounted) {
-              _replaceWithLockedDirectory(
-                directory,
-                EncryptedDirectory(
-                  path: directory.path,
-                  config: directory.config,
-                  isVerified: false,
-                  displayAlias: directory.displayAlias,
-                ),
-                expectedSessionID: sessionID,
-              );
-            }
-
-            // Yield to the event loop so the frame with the PasswordPrompt
-            // can be rendered before we block on native FFI calls.
-            await Future<void>.delayed(Duration.zero);
-
-            final nativeWindowCount =
-                _contentWindowBridge.nativeWindowCountForRoot(sessionID);
-            if (nativeWindowCount != 0 &&
-                !await _contentWindowBridge.prepareAndCloseRootWindows(
-                  sessionID,
-                )) {
-              failedCount++;
-              return;
-            }
-
-            await _disposeCurrentDirectoryPageSession(
-                directory.path, sessionID);
-            if (!_isCurrentDirectorySession(directory.path, sessionID)) return;
-            if (!_closeSession(sessionID)) {
-              failedCount++;
-              return;
-            }
-            _secureClipboard.removeSession(sessionID);
-            _rootCloseCoordinator.releaseRoot(sessionID);
-            _idleTracker.remove(sessionID);
-            lockedCount++;
-          });
-        } on StateError catch (_) {
-          // Session or coordinator state mismatch; treat as skipped.
-          skippedCount++;
-        } on FormatException catch (_) {
-          failedCount++;
-        } catch (error) {
-          failedCount++;
-        }
-      }
-    } finally {
-      _isAutoLocking = false;
-    }
-    if (!mounted) return;
-    final strings = AppLocalizations.of(context)!;
-    final messages = <String>[];
-    if (lockedCount > 0) {
-      messages.add(strings.autoLockSummaryLocked(lockedCount));
-    }
-    if (skippedCount > 0) {
-      messages.add(strings.autoLockSummarySkipped(skippedCount));
-    }
-    if (failedCount > 0) {
-      messages.add(strings.autoLockSummaryFailed(failedCount));
-    }
-    if (messages.isNotEmpty) {
-      _pendingAutoLockSummary = messages.join(strings.messageListSeparator);
-    }
-  }
-
-  bool _isCurrentDirectorySession(String path, String sessionID) {
-    final current = _currentDir;
-    return (current?.path == path && current?.tempKeyID == sessionID) ||
-        _openedDirs.any(
-          (directory) =>
-              directory.path == path && directory.tempKeyID == sessionID,
-        );
+    touchCurrentRoot();
+    unawaited(loadCurrentPath());
   }
 
   /// Pops the current in-process notepad route if one exists.
   /// Used by auto-lock before closing a root session.
-  Future<void> _dismissInProcessNotepad() async {
-    if (_inProcessNotepadSessionID == null) return;
-    Navigator.of(context).pop();
-  }
 
   /// Used by auto-lock before closing a root session.
-  Future<void> _dismissInProcessImageViewer() async {
-    if (_inProcessImageViewerSessionID == null) return;
-    Navigator.of(context).pop();
-  }
-
-  Future<T> _runRootCloseOperation<T>(
-    String sessionID,
-    Future<T> Function() operation,
-  ) async {
-    final previous = _rootCloseTails[sessionID];
-    final completion = Completer<void>();
-    _rootCloseTails[sessionID] = completion.future;
-    if (previous != null) await previous;
-    try {
-      return await operation();
-    } finally {
-      completion.complete();
-      if (identical(_rootCloseTails[sessionID], completion.future)) {
-        _rootCloseTails.remove(sessionID);
-      }
-    }
-  }
-
-  Future<void> _disposeCurrentDirectoryPageSession(
-    String path,
-    String sessionID,
-  ) async {
-    final current = _currentDir;
-    if (current?.path != path || current?.tempKeyID != sessionID) return;
-    final pageSession = _pageSession;
-    _pageSession = null;
-    _pageGeneration++;
-    _isLoadingMore = false;
-    _isLoading = false;
-    await pageSession?.dispose();
-  }
 
   // ── Persistence ───────────────────────────────────────────────────
 
@@ -538,105 +406,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _loadDrawerPinnedState() async {
-    final pinned = await _persistenceService.loadDrawerPinned();
-    setState(() => _drawerPinned = pinned);
-  }
-
-  Future<void> _loadPersistedDirectories() async {
-    final values = await Future.wait<Object>([
-      _persistenceService.loadOpenedDirectories(),
-      _persistenceService.loadDirectoryAliases(),
-    ]);
-    final paths = values[0] as List<String>;
-    final aliases = values[1] as Map<String, String>;
-    for (final path in paths) {
-      try {
-        final config = _cryptoService.loadConfig(path);
-        setState(() {
-          _openedDirs.add(EncryptedDirectory(
-            path: path,
-            config: config,
-            isVerified: false,
-            displayAlias: aliases[path],
-          ));
-        });
-      } catch (e) {
-        // Directory no longer exists or config is invalid, skip it.
-      }
-    }
-  }
-
-  Future<void> _renameDirectoryAlias(EncryptedDirectory directory) async {
-    if (directory.displayAlias == null &&
-        _openedDirs.any((item) =>
-            item.path == directory.path && item.displayAlias != null)) {
-      await _applyDirectoryAlias(directory.path, null);
-      return;
-    }
-    final controller = TextEditingController(text: directory.displayAlias);
-    final strings = AppLocalizations.of(context)!;
-    final alias = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(strings.directoryAliasTitle),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 64,
-          decoration: InputDecoration(
-            labelText: strings.directoryAliasLabel,
-            hintText: strings.directoryAliasHint,
-          ),
-          onSubmitted: (value) => Navigator.pop(dialogContext, value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: Text(strings.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
-            child: Text(strings.save),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (alias == null || !mounted) return;
-    await _applyDirectoryAlias(directory.path, alias.trim());
-  }
-
-  Future<void> _applyDirectoryAlias(String path, String? alias) async {
-    setState(() {
-      final index = _openedDirs.indexWhere((item) => item.path == path);
-      if (index < 0) return;
-      final updated = _openedDirs[index].copyWith(
-        displayAlias: alias,
-        clearDisplayAlias: alias == null || alias.isEmpty,
-      );
-      _openedDirs[index] = updated;
-      if (_currentDir?.path == path) _currentDir = updated;
-    });
-    await _persistenceService.saveDirectoryAlias(path, alias);
-  }
-
-  Future<void> _saveOpenedDirectories() async {
-    final paths = _openedDirs.map((d) => d.path).toList();
-    await _persistenceService.saveOpenedDirectories(paths);
-  }
-
-  Future<void> _moveDirectory(EncryptedDirectory directory, int delta) async {
-    final index = _openedDirs.indexWhere((item) => item.path == directory.path);
-    final target = index + delta;
-    if (index < 0 || target < 0 || target >= _openedDirs.length) return;
-    setState(() {
-      final moved = _openedDirs.removeAt(index);
-      _openedDirs.insert(target, moved);
-    });
-    await _saveOpenedDirectories();
-  }
-
   // ── Directory open / create ───────────────────────────────────────
 
   Future<void> _openOrCreateEncryptedDirectory() async {
@@ -709,7 +478,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
       operation = 'open-created-root';
       final rootID = _cryptoService.openRoot(selectedPath, password, '');
-      if (!_webDavEnabled) await _revokeWebDavSessionsForRoot(rootID);
+      if (!_webDavEnabled) await revokeWebDavSessionsForRoot(rootID);
       operation = 'load-created-root-config';
       final config = _cryptoService.loadConfig(selectedPath);
 
@@ -727,8 +496,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           if (existingIndex >= 0) _openedDirs.removeAt(existingIndex);
           _openedDirs.insert(0, _currentDir!);
         });
-        await _saveOpenedDirectories();
-        await _loadCurrentPath();
+        await saveOpenedDirectories();
+        await loadCurrentPath();
         if (!mounted) return;
         ErrorHelper.showSuccess(
           context,
@@ -773,7 +542,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _openedDirs.insert(0, _currentDir!);
       });
 
-      await _saveOpenedDirectories();
+      await saveOpenedDirectories();
 
       if (root != path && mounted) {
         ErrorHelper.showInfo(
@@ -794,7 +563,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<bool> _loadCurrentPath() async {
+  @override
+  Future<bool> loadCurrentPath() async {
     if (_currentPath == null || !mounted) return false;
     setState(() => _isLoading = true);
 
@@ -878,8 +648,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // to open, or the state update races with the PasswordPrompt rebuild.
     const maxGuardMs = 30000;
     final guardStart = DateTime.now();
-    if (_isAutoLocking) {}
-    while (_isAutoLocking && mounted) {
+    if (isAutoLocking) {}
+    while (isAutoLocking && mounted) {
       if (DateTime.now().difference(guardStart).inMilliseconds > maxGuardMs) {
         break;
       }
@@ -902,7 +672,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return false;
     }
 
-    if (!_webDavEnabled) await _revokeWebDavSessionsForRoot(rootID);
+    if (!_webDavEnabled) await revokeWebDavSessionsForRoot(rootID);
     final transferStateAvailable = await _handleUnfinishedOperations(rootID);
     // The unfinished-state prompt is asynchronous and the sidebar stays
     // usable. Never attach this root to a directory selected after unlock
@@ -910,7 +680,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!transferStateAvailable ||
         !mounted ||
         !identical(_currentDir, openingDirectory)) {
-      _closeSession(rootID.toString());
+      closeSession(rootID.toString());
       return false;
     }
 
@@ -926,19 +696,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (index >= 0) _openedDirs[index] = _currentDir!;
     });
 
-    final loaded = await _loadCurrentPath();
+    final loaded = await loadCurrentPath();
     if (!mounted ||
         _currentDir?.path != openingPath ||
         _currentDir?.tempKeyID != rootID.toString()) {
       // Directory loading can yield to a session switch or a second unlock.
       // Do not leave the root opened by this stale unlock attempt behind.
-      _closeSession(rootID.toString());
+      closeSession(rootID.toString());
       return false;
     }
 
     if (loaded) {
       _idleTracker.touch(rootID.toString());
-      unawaited(_refreshWebDavSessionCount(rootID));
+      unawaited(refreshWebDavSessionCount(rootID));
       ErrorHelper.showSuccess(
         context,
         AppLocalizations.of(context)!.passwordVerified,
@@ -1102,9 +872,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _items = [];
     });
     if (dir.isVerified) {
-      _loadCurrentPath();
+      loadCurrentPath();
       final rootID = int.tryParse(dir.tempKeyID ?? '');
-      if (rootID != null) unawaited(_refreshWebDavSessionCount(rootID));
+      if (rootID != null) unawaited(refreshWebDavSessionCount(rootID));
     }
   }
 
@@ -1112,7 +882,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final strings = AppLocalizations.of(context)!;
     final action = await showRootDirectoryActionDialog(
       context: context,
-      directoryName: _baseName(dir.path),
+      directoryName: baseName(dir.path),
       hasActiveSession: dir.tempKeyID != null,
     );
     if (action == null || !mounted) return;
@@ -1126,7 +896,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     final sessionID = dir.tempKeyID;
     if (sessionID != null) {
-      await _runRootCloseOperation(
+      await runRootCloseOperation(
         sessionID,
         () => _closeDirectoryAfterDecision(dir, action, sessionID, strings),
       );
@@ -1141,7 +911,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String? sessionID,
     AppLocalizations strings,
   ) async {
-    if (sessionID != null && !_isCurrentDirectorySession(dir.path, sessionID)) {
+    if (sessionID != null && !isCurrentDirectorySession(dir.path, sessionID)) {
       return;
     }
     final closeDecision =
@@ -1202,14 +972,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
         return;
       }
-      if (!_isCurrentDirectorySession(dir.path, sessionID)) return;
+      if (!isCurrentDirectorySession(dir.path, sessionID)) return;
     }
 
     if (sessionID != null) {
-      await _disposeCurrentDirectoryPageSession(dir.path, sessionID);
-      if (!_isCurrentDirectorySession(dir.path, sessionID)) return;
+      await disposeCurrentDirectoryPageSession(dir.path, sessionID);
+      if (!isCurrentDirectorySession(dir.path, sessionID)) return;
     }
-    if (!_closeSession(sessionID)) {
+    if (!closeSession(sessionID)) {
       if (mounted) {
         ErrorHelper.showError(
           context,
@@ -1237,7 +1007,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         await delete(dir.path);
       } catch (error) {
         if (mounted) {
-          _replaceWithLockedDirectory(
+          replaceWithLockedDirectory(
             dir,
             lockedDirectory,
             expectedSessionID: sessionID,
@@ -1254,7 +1024,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
 
     if (action == RootDirectoryAction.endSession) {
-      _replaceWithLockedDirectory(
+      replaceWithLockedDirectory(
         dir,
         lockedDirectory,
         expectedSessionID: sessionID,
@@ -1270,7 +1040,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _items = [];
       }
     });
-    await _saveOpenedDirectories();
+    await saveOpenedDirectories();
     if (mounted) {
       ErrorHelper.showSuccess(
         context,
@@ -1284,7 +1054,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<bool> _lockRootForPasswordChange(EncryptedDirectory directory) async {
     final sessionID = directory.tempKeyID;
     if (sessionID == null) return true;
-    return _runRootCloseOperation(
+    return runRootCloseOperation(
       sessionID,
       () => _lockRootForPasswordChangeAfterGate(directory, sessionID),
     );
@@ -1294,7 +1064,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     EncryptedDirectory directory,
     String sessionID,
   ) async {
-    if (!_isCurrentDirectorySession(directory.path, sessionID)) return false;
+    if (!isCurrentDirectorySession(directory.path, sessionID)) return false;
     final decision = _rootCloseCoordinator.inspect(sessionID);
     if (decision.disposition != RootCloseDisposition.closeImmediately) {
       final strings = AppLocalizations.of(context)!;
@@ -1319,11 +1089,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
         return false;
       }
-      if (!_isCurrentDirectorySession(directory.path, sessionID)) return false;
+      if (!isCurrentDirectorySession(directory.path, sessionID)) return false;
     }
-    await _disposeCurrentDirectoryPageSession(directory.path, sessionID);
-    if (!_isCurrentDirectorySession(directory.path, sessionID)) return false;
-    if (!_closeSession(sessionID)) {
+    await disposeCurrentDirectoryPageSession(directory.path, sessionID);
+    if (!isCurrentDirectorySession(directory.path, sessionID)) return false;
+    if (!closeSession(sessionID)) {
       if (mounted) {
         ErrorHelper.showError(
           context,
@@ -1338,7 +1108,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _rootCloseCoordinator.releaseRoot(sessionID);
     _idleTracker.remove(sessionID);
     if (mounted) {
-      _replaceWithLockedDirectory(
+      replaceWithLockedDirectory(
         directory,
         EncryptedDirectory(
           path: directory.path,
@@ -1362,7 +1132,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     final request = await showRootPasswordChangeDialog(
       context: context,
-      directoryName: directory.displayAlias ?? _baseName(directory.path),
+      directoryName: directory.displayAlias ?? baseName(directory.path),
     );
     if (request == null || !mounted) return;
     if (!await _lockRootForPasswordChange(directory) || !mounted) return;
@@ -1376,7 +1146,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
       final updatedConfig = _cryptoService.loadConfig(directory.path);
       if (mounted) {
-        _replaceWithLockedDirectory(
+        replaceWithLockedDirectory(
           directory,
           EncryptedDirectory(
             path: directory.path,
@@ -1414,7 +1184,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     final request = await showRootPasswordHintDialog(
       context: context,
-      directoryName: directory.displayAlias ?? _baseName(directory.path),
+      directoryName: directory.displayAlias ?? baseName(directory.path),
       currentHint: directory.config.passwordHint,
     );
     if (request == null || !mounted) return;
@@ -1459,7 +1229,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  void _replaceWithLockedDirectory(
+  @override
+  void replaceWithLockedDirectory(
     EncryptedDirectory directory,
     EncryptedDirectory lockedDirectory, {
     String? expectedSessionID,
@@ -1490,9 +1261,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // ── Navigation ────────────────────────────────────────────────────
 
   void _navigateToDirectory(String path) {
-    _touchCurrentRoot();
+    touchCurrentRoot();
     setState(() => _currentPath = path);
-    _loadCurrentPath();
+    loadCurrentPath();
   }
 
   void _navigateUp() {
@@ -1540,7 +1311,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         knownContentBytes: item.size,
         maxContentBytes: kMaxSecureNotepadContentBytes,
       );
-      _inProcessNotepadSessionID = directory.tempKeyID;
+      inProcessNotepadSessionID = directory.tempKeyID;
       try {
         await Navigator.push(
           context,
@@ -1556,15 +1327,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               autoSaveInterval: Duration(seconds: autoSaveSeconds),
               initiallyReadOnly: initiallyReadOnly,
               initiallyMonitorClipboard: initiallyMonitorClipboard,
-              onSaved: () => _loadCurrentPath(),
-              onActivity: _touchCurrentRoot,
+              onSaved: () => loadCurrentPath(),
+              onActivity: touchCurrentRoot,
               documentBroker: _documentBroker,
               documentLease: lease,
             ),
           ),
         );
       } finally {
-        _inProcessNotepadSessionID = null;
+        inProcessNotepadSessionID = null;
       }
     } on DocumentContentSizeUnknown catch (_) {
       if (mounted) {
@@ -1653,7 +1424,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (item.isDirectory) return;
     final sessionID = _currentDir?.tempKeyID;
     if (sessionID == null) return;
-    _inProcessImageViewerSessionID = sessionID;
+    inProcessImageViewerSessionID = sessionID;
     try {
       await Navigator.push(
         context,
@@ -1673,7 +1444,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
       );
     } finally {
-      _inProcessImageViewerSessionID = null;
+      inProcessImageViewerSessionID = null;
     }
   }
 
@@ -1786,7 +1557,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         await _pasteClipboard();
         return;
       case DirectoryBackgroundAction.refresh:
-        await _loadCurrentPath();
+        await loadCurrentPath();
         return;
     }
   }
@@ -1846,13 +1617,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         return;
       case FileItemAction.export:
         if (item.isDirectory) {
-          await _exportDirectory(item);
+          await exportDirectory(item);
         } else {
-          await _exportFile(item);
+          await exportFile(item);
         }
         return;
       case FileItemAction.exposeToThirdParty:
-        await _exposeToThirdParty(item);
+        await exposeToThirdParty(item);
         return;
       case FileItemAction.copyName:
         await Clipboard.setData(ClipboardData(text: item.name));
@@ -1878,7 +1649,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         await showFileItemProperties(context: context, item: item);
         return;
       case FileItemAction.refresh:
-        await _loadCurrentPath();
+        await loadCurrentPath();
         return;
       case FileItemAction.delete:
         await _deleteFile(item);
@@ -1886,958 +1657,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _exposeToThirdParty(FileSystemNode item) async {
-    if (!_webDavEnabled) {
-      ErrorHelper.showInfo(
-        context,
-        AppLocalizations.of(context)!.webDavDisabledMessage,
-      );
-      return;
-    }
-    if (!_validateSession()) return;
-    final directory = _currentDir;
-    final activeSessionID = directory?.tempKeyID;
-    if (directory == null || activeSessionID == null) return;
-    final rootID = int.tryParse(activeSessionID);
-    if (rootID == null) return;
-
-    final confirmed = await confirmWebDavReadOnlyExposure(
-      context: context,
-      displayName: item.name,
-    );
-    if (!confirmed || !mounted) return;
-    final options = await chooseWebDavOpenOptions(
-        context: context, webdavService: _webDavService);
-    if (options == null || !mounted) return;
-    if (!_isCurrentDirectorySession(directory.path, activeSessionID)) return;
-
-    try {
-      final session = _webDavService.open(
-        rootID: rootID,
-        logicalPath: item.path,
-        displayName: item.name,
-        authMode: options.authMode,
-        credentialVisibility: options.credentialVisibility,
-        sessionLifetime: options.sessionLifetime,
-        tls: options.tls,
-        writePolicy: options.writePolicy,
-      );
-      if (!mounted ||
-          !_isCurrentDirectorySession(directory.path, activeSessionID)) {
-        _webDavService.close(session.id);
-        return;
-      }
-      await showWebDavCredentialsDialog(context: context, session: session);
-      await _refreshWebDavSessionCount(rootID);
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-          operation: 'webdav/open',
-        );
-      }
-    }
-  }
-
-  Future<void> _showWebDavSessions() async {
-    if (!_webDavEnabled) return;
-    final directory = _currentDir;
-    final activeSessionID = directory?.tempKeyID;
-    if (directory == null || activeSessionID == null) return;
-    final rootID = int.tryParse(activeSessionID);
-    if (rootID == null) return;
-    final sessions = await _listWebDavSessions(rootID, reportErrors: true);
-    if (sessions == null ||
-        !mounted ||
-        !_isCurrentDirectorySession(directory.path, activeSessionID)) {
-      return;
-    }
-    await _setWebDavSessionCount(rootID, sessions.length);
-    if (!mounted) return;
-    await showWebDavSessionsDialog(
-      context: context,
-      sessions: sessions,
-      onRevoke: _revokeWebDavSession,
-      onMount: _mountWebDavSession,
-      onUnmount: _unmountWebDavSession,
-      onCancelMount: _cancelWebDavMount,
-      onReveal: _revealWebDavSession,
-      onRefresh: () => _refreshWebDavSessionsForDialog(rootID),
-    );
-  }
-
-  Future<bool> _revokeWebDavSession(WebDavSessionStatus session) async {
-    try {
-      _webDavService.close(session.id);
-      await _refreshWebDavSessionCount(session.rootID);
-      if (mounted) {
-        ErrorHelper.showSuccess(
-          context,
-          AppLocalizations.of(context)!.webDavSessionRevoked,
-        );
-      }
-      return true;
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-          operation: 'webdav/close',
-        );
-      }
-      return false;
-    }
-  }
-
-  Future<bool> _runWebDavMountOperation(
-    WebDavSessionStatus session, {
-    required bool mount,
-  }) async {
-    final operationID =
-        'webdav-${++_webDavOperationSequence}-${DateTime.now().microsecondsSinceEpoch}';
-    _webDavMountOperations[session.id] = operationID;
-    try {
-      if (mount) {
-        _webDavService.startMount(
-          operationID: operationID,
-          sessionID: session.id,
-        );
-      } else {
-        _webDavService.startUnmount(
-          operationID: operationID,
-          sessionID: session.id,
-        );
-      }
-      while (mounted) {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-        final result = _webDavService.pollOperation(operationID);
-        final state = result['state'];
-        if (state == 'running') continue;
-        if (state == 'cancelled') return true;
-        final response = result['response'];
-        if (response is! Map || response['success'] != true) {
-          throw StateError(
-            response is Map
-                ? response['error']?.toString() ?? 'webdav-operation-failed'
-                : 'webdav-operation-response-missing',
-          );
-        }
-        if (mounted && mount) {
-          final data = response['data'];
-          final path = data is Map ? data['mount_path']?.toString() : null;
-          ErrorHelper.showSuccess(
-            context,
-            AppLocalizations.of(context)!.webDavMountedAt(path ?? ''),
-          );
-        } else if (mounted) {
-          ErrorHelper.showSuccess(
-            context,
-            AppLocalizations.of(context)!.webDavUnmounted,
-          );
-        }
-        return true;
-      }
-      return false;
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-          operation: mount ? 'webdav/mount' : 'webdav/unmount',
-        );
-      }
-      return false;
-    } finally {
-      try {
-        // If the widget disappears before the final poll, stop the native
-        // command instead of leaving a background mount operation alive.
-        _webDavService.cancelOperation(operationID);
-      } catch (_) {}
-      _webDavMountOperations.remove(session.id);
-    }
-  }
-
-  Future<bool> _mountWebDavSession(WebDavSessionStatus session) {
-    return _runWebDavMountOperation(session, mount: true);
-  }
-
-  Future<bool> _unmountWebDavSession(WebDavSessionStatus session) {
-    return _runWebDavMountOperation(session, mount: false);
-  }
-
-  Future<bool> _cancelWebDavMount(WebDavSessionStatus session) async {
-    final operationID = _webDavMountOperations[session.id];
-    if (operationID == null) return false;
-    try {
-      return _webDavService.cancelOperation(operationID);
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-          operation: 'webdav/cancel-mount',
-        );
-      }
-      return false;
-    }
-  }
-
-  Future<bool> _revealWebDavSession(WebDavSessionStatus session) async {
-    try {
-      final opened = _webDavService.reveal(session.id, rootID: session.rootID);
-      if (mounted) {
-        await showWebDavCredentialsDialog(context: context, session: opened);
-      }
-      return true;
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-          operation: 'webdav/reveal',
-        );
-      }
-      return false;
-    }
-  }
-
-  Future<void> _refreshWebDavSessionCount(int rootID) async {
-    final sessions = await _listWebDavSessions(rootID, reportErrors: false);
-    if (sessions != null) await _setWebDavSessionCount(rootID, sessions.length);
-  }
-
-  Future<List<WebDavSessionStatus>?> _refreshWebDavSessionsForDialog(
-    int rootID,
-  ) async {
-    final sessions = await _listWebDavSessions(rootID, reportErrors: true);
-    if (sessions != null) await _setWebDavSessionCount(rootID, sessions.length);
-    return sessions;
-  }
-
-  Future<void> _setWebDavSessionCount(int rootID, int count) async {
-    if (!mounted || _webDavSessionCounts[rootID] == count) return;
-    setState(() => _webDavSessionCounts[rootID] = count);
-  }
-
-  Future<void> _setWebDavEnabled(bool enabled) async {
-    if (mounted) setState(() => _webDavEnabled = enabled);
-    if (enabled) return;
-
-    for (final operationID in _webDavMountOperations.values.toList()) {
-      try {
-        _webDavService.cancelOperation(operationID);
-      } catch (_) {
-        // Best-effort cleanup: cancel may fail if the operation has already
-        // completed or the underlying connection has been torn down.
-      }
-    }
-
-    for (final directory in List<EncryptedDirectory>.from(_openedDirs)) {
-      final sessionID = directory.tempKeyID;
-      final rootID = sessionID == null ? null : int.tryParse(sessionID);
-      if (rootID == null) continue;
-      final sessions = await _listWebDavSessions(rootID, reportErrors: false);
-      if (sessions == null) continue;
-      await _revokeWebDavSessionsForRoot(rootID, sessions: sessions);
-      final remaining = await _listWebDavSessions(rootID, reportErrors: false);
-      if (mounted) {
-        setState(() => _webDavSessionCounts[rootID] =
-            remaining?.length ?? sessions.length);
-      }
-    }
-  }
-
-  Future<void> _revokeWebDavSessionsForRoot(
-    int rootID, {
-    List<WebDavSessionStatus>? sessions,
-  }) async {
-    final active = sessions ??
-        await _listWebDavSessions(
-          rootID,
-          reportErrors: false,
-        );
-    if (active == null) return;
-    for (final session in active) {
-      try {
-        _webDavService.close(session.id);
-      } catch (_) {
-        // The switch remains disabled; Go remains authoritative for status.
-      }
-    }
-  }
-
-  Future<List<WebDavSessionStatus>?> _listWebDavSessions(
-    int rootID, {
-    required bool reportErrors,
-  }) async {
-    try {
-      final result = _webDavService.list(rootID: rootID);
-      return result;
-    } catch (error) {
-      if (reportErrors && mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-          operation: 'webdav/list',
-        );
-      }
-      return null;
-    }
-  }
-
-  // ── Import / Export ───────────────────────────────────────────────
-
-  Future<void> _importFile() async {
-    if (!_validateSession()) return;
-
-    final typeGroup = XTypeGroup(label: AppLocalizations.of(context)!.allFiles);
-    final XFile? file = widget.selectFile != null
-        ? await widget.selectFile!([typeGroup])
-        : await openFile(acceptedTypeGroups: [typeGroup]);
-    if (file == null || !mounted) return;
-
-    await _importFilePath(file.path, file.name);
-  }
-
-  Future<void> _importFilePath(String sourcePath, String sourceName) async {
-    if (!_validateSession()) return;
-
-    var destinationName = sourceName;
-    var overwrite = false;
-    if (_items
-        .any((item) => item.name.toLowerCase() == sourceName.toLowerCase())) {
-      final existing = _items.firstWhere(
-        (item) => item.name.toLowerCase() == sourceName.toLowerCase(),
-      );
-      final resolution = await showEntryConflictDialog(
-        context: context,
-        name: sourceName,
-        isDirectory: false,
-        operation: AppLocalizations.of(context)!.importOperation,
-        allowReplace: !existing.isDirectory,
-      );
-      if (resolution == EntryConflictResolution.cancel || !mounted) return;
-      if (resolution == EntryConflictResolution.keepBoth) {
-        destinationName = nextAvailableEntryName(
-          originalName: sourceName,
-          isDirectory: false,
-          existingNames: _items.map((item) => item.name),
-          copyLabel: AppLocalizations.of(context)!.copySuffix,
-        );
-      } else {
-        overwrite = true;
-      }
-    }
-
-    try {
-      setState(() => _isLoading = true);
-
-      final rootID = int.parse(_currentDir!.tempKeyID!);
-      final currentRelative =
-          _cryptoService.relativePathForRoot(rootID, _currentPath!);
-      final destination = currentRelative.isEmpty
-          ? destinationName
-          : '$currentRelative/$destinationName';
-      await _directoryService.importFile(
-        rootID,
-        sourcePath,
-        destination,
-        overwrite: overwrite,
-      );
-      await _loadCurrentPath();
-
-      if (mounted) {
-        ErrorHelper.showSuccess(
-          context,
-          AppLocalizations.of(context)!.fileImportCompleted(destinationName),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.importFileFailed,
-          originalError: e.toString(),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _importDirectory() async {
-    if (!_validateSession()) return;
-
-    final sourcePath = widget.selectDirectory != null
-        ? await widget.selectDirectory!()
-        : await getDirectoryPath();
-    if (sourcePath == null || !mounted) return;
-    await _importDirectoryPath(sourcePath);
-  }
-
-  Future<void> _importDirectoryPath(String sourcePath) async {
-    if (!_validateSession()) return;
-    final strings = AppLocalizations.of(context)!;
-    if (isPathInsideDirectory(sourcePath, _currentDir!.path)) {
-      ErrorHelper.showError(
-        context,
-        errorType: ErrorType.importDirectoryInsideCurrentRoot,
-      );
-      return;
-    }
-
-    var destPath = buildDirectoryImportDestination(
-      rootPath: _currentDir!.path,
-      currentPath: _currentPath!,
-      sourcePath: sourcePath,
-    );
-    final sourceName = destPath.split('/').last;
-    var overwrite = false;
-    if (_items.any(
-      (item) => item.name.toLowerCase() == sourceName.toLowerCase(),
-    )) {
-      final existing = _items.firstWhere(
-        (item) => item.name.toLowerCase() == sourceName.toLowerCase(),
-      );
-      final resolution = await showEntryConflictDialog(
-        context: context,
-        name: sourceName,
-        isDirectory: true,
-        operation: AppLocalizations.of(context)!.importOperation,
-        allowReplace: existing.isDirectory,
-      );
-      if (resolution == EntryConflictResolution.cancel || !mounted) return;
-      if (resolution == EntryConflictResolution.keepBoth) {
-        final newName = nextAvailableEntryName(
-          originalName: sourceName,
-          isDirectory: true,
-          existingNames: _items.map((item) => item.name),
-          copyLabel: AppLocalizations.of(context)!.copySuffix,
-        );
-        final separator = destPath.lastIndexOf('/');
-        destPath = separator < 0
-            ? newName
-            : '${destPath.substring(0, separator + 1)}$newName';
-      } else {
-        overwrite = true;
-      }
-    }
-
-    final rootID = int.parse(_currentDir!.tempKeyID!);
-    final cancellationToken = DirectoryTransferCancellationToken();
-    var completedFiles = 0;
-    late final ProgressController progressController;
-    progressController = ProgressHelper.showProgressDialog(
-      context,
-      title: strings.importDirectory,
-      total: 100,
-      status: strings.preparingImport,
-      onCancel: () {
-        final accepted = cancellationToken.cancel();
-        if (!accepted) {
-          progressController.update(status: strings.preparingCannotCancel);
-        }
-        return accepted;
-      },
-    );
-
-    try {
-      await _directoryService.importDirectory(
-        rootID,
-        sourcePath,
-        destPath,
-        overwrite: overwrite,
-        cancellationToken: cancellationToken,
-        onProgress: (progress) {
-          completedFiles = progress.completedFiles;
-          progressController.update(
-            current: progress.percent,
-            currentFileName: progress.currentFile,
-            status: strings.importing,
-          );
-        },
-      );
-      if (mounted && !progressController.isCancelled) {
-        progressController.close(context);
-      }
-      if (!mounted) return;
-      await _loadCurrentPath();
-      if (mounted) {
-        ErrorHelper.showSuccess(
-          context,
-          strings.directoryImportCompleted(completedFiles),
-        );
-      }
-    } catch (e) {
-      if (mounted && !progressController.isCancelled) {
-        progressController.close(context);
-      }
-      if (mounted && cancellationToken.isCancelled) {
-        ErrorHelper.showInfo(
-          context,
-          strings.transferCancelledWithUnfinishedState,
-        );
-      } else if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.importDirectoryFailed,
-          originalError: e.toString(),
-        );
-      }
-    }
-  }
-
-  Future<void> _importDroppedCandidates(
-    List<DragDropCandidate> candidates,
-  ) async {
-    if (!_validateSession()) return;
-    final directory = _currentDir!;
-    final requests = _dragDropController.importRequests(
-      candidates: candidates,
-      rootPath: directory.path,
-    );
-    for (final request in requests) {
-      if (!mounted || !_validateSession()) return;
-      switch (request.kind) {
-        case DragDropImportKind.file:
-          await _importFilePath(
-            request.path,
-            File(request.path).uri.pathSegments.last,
-          );
-        case DragDropImportKind.directory:
-          await _importDirectoryPath(request.path);
-      }
-    }
-  }
-
-  Future<void> _exportFile(FileSystemNode item) async {
-    if (!_validateSession()) return;
-    if (!await _confirmPlaintextExport(item)) return;
-
-    final FileSaveLocation? saveLocation = widget.selectSaveLocation != null
-        ? await widget.selectSaveLocation!(item.name)
-        : await getSaveLocation(suggestedName: item.name);
-    if (saveLocation == null || !mounted) return;
-    final destination = await _resolveExportDestination(
-      saveLocation.path,
-      operation: AppLocalizations.of(context)!.exportOperation,
-    );
-    if (destination == null || !mounted) return;
-
-    try {
-      await _fileService.exportFile(
-        item,
-        destination.path,
-        _currentDir!.tempKeyID!,
-        overwrite: destination.overwrite,
-      );
-      if (mounted) {
-        ErrorHelper.showSuccess(
-          context,
-          AppLocalizations.of(context)!.fileExportCompleted(destination.path),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.exportFileFailed,
-          originalError: e.toString(),
-        );
-      }
-    }
-  }
-
-  Future<void> _exportDirectory(FileSystemNode item) async {
-    if (!_validateSession()) return;
-    final strings = AppLocalizations.of(context)!;
-    if (!await _confirmPlaintextExport(item)) return;
-
-    final String? exportDir = widget.selectDirectory != null
-        ? await widget.selectDirectory!()
-        : await getDirectoryPath();
-    if (exportDir == null) return;
-    if (!mounted) return;
-
-    final String? dstDir;
-    try {
-      dstDir = await _resolveDirectoryExportDestination(
-        '$exportDir/${item.name}',
-        operation: strings.exportOperation,
-      );
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.exportDirectoryFailed,
-          originalError: error.toString(),
-          operation: 'resolve-directory-export-destination',
-        );
-      }
-      return;
-    }
-    if (dstDir == null || !mounted) return;
-    final cancellationToken = DirectoryTransferCancellationToken();
-    late final ProgressController progressController;
-    progressController = ProgressHelper.showProgressDialog(
-      context,
-      title: strings.exportDirectory,
-      total: 100,
-      status: strings.preparingExport,
-      onCancel: () {
-        final accepted = cancellationToken.cancel();
-        if (!accepted) {
-          progressController.update(status: strings.preparingCannotCancel);
-        }
-        return accepted;
-      },
-    );
-
-    try {
-      final progress = await _directoryService.decryptDirectory(
-        item.path,
-        dstDir,
-        _currentDir!.tempKeyID!,
-        cancellationToken: cancellationToken,
-        onProgress: (jobProgress) {
-          progressController.update(
-            current: jobProgress.percent,
-            currentFileName: jobProgress.currentFile,
-            status: strings.exporting,
-          );
-        },
-      );
-
-      if (mounted && !progressController.isCancelled) {
-        progressController.close(context);
-      }
-
-      if (mounted) {
-        if (progress.isCancelled) {
-          ErrorHelper.showInfo(
-            context,
-            strings.transferCancelledWithUnfinishedState,
-          );
-        } else if (progress.isComplete &&
-            !progress.isFailed &&
-            !progress.isCancelled) {
-          ErrorHelper.showSuccess(context,
-              strings.directoryExportCompleted(progress.processedFiles));
-        } else if (progress.isFailed) {
-          ErrorHelper.showError(
-            context,
-            errorType: ErrorType.exportDirectoryFailed,
-            originalError:
-                progress.error ?? 'directory-export-failed-without-error',
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted && !progressController.isCancelled) {
-        progressController.close(context);
-      }
-      if (mounted && progressController.isCancelled) {
-        ErrorHelper.showInfo(
-          context,
-          strings.transferCancelledWithUnfinishedState,
-        );
-      } else if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.exportDirectoryFailed,
-          originalError: e.toString(),
-        );
-      }
-    }
-  }
-
-  Future<void> _batchExport() async {
-    if (!_validateSession()) return;
-    final strings = AppLocalizations.of(context)!;
-
-    final String? exportDir = widget.selectDirectory != null
-        ? await widget.selectDirectory!()
-        : await getDirectoryPath();
-    if (exportDir == null) return;
-    if (!mounted) return;
-
-    final jobs = <({FileSystemNode item, String path, bool overwrite})>[];
-    for (final item in _selectedFiles) {
-      final destination = await _resolveExportDestination(
-        '$exportDir/${item.name}',
-        operation: AppLocalizations.of(context)!.batchExportOperation,
-      );
-      if (destination == null || !mounted) return;
-      jobs.add((
-        item: item,
-        path: destination.path,
-        overwrite: destination.overwrite,
-      ));
-    }
-
-    final totalFiles = jobs.length;
-    final progressController = ProgressHelper.showProgressDialog(
-      context,
-      title: strings.batchExport,
-      total: totalFiles,
-      status: strings.preparingExport,
-    );
-
-    final startTime = DateTime.now();
-    int successCount = 0;
-    int failCount = 0;
-
-    try {
-      for (final job in jobs) {
-        if (progressController.isCancelled) break;
-
-        progressController.update(
-          current: successCount + failCount + 1,
-          currentFileName: job.item.name,
-          status: strings.exporting,
-        );
-        progressController.estimateTimeRemaining(
-          startTime: startTime,
-          processedCount: successCount + failCount + 1,
-        );
-
-        try {
-          await _fileService.exportFile(
-            job.item,
-            job.path,
-            _currentDir!.tempKeyID!,
-            overwrite: job.overwrite,
-          );
-          successCount++;
-        } catch (e) {
-          failCount++;
-        }
-      }
-
-      if (mounted && !progressController.isCancelled) {
-        progressController.close(context);
-      }
-
-      setState(() {
-        _isSelectMode = false;
-        _selectedFiles.clear();
-      });
-
-      if (mounted && !progressController.isCancelled) {
-        final message = failCount > 0
-            ? strings.batchExportCompleted(successCount, failCount)
-            : strings.batchExportCompletedAll(successCount);
-        ErrorHelper.showSuccess(context, message);
-      } else if (mounted && progressController.isCancelled) {
-        ErrorHelper.showInfo(
-            context, strings.batchExportCancelled(successCount, failCount));
-      }
-    } catch (e) {
-      if (mounted && !progressController.isCancelled) {
-        progressController.close(context);
-      }
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.exportFileFailed,
-          originalError: e.toString(),
-        );
-      }
-    }
-  }
-
-  Future<({String path, bool overwrite})?> _resolveExportDestination(
-    String path, {
-    required String operation,
-  }) async {
-    final destination = File(path);
-    final exists = widget.exportTargetExists != null
-        ? await widget.exportTargetExists!(path)
-        : await destination.exists();
-    if (!exists) {
-      return (path: path, overwrite: false);
-    }
-    if (!mounted) return null;
-
-    final name = _baseName(destination.path);
-    final resolution = await showEntryConflictDialog(
-      context: context,
-      name: name,
-      isDirectory: false,
-      operation: operation,
-    );
-    if (resolution == EntryConflictResolution.cancel || !mounted) return null;
-    if (resolution == EntryConflictResolution.replace) {
-      return (path: path, overwrite: true);
-    }
-
-    final parent = destination.parent;
-    final existingNames = <String>[];
-    await for (final entry in parent.list(followLinks: false)) {
-      existingNames.add(_baseName(entry.path));
-    }
-    final availableName = nextAvailableEntryName(
-      originalName: name,
-      isDirectory: false,
-      existingNames: existingNames,
-      copyLabel: AppLocalizations.of(context)!.copySuffix,
-    );
-    return (
-      path: '${parent.path}${Platform.pathSeparator}$availableName',
-      overwrite: false,
-    );
-  }
-
-  Future<String?> _resolveDirectoryExportDestination(
-    String path, {
-    required String operation,
-  }) async {
-    final destination = Directory(path);
-    final exists = widget.exportTargetExists != null
-        ? await widget.exportTargetExists!(path)
-        : await destination.exists();
-    if (!exists) return path;
-    if (!mounted) return null;
-
-    final resolution = await showEntryConflictDialog(
-      context: context,
-      name: _baseName(destination.path),
-      isDirectory: true,
-      operation: operation,
-      allowReplace: false,
-    );
-    if (resolution == EntryConflictResolution.cancel || !mounted) return null;
-
-    final parent = destination.parent;
-    final existingNames = <String>[];
-    await for (final entry in parent.list(followLinks: false)) {
-      existingNames.add(_baseName(entry.path));
-    }
-    final availableName = nextAvailableEntryName(
-      originalName: _baseName(destination.path),
-      isDirectory: true,
-      existingNames: existingNames,
-      copyLabel: AppLocalizations.of(context)!.copySuffix,
-    );
-    return '${parent.path}${Platform.pathSeparator}$availableName';
-  }
-
-  Future<void> _batchDelete() async {
-    if (!_validateSession() || _selectedFiles.isEmpty) return;
-    final strings = AppLocalizations.of(context)!;
-    final selected = Set<FileSystemNode>.from(_selectedFiles);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(strings.confirmBatchDeletion),
-        content: Text(strings.confirmBatchDeletionDescription(selected.length)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(strings.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(strings.deleteSelected),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    final progressController = ProgressHelper.showProgressDialog(
-      context,
-      title: strings.batchDelete,
-      total: selected.length,
-      status: strings.preparingDelete,
-    );
-    final succeeded = <FileSystemNode>{};
-    final failed = <FileSystemNode>{};
-    var processed = 0;
-    for (final item in selected) {
-      if (progressController.isCancelled) break;
-      progressController.update(
-        current: processed + 1,
-        currentFileName: item.name,
-        status: strings.deleting,
-      );
-      try {
-        await _cryptoService.deleteFileBySession(
-          item.path,
-          _currentDir!.tempKeyID!,
-        );
-        succeeded.add(item);
-      } catch (_) {
-        failed.add(item);
-      }
-      processed++;
-    }
-
-    if (mounted && !progressController.isCancelled) {
-      progressController.close(context);
-    }
-    if (!mounted) return;
-    await _loadCurrentPath();
-    if (!mounted) return;
-    setState(() {
-      _selectedFiles.removeAll(succeeded);
-      _isSelectMode = _selectedFiles.isNotEmpty;
-    });
-
-    if (progressController.isCancelled) {
-      ErrorHelper.showInfo(
-        context,
-        strings.batchDeleteCancelled(succeeded.length, _selectedFiles.length),
-      );
-    } else if (failed.isNotEmpty) {
-      ErrorHelper.showError(
-        context,
-        errorType: ErrorType.deleteFileFailed,
-        originalError: 'batch-delete-failed',
-        operation: 'batch-delete',
-      );
-    } else {
-      ErrorHelper.showSuccess(
-          context, strings.batchDeleteCompleted(succeeded.length));
-    }
-  }
-
-  String _baseName(String path) {
-    return path.replaceAll('\\', '/').split('/').last;
-  }
-
-  Future<bool> _confirmPlaintextExport(FileSystemNode item) async {
-    final strings = AppLocalizations.of(context)!;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(strings.confirmPlaintextExport),
-        content: Text(strings.confirmPlaintextExportDescription(item.name)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(strings.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(strings.continueExport),
-          ),
-        ],
-      ),
-    );
-    return confirmed == true;
-  }
-
   void _copyItem(FileSystemNode item) {
-    if (!_validateSession()) return;
+    if (!validateSession()) return;
     _secureClipboard.copy(SecureClipboardEntry(
       sourcePath: item.path,
       sourceSessionID: _currentDir!.tempKeyID!,
@@ -2852,7 +1673,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _cutItem(FileSystemNode item) {
-    if (!_validateSession()) return;
+    if (!validateSession()) return;
     _secureClipboard.cut(SecureClipboardEntry(
       sourcePath: item.path,
       sourceSessionID: _currentDir!.tempKeyID!,
@@ -2867,7 +1688,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _copySelected({required bool move}) {
-    if (!_validateSession() || _selectedFiles.isEmpty) return;
+    if (!validateSession() || _selectedFiles.isEmpty) return;
     final entries = _items
         .where(_selectedFiles.contains)
         .map(
@@ -3006,7 +1827,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _createEntry({required bool isDirectory}) async {
-    if (!_validateSession()) return;
+    if (!validateSession()) return;
     final name = await showCreateEntryDialog(
       context: context,
       isDirectory: isDirectory,
@@ -3035,7 +1856,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _currentDir!.tempKeyID!,
         );
       }
-      await _loadCurrentPath();
+      await loadCurrentPath();
       if (mounted) {
         ErrorHelper.showSuccess(
           context,
@@ -3056,7 +1877,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _pasteClipboard({String? targetDirectory}) async {
-    if (!_validateSession()) return;
+    if (!validateSession()) return;
     final strings = AppLocalizations.of(context)!;
     final entries = List<SecureClipboardEntry>.from(_secureClipboard.entries);
     if (entries.isEmpty) {
@@ -3187,7 +2008,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           if (mounted) setState(() => _isLoading = false);
         }
       }
-      if (destinationDirectory == _currentPath) await _loadCurrentPath();
+      if (destinationDirectory == _currentPath) await loadCurrentPath();
       if (!mounted) return;
       setState(() {});
       if (entries.length > 1) {
@@ -3294,7 +2115,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _renameItem(FileSystemNode item) async {
-    if (!_validateSession()) return;
+    if (!validateSession()) return;
     final newName =
         await showRenameFileItemDialog(context: context, item: item);
     if (newName == null || newName == item.name || !mounted) return;
@@ -3307,7 +2128,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         newPath,
         _currentDir!.tempKeyID!,
       );
-      await _loadCurrentPath();
+      await loadCurrentPath();
       if (mounted) {
         ErrorHelper.showSuccess(
           context,
@@ -3363,7 +2184,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           item.path,
           _currentDir!.tempKeyID!,
         );
-        _loadCurrentPath();
+        loadCurrentPath();
         if (mounted) {
           ErrorHelper.showSuccess(
             context,
@@ -3385,7 +2206,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // ── Helpers ───────────────────────────────────────────────────────
 
   /// Validate that a verified directory with active session is open.
-  bool _validateSession() {
+  @override
+  bool validateSession() {
     if (!mounted) return false;
     if (_currentDir == null || !_currentDir!.isVerified) {
       ErrorHelper.showError(context, errorType: ErrorType.directoryNotVerified);
@@ -3402,7 +2224,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return true;
   }
 
-  bool _closeSession(String? sessionID) {
+  @override
+  bool closeSession(String? sessionID) {
     if (sessionID == null) return true;
     final rootID = int.tryParse(sessionID);
     if (rootID == null) return false;
@@ -3423,13 +2246,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           settingsService: _settingsService,
           onThemeModeChanged: widget.onThemeModeChanged,
           onLocaleChanged: widget.onLocaleChanged,
-          onWebDavEnabledChanged: _setWebDavEnabled,
+          onWebDavEnabledChanged: setWebDavEnabled,
         ),
       ),
     );
     if (!mounted) return;
-    await _loadAutoLockPreference();
-    await _loadSessionTTL();
+    await loadAutoLockPreference();
+    await loadSessionTTL();
     await _loadOpenMode();
   }
 
@@ -3447,39 +2270,39 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         const SingleActivator(LogicalKeyboardKey.keyR, meta: true):
             _refreshCurrentDirectory,
         const SingleActivator(LogicalKeyboardKey.keyF, control: true): () {
-          _touchCurrentRoot();
+          touchCurrentRoot();
           _fileBrowserKey.currentState?.focusFilter();
         },
         const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () {
-          _touchCurrentRoot();
+          touchCurrentRoot();
           _fileBrowserKey.currentState?.focusFilter();
         },
         const SingleActivator(LogicalKeyboardKey.keyV, control: true): () {
           if (_secureClipboard.hasEntry) {
-            _touchCurrentRoot();
+            touchCurrentRoot();
             unawaited(_pasteClipboard());
           }
         },
         const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () {
           if (_secureClipboard.hasEntry) {
-            _touchCurrentRoot();
+            touchCurrentRoot();
             unawaited(_pasteClipboard());
           }
         },
         const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
-          _touchCurrentRoot();
+          touchCurrentRoot();
           _copyKeyboardTarget(move: false);
         },
         const SingleActivator(LogicalKeyboardKey.keyX, control: true): () {
-          _touchCurrentRoot();
+          touchCurrentRoot();
           _copyKeyboardTarget(move: true);
         },
         const SingleActivator(LogicalKeyboardKey.keyC, meta: true): () {
-          _touchCurrentRoot();
+          touchCurrentRoot();
           _copyKeyboardTarget(move: false);
         },
         const SingleActivator(LogicalKeyboardKey.keyX, meta: true): () {
-          _touchCurrentRoot();
+          touchCurrentRoot();
           _copyKeyboardTarget(move: true);
         },
         const SingleActivator(LogicalKeyboardKey.keyA, control: true):
@@ -3493,7 +2316,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               : _keyboardTarget;
           if (target != null &&
               _items.any((item) => item.path == target.path)) {
-            _touchCurrentRoot();
+            touchCurrentRoot();
             unawaited(_renameItem(target));
           }
         },
@@ -3529,7 +2352,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _toggleKeyboardTargetSelection,
       },
       child: Listener(
-        onPointerDown: (_) => _touchCurrentRoot(),
+        onPointerDown: (_) => touchCurrentRoot(),
         child: Focus(
           focusNode: _shortcutFocusNode,
           autofocus: false, // TEMP: test focus conflict
@@ -3556,32 +2379,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             isLoadingMore: _isLoadingMore,
             loadMoreError: _pageSession?.error,
             onLoadMore: _loadMoreCurrentPath,
-            onRetryLoadMore: _loadCurrentPath,
+            onRetryLoadMore: loadCurrentPath,
             onOpenDirectory: _openOrCreateEncryptedDirectory,
             onCloseDirectory: _closeDirectory,
             onSwitchDirectory: _switchToDirectory,
-            onRenameDirectory: _renameDirectoryAlias,
+            onRenameDirectory: renameDirectoryAlias,
             onShowRootProperties: (directory) =>
                 unawaited(_showRootDirectoryPropertiesAfterMenu(directory)),
             onChangeRootPassword: (directory) {
               unawaited(_changeRootPassword(directory));
             },
-            onMoveDirectoryUp: (directory) => _moveDirectory(directory, -1),
-            onMoveDirectoryDown: (directory) => _moveDirectory(directory, 1),
+            onMoveDirectoryUp: (directory) => moveDirectory(directory, -1),
+            onMoveDirectoryDown: (directory) => moveDirectory(directory, 1),
             onToggleDrawerPin: (pinned) async {
               setState(() => _drawerPinned = pinned);
               await _persistenceService.saveDrawerPinned(pinned);
             },
             onUnlock: _verifyPassword,
-            onImportFile: _importFile,
-            onImportDirectory: _importDirectory,
+            onImportFile: importFile,
+            onImportDirectory: importDirectory,
             webDavSessionCount: _webDavSessionCounts[
                     int.tryParse(_currentDir?.tempKeyID ?? '')] ??
                 0,
             onShowWebDavSessions:
-                _webDavEnabled ? () => unawaited(_showWebDavSessions()) : null,
+                _webDavEnabled ? () => unawaited(showWebDavSessions()) : null,
             onExternalDrop: (candidates) {
-              unawaited(_importDroppedCandidates(candidates));
+              unawaited(importDroppedCandidates(candidates));
             },
             fileBrowserKey: _fileBrowserKey,
             onPaste: () => _pasteClipboard(),
@@ -3599,8 +2422,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             },
             onBatchCopy: () => _copySelected(move: false),
             onBatchCut: () => _copySelected(move: true),
-            onBatchExport: _batchExport,
-            onBatchDelete: _batchDelete,
+            onBatchExport: batchExport,
+            onBatchDelete: batchDelete,
             onNavigateToDirectory: _navigateToDirectory,
             onNavigateUp: _navigateUp,
             onOpenItem: _openItem,
