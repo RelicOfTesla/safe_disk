@@ -1,4 +1,6 @@
 import 'home_page_auto_lock_mixin.dart';
+import 'home_page_file_opening_mixin.dart';
+import 'home_page_clipboard_mixin.dart';
 import 'home_page_sidebar_mixin.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -107,7 +109,9 @@ class _HomePageState extends State<HomePage>
         HomePageSidebarMixin,
         HomePageImportExportMixin,
         HomePageWebDavMixin,
-        HomePageAutoLockMixin {
+        HomePageAutoLockMixin,
+        HomePageFileOpeningMixin,
+        HomePageClipboardMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final CryptoService _cryptoService;
   late final DirectoryService _directoryService;
@@ -150,6 +154,9 @@ class _HomePageState extends State<HomePage>
   final GlobalKey<FileBrowserState> _fileBrowserKey =
       GlobalKey<FileBrowserState>();
 
+  @override
+  GlobalKey<FileBrowserState> get fileBrowserKey => _fileBrowserKey;
+
   // -- HomePageSidebarMixin abstract getters --
   @override
   List<EncryptedDirectory> get openedDirs => _openedDirs;
@@ -165,6 +172,8 @@ class _HomePageState extends State<HomePage>
   DirectoryPersistenceService get persistenceService => _persistenceService;
   @override
   CryptoService get cryptoService => _cryptoService;
+  @override
+  DocumentSessionBroker get documentBroker => _documentBroker;
 
   // -- HomePageImportExportMixin abstract getters --
   @override
@@ -214,6 +223,8 @@ class _HomePageState extends State<HomePage>
   ContentWindowHostBridge get contentWindowBridge => _contentWindowBridge;
   @override
   SecureClipboardService get secureClipboard => _secureClipboard;
+  @override
+  SecureEntryMoveService get secureEntryMover => _secureEntryMover;
   @override
   RootIdleTracker get idleTracker => _idleTracker;
   @override
@@ -1260,6 +1271,9 @@ class _HomePageState extends State<HomePage>
 
   // ── Navigation ────────────────────────────────────────────────────
 
+  @override
+  void navigateToDirectory(String path) => _navigateToDirectory(path);
+
   void _navigateToDirectory(String path) {
     touchCurrentRoot();
     setState(() => _currentPath = path);
@@ -1274,228 +1288,6 @@ class _HomePageState extends State<HomePage>
   }
 
   // ── File operations ───────────────────────────────────────────────
-
-  void _openItem(FileSystemNode item) {
-    if (item.isDirectory) {
-      _navigateToDirectory(item.path);
-      return;
-    }
-
-    if (isSupportedImageFormat(item.extension)) {
-      unawaited(_openImageViewer(item));
-    } else {
-      _openNotepad(item);
-    }
-  }
-
-  Future<void> _openNotepad(FileSystemNode item) async {
-    final directory = _currentDir;
-    if (item.isDirectory || directory?.tempKeyID == null) return;
-    final settings = await Future.wait<Object>([
-      _settingsService.getNotepadAutoSaveSeconds(),
-      _settingsService.getNotepadDefaultReadOnly(),
-      _settingsService.getNotepadDefaultMonitorClipboard(),
-    ]);
-    final autoSaveSeconds = settings[0] as int;
-    final isZeroByte = item.size != null && item.size == 0;
-    final initiallyReadOnly = isZeroByte
-        ? false
-        : settings[1] as bool || shouldOpenFallbackTextReadOnly(item.name);
-    final initiallyMonitorClipboard = settings[2] as bool;
-    if (!mounted || _currentDir?.tempKeyID != directory!.tempKeyID) return;
-    try {
-      final lease = _documentBroker.open(
-        rootSessionID: directory.tempKeyID!,
-        path: item.path,
-        displayName: item.name,
-        knownContentBytes: item.size,
-        maxContentBytes: kMaxSecureNotepadContentBytes,
-      );
-      inProcessNotepadSessionID = directory.tempKeyID;
-      try {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SecureNotepad(
-              tempKeyID: directory.tempKeyID!,
-              file: EncryptedFile(
-                name: item.name,
-                encryptedPath: item.path,
-                modifiedTime: DateTime.now(),
-              ),
-              cryptoService: _cryptoService,
-              autoSaveInterval: Duration(seconds: autoSaveSeconds),
-              initiallyReadOnly: initiallyReadOnly,
-              initiallyMonitorClipboard: initiallyMonitorClipboard,
-              onSaved: () => loadCurrentPath(),
-              onActivity: touchCurrentRoot,
-              documentBroker: _documentBroker,
-              documentLease: lease,
-            ),
-          ),
-        );
-      } finally {
-        inProcessNotepadSessionID = null;
-      }
-    } on DocumentContentSizeUnknown catch (_) {
-      if (mounted) {
-        ErrorHelper.showInfo(
-          context,
-          AppLocalizations.of(context)!.contentFileSizeUnknown,
-        );
-      }
-    } on DocumentContentLimitExceeded catch (_) {
-      if (mounted) {
-        ErrorHelper.showInfo(
-          context,
-          AppLocalizations.of(context)!
-              .notepadFileTooLarge(kSecureNotepadContentLimitLabel),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-        );
-      }
-    }
-  }
-
-  Future<void> _openNotepadInNewWindow(FileSystemNode item) async {
-    final directory = _currentDir;
-    if (item.isDirectory || directory?.tempKeyID == null) return;
-    DocumentLease? lease;
-    try {
-      final localePreference = await _settingsService.getLocale();
-      if (!mounted) return;
-      lease = _documentBroker.open(
-        rootSessionID: directory!.tempKeyID!,
-        path: item.path,
-        displayName: item.name,
-        knownContentBytes: item.size,
-        maxContentBytes: kMaxSecureNotepadContentBytes,
-      );
-      if (await _contentWindowBridge.openNotepad(
-        lease,
-        localePreference: localePreference,
-      )) {
-        return;
-      }
-      _documentBroker.close(lease.token);
-      lease = null;
-      if (!mounted) return;
-      ErrorHelper.showInfo(
-        context,
-        AppLocalizations.of(context)!.nativeContentWindowUnavailable,
-      );
-      await _openNotepad(item);
-    } on DocumentContentSizeUnknown catch (_) {
-      if (lease != null) _documentBroker.close(lease.token);
-      if (mounted) {
-        ErrorHelper.showInfo(
-          context,
-          AppLocalizations.of(context)!.contentFileSizeUnknown,
-        );
-      }
-    } on DocumentContentLimitExceeded catch (_) {
-      if (lease != null) _documentBroker.close(lease.token);
-      if (mounted) {
-        ErrorHelper.showInfo(
-          context,
-          AppLocalizations.of(context)!
-              .notepadFileTooLarge(kSecureNotepadContentLimitLabel),
-        );
-      }
-    } catch (error) {
-      if (lease != null) _documentBroker.close(lease.token);
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-        );
-      }
-    }
-  }
-
-  Future<void> _openImageViewer(FileSystemNode item) async {
-    if (item.isDirectory) return;
-    final sessionID = _currentDir?.tempKeyID;
-    if (sessionID == null) return;
-    inProcessImageViewerSessionID = sessionID;
-    try {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => SecureImageViewer(
-            tempKeyID: _currentDir!.tempKeyID!,
-            file: EncryptedFile(
-              name: item.name,
-              encryptedPath: item.path,
-              originalSize: item.size,
-              modifiedTime: DateTime.now(),
-            ),
-            cryptoService: _cryptoService,
-            directoryPath: _currentPath,
-            fileService: _fileService,
-          ),
-        ),
-      );
-    } finally {
-      inProcessImageViewerSessionID = null;
-    }
-  }
-
-  Future<void> _openImageViewerInNewWindow(FileSystemNode item) async {
-    final directory = _currentDir;
-    if (item.isDirectory || directory?.tempKeyID == null) return;
-    DocumentLease? lease;
-    try {
-      final localePreference = await _settingsService.getLocale();
-      if (!mounted) return;
-      lease = _documentBroker.open(
-        rootSessionID: directory!.tempKeyID!,
-        path: item.path,
-        displayName: item.name,
-        knownContentBytes: item.size,
-        maxContentBytes: kMaxSecureImageEncodedBytes,
-        readOnly: true,
-      );
-      if (await _contentWindowBridge.openImage(
-        lease,
-        localePreference: localePreference,
-      )) {
-        return;
-      }
-      _documentBroker.close(lease.token);
-      lease = null;
-      if (!mounted) return;
-      ErrorHelper.showInfo(
-        context,
-        AppLocalizations.of(context)!.nativeContentWindowUnavailable,
-      );
-      await _openImageViewer(item);
-    } on DocumentContentSizeUnknown catch (_) {
-      if (lease != null) _documentBroker.close(lease.token);
-      if (mounted) {
-        ErrorHelper.showInfo(
-          context,
-          AppLocalizations.of(context)!.contentFileSizeUnknown,
-        );
-      }
-    } catch (error) {
-      if (lease != null) _documentBroker.close(lease.token);
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-        );
-      }
-    }
-  }
 
   Future<void> _showFileOptions(FileSystemNode item) async {
     final action = await showFileItemActionSheet(
@@ -1548,13 +1340,13 @@ class _HomePageState extends State<HomePage>
     if (!mounted || action == null) return;
     switch (action) {
       case DirectoryBackgroundAction.newFile:
-        await _createEntry(isDirectory: false);
+        await createEntry(isDirectory: false);
         return;
       case DirectoryBackgroundAction.newDirectory:
-        await _createEntry(isDirectory: true);
+        await createEntry(isDirectory: true);
         return;
       case DirectoryBackgroundAction.paste:
-        await _pasteClipboard();
+        await pasteClipboard();
         return;
       case DirectoryBackgroundAction.refresh:
         await loadCurrentPath();
@@ -1585,16 +1377,16 @@ class _HomePageState extends State<HomePage>
   ) async {
     switch (action) {
       case FileItemAction.open:
-        _openItem(item);
+        openItem(item);
         return;
       case FileItemAction.edit:
-        await _openNotepad(item);
+        await openNotepad(item);
         return;
       case FileItemAction.openInNewWindow:
         if (isViewableImageFile(item)) {
-          await _openImageViewerInNewWindow(item);
+          await openImageViewerInNewWindow(item);
         } else {
-          await _openNotepadInNewWindow(item);
+          await openNotepadInNewWindow(item);
         }
         return;
       case FileItemAction.select:
@@ -1604,16 +1396,16 @@ class _HomePageState extends State<HomePage>
         });
         return;
       case FileItemAction.rename:
-        await _renameItem(item);
+        await renameItem(item);
         return;
       case FileItemAction.copy:
-        _copyItem(item);
+        copyItem(item);
         return;
       case FileItemAction.cut:
-        _cutItem(item);
+        cutItem(item);
         return;
       case FileItemAction.pasteInto:
-        await _pasteClipboard(targetDirectory: item.path);
+        await pasteClipboard(targetDirectory: item.path);
         return;
       case FileItemAction.export:
         if (item.isDirectory) {
@@ -1652,558 +1444,11 @@ class _HomePageState extends State<HomePage>
         await loadCurrentPath();
         return;
       case FileItemAction.delete:
-        await _deleteFile(item);
+        await deleteFile(item);
         return;
     }
   }
 
-  void _copyItem(FileSystemNode item) {
-    if (!validateSession()) return;
-    _secureClipboard.copy(SecureClipboardEntry(
-      sourcePath: item.path,
-      sourceSessionID: _currentDir!.tempKeyID!,
-      name: item.name,
-      isDirectory: item.isDirectory,
-    ));
-    setState(() {});
-    ErrorHelper.showSuccess(
-      context,
-      AppLocalizations.of(context)!.copiedForPaste(item.name),
-    );
-  }
-
-  void _cutItem(FileSystemNode item) {
-    if (!validateSession()) return;
-    _secureClipboard.cut(SecureClipboardEntry(
-      sourcePath: item.path,
-      sourceSessionID: _currentDir!.tempKeyID!,
-      name: item.name,
-      isDirectory: item.isDirectory,
-    ));
-    setState(() {});
-    ErrorHelper.showSuccess(
-      context,
-      AppLocalizations.of(context)!.cutForMove(item.name),
-    );
-  }
-
-  void _copySelected({required bool move}) {
-    if (!validateSession() || _selectedFiles.isEmpty) return;
-    final entries = _items
-        .where(_selectedFiles.contains)
-        .map(
-          (item) => SecureClipboardEntry(
-            sourcePath: item.path,
-            sourceSessionID: _currentDir!.tempKeyID!,
-            name: item.name,
-            isDirectory: item.isDirectory,
-          ),
-        )
-        .toList();
-    if (move) {
-      _secureClipboard.cutAll(entries);
-    } else {
-      _secureClipboard.copyAll(entries);
-    }
-    setState(() {
-      _isSelectMode = false;
-      _selectedFiles.clear();
-    });
-    ErrorHelper.showSuccess(
-      context,
-      move
-          ? AppLocalizations.of(context)!.cutManyForMove(entries.length)
-          : AppLocalizations.of(context)!.copiedManyForPaste(entries.length),
-    );
-  }
-
-  void _copyKeyboardTarget({required bool move}) {
-    if (_selectedFiles.isNotEmpty) {
-      _copySelected(move: move);
-      return;
-    }
-    final target = _keyboardTarget;
-    if (target == null || !_items.any((item) => item.path == target.path)) {
-      return;
-    }
-    if (move) {
-      _cutItem(target);
-    } else {
-      _copyItem(target);
-    }
-  }
-
-  void _moveKeyboardTarget(
-    int delta, {
-    required bool extendSelection,
-    bool vertical = false,
-  }) {
-    if (_items.isEmpty) return;
-    final movement = vertical && _viewMode == ViewMode.grid
-        ? delta * _gridColumnCount
-        : delta;
-    final currentIndex = _keyboardTarget == null
-        ? -1
-        : _items.indexWhere((item) => item.path == _keyboardTarget!.path);
-    final nextIndex = (currentIndex + movement).clamp(0, _items.length - 1);
-    final target = _items[nextIndex];
-    setState(() {
-      _keyboardTarget = target;
-      if (!extendSelection) {
-        _keyboardSelectionAnchorPath = target.path;
-        return;
-      }
-      final anchorPath = _keyboardSelectionAnchorPath ?? target.path;
-      final anchorIndex = _items.indexWhere((item) => item.path == anchorPath);
-      final start = anchorIndex < 0
-          ? nextIndex
-          : (anchorIndex < nextIndex ? anchorIndex : nextIndex);
-      final end = anchorIndex < 0
-          ? nextIndex
-          : (anchorIndex < nextIndex ? nextIndex : anchorIndex);
-      _selectedFiles
-        ..clear()
-        ..addAll(_items.sublist(start, end + 1));
-      _isSelectMode = _selectedFiles.isNotEmpty;
-    });
-  }
-
-  void _moveKeyboardTargetToEdge({
-    required bool end,
-    required bool extendSelection,
-  }) {
-    if (_items.isEmpty) return;
-    final nextIndex = end ? _items.length - 1 : 0;
-    final target = _items[nextIndex];
-    setState(() {
-      _keyboardTarget = target;
-      if (!extendSelection) {
-        _keyboardSelectionAnchorPath = target.path;
-        return;
-      }
-      final anchorPath = _keyboardSelectionAnchorPath ?? target.path;
-      final anchorIndex = _items.indexWhere((item) => item.path == anchorPath);
-      final start = anchorIndex < 0
-          ? nextIndex
-          : (anchorIndex < nextIndex ? anchorIndex : nextIndex);
-      final finish = anchorIndex < 0
-          ? nextIndex
-          : (anchorIndex < nextIndex ? nextIndex : anchorIndex);
-      _selectedFiles
-        ..clear()
-        ..addAll(_items.sublist(start, finish + 1));
-      _isSelectMode = _selectedFiles.isNotEmpty;
-    });
-  }
-
-  void _toggleKeyboardTargetSelection() {
-    final target = _keyboardTarget;
-    if (target == null) return;
-    setState(() {
-      _isSelectMode = true;
-      if (_selectedFiles.contains(target)) {
-        _selectedFiles.remove(target);
-      } else {
-        _selectedFiles.add(target);
-      }
-    });
-  }
-
-  void _selectAllItems() {
-    if (_items.isEmpty) return;
-    setState(() {
-      _selectedFiles.addAll(_items);
-      _isSelectMode = true;
-    });
-  }
-
-  void _cancelSelection() {
-    if (!_isSelectMode && _selectedFiles.isEmpty) return;
-    setState(() {
-      _isSelectMode = false;
-      _selectedFiles.clear();
-      _keyboardSelectionAnchorPath = null;
-    });
-  }
-
-  Future<void> _createEntry({required bool isDirectory}) async {
-    if (!validateSession()) return;
-    final name = await showCreateEntryDialog(
-      context: context,
-      isDirectory: isDirectory,
-    );
-    if (name == null || !mounted) return;
-    if (_items.any((item) => item.name.toLowerCase() == name.toLowerCase())) {
-      ErrorHelper.showError(
-        context,
-        errorType: ErrorType.operationFailed,
-        originalError: 'entry-already-exists:$name',
-        operation: 'create-entry',
-      );
-      return;
-    }
-
-    final path = _joinLogicalPath(_currentPath!, name);
-    try {
-      if (isDirectory) {
-        await _cryptoService.createDirectoryBySession(
-          path,
-          _currentDir!.tempKeyID!,
-        );
-      } else {
-        await _cryptoService.createEmptyFileBySession(
-          path,
-          _currentDir!.tempKeyID!,
-        );
-      }
-      await loadCurrentPath();
-      if (mounted) {
-        ErrorHelper.showSuccess(
-          context,
-          isDirectory
-              ? AppLocalizations.of(context)!.directoryCreated(name)
-              : AppLocalizations.of(context)!.fileCreated(name),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-        );
-      }
-    }
-  }
-
-  Future<void> _pasteClipboard({String? targetDirectory}) async {
-    if (!validateSession()) return;
-    final strings = AppLocalizations.of(context)!;
-    final entries = List<SecureClipboardEntry>.from(_secureClipboard.entries);
-    if (entries.isEmpty) {
-      ErrorHelper.showInfo(
-        context,
-        strings.noEncryptedClipboardEntries,
-      );
-      return;
-    }
-
-    final destinationDirectory = targetDirectory ?? _currentPath!;
-    final destinationSessionID = _currentDir!.tempKeyID!;
-    var successCount = 0;
-    var cancelled = false;
-    var processedCount = 0;
-    final failures = <BatchOperationFailure>[];
-    final conflictSession = EntryConflictSession();
-    String? lastDestinationName;
-    try {
-      final destinationItems = List<FileSystemNode>.from(
-        destinationDirectory == _currentPath
-            ? _items
-            : await _fileService.listCurrentDirectory(destinationDirectory),
-      );
-      if (!mounted) return;
-      for (final entry in entries) {
-        if (entry.isDirectory &&
-            entry.sourceSessionID == destinationSessionID &&
-            _isSameOrDescendantPath(destinationDirectory, entry.sourcePath)) {
-          processedCount++;
-          failures.add(BatchOperationFailure(
-            name: entry.name,
-            reason: strings.cannotPasteDirectoryIntoItself,
-          ));
-          continue;
-        }
-        var destinationName = entry.name;
-        var overwrite = false;
-        FileSystemNode? matching;
-        for (final item in destinationItems) {
-          if (item.name.toLowerCase() == destinationName.toLowerCase()) {
-            matching = item;
-            break;
-          }
-        }
-        if (matching != null) {
-          final destinationPath =
-              _joinLogicalPath(destinationDirectory, destinationName);
-          var sameEntry = false;
-          if (entry.sourceSessionID == _currentDir!.tempKeyID) {
-            final rootID = int.parse(entry.sourceSessionID);
-            sameEntry = _cryptoService.relativePathForRoot(
-                  rootID,
-                  entry.sourcePath,
-                ) ==
-                _cryptoService.relativePathForRoot(rootID, destinationPath);
-          }
-          if (!mounted) return;
-          final allowReplace =
-              !sameEntry && matching.isDirectory == entry.isDirectory;
-          var resolution = conflictSession.automaticResolution(
-            allowReplace: allowReplace,
-          );
-          resolution ??= await showEntryConflictDialog(
-            context: context,
-            name: destinationName,
-            isDirectory: entry.isDirectory,
-            operation: entries.length == 1
-                ? AppLocalizations.of(context)!.pasteOperation
-                : AppLocalizations.of(context)!.batchPasteOperation,
-            allowReplace: allowReplace,
-            allowApplyToAll: entries.length > 1,
-          );
-          resolution = conflictSession.apply(resolution);
-          if (resolution == EntryConflictResolution.cancel || !mounted) {
-            cancelled = true;
-            break;
-          }
-          if (resolution == EntryConflictResolution.keepBoth) {
-            destinationName = nextAvailableEntryName(
-              originalName: entry.name,
-              isDirectory: entry.isDirectory,
-              existingNames: destinationItems.map((item) => item.name),
-              copyLabel: AppLocalizations.of(context)!.copySuffix,
-            );
-          } else {
-            overwrite = true;
-          }
-        }
-
-        try {
-          if (mounted) setState(() => _isLoading = true);
-          final destinationPath =
-              _joinLogicalPath(destinationDirectory, destinationName);
-          if (entry.isMove) {
-            await _secureEntryMover.move(
-              entry: entry,
-              destinationPath: destinationPath,
-              destinationSessionID: destinationSessionID,
-              overwrite: overwrite,
-            );
-          } else {
-            await _cryptoService.copyBySession(
-              sourcePath: entry.sourcePath,
-              sourceSessionID: entry.sourceSessionID,
-              destinationPath: destinationPath,
-              destinationSessionID: destinationSessionID,
-              overwrite: overwrite,
-            );
-          }
-          _secureClipboard.remove(entry);
-          if (matching != null && overwrite) destinationItems.remove(matching);
-          destinationItems.add(FileSystemNode(
-            name: destinationName,
-            path: destinationPath,
-            isDirectory: entry.isDirectory,
-          ));
-          successCount++;
-          processedCount++;
-          lastDestinationName = destinationName;
-        } catch (error) {
-          processedCount++;
-          failures.add(BatchOperationFailure(
-            name: entry.name,
-            reason: _clipboardMoveFailureReason(strings, error),
-          ));
-        } finally {
-          if (mounted) setState(() => _isLoading = false);
-        }
-      }
-      if (destinationDirectory == _currentPath) await loadCurrentPath();
-      if (!mounted) return;
-      setState(() {});
-      if (entries.length > 1) {
-        await showBatchOperationResultDialog(
-          context: context,
-          operation:
-              entries.first.isMove ? strings.batchMove : strings.batchPaste,
-          result: BatchOperationResult(
-            total: entries.length,
-            succeeded: successCount,
-            skipped: 0,
-            failures: failures,
-            unprocessed: entries.length - processedCount,
-            remaining: _secureClipboard.entryCount,
-            cancelled: cancelled,
-          ),
-        );
-      } else if (successCount == 1) {
-        ErrorHelper.showSuccess(
-          context,
-          entries.first.isMove
-              ? strings.movedToDestination(lastDestinationName!)
-              : strings.pastedToDestination(lastDestinationName!),
-        );
-      } else if (cancelled) {
-        ErrorHelper.showInfo(
-          context,
-          strings.batchPasteCancelled(
-            successCount,
-            _secureClipboard.entryCount,
-          ),
-        );
-      } else if (failures.isNotEmpty) {
-        if (entries.first.isMove) {
-          await showBatchOperationResultDialog(
-            context: context,
-            operation:
-                entries.first.isMove ? strings.batchMove : strings.batchPaste,
-            result: BatchOperationResult(
-              total: 1,
-              succeeded: 0,
-              skipped: 0,
-              failures: failures,
-              unprocessed: 0,
-              remaining: _secureClipboard.entryCount,
-              cancelled: false,
-            ),
-          );
-        } else {
-          ErrorHelper.showError(
-            context,
-            errorType: ErrorType.operationFailed,
-            originalError: 'batch-paste-failed',
-            operation: 'batch-paste',
-          );
-        }
-      } else {
-        ErrorHelper.showSuccess(
-          context,
-          entries.first.isMove
-              ? strings.movedFiles(successCount)
-              : strings.pastedFiles(successCount),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  String _clipboardMoveFailureReason(AppLocalizations strings, Object error) {
-    return switch (error) {
-      SecureEntryMovePartialFailure() => strings.moveSourceDeleteFailed,
-      _ => ErrorDiagnostics.sanitize(
-          error.toString(),
-          labels: strings.errorDiagnosticsLabels(),
-        ),
-    };
-  }
-
-  bool _isSameOrDescendantPath(String candidate, String parent) {
-    String normalize(String value) {
-      final normalized = value.replaceAll('\\', '/');
-      return normalized.endsWith('/') && normalized.length > 1
-          ? normalized.substring(0, normalized.length - 1)
-          : normalized;
-    }
-
-    final normalizedCandidate = normalize(candidate);
-    final normalizedParent = normalize(parent);
-    return normalizedCandidate == normalizedParent ||
-        normalizedCandidate.startsWith('$normalizedParent/');
-  }
-
-  String _joinLogicalPath(String directory, String name) {
-    return directory.endsWith('/') ? '$directory$name' : '$directory/$name';
-  }
-
-  Future<void> _renameItem(FileSystemNode item) async {
-    if (!validateSession()) return;
-    final newName =
-        await showRenameFileItemDialog(context: context, item: item);
-    if (newName == null || newName == item.name || !mounted) return;
-
-    final parentPath = File(item.path).parent.path;
-    final newPath = parentPath == '/' ? '/$newName' : '$parentPath/$newName';
-    try {
-      await _cryptoService.renameBySession(
-        item.path,
-        newPath,
-        _currentDir!.tempKeyID!,
-      );
-      await loadCurrentPath();
-      if (mounted) {
-        ErrorHelper.showSuccess(
-          context,
-          AppLocalizations.of(context)!.renamedTo(newName),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ErrorHelper.showError(
-          context,
-          errorType: ErrorType.operationFailed,
-          originalError: error.toString(),
-        );
-      }
-    }
-  }
-
-  // ── Delete ────────────────────────────────────────────────────────
-
-  Future<void> _deleteFile(FileSystemNode item) async {
-    if (item.isDirectory) return;
-    final requireConfirmation = await _settingsService.getConfirmBeforeDelete();
-    if (!mounted) return;
-    final confirm = requireConfirmation
-        ? await showDialog<bool>(
-            context: context,
-            builder: (dialogContext) => AlertDialog(
-              title: Text(
-                AppLocalizations.of(dialogContext)!.confirmDeleteFile,
-              ),
-              content: Text(
-                AppLocalizations.of(dialogContext)!
-                    .confirmDeleteFileDescription(item.name),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: Text(AppLocalizations.of(dialogContext)!.cancel),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
-                  child: Text(AppLocalizations.of(dialogContext)!.delete),
-                ),
-              ],
-            ),
-          )
-        : true;
-
-    if (confirm == true) {
-      try {
-        await _cryptoService.deleteFileBySession(
-          item.path,
-          _currentDir!.tempKeyID!,
-        );
-        loadCurrentPath();
-        if (mounted) {
-          ErrorHelper.showSuccess(
-            context,
-            AppLocalizations.of(context)!.fileDeleted,
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ErrorHelper.showError(
-            context,
-            errorType: ErrorType.deleteFileFailed,
-            originalError: e.toString(),
-          );
-        }
-      }
-    }
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────
 
   /// Validate that a verified directory with active session is open.
   @override
@@ -2280,36 +1525,36 @@ class _HomePageState extends State<HomePage>
         const SingleActivator(LogicalKeyboardKey.keyV, control: true): () {
           if (_secureClipboard.hasEntry) {
             touchCurrentRoot();
-            unawaited(_pasteClipboard());
+            unawaited(pasteClipboard());
           }
         },
         const SingleActivator(LogicalKeyboardKey.keyV, meta: true): () {
           if (_secureClipboard.hasEntry) {
             touchCurrentRoot();
-            unawaited(_pasteClipboard());
+            unawaited(pasteClipboard());
           }
         },
         const SingleActivator(LogicalKeyboardKey.keyC, control: true): () {
           touchCurrentRoot();
-          _copyKeyboardTarget(move: false);
+          copyKeyboardTarget(move: false);
         },
         const SingleActivator(LogicalKeyboardKey.keyX, control: true): () {
           touchCurrentRoot();
-          _copyKeyboardTarget(move: true);
+          copyKeyboardTarget(move: true);
         },
         const SingleActivator(LogicalKeyboardKey.keyC, meta: true): () {
           touchCurrentRoot();
-          _copyKeyboardTarget(move: false);
+          copyKeyboardTarget(move: false);
         },
         const SingleActivator(LogicalKeyboardKey.keyX, meta: true): () {
           touchCurrentRoot();
-          _copyKeyboardTarget(move: true);
+          copyKeyboardTarget(move: true);
         },
         const SingleActivator(LogicalKeyboardKey.keyA, control: true):
-            _selectAllItems,
+            selectAllItems,
         const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
-            _selectAllItems,
-        const SingleActivator(LogicalKeyboardKey.escape): _cancelSelection,
+            selectAllItems,
+        const SingleActivator(LogicalKeyboardKey.escape): cancelSelection,
         const SingleActivator(LogicalKeyboardKey.f2): () {
           final target = _selectedFiles.length == 1
               ? _selectedFiles.single
@@ -2317,7 +1562,7 @@ class _HomePageState extends State<HomePage>
           if (target != null &&
               _items.any((item) => item.path == target.path)) {
             touchCurrentRoot();
-            unawaited(_renameItem(target));
+            unawaited(renameItem(target));
           }
         },
         const SingleActivator(LogicalKeyboardKey.contextMenu):
@@ -2325,31 +1570,31 @@ class _HomePageState extends State<HomePage>
         const SingleActivator(LogicalKeyboardKey.f10, shift: true):
             _showKeyboardContextMenu,
         const SingleActivator(LogicalKeyboardKey.arrowUp): () =>
-            _moveKeyboardTarget(-1, extendSelection: false, vertical: true),
+            moveKeyboardTarget(-1, extendSelection: false, vertical: true),
         const SingleActivator(LogicalKeyboardKey.arrowDown): () =>
-            _moveKeyboardTarget(1, extendSelection: false, vertical: true),
+            moveKeyboardTarget(1, extendSelection: false, vertical: true),
         const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
-            _moveKeyboardTarget(-1, extendSelection: false),
+            moveKeyboardTarget(-1, extendSelection: false),
         const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
-            _moveKeyboardTarget(1, extendSelection: false),
+            moveKeyboardTarget(1, extendSelection: false),
         const SingleActivator(LogicalKeyboardKey.arrowUp, shift: true): () =>
-            _moveKeyboardTarget(-1, extendSelection: true, vertical: true),
+            moveKeyboardTarget(-1, extendSelection: true, vertical: true),
         const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true): () =>
-            _moveKeyboardTarget(1, extendSelection: true, vertical: true),
+            moveKeyboardTarget(1, extendSelection: true, vertical: true),
         const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true): () =>
-            _moveKeyboardTarget(-1, extendSelection: true),
+            moveKeyboardTarget(-1, extendSelection: true),
         const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true): () =>
-            _moveKeyboardTarget(1, extendSelection: true),
+            moveKeyboardTarget(1, extendSelection: true),
         const SingleActivator(LogicalKeyboardKey.home): () =>
-            _moveKeyboardTargetToEdge(end: false, extendSelection: false),
+            moveKeyboardTargetToEdge(end: false, extendSelection: false),
         const SingleActivator(LogicalKeyboardKey.end): () =>
-            _moveKeyboardTargetToEdge(end: true, extendSelection: false),
+            moveKeyboardTargetToEdge(end: true, extendSelection: false),
         const SingleActivator(LogicalKeyboardKey.home, shift: true): () =>
-            _moveKeyboardTargetToEdge(end: false, extendSelection: true),
+            moveKeyboardTargetToEdge(end: false, extendSelection: true),
         const SingleActivator(LogicalKeyboardKey.end, shift: true): () =>
-            _moveKeyboardTargetToEdge(end: true, extendSelection: true),
+            moveKeyboardTargetToEdge(end: true, extendSelection: true),
         const SingleActivator(LogicalKeyboardKey.space, control: true):
-            _toggleKeyboardTargetSelection,
+            toggleKeyboardTargetSelection,
       },
       child: Listener(
         onPointerDown: (_) => touchCurrentRoot(),
@@ -2407,7 +1652,7 @@ class _HomePageState extends State<HomePage>
               unawaited(importDroppedCandidates(candidates));
             },
             fileBrowserKey: _fileBrowserKey,
-            onPaste: () => _pasteClipboard(),
+            onPaste: () => pasteClipboard(),
             onClearClipboard: () {
               _secureClipboard.clear();
               setState(() {});
@@ -2415,18 +1660,18 @@ class _HomePageState extends State<HomePage>
             onOpenSettings: _openSettings,
             onViewModeChanged: (mode) => setState(() => _viewMode = mode),
             onCancelSelection: () {
-              _cancelSelection();
+              cancelSelection();
             },
             onSelectAll: () {
-              _selectAllItems();
+              selectAllItems();
             },
-            onBatchCopy: () => _copySelected(move: false),
-            onBatchCut: () => _copySelected(move: true),
+            onBatchCopy: () => copySelected(move: false),
+            onBatchCut: () => copySelected(move: true),
             onBatchExport: batchExport,
             onBatchDelete: batchDelete,
             onNavigateToDirectory: _navigateToDirectory,
             onNavigateUp: _navigateUp,
-            onOpenItem: _openItem,
+            onOpenItem: openItem,
             onItemFocused: (item) {
               setState(() {
                 _keyboardTarget = item;
